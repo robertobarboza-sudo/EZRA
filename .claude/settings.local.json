@@ -57,7 +57,11 @@
       "Bash(cat \"/c/Users/SPXBR2~1/AppData/Local/Temp/claude/C--Users-SPXBR2983-Documents-Ezra/04aae2bb-cedb-4a8f-b6e0-c6818ef0b68d/tasks/bwjcvpyad.output\" 2>&1 | head -300)",
       "Bash(grep -n \"^<body>$\" 29_06.html)",
       "Bash(grep -n \"^</script>$\" 29_06.html)",
-      "Bash(grep -n \"^</body>$\\\\|^</html>$\" 29_06.html)"
+      "Bash(grep -n \"^</body>$\\\\|^</html>$\" 29_06.html)",
+      "Bash(grep -n \"^</script>$\\\\|document.addEventListener\\('DOMContentLoaded'\\\\|function runAutoAuth\" 29_06.html)",
+      "Bash(grep -n \"^  <style>$\\\\|^  </style>$\\\\|^<body>$\\\\|^<script>$\\\\|^</script>$\\\\|^</body>$\\\\|^</html>$\" 29_06.html)",
+      "Bash(cp /tmp/js.raw /tmp/js_check.js)",
+      "Bash(node --check /tmp/js_check.js)"
     ]
   }
 }

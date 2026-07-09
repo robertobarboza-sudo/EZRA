@@ -1,11 +1,26 @@
 <script>
 /* ================================================================
+   DEBUG — checkpoints visuais de execução (linha do tempo do boot)
+================================================================ */
+window.__DEBUG_STEPS__ = [];
+function __dbg__(step){
+  window.__DEBUG_STEPS__.push(step);
+  var panel = document.getElementById('login-form-panel');
+  if(panel){
+    panel.innerHTML = '<div style="color:#f59e0b;font-size:11px;white-space:pre-wrap;text-align:left;font-family:monospace">' +
+      window.__DEBUG_STEPS__.map(function(s,i){ return (i+1)+'. '+s; }).join('\n') + '</div>';
+  }
+}
+__dbg__('Script principal iniciado');
+
+/* ================================================================
    AUTH — e-mail da conta ativa (injetado pelo Apps Script via
    window.__CURRENT_USER_EMAIL__ no Index.html). Fallback ?email= só
    para teste local deste arquivo fora do Apps Script.
 ================================================================ */
 window.__CURRENT_USER_EMAIL__ = window.__CURRENT_USER_EMAIL__ ||
   new URLSearchParams(location.search).get('email') || '';
+__dbg__('Email detectado: ' + (window.__CURRENT_USER_EMAIL__ || '(vazio)'));
 
 /* ================================================================
    DEBUG — mostra qualquer erro JS não tratado direto na tela de
@@ -422,6 +437,7 @@ function applyUser(user){
    - e-mail cadastrado inativo  -> tela "Acesso inativo"
 ================================================================ */
 function runAutoAuth(){
+  __dbg__('runAutoAuth() executando');
   const panel = document.getElementById('login-form-panel');
   const email = (window.__CURRENT_USER_EMAIL__ || '').trim().toLowerCase();
 
@@ -595,13 +611,20 @@ document.addEventListener('click', e => {
 /* ================================================================
    INIT — sessão existente ou auto-auth por e-mail Google
 ================================================================ */
+__dbg__('Listener DOMContentLoaded registrado');
 document.addEventListener('DOMContentLoaded', () => {
+  __dbg__('DOMContentLoaded disparado');
   const saved = sessionStorage.getItem('od2-user');
   if(saved){
-    try { enterPortal(JSON.parse(saved)); return; } catch(e){}
+    try { enterPortal(JSON.parse(saved)); return; } catch(e){ __dbg__('Falha ao restaurar sessão: '+e.message); }
   }
   runAutoAuth();
 });
+__dbg__('Fim do script (todas as funções definidas)');
+if(document.readyState !== 'loading'){
+  __dbg__('DOM já estava pronto ao registrar o listener — disparando manualmente');
+  document.dispatchEvent(new Event('DOMContentLoaded'));
+}
 
 /* ================================================================
    SIDEBAR
