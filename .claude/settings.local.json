@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e ' *)",
+      "Bash(node --check _check_1.js)",
+      "Bash(node --check _check.js)",
+      "Bash(rm -f _check.js)",
+      "Bash(mkdir -p gas_deploy)",
+      "Bash(grep -c '<?' _script_extracted.txt _style_extracted.txt)",
+      "Bash(grep -c '?>' _script_extracted.txt _style_extracted.txt)",
+      "Bash(rm -f _check.js _style_extracted.txt _script_extracted.txt _index_skeleton.txt)",
+      "mcp__bf7c680d-5fdc-5ef4-b4a0-abadb619bf0a__add_repo",
+      "mcp__bf7c680d-5fdc-5ef4-b4a0-abadb619bf0a__list_repos",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git ls-remote *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git branch *)",
+      "Bash(git push *)"
+    ]
+  }
+}

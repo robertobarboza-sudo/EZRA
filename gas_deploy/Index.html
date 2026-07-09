@@ -1,0 +1,1716 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>J.A.R.V.I.S. v1.0 — COP RJ2 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <?!= include('CSS'); ?>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-wrap">
+    <div class="login-brand">
+      <div class="login-brand-eye"><svg class="jarvis-arc-lg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="coreGradLg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#fff8f0"/>
+      <stop offset="45%"  stop-color="#ff8c00"/>
+      <stop offset="100%" stop-color="#ee4d2d" stop-opacity="0.8"/>
+    </radialGradient>
+    <radialGradient id="bgGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#ee4d2d" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#ee4d2d" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glowLg" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <filter id="glowCore" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <!-- ambient glow bg -->
+  <circle cx="50" cy="50" r="48" fill="url(#bgGlow)">
+    <animate attributeName="r" values="42;50;42" dur="3s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.6;1;0.6" dur="3s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- outer ring — slow CW -->
+  <circle cx="50" cy="50" r="46" fill="none" stroke="#ee4d2d" stroke-width="1"
+    stroke-dasharray="5 4" opacity="0.4">
+    <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="12s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- ring 2 — CCW ticks -->
+  <circle cx="50" cy="50" r="40" fill="none" stroke="#ff8c00" stroke-width="2"
+    stroke-dasharray="8 3" opacity="0.6">
+    <animateTransform attributeName="transform" type="rotate" from="360 50 50" to="0 50 50" dur="7s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- ring 3 — structural arcs -->
+  <circle cx="50" cy="50" r="33" fill="none" stroke="#ee4d2d" stroke-width="1.5"
+    stroke-dasharray="14 5" opacity="0.75" filter="url(#glowLg)">
+    <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="5s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- ring 4 — inner fine segments -->
+  <circle cx="50" cy="50" r="25" fill="none" stroke="#ff8c00" stroke-width="1.2"
+    stroke-dasharray="3 2" opacity="0.6">
+    <animateTransform attributeName="transform" type="rotate" from="360 50 50" to="0 50 50" dur="3.5s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- ring 5 — innermost -->
+  <circle cx="50" cy="50" r="18" fill="none" stroke="#ee4d2d" stroke-width="1"
+    stroke-dasharray="4 3" opacity="0.5">
+    <animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="2.5s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- core glow halo -->
+  <circle cx="50" cy="50" r="10" fill="#ee4d2d" opacity="0.2" filter="url(#glowCore)">
+    <animate attributeName="r" values="8;13;8" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.15;0.3;0.15" dur="2s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- core -->
+  <circle cx="50" cy="50" r="7" fill="url(#coreGradLg)" filter="url(#glowLg)">
+    <animate attributeName="r" values="6;8;6" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg></div>
+      <div class="login-brand-name">
+        <span class="jarvis-top">J.A.R.V.I.S.</span>
+        <span class="jarvis-ver">v 1 . 0</span>
+      </div>
+      <div class="login-brand-sub">Sistema de monitoramento operacional</div>
+      <div class="jarvis-sub-bottom">COP RJ2 2026</div>
+      <div class="login-brand-dots"><b></b><b></b><b></b></div>
+    </div>
+    <div class="login-form-panel">
+      <div class="login-form-title">Bem-vindo de volta</div>
+      <div class="login-form-sub">Faça login para acessar o portal</div>
+      <div class="login-error" id="login-error">
+        <i class="fas fa-circle-exclamation"></i>
+        <span id="login-error-msg">E-mail ou senha incorretos.</span>
+      </div>
+      <div class="login-field">
+        <label class="login-label">Usuário / E-mail</label>
+        <div class="login-input-wrap">
+          <i class="fas fa-envelope"></i>
+          <input type="text" class="login-input" id="login-email"
+            placeholder="admin ou seu@email.com" autocomplete="username" />
+        </div>
+      </div>
+      <div class="login-field">
+        <label class="login-label">Senha</label>
+        <div class="pw-group">
+          <div class="login-input-wrap" style="flex:1">
+            <i class="fas fa-lock"></i>
+            <input type="password" class="login-input" id="login-password"
+              placeholder="••••••••" autocomplete="current-password"
+              style="border-radius:var(--radius) 0 0 var(--radius);border-right:none" />
+          </div>
+          <button class="login-pw-toggle" onclick="togglePw()" type="button" tabindex="-1" title="Mostrar/ocultar senha">
+            <i class="fas fa-eye-slash" id="pw-eye"></i>
+          </button>
+        </div>
+      </div>
+      <button class="login-btn" id="login-btn" onclick="doLogin()">
+        <i class="fas fa-arrow-right-to-bracket"></i> Entrar
+      </button>
+      <div class="login-footer">
+        J.A.R.V.I.S. v1.0 · COP RJ2 2026 · Acesso restrito
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- USER MENU -->
+<div class="user-menu-dropdown" id="user-menu">
+  <div class="user-menu-info">
+    <div class="user-menu-name" id="um-name">—</div>
+    <div class="user-menu-email" id="um-email">—</div>
+  </div>
+  <div class="user-menu-item" onclick="closeUserMenu()">
+    <i class="fas fa-user-gear"></i> Meu Perfil
+  </div>
+  <div class="user-menu-item danger" onclick="doLogout()">
+    <i class="fas fa-right-from-bracket"></i> Sair
+  </div>
+</div>
+
+
+<!-- SIDEBAR -->
+<nav id="sidebar" aria-label="Menu principal">
+  <div class="sidebar-logo">
+    <div class="logo-mark"><svg class="jarvis-arc-sm" viewBox="0 0 36 36" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="coreGradSm" cx="50%" cy="50%" r="50%">
+      <stop offset="0%"   stop-color="#fff8f0"/>
+      <stop offset="50%"  stop-color="#ff8c00"/>
+      <stop offset="100%" stop-color="#ee4d2d"/>
+    </radialGradient>
+    <filter id="glowSm">
+      <feGaussianBlur stdDeviation="1.2" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- outer ring segments -->
+  <circle cx="18" cy="18" r="16" fill="none" stroke="#ee4d2d" stroke-width="1.2" stroke-dasharray="4 3" stroke-dashoffset="0" opacity=".5">
+    <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="8s" repeatCount="indefinite"/>
+  </circle>
+  <!-- mid ring segments -->
+  <circle cx="18" cy="18" r="12" fill="none" stroke="#ff8c00" stroke-width="1.5" stroke-dasharray="6 2" opacity=".7">
+    <animateTransform attributeName="transform" type="rotate" from="360 18 18" to="0 18 18" dur="5s" repeatCount="indefinite"/>
+  </circle>
+  <!-- inner ring -->
+  <circle cx="18" cy="18" r="7.5" fill="none" stroke="#ee4d2d" stroke-width="1" stroke-dasharray="3 2" opacity=".6">
+    <animateTransform attributeName="transform" type="rotate" from="0 18 18" to="360 18 18" dur="3s" repeatCount="indefinite"/>
+  </circle>
+  <!-- core -->
+  <circle cx="18" cy="18" r="4" fill="url(#coreGradSm)" filter="url(#glowSm)">
+    <animate attributeName="r" values="3.5;4.2;3.5" dur="2s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.85;1;0.85" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg></div>
+    <span class="logo-text">JARVIS</span>
+  </div>
+
+  <div class="sidebar-nav">
+    <div class="nav-group">
+      <div class="nav-group-label">Principal</div>
+      <div class="nav-item active" data-section="gestao" data-label="Overview" onclick="navigateTo('gestao',this)">
+        <i class="fas fa-gauge-high nav-icon"></i><span class="nav-label">Overview</span>
+      </div>
+      <div class="nav-item" data-section="performance" data-label="Performance" onclick="navigateTo('performance',this)">
+        <i class="fas fa-chart-line nav-icon"></i><span class="nav-label">Performance</span>
+      </div>
+      <div class="nav-item" data-section="laborplan" data-label="Labor Plan" onclick="navigateTo('laborplan',this)">
+        <i class="fas fa-brain nav-icon"></i><span class="nav-label">Labor Plan</span>
+      </div>
+      <div class="nav-item" data-section="backlog" data-label="Backlog" onclick="navigateTo('backlog',this)">
+        <i class="fas fa-layer-group nav-icon"></i><span class="nav-label">Backlog</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Operações</div>
+      <div class="nav-item" data-section="asm" data-label="ASM" onclick="navigateTo('asm',this)">
+        <i class="fas fa-feather nav-icon"></i><span class="nav-label">ASM</span>
+      </div>
+      <div class="nav-item" data-section="conveyor" data-label="Conveyor" onclick="navigateTo('conveyor',this)">
+        <i class="fas fa-box nav-icon"></i><span class="nav-label">Conveyor</span>
+      </div>
+      <div class="nav-item" data-section="inbound" data-label="Inbound" onclick="navigateTo('inbound',this)">
+        <span class="nav-icon-composite"><i class="fas fa-truck icon-base" style="font-size:14px"></i><span class="icon-badge">IN</span></span><span class="nav-label">Inbound</span>
+      </div>
+      <div class="nav-item" data-section="outbound" data-label="Outbound" onclick="navigateTo('outbound',this)">
+        <span class="nav-icon-composite"><i class="fas fa-truck icon-base" style="font-size:14px"></i><span class="icon-badge">OT</span></span><span class="nav-label">Outbound</span>
+      </div>
+      <div class="nav-item" data-section="spr" data-label="SPR" onclick="navigateTo('spr',this)">
+        <span class="nav-icon-composite"><i class="fas fa-gauge-high icon-base" style="font-size:14px"></i><span class="icon-badge">SP</span></span><span class="nav-label">SPR</span>
+      </div>
+      <div class="nav-item" data-section="clusterizacao" data-label="Clusterização" onclick="navigateTo('clusterizacao',this)">
+        <i class="fas fa-circle-nodes nav-icon"></i><span class="nav-label">Clusterização</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Qualidade</div>
+      <div class="nav-item" data-section="tratativas" data-label="Tratativas" onclick="navigateTo('tratativas',this)">
+        <i class="fas fa-bandage nav-icon"></i><span class="nav-label">Tratativas</span>
+      </div>
+      <div class="nav-item" data-section="auditoria" data-label="Auditoria" onclick="navigateTo('auditoria',this)">
+        <span class="nav-icon-composite"><i class="fas fa-user-check icon-base" style="font-size:13px"></i><span class="icon-badge" style="font-size:6px;padding:0 2px"><i class="fas fa-crosshairs" style="font-size:6px"></i></span></span><span class="nav-label">Auditoria</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Gestão</div>
+      <div class="nav-item" data-section="scorecard" data-label="Score Card" onclick="navigateTo('scorecard',this)">
+        <i class="fas fa-id-card nav-icon"></i><span class="nav-label">Score Card</span>
+      </div>
+      <div class="nav-item" data-section="absenteismo" data-label="Absenteísmo" onclick="navigateTo('absenteismo',this)">
+        <i class="fas fa-user-clock nav-icon"></i><span class="nav-label">Absenteísmo</span>
+      </div>
+      <div class="nav-item" data-section="forecast" data-label="Forecast" onclick="navigateTo('forecast',this)">
+        <span class="nav-icon-composite"><i class="fas fa-chart-column icon-base" style="font-size:13px"></i><span class="icon-badge" style="font-size:6.5px;padding:0 2px"><i class="fas fa-magnifying-glass" style="font-size:6px"></i></span></span><span class="nav-label">Forecast</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Indicadores</div>
+      <div class="nav-item" data-section="arvore" data-label="Árvore (daily)" onclick="navigateTo('arvore',this)">
+        <i class="fas fa-tree nav-icon"></i><span class="nav-label">Árvore (daily)</span>
+      </div>
+      <div class="nav-item" data-section="kpioverview" data-label="Overview KPIs" onclick="navigateTo('kpioverview',this)">
+        <span class="nav-icon-composite"><i class="fas fa-gauge-simple-high icon-base" style="font-size:14px"></i><span class="icon-badge" style="font-size:6px;padding:0 1.5px">KPI</span></span><span class="nav-label">Overview KPIs</span>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Governança</div>
+      <div class="nav-item" data-section="matriz" data-label="Matriz" onclick="navigateTo('matriz',this)">
+        <i class="fas fa-table-cells-large nav-icon"></i><span class="nav-label">Matriz</span>
+      </div>
+      <div class="nav-item" data-section="mapadados" data-label="Mapa de Dados" onclick="navigateTo('mapadados',this)">
+        <i class="fas fa-database nav-icon"></i><span class="nav-label">Mapa de Dados</span>
+      </div>
+      <div class="nav-item" data-section="jornal" data-label="Jornal" onclick="navigateTo('jornal',this)">
+        <i class="fas fa-newspaper nav-icon"></i><span class="nav-label">Jornal</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <div class="nav-item" data-section="configuracoes" data-label="Configurações" onclick="navigateTo('configuracoes',this)">
+      <i class="fas fa-gear nav-icon"></i><span class="nav-label">Configurações</span>
+    </div>
+    <div class="theme-switch" onclick="toggleTheme()" title="Alternar tema claro/escuro">
+      <i class="fas fa-circle-half-stroke nav-icon"></i>
+      <span class="theme-switch-label">Tema Claro</span>
+    </div>
+  </div>
+</nav>
+
+<div id="sidebar-overlay" onclick="closeMobileSidebar()"></div>
+
+<!-- APP -->
+<div id="app">
+
+  <!-- HEADER -->
+  <header id="header">
+    <button class="header-toggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">
+      <i class="fas fa-bars"></i>
+    </button>
+
+    <div class="header-greeting">
+      <div class="greet-line" id="greet-line">Bom dia, <strong>João Doe</strong> — Bem-vindo(a) de volta</div>
+      <div class="greet-sub" id="greet-sub">Dashboard Principal · Overview</div>
+    </div>
+
+    <div class="digital-clock-wrap">
+      <div class="digital-clock" id="digital-clock">00:00:00</div>
+      <div class="digital-date" id="digital-date">— / — / ——</div>
+      <div class="digital-shift" id="digital-shift">——</div>
+    </div>
+
+    <div class="header-filters">
+      <select class="filter-select" id="filter-semana" onchange="onFilterChange()">
+        <option value="">Semana</option>
+        <option>Semana 24</option><option>Semana 25</option>
+        <option>Semana 26</option><option>Semana 27</option>
+      </select>
+      <select class="filter-select" id="filter-mes" onchange="onFilterChange()">
+        <option value="">Mês</option>
+        <option>Janeiro</option><option>Fevereiro</option><option>Março</option>
+        <option>Abril</option><option>Maio</option><option selected>Junho</option>
+      </select>
+      <input type="date" class="filter-select" id="filter-data" onchange="onFilterChange()" style="color-scheme:dark"/>
+      <select class="filter-select" id="filter-turno" onchange="onFilterChange()">
+        <option value="">Turno</option>
+        <option>T1</option><option>T2</option><option>T3</option>
+      </select>
+    </div>
+
+    <div class="header-actions">
+      <div class="action-btn" title="Sincronizando" onclick="refreshSection()">
+        <i class="fas fa-rotate-right sync-icon" id="sync-icon"></i>
+      </div>
+      <div class="action-btn" onclick="toggleNotifications()" id="notif-btn" title="Notificações">
+        <i class="fas fa-bell"></i>
+        <span class="notif-dot-badge" id="notif-dot" style="display:none"></span>
+      </div>
+      <div class="user-avatar" id="user-avatar" title="Perfil" onclick="toggleUserMenu()">JD</div>
+    </div>
+
+    <!-- Notif dropdown -->
+    <div class="notif-dropdown" id="notif-dropdown">
+      <div class="notif-header">
+        Notificações
+        <button class="notif-mark-read" onclick="clearNotifications()">Marcar lidas</button>
+      </div>
+      <div id="notif-list">
+        <div style="padding:20px;text-align:center;color:var(--text-muted);font-size:12px">
+          <i class="fas fa-circle-notch fa-spin"></i> Carregando…
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main id="main-content">
+
+    <!-- GESTÃO -->
+        <section id="section-gestao" class="section">
+      <div class="section-header" id="section-gestao-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-gestao-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Overview</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('gestao',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-gestao">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('gestao','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('gestao','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('gestao')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- PERFORMANCE -->
+        <section id="section-performance" class="section">
+      <div class="section-header" id="section-performance-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-performance-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Performance Operacional</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('performance',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-performance">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('performance','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('performance','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('performance')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ASM -->
+        <section id="section-asm" class="section">
+      <div class="section-header" id="section-asm-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-asm-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">ASM — Gestão de Ativos</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('asm',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-asm">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('asm','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('asm','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('asm')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONVEYOR -->
+        <section id="section-conveyor" class="section">
+      <div class="section-header" id="section-conveyor-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-conveyor-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Conveyor</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('conveyor',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-conveyor">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('conveyor','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('conveyor','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('conveyor')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- INBOUND -->
+        <section id="section-inbound" class="section">
+      <div class="section-header" id="section-inbound-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-inbound-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Inbound — Recebimento</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('inbound',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-inbound">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('inbound','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('inbound','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('inbound')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- OUTBOUND -->
+        <section id="section-outbound" class="section">
+      <div class="section-header" id="section-outbound-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-outbound-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Outbound — Expedição</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('outbound',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-outbound">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('outbound','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('outbound','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('outbound')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SPR -->
+    <section id="section-spr" class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">SPR — Linehaul</div>
+          <div class="section-subtitle">
+            <span id="ds-badge-spr" class="ds-badge ok"><i class="fas fa-circle-dot"></i> Demo</span>
+            Cubagem · SPR · Canal · Aderência ao Scheduled · Cancelamentos
+          </div>
+        </div>
+        <div class="section-dl-group">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('spr',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-spr">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('spr','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('spr','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('spr')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
+        <select id="spr-filter-canal" class="table-search" onchange="renderSPR()" style="max-width:180px">
+          <option value="">Canal: Todos</option>
+          <option value="XPT">XPT</option>
+          <option value="HUB">HUB</option>
+          <option value="SOC">SOC</option>
+          <option value="3PL">3PL</option>
+        </select>
+        <select id="spr-filter-turno" class="table-search" onchange="renderSPR()" style="max-width:160px">
+          <option value="">Turno: Todos</option>
+          <option value="T1">T1 (06h–14h)</option>
+          <option value="T2">T2 (14h–22h)</option>
+          <option value="T3">T3 (22h–06h)</option>
+        </select>
+      </div>
+
+      <div id="spr-kpis"></div>
+
+      <div class="chart-grid">
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">SPR por Turno</div>
+              <div class="chart-subtitle">Pedidos por viagem — T1 / T2 / T3</div>
+            </div>
+          </div>
+          <div class="chart-body"><canvas id="chart-spr-turno"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Carros Expedidos por Hora</div>
+              <div class="chart-subtitle">Qtd. de viagens por hora do CPT scheduled</div>
+            </div>
+          </div>
+          <div class="chart-body"><canvas id="chart-spr-hora"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Distribuição por Canal</div>
+              <div class="chart-subtitle">XPT · HUB · SOC · 3PL</div>
+            </div>
+          </div>
+          <div class="chart-body"><canvas id="chart-spr-canal"></canvas></div>
+        </div>
+
+        <div class="chart-card">
+          <div class="chart-header">
+            <div>
+              <div class="chart-title">Aderência ao Scheduled (CPT)</div>
+              <div class="chart-subtitle">On Time vs Delay vs Early vs Aberto</div>
+            </div>
+          </div>
+          <div class="chart-body"><canvas id="chart-spr-aderencia"></canvas></div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-toolbar">
+          <div class="table-toolbar-title">Motivos de Cancelamento</div>
+        </div>
+        <table>
+          <thead><tr><th>Motivo</th><th>Ocorrências</th><th>% do Total Cancelado</th></tr></thead>
+          <tbody id="spr-cancel-table"></tbody>
+        </table>
+      </div>
+
+      <div class="table-card">
+        <div class="table-toolbar">
+          <div class="table-toolbar-title">Viagens</div>
+          <div class="table-search"><i class="fas fa-search"></i><input id="spr-search" placeholder="Buscar trip, destino..." oninput="renderSPRTable()"/></div>
+        </div>
+        <table>
+          <thead><tr>
+            <th>Trip</th><th>Data</th><th>Turno</th><th>Hora CPT</th><th>Canal</th>
+            <th>Veículo (Plan/Real)</th><th>Agência</th><th>Destino</th>
+            <th>Status</th><th>CPT Sched.</th><th>CPT Real.</th><th>Aderência</th>
+          </tr></thead>
+          <tbody id="spr-trips-table"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CLUSTERIZAÇÃO -->
+        <section id="section-clusterizacao" class="section">
+      <div class="section-header" id="section-clusterizacao-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-clusterizacao-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Clusterização</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('clusterizacao',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-clusterizacao">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('clusterizacao','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('clusterizacao','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('clusterizacao')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- BACKLOG -->
+        <section id="section-backlog" class="section">
+      <div class="section-header" id="section-backlog-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-backlog-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Backlog</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('backlog',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-backlog">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('backlog','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('backlog','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('backlog')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRATATIVAS -->
+        <section id="section-tratativas" class="section">
+      <div class="section-header" id="section-tratativas-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-tratativas-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Tratativas</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('tratativas',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-tratativas">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('tratativas','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('tratativas','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('tratativas')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- LABOR PLAN -->
+        <section id="section-laborplan" class="section">
+      <div class="section-header" id="section-laborplan-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-laborplan-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Labor Plan</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('laborplan',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-laborplan">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('laborplan','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('laborplan','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('laborplan')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ÁRVORE DAILY -->
+        <section id="section-arvore" class="section">
+      <div class="section-header" id="section-arvore-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-arvore-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Árvore (Daily)</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('arvore',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-arvore">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('arvore','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('arvore','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('arvore')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- OVERVIEW KPIs -->
+        <section id="section-kpioverview" class="section">
+      <div class="section-header" id="section-kpioverview-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-kpioverview-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Overview KPIs</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('kpioverview',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-kpioverview">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('kpioverview','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('kpioverview','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('kpioverview')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- SCORE CARD -->
+        <section id="section-scorecard" class="section">
+      <div class="section-header" id="section-scorecard-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-scorecard-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Score Card</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('scorecard',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-scorecard">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('scorecard','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('scorecard','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('scorecard')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ABSENTEÍSMO -->
+        <section id="section-absenteismo" class="section">
+      <div class="section-header" id="section-absenteismo-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-absenteismo-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Absenteísmo</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('absenteismo',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-absenteismo">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('absenteismo','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('absenteismo','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('absenteismo')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- CONFIGURAÇÕES -->
+    <section id="section-configuracoes" class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">Configurações — Gestão de Usuários</div>
+          <div class="section-subtitle">Cadastro · Ativação · Permissões de acesso</div>
+        </div>
+        <div class="section-dl-group">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('configuracoes',event)" title="Exportar PDF"><i class="fas fa-file-pdf"></i> PDF <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i></button>
+            <div class="pdf-dropdown" id="pdf-menu-configuracoes">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('configuracoes','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('configuracoes','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('configuracoes')" title="Download CSV"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="cfg-tabs">
+        <div class="cfg-tab active" onclick="cfgTab('cadastro',this)"><i class="fas fa-user-plus"></i> Novo Usuário</div>
+        <div class="cfg-tab" onclick="cfgTab('ativos',this)"><i class="fas fa-circle-check"></i> Ativos</div>
+        <div class="cfg-tab" onclick="cfgTab('inativos',this)"><i class="fas fa-circle-xmark"></i> Inativos</div>
+        <div class="cfg-tab" onclick="cfgTab('todos',this)"><i class="fas fa-users"></i> Todos</div>
+      </div>
+
+      <!-- PANEL: Novo Usuário -->
+      <div class="cfg-panel active" id="cfg-panel-cadastro">
+        <div class="cfg-form-card">
+          <div class="cfg-form-title"><i class="fas fa-user-plus" style="color:var(--orange)"></i> Cadastrar Novo Login</div>
+          <div class="cfg-grid-2">
+            <div class="cfg-form-group">
+              <label class="cfg-label">Nome Completo *</label>
+              <input class="cfg-input" id="nu-name" type="text" placeholder="Ex: Maria Silva"/>
+            </div>
+            <div class="cfg-form-group">
+              <label class="cfg-label">E-mail *</label>
+              <input class="cfg-input" id="nu-email" type="email" placeholder="maria.silva@empresa.com"/>
+            </div>
+          </div>
+          <div class="cfg-grid-3" style="margin-top:14px">
+            <div class="cfg-form-group">
+              <label class="cfg-label">Senha *</label>
+              <input class="cfg-input" id="nu-password" type="password" placeholder="Mínimo 6 caracteres"/>
+            </div>
+            <div class="cfg-form-group">
+              <label class="cfg-label">Cargo / Função *</label>
+              <select class="cfg-input" id="nu-role">
+                <option value="">Selecione…</option>
+                <option>Administrador</option>
+                <option>Gestor</option>
+                <option>Supervisor</option>
+                <option>Analista</option>
+                <option>Operador</option>
+              </select>
+            </div>
+            <div class="cfg-form-group">
+              <label class="cfg-label">Iniciais (Avatar)</label>
+              <input class="cfg-input" id="nu-initials" type="text" maxlength="2" placeholder="Ex: MS" style="text-transform:uppercase"/>
+            </div>
+          </div>
+          <div class="cfg-form-footer">
+            <button class="btn btn-outline" onclick="clearNewUserForm()"><i class="fas fa-xmark"></i> Limpar</button>
+            <button class="btn btn-primary" onclick="createUser()"><i class="fas fa-check"></i> Cadastrar</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- PANEL: Ativos -->
+      <div class="cfg-panel" id="cfg-panel-ativos">
+        <div class="user-grid" id="grid-ativos"></div>
+      </div>
+
+      <!-- PANEL: Inativos -->
+      <div class="cfg-panel" id="cfg-panel-inativos">
+        <div class="user-grid" id="grid-inativos"></div>
+      </div>
+
+      <!-- PANEL: Todos -->
+      <div class="cfg-panel" id="cfg-panel-todos">
+        <div class="user-grid" id="grid-todos"></div>
+      </div>
+
+    </section>
+
+
+    <!-- FORECAST -->
+        <section id="section-forecast" class="section">
+      <div class="section-header" id="section-forecast-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-forecast-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Forecast</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('forecast',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-forecast">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('forecast','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('forecast','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('forecast')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- AUDITORIA -->
+        <section id="section-auditoria" class="section">
+      <div class="section-header" id="section-auditoria-header">
+        <!-- header restored below by JS -->
+      </div>
+      <div id="section-auditoria-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Auditoria</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
+        </div>
+        <div style="display:flex;gap:10px">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('auditoria',event)">
+              <i class="fas fa-file-pdf"></i> PDF
+              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
+            </button>
+            <div class="pdf-dropdown" id="pdf-menu-auditoria">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('auditoria','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('auditoria','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('auditoria')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- MATRIZ -->
+    <section id="section-matriz" class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">Matriz — Governança Operacional</div>
+          <div class="section-subtitle">Estrutura · Comunicação · Responsabilidades · Ferramentas · Reuniões · Equipe</div>
+        </div>
+        <div class="section-dl-group">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('matriz',event)"><i class="fas fa-file-pdf"></i> PDF <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i></button>
+            <div class="pdf-dropdown" id="pdf-menu-matriz">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('matriz','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('matriz','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('matriz')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+
+      <!-- 1. Estrutura Organizacional -->
+      <div class="gov-section">
+        <!-- Collapsible header using original gov-section-title style -->
+        <div class="gov-section-title" onclick="toggleGovSection('gov-body-1')"
+          style="cursor:pointer;user-select:none;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="gov-num">1</span>
+            Estrutura Organizacional Interna
+          </div>
+          <i id="gov-icon-1" class="fas fa-chevron-down" style="font-size:12px;color:var(--text-muted);transition:transform .25s;margin-left:auto"></i>
+        </div>
+        <div id="gov-body-1" style="display:none;padding-top:4px">
+        <div class="gov-sub-list">
+
+          <!-- a) Operação Local -->
+          <div class="gov-sub-item" style="flex-direction:column;align-items:stretch">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+              <span class="gov-sub-letter">a</span>
+              <div class="gov-sub-title">Operação Local</div>
+            </div>
+            <div id="org-local-grid"></div>
+            <button class="btn btn-outline" style="margin-top:10px;font-size:11px;width:fit-content"
+              onclick="addOrgCard('org-local-grid')"><i class="fas fa-plus"></i> Adicionar cargo</button>
+          </div>
+
+          <!-- b) Suporte à Operação Local -->
+          <div class="gov-sub-item" style="flex-direction:column;align-items:stretch">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+              <span class="gov-sub-letter">b</span>
+              <div class="gov-sub-title">Suporte à Operação Local</div>
+            </div>
+            <div id="org-suporte-grid"></div>
+            <button class="btn btn-outline" style="margin-top:10px;font-size:11px;width:fit-content"
+              onclick="addOrgCard('org-suporte-grid')"><i class="fas fa-plus"></i> Adicionar área</button>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- 2. Plano de Comunicação -->
+      <div class="gov-section">
+        </div><!-- /gov-body-1 -->
+      </div><!-- /gov-section-1 -->
+
+      <div class="gov-section">
+        <!-- Collapsible header using original gov-section-title style -->
+        <div class="gov-section-title" onclick="toggleGovSection('gov-body-2')"
+          style="cursor:pointer;user-select:none;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="gov-num">2</span>
+            Plano de Comunicação
+          </div>
+          <i id="gov-icon-2" class="fas fa-chevron-down" style="font-size:12px;color:var(--text-muted);transition:transform .25s;margin-left:auto;transform:rotate(180deg)"></i>
+        </div>
+        <div id="gov-body-2" style="display:block;padding-top:4px">
+        <div class="com-grid" id="com-plan-grid"></div>
+        <!-- Modal de report -->
+        <div class="modal-overlay" id="com-modal-overlay" onclick="closeComModal(event)">
+          <div class="modal" style="max-width:600px" role="dialog">
+            <div class="modal-header">
+              <span class="modal-title" id="com-modal-title"></span>
+              <button class="modal-close" onclick="document.getElementById('com-modal-overlay').classList.remove('open')"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div id="com-modal-body"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3. Matriz de Responsabilidade -->
+      <div class="gov-section">
+        </div><!-- /gov-body-2 -->
+      </div><!-- /gov-section-2 -->
+
+      <div class="gov-section">
+        <!-- Collapsible header using original gov-section-title style -->
+        <div class="gov-section-title" onclick="toggleGovSection('gov-body-3')"
+          style="cursor:pointer;user-select:none;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="gov-num">3</span>
+            Matriz de Responsabilidade
+          </div>
+          <i id="gov-icon-3" class="fas fa-chevron-down" style="font-size:12px;color:var(--text-muted);transition:transform .25s;margin-left:auto"></i>
+        </div>
+        <div id="gov-body-3" style="display:none;padding-top:4px">
+        <div class="table-card">
+          <div class="resp-table-wrap">
+            <table class="resp-table">
+              <thead>
+                <tr>
+                  <th>Responsabilidade</th>
+                  <th>Sup. Operação</th>
+                  <th>Sup. COP</th>
+                  <th>Líder</th>
+                  <th>Analista Jr</th>
+                  <th>Assistente</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td>Acompanhamento de KPIs operacionais</td><td><span class="resp-pill A">A</span></td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill C">C</span></td><td><span class="resp-pill C">C</span></td><td><span class="resp-pill I">I</span></td></tr>
+                <tr><td>Gestão de ocorrências e tratativas</td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill A">A</span></td><td><span class="resp-pill C">C</span></td><td><span class="resp-pill I">I</span></td><td><span class="resp-pill I">I</span></td></tr>
+                <tr><td>Escalonamento de problemas críticos</td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill A">A</span></td><td><span class="resp-pill I">I</span></td><td><span class="resp-pill I">I</span></td></tr>
+                <tr><td>Alocação de equipe no turno</td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill I">I</span></td><td><span class="resp-pill A">A</span></td><td><span class="resp-pill I">I</span></td><td><span class="resp-pill I">I</span></td></tr>
+                <tr><td>Monitoramento de sistemas e ferramentas</td><td><span class="resp-pill C">C</span></td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill I">I</span></td><td><span class="resp-pill A">A</span></td><td><span class="resp-pill C">C</span></td></tr>
+                <tr><td>Elaboração de reports de turno</td><td><span class="resp-pill A">A</span></td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill C">C</span></td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill C">C</span></td></tr>
+                <tr><td>Auditorias operacionais</td><td><span class="resp-pill A">A</span></td><td><span class="resp-pill C">C</span></td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill C">C</span></td><td><span class="resp-pill I">I</span></td></tr>
+                <tr><td>Gestão de absenteísmo</td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill I">I</span></td><td><span class="resp-pill A">A</span></td><td><span class="resp-pill C">C</span></td><td><span class="resp-pill I">I</span></td></tr>
+                <tr><td>Análise de dados e indicadores</td><td><span class="resp-pill C">C</span></td><td><span class="resp-pill A">A</span></td><td><span class="resp-pill I">I</span></td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill C">C</span></td></tr>
+                <tr><td>Plano de ação corretiva</td><td><span class="resp-pill R">R</span></td><td><span class="resp-pill A">A</span></td><td><span class="resp-pill C">C</span></td><td><span class="resp-pill C">C</span></td><td><span class="resp-pill I">I</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="resp-legend">
+            <span class="resp-legend-item"><span class="resp-pill R" style="width:20px;height:20px;font-size:9px">R</span> Responsável — executa</span>
+            <span class="resp-legend-item"><span class="resp-pill A" style="width:20px;height:20px;font-size:9px">A</span> Aprovador — decide</span>
+            <span class="resp-legend-item"><span class="resp-pill C" style="width:20px;height:20px;font-size:9px">C</span> Consultado — opina</span>
+            <span class="resp-legend-item"><span class="resp-pill I" style="width:20px;height:20px;font-size:9px">I</span> Informado — recebe</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Ferramentas de Controle -->
+      <div class="gov-section">
+        </div><!-- /gov-body-3 -->
+      </div><!-- /gov-section-3 -->
+
+      <div class="gov-section">
+        <!-- Collapsible header using original gov-section-title style -->
+        <div class="gov-section-title" onclick="toggleGovSection('gov-body-4')"
+          style="cursor:pointer;user-select:none;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="gov-num">4</span>
+            Ferramentas de Controle
+          </div>
+          <i id="gov-icon-4" class="fas fa-chevron-down" style="font-size:12px;color:var(--text-muted);transition:transform .25s;margin-left:auto;transform:rotate(180deg)"></i>
+        </div>
+        <div id="gov-body-4" style="display:block;padding-top:4px">
+        <div class="tools-grid">
+          <a class="tool-card" href="#" onclick="return promptToolLink(this)" data-link="">
+            <div class="tool-card-thumb"><i class="fas fa-chart-bar tool-icon"></i></div>
+            <div class="tool-card-body">
+              <div class="tool-card-name">JARVIS Dashboard</div>
+              <div class="tool-card-desc">Portal de monitoramento operacional em tempo real.</div>
+              <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
+            </div>
+          </a>
+          <a class="tool-card" href="#" onclick="return promptToolLink(this)" data-link="">
+            <div class="tool-card-thumb"><i class="fas fa-table tool-icon"></i></div>
+            <div class="tool-card-body">
+              <div class="tool-card-name">Google Sheets — Dados</div>
+              <div class="tool-card-desc">Planilha de dados operacionais e indicadores ao vivo.</div>
+              <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
+            </div>
+          </a>
+          <a class="tool-card" href="#" onclick="return promptToolLink(this)" data-link="">
+            <div class="tool-card-thumb"><i class="fas fa-code-branch tool-icon"></i></div>
+            <div class="tool-card-body">
+              <div class="tool-card-name">GitHub — Scripts</div>
+              <div class="tool-card-desc">Repositório com scripts Python e automações operacionais.</div>
+              <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
+            </div>
+          </a>
+          <a class="tool-card" href="#" onclick="return promptToolLink(this)" data-link="">
+            <div class="tool-card-thumb"><i class="fas fa-database tool-icon"></i></div>
+            <div class="tool-card-body">
+              <div class="tool-card-name">SQL — Queries</div>
+              <div class="tool-card-desc">Banco de queries para extração e análise de dados.</div>
+              <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
+            </div>
+          </a>
+          <a class="tool-card" href="#" onclick="return promptToolLink(this)" data-link="">
+            <div class="tool-card-thumb"><i class="fas fa-bell tool-icon"></i></div>
+            <div class="tool-card-body">
+              <div class="tool-card-name">Sistema de Alertas</div>
+              <div class="tool-card-desc">Painel de notificações e alertas críticos da operação.</div>
+              <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
+            </div>
+          </a>
+          <div class="tool-card" onclick="addToolCard()" style="cursor:pointer;border-style:dashed;display:flex;align-items:center;justify-content:center;min-height:160px">
+            <div style="text-align:center;color:var(--text-muted)">
+              <i class="fas fa-plus" style="font-size:24px;display:block;margin-bottom:8px"></i>
+              <span style="font-size:12px;font-weight:600">Adicionar ferramenta</span>
+            </div>
+          </div>
+        </div>
+        <!-- Tool add modal -->
+        <div class="modal-overlay" id="tool-add-modal" onclick="if(event.target===this)this.classList.remove('open')">
+          <div class="modal" style="max-width:440px">
+            <div class="modal-header">
+              <span class="modal-title"><i class="fas fa-plus-circle" style="color:var(--orange);margin-right:8px"></i>Nova Ferramenta</span>
+              <button class="modal-close" onclick="document.getElementById('tool-add-modal').classList.remove('open')"><i class="fas fa-xmark"></i></button>
+            </div>
+            <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="tool-name" placeholder="Ex: Dashboard JARVIS"/></div>
+            <div class="form-group"><label class="form-label">Link (URL)</label><input class="form-input" id="tool-link" type="url" placeholder="https://…"/></div>
+            <div class="form-group"><label class="form-label">Foto / Imagem</label>
+              <input type="file" id="tool-img-input" accept="image/*" style="display:none" onchange="previewToolImg(this)"/>
+              <div id="tool-img-preview" onclick="document.getElementById('tool-img-input').click()"
+                style="height:80px;background:var(--surface-2);border:1.5px dashed var(--border);border-radius:var(--radius);display:flex;align-items:center;justify-content:center;cursor:pointer;overflow:hidden;transition:border-color .2s">
+                <span style="color:var(--text-muted);font-size:12px"><i class="fas fa-image" style="margin-right:6px"></i>Clique para selecionar imagem</span>
+              </div>
+            </div>
+            <div class="modal-footer">
+              <button class="btn btn-outline" onclick="document.getElementById('tool-add-modal').classList.remove('open')">Cancelar</button>
+              <button class="btn btn-primary" onclick="confirmAddTool()"><i class="fas fa-check"></i> Adicionar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5. Guia de Reuniões -->
+      <div class="gov-section">
+        </div><!-- /gov-body-4 -->
+      </div><!-- /gov-section-4 -->
+
+      <div class="gov-section">
+        <!-- Collapsible header using original gov-section-title style -->
+        <div class="gov-section-title" onclick="toggleGovSection('gov-body-5')"
+          style="cursor:pointer;user-select:none;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="gov-num">5</span>
+            Guia de Reuniões
+          </div>
+          <i id="gov-icon-5" class="fas fa-chevron-down" style="font-size:12px;color:var(--text-muted);transition:transform .25s;margin-left:auto"></i>
+        </div>
+        <div id="gov-body-5" style="display:none;padding-top:4px">
+        <div class="meetings-grid" id="meetings-grid"></div>
+      </div>
+
+      <!-- 6. Equipe | Pontos Focais -->
+      <div class="gov-section">
+        </div><!-- /gov-body-5 -->
+      </div><!-- /gov-section-5 -->
+
+      <div class="gov-section">
+        <!-- Collapsible header using original gov-section-title style -->
+        <div class="gov-section-title" onclick="toggleGovSection('gov-body-6')"
+          style="cursor:pointer;user-select:none;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="gov-num">6</span>
+            Equipe — Pontos Focais por Área
+          </div>
+          <i id="gov-icon-6" class="fas fa-chevron-down" style="font-size:12px;color:var(--text-muted);transition:transform .25s;margin-left:auto"></i>
+        </div>
+        <div id="gov-body-6" style="display:none;padding-top:4px">
+        <div class="focal-grid" id="focal-grid"></div>
+        <button class="btn btn-primary" style="margin-top:14px;font-size:11px" onclick="addFocalCard()">
+          <i class="fas fa-plus"></i> Adicionar ponto focal
+        </button>
+        </div><!-- /gov-body-6 -->
+      </div><!-- /gov-section-6 -->
+
+    </section>
+
+    <!-- MAPA DE DADOS -->
+    <section id="section-mapadados" class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">Mapa de Dados — Queries, Scripts e Fontes</div>
+          <div class="section-subtitle">SQL · Python · GitHub · Links · Documentação</div>
+        </div>
+        <div class="section-dl-group">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('mapadados',event)"><i class="fas fa-file-pdf"></i> PDF <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i></button>
+            <div class="pdf-dropdown" id="pdf-menu-mapadados">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('mapadados','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('mapadados','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('mapadados')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+
+      <!-- Filtro de tipo -->
+      <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap" id="datamap-filters">
+        <button class="bkl-pf-btn active" onclick="filterDataMap('all',this)">Todos</button>
+        <button class="bkl-pf-btn" onclick="filterDataMap('sql',this)"><i class="fas fa-database"></i> SQL</button>
+        <button class="bkl-pf-btn" onclick="filterDataMap('py',this)"><i class="fas fa-code"></i> Python</button>
+        <button class="bkl-pf-btn" onclick="filterDataMap('link',this)"><i class="fas fa-link"></i> Links</button>
+        <button class="bkl-pf-btn" onclick="filterDataMap('sheet',this)"><i class="fas fa-table"></i> Planilhas</button>
+      </div>
+
+      <div class="data-map-grid" id="data-map-grid"></div>
+
+      <!-- Add new entry -->
+      <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="addDataEntry()"><i class="fas fa-plus"></i> Adicionar Entrada</button>
+
+      </div>
+    </section>
+
+
+    <!-- JORNAL -->
+    <section id="section-jornal" class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">Jornal — Informativo Operacional</div>
+          <div class="section-subtitle">Avisos semanais · Aniversariantes · RH · Campanhas</div>
+        </div>
+        <div class="section-dl-group">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('jornal',event)"><i class="fas fa-file-pdf"></i> PDF <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i></button>
+            <div class="pdf-dropdown" id="pdf-menu-jornal">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('jornal','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('jornal','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('jornal')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="jornal-tabs">
+        <div class="jornal-tab active" onclick="jornalTab('semanal',this)"><i class="fas fa-newspaper"></i> Jornal Semanal</div>
+        <div class="jornal-tab" onclick="jornalTab('aniversariantes',this)"><i class="fas fa-cake-candles"></i> Aniversariantes</div>
+        <div class="jornal-tab" onclick="jornalTab('rh',this)"><i class="fas fa-bullhorn"></i> Avisos de RH</div>
+        <div class="jornal-tab" onclick="jornalTab('campanhas',this)"><i class="fas fa-flag"></i> Campanhas</div>
+      </div>
+
+      <!-- ── JORNAL SEMANAL ── -->
+      <div class="jornal-panel active" id="jornal-panel-semanal">
+        <div class="jornal-header-card">
+          <div class="jornal-edition" id="jornal-edition"></div>
+          <div class="jornal-title-big" contenteditable="true" id="jornal-headline">Clique para editar o título desta edição</div>
+          <div class="jornal-meta" id="jornal-date-meta"></div>
+        </div>
+        <div class="jornal-articles" id="jornal-articles-list"></div>
+        <div class="jornal-add-btn" onclick="addJornalArticle()">
+          <i class="fas fa-plus"></i> Adicionar matéria
+        </div>
+      </div>
+
+      <!-- ── ANIVERSARIANTES ── -->
+      <div class="jornal-panel" id="jornal-panel-aniversariantes">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">🎂 Aniversariantes da Semana</div>
+            <div style="font-size:12px;color:var(--text-muted)" id="bday-week-label"></div>
+          </div>
+          <button class="btn btn-primary" onclick="addBirthday()"><i class="fas fa-plus"></i> Adicionar</button>
+        </div>
+        <div class="bday-grid" id="bday-grid"></div>
+      </div>
+
+      <!-- ── AVISOS DE RH ── -->
+      <div class="jornal-panel" id="jornal-panel-rh">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">📋 Avisos de RH</div>
+            <div style="font-size:12px;color:var(--text-muted)">Comunicados oficiais de Recursos Humanos</div>
+          </div>
+          <button class="btn btn-primary" onclick="addAviso()"><i class="fas fa-plus"></i> Novo Aviso</button>
+        </div>
+        <div class="aviso-list" id="aviso-list"></div>
+      </div>
+
+      <!-- ── CAMPANHAS ── -->
+      <div class="jornal-panel" id="jornal-panel-campanhas">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">🚀 Campanhas Ativas</div>
+            <div style="font-size:12px;color:var(--text-muted)">Campanhas internas e comunicações visuais da operação</div>
+          </div>
+          <button class="btn btn-primary" onclick="addCampanha()"><i class="fas fa-plus"></i> Nova Campanha</button>
+        </div>
+        <div class="campanha-grid" id="campanha-grid"></div>
+      </div>
+
+    </section>
+
+  </main>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-label">
+    <div class="modal-header">
+      <span class="modal-title" id="modal-label">
+        <i class="fas fa-circle-plus" style="color:var(--orange-ll);margin-right:8px"></i>Nova Ocorrência
+      </span>
+      <button class="modal-close" onclick="closeModal()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <form id="form-ocorrencia" onsubmit="submitOccurrence(event)">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tipo *</label>
+          <select class="form-input" id="oc-tipo" required>
+            <option value="">Selecione…</option>
+            <option>Equipamento</option><option>Operacional</option><option>KPI</option>
+            <option>Inventário</option><option>Fiscal</option><option>Segurança</option><option>Qualidade</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prioridade *</label>
+          <select class="form-input" id="oc-prioridade" required>
+            <option value="">Selecione…</option>
+            <option>Crítica</option><option>Alta</option><option>Média</option><option>Baixa</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição *</label>
+        <textarea class="form-input" id="oc-descricao" rows="3" placeholder="Descreva a ocorrência…" required></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Responsável *</label>
+          <input type="text" class="form-input" id="oc-responsavel" placeholder="Nome do responsável" required/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prazo *</label>
+          <input type="datetime-local" class="form-input" id="oc-prazo" required/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Setor</label>
+        <select class="form-input" id="oc-setor">
+          <option value="">Selecione…</option>
+          <option>Recebimento</option><option>Expedição</option><option>Separação</option>
+          <option>Conferência</option><option>Manutenção</option><option>TI</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Observações</label>
+        <textarea class="form-input" id="oc-obs" rows="2" placeholder="Observações adicionais…"></textarea>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Registrar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<?!= include('JS'); ?>
+</body>
+</html>
