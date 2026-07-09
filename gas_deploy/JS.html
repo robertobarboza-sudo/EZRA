@@ -411,7 +411,7 @@ function runAutoAuth(){
   const email = (window.__CURRENT_USER_EMAIL__ || '').trim().toLowerCase();
 
   if(!email){
-    renderAuthDenied(panel, '', 'Não conseguimos identificar seu e-mail Google. Recarregue a página ou avise o administrador.');
+    renderAuthDenied(panel, '', 'Procure o desenvolvedor para cadastrar ou ajustar acesso<br><br>SeaTalk: roberto.barboza@shopee.com');
     return;
   }
 

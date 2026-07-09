@@ -38,7 +38,8 @@
       "Bash(grep -n \"<style>\\\\|</style>\\\\|^<script>$\\\\|</script>\\\\|<head>\\\\|</head>\\\\|<body>\\\\|</body>\\\\|</html>\" 29_06.html)",
       "Bash(sed -n '13,1901p' 29_06.html)",
       "Bash(sed -n '1905,3856p' 29_06.html)",
-      "Bash(sed -n '3858,6858p' 29_06.html)"
+      "Bash(sed -n '3858,6858p' 29_06.html)",
+      "Bash(grep -n \"^<style>$\\\\|^</style>$\\\\|^<head>$\\\\|^</head>$\\\\|^<body>$\\\\|^<script>$\\\\|^</script>$\\\\|^</body>$\\\\|^</html>$\" 29_06.html)"
     ]
   }
 }
