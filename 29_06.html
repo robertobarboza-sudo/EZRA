@@ -4286,11 +4286,10 @@ function applyUser(user){
 }
 
 /* ================================================================
-   AUTO AUTH — identifica o e-mail da conta Google logada (injetado
-   pelo servidor em window.__CURRENT_USER_EMAIL__) e decide o acesso:
-   - e-mail cadastrado e ativo  -> entra direto, sem senha
-   - e-mail não cadastrado      -> tela "Solicitar cadastro"
-   - e-mail cadastrado inativo  -> tela "Acesso inativo"
+   AUTO AUTH — o servidor (Code.gs) já garante que só chega até aqui
+   quem tem e-mail @shopee.com. Aqui só montamos o objeto do usuário:
+   usa os dados cadastrados em USERS se existir, senão usa um perfil
+   padrão (role "Demo") derivado do próprio e-mail.
 ================================================================ */
 function runAutoAuth(){
   __dbg__('runAutoAuth() executando');
@@ -4302,33 +4301,19 @@ function runAutoAuth(){
     return;
   }
 
-  const user = USERS.find(u => u.email.toLowerCase() === email);
-
+  let user = USERS.find(u => u.email.toLowerCase() === email);
   if(!user){
-    renderAuthRequestAccess(panel, email);
-    return;
-  }
-  if(!user.active){
-    renderAuthDenied(panel, email, 'Seu acesso está inativo. Contate o administrador para reativação.', true);
-    return;
+    const namePart = email.split('@')[0].split('.').filter(Boolean)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ') || email;
+    const initials = namePart.split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() || '??';
+    user = {
+      email, name: namePart, initials, role: 'Demo', active: true,
+      createdBy: 'Auto (domínio Shopee)', createdAt: new Date().toLocaleDateString('pt-BR')
+    };
   }
 
   sessionStorage.setItem('od2-user', JSON.stringify(user));
   enterPortal(user);
-}
-
-function renderAuthRequestAccess(panel, email){
-  panel.innerHTML = `
-    <div class="auth-icon denied"><i class="fas fa-user-lock"></i></div>
-    <div class="login-form-title">Acesso não cadastrado</div>
-    <div class="auth-email">${email}</div>
-    <div class="auth-msg">Seu e-mail ainda não está liberado para o J.A.R.V.I.S. Solicite o cadastro ao administrador para ter acesso ao portal.</div>
-    <a class="login-btn" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px"
-       href="mailto:roberto.barboza@shopee.com?subject=${encodeURIComponent('Solicitação de acesso - J.A.R.V.I.S.')}&body=${encodeURIComponent('Olá, gostaria de solicitar acesso ao J.A.R.V.I.S. para o e-mail: '+email)}">
-      <i class="fas fa-paper-plane"></i> Solicitar cadastro
-    </a>
-    <div class="login-footer">J.A.R.V.I.S. v1.0 · COP RJ2 2026 · Acesso restrito</div>
-  `;
 }
 
 function renderAuthDenied(panel, email, msg){
