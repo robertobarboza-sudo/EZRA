@@ -18,6 +18,15 @@ function doGet(e) {
     template.appVersion = '1.0.0';
     template.deployedAt = new Date().toISOString();
 
+    // E-mail do usuário logado no Google (mesmo domínio do deploy).
+    // Usado no client para identificar automaticamente quem está acessando.
+    var activeEmail = '';
+    try { activeEmail = Session.getActiveUser().getEmail() || ''; } catch (e) {}
+    if (!activeEmail) {
+      try { activeEmail = Session.getEffectiveUser().getEmail() || ''; } catch (e) {}
+    }
+    template.currentUserEmail = activeEmail;
+
     return template.evaluate()
       .setTitle('J.A.R.V.I.S. — COP RJ2 2026')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')

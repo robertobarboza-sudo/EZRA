@@ -904,6 +904,12 @@
       border-top: 1px solid var(--border);
       font-size: 11px; color: var(--text-muted); text-align: center;
     }
+    .auth-spinner { font-size: 28px; color: var(--primary); text-align: center; margin: 32px 0; }
+    .auth-icon { font-size: 36px; text-align: center; margin: 24px 0 8px; }
+    .auth-icon.denied { color: #ef4444; }
+    .auth-icon.inactive { color: #f59e0b; }
+    .auth-email { font-size: 13px; color: var(--text-muted); text-align: center; margin-bottom: 4px; word-break: break-all; }
+    .auth-msg { font-size: 13px; color: var(--text-muted); text-align: center; line-height: 1.5; margin-bottom: 20px; }
     .user-menu-dropdown {
       position: absolute; top: calc(var(--header-h) + 4px); right: 16px;
       width: 220px; background: var(--surface-2);
@@ -1977,38 +1983,11 @@
       <div class="jarvis-sub-bottom">COP RJ2 2026</div>
       <div class="login-brand-dots"><b></b><b></b><b></b></div>
     </div>
-    <div class="login-form-panel">
-      <div class="login-form-title">Bem-vindo de volta</div>
-      <div class="login-form-sub">Faça login para acessar o portal</div>
-      <div class="login-error" id="login-error">
-        <i class="fas fa-circle-exclamation"></i>
-        <span id="login-error-msg">E-mail ou senha incorretos.</span>
-      </div>
-      <div class="login-field">
-        <label class="login-label">E-mail</label>
-        <div class="login-input-wrap">
-          <i class="fas fa-envelope"></i>
-          <input type="email" class="login-input" id="login-email"
-            placeholder="seu@email.com" autocomplete="email" />
-        </div>
-      </div>
-      <div class="login-field">
-        <label class="login-label">Senha</label>
-        <div class="pw-group">
-          <div class="login-input-wrap" style="flex:1">
-            <i class="fas fa-lock"></i>
-            <input type="password" class="login-input" id="login-password"
-              placeholder="••••••••" autocomplete="current-password"
-              style="border-radius:var(--radius) 0 0 var(--radius);border-right:none" />
-          </div>
-          <button class="login-pw-toggle" onclick="togglePw()" type="button" tabindex="-1" title="Mostrar/ocultar senha">
-            <i class="fas fa-eye-slash" id="pw-eye"></i>
-          </button>
-        </div>
-      </div>
-      <button class="login-btn" id="login-btn" onclick="doLogin()">
-        <i class="fas fa-arrow-right-to-bracket"></i> Entrar
-      </button>
+    <div class="login-form-panel" id="login-form-panel">
+      <!-- Preenchido dinamicamente por auth.js: checando / negado / inativo -->
+      <div class="login-form-title">Verificando acesso…</div>
+      <div class="login-form-sub">Identificando sua conta Google</div>
+      <div class="auth-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
       <div class="login-footer">
         J.A.R.V.I.S. v1.0 · COP RJ2 2026 · Acesso restrito
       </div>
@@ -3877,6 +3856,14 @@
 
 <script>
 /* ================================================================
+   AUTH — e-mail da conta ativa (injetado pelo Apps Script via
+   window.__CURRENT_USER_EMAIL__ no Index.html). Fallback ?email= só
+   para teste local deste arquivo fora do Apps Script.
+================================================================ */
+window.__CURRENT_USER_EMAIL__ = window.__CURRENT_USER_EMAIL__ ||
+  new URLSearchParams(location.search).get('email') || '';
+
+/* ================================================================
    DATA SERVICE
 ================================================================ */
 const DataService = (() => {
@@ -4268,41 +4255,60 @@ function applyUser(user){
   if(ue) ue.textContent = user.email;
 }
 
-function doLogin(){
-  const email    = document.getElementById('login-email').value.trim().toLowerCase();
-  const password = document.getElementById('login-password').value;
-  const btn      = document.getElementById('login-btn');
-  const errBox   = document.getElementById('login-error');
-  const errMsg   = document.getElementById('login-error-msg');
+/* ================================================================
+   AUTO AUTH — identifica o e-mail da conta Google logada (injetado
+   pelo servidor em window.__CURRENT_USER_EMAIL__) e decide o acesso:
+   - e-mail cadastrado e ativo  -> entra direto, sem senha
+   - e-mail não cadastrado      -> tela "Solicitar cadastro"
+   - e-mail cadastrado inativo  -> tela "Acesso inativo"
+================================================================ */
+function runAutoAuth(){
+  const panel = document.getElementById('login-form-panel');
+  const email = (window.__CURRENT_USER_EMAIL__ || '').trim().toLowerCase();
 
-  errBox.classList.remove('show');
-  document.getElementById('login-email').classList.remove('input-error');
-  document.getElementById('login-password').classList.remove('input-error');
-
-  if(!email || !password){
-    errMsg.textContent = 'Preencha e-mail e senha.';
-    errBox.classList.add('show');
+  if(!email){
+    renderAuthDenied(panel, '', 'Não conseguimos identificar seu e-mail Google. Recarregue a página ou avise o administrador.');
     return;
   }
 
-  btn.disabled = true;
-  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Entrando…';
+  const user = USERS.find(u => u.email.toLowerCase() === email);
 
-  // Simulate async auth (replace with real API call when ready)
-  setTimeout(() => {
-    const user = USERS.find(u => u.email === email && u.password === password);
-    if(user){
-      sessionStorage.setItem('od2-user', JSON.stringify(user));
-      enterPortal(user);
-    } else {
-      errMsg.textContent = 'E-mail ou senha incorretos.';
-      errBox.classList.add('show');
-      document.getElementById('login-email').classList.add('input-error');
-      document.getElementById('login-password').classList.add('input-error');
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
-    }
-  }, 600);
+  if(!user){
+    renderAuthRequestAccess(panel, email);
+    return;
+  }
+  if(!user.active){
+    renderAuthDenied(panel, email, 'Seu acesso está inativo. Contate o administrador para reativação.', true);
+    return;
+  }
+
+  sessionStorage.setItem('od2-user', JSON.stringify(user));
+  enterPortal(user);
+}
+
+function renderAuthRequestAccess(panel, email){
+  panel.innerHTML = `
+    <div class="auth-icon denied"><i class="fas fa-user-lock"></i></div>
+    <div class="login-form-title">Acesso não cadastrado</div>
+    <div class="auth-email">${email}</div>
+    <div class="auth-msg">Seu e-mail ainda não está liberado para o J.A.R.V.I.S. Solicite o cadastro ao administrador para ter acesso ao portal.</div>
+    <a class="login-btn" style="text-decoration:none;display:flex;align-items:center;justify-content:center;gap:8px"
+       href="mailto:roberto.barboza@shopee.com?subject=${encodeURIComponent('Solicitação de acesso - J.A.R.V.I.S.')}&body=${encodeURIComponent('Olá, gostaria de solicitar acesso ao J.A.R.V.I.S. para o e-mail: '+email)}">
+      <i class="fas fa-paper-plane"></i> Solicitar cadastro
+    </a>
+    <div class="login-footer">J.A.R.V.I.S. v1.0 · COP RJ2 2026 · Acesso restrito</div>
+  `;
+}
+
+function renderAuthDenied(panel, email, msg){
+  panel.innerHTML = `
+    <div class="auth-icon inactive"><i class="fas fa-triangle-exclamation"></i></div>
+    <div class="login-form-title">Acesso indisponível</div>
+    ${email ? `<div class="auth-email">${email}</div>` : ''}
+    <div class="auth-msg">${msg}</div>
+    <button class="login-btn" onclick="runAutoAuth()"><i class="fas fa-rotate-right"></i> Tentar novamente</button>
+    <div class="login-footer">J.A.R.V.I.S. v1.0 · COP RJ2 2026 · Acesso restrito</div>
+  `;
 }
 
 function enterPortal(user){
@@ -4406,13 +4412,8 @@ function doLogout(){
   sessionStorage.removeItem('od2-user');
   currentUser = null;
   closeUserMenu();
-  // Reset form
-  document.getElementById('login-email').value = '';
-  document.getElementById('login-password').value = '';
-  document.getElementById('login-error').classList.remove('show');
-  document.getElementById('login-btn').innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
-  document.getElementById('login-btn').disabled = false;
-  document.getElementById('login-screen').classList.remove('hidden');
+  // Acesso é vinculado à conta Google (SSO) — recarregar reavalia o e-mail atual.
+  location.reload();
 }
 
 /* ================================================================
@@ -4433,37 +4434,14 @@ document.addEventListener('click', e => {
 });
 
 /* ================================================================
-   PASSWORD TOGGLE
-================================================================ */
-function togglePw(){
-  const input = document.getElementById('login-password');
-  const icon  = document.getElementById('pw-eye');
-  if(input.type === 'password'){
-    input.type = 'text';
-    icon.className = 'fas fa-eye';
-  } else {
-    input.type = 'password';
-    icon.className = 'fas fa-eye-slash';
-  }
-}
-
-/* ================================================================
-   ENTER on login form
+   INIT — sessão existente ou auto-auth por e-mail Google
 ================================================================ */
 document.addEventListener('DOMContentLoaded', () => {
-  // Check existing session
   const saved = sessionStorage.getItem('od2-user');
   if(saved){
     try { enterPortal(JSON.parse(saved)); return; } catch(e){}
   }
-  // Focus email field
-  const ef = document.getElementById('login-email');
-  if(ef) ef.focus();
-  // Enter key
-  ['login-email','login-password'].forEach(id => {
-    const el = document.getElementById(id);
-    if(el) el.addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
-  });
+  runAutoAuth();
 });
 
 /* ================================================================

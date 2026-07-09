@@ -12,6 +12,7 @@
   <?!= include('CSS'); ?>
 </head>
 <body>
+<script>window.__CURRENT_USER_EMAIL__ = <?!= JSON.stringify(currentUserEmail || "") ?>;</script>
 
 
 <!-- LOGIN SCREEN -->
@@ -94,38 +95,11 @@
       <div class="jarvis-sub-bottom">COP RJ2 2026</div>
       <div class="login-brand-dots"><b></b><b></b><b></b></div>
     </div>
-    <div class="login-form-panel">
-      <div class="login-form-title">Bem-vindo de volta</div>
-      <div class="login-form-sub">Faça login para acessar o portal</div>
-      <div class="login-error" id="login-error">
-        <i class="fas fa-circle-exclamation"></i>
-        <span id="login-error-msg">E-mail ou senha incorretos.</span>
-      </div>
-      <div class="login-field">
-        <label class="login-label">E-mail</label>
-        <div class="login-input-wrap">
-          <i class="fas fa-envelope"></i>
-          <input type="email" class="login-input" id="login-email"
-            placeholder="seu@email.com" autocomplete="email" />
-        </div>
-      </div>
-      <div class="login-field">
-        <label class="login-label">Senha</label>
-        <div class="pw-group">
-          <div class="login-input-wrap" style="flex:1">
-            <i class="fas fa-lock"></i>
-            <input type="password" class="login-input" id="login-password"
-              placeholder="••••••••" autocomplete="current-password"
-              style="border-radius:var(--radius) 0 0 var(--radius);border-right:none" />
-          </div>
-          <button class="login-pw-toggle" onclick="togglePw()" type="button" tabindex="-1" title="Mostrar/ocultar senha">
-            <i class="fas fa-eye-slash" id="pw-eye"></i>
-          </button>
-        </div>
-      </div>
-      <button class="login-btn" id="login-btn" onclick="doLogin()">
-        <i class="fas fa-arrow-right-to-bracket"></i> Entrar
-      </button>
+    <div class="login-form-panel" id="login-form-panel">
+      <!-- Preenchido dinamicamente por auth.js: checando / negado / inativo -->
+      <div class="login-form-title">Verificando acesso…</div>
+      <div class="login-form-sub">Identificando sua conta Google</div>
+      <div class="auth-spinner"><i class="fas fa-circle-notch fa-spin"></i></div>
       <div class="login-footer">
         J.A.R.V.I.S. v1.0 · COP RJ2 2026 · Acesso restrito
       </div>
@@ -1991,6 +1965,7 @@
     </form>
   </div>
 </div>
+
 
 <?!= include('JS'); ?>
 </body>

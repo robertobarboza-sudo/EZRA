@@ -28,7 +28,17 @@
       "Bash(clasp create *)",
       "Bash(clasp push *)",
       "Bash(clasp deploy *)",
-      "Bash(clasp deployments *)"
+      "Bash(clasp deployments *)",
+      "Bash(curl -sL \"https://script.google.com/macros/s/AKfycbxvxtRjFfZ3A3cfOJYRo22D9_yloUiQJoEM6qHDPAi_ODscZetyBZ1QjoT9OSFvQfzR/exec\" -o /tmp/live.html -w \"%{http_code}\\\\n\")",
+      "mcp__Claude_in_Chrome__navigate",
+      "Bash(sort -t: -k1 -n)",
+      "Bash(awk -F'z-index:' '{print}')",
+      "Bash(sort -t: -k2 -n -r -u)",
+      "Bash(grep -n \"^<script>$\" 29_06.html)",
+      "Bash(grep -n \"<style>\\\\|</style>\\\\|^<script>$\\\\|</script>\\\\|<head>\\\\|</head>\\\\|<body>\\\\|</body>\\\\|</html>\" 29_06.html)",
+      "Bash(sed -n '13,1901p' 29_06.html)",
+      "Bash(sed -n '1905,3856p' 29_06.html)",
+      "Bash(sed -n '3858,6858p' 29_06.html)"
     ]
   }
 }
