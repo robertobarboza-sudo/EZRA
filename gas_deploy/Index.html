@@ -2,16 +2,19 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
   <title>J.A.R.V.I.S. v1.0 — COP RJ2 2026</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <?!= include('CSS'); ?>
+  <style>
+<?!= include('CSS'); ?>
+  </style>
 </head>
 <body>
+
 
 <!-- LOGIN SCREEN -->
 <div id="login-screen">
@@ -101,11 +104,11 @@
         <span id="login-error-msg">E-mail ou senha incorretos.</span>
       </div>
       <div class="login-field">
-        <label class="login-label">Usuário / E-mail</label>
+        <label class="login-label">E-mail</label>
         <div class="login-input-wrap">
           <i class="fas fa-envelope"></i>
-          <input type="text" class="login-input" id="login-email"
-            placeholder="admin ou seu@email.com" autocomplete="username" />
+          <input type="email" class="login-input" id="login-email"
+            placeholder="seu@email.com" autocomplete="email" />
         </div>
       </div>
       <div class="login-field">
@@ -214,9 +217,6 @@
       <div class="nav-item" data-section="outbound" data-label="Outbound" onclick="navigateTo('outbound',this)">
         <span class="nav-icon-composite"><i class="fas fa-truck icon-base" style="font-size:14px"></i><span class="icon-badge">OT</span></span><span class="nav-label">Outbound</span>
       </div>
-      <div class="nav-item" data-section="spr" data-label="SPR" onclick="navigateTo('spr',this)">
-        <span class="nav-icon-composite"><i class="fas fa-gauge-high icon-base" style="font-size:14px"></i><span class="icon-badge">SP</span></span><span class="nav-label">SPR</span>
-      </div>
       <div class="nav-item" data-section="clusterizacao" data-label="Clusterização" onclick="navigateTo('clusterizacao',this)">
         <i class="fas fa-circle-nodes nav-icon"></i><span class="nav-label">Clusterização</span>
       </div>
@@ -291,10 +291,14 @@
       <i class="fas fa-bars"></i>
     </button>
 
+    <!-- Desktop greeting -->
     <div class="header-greeting">
-      <div class="greet-line" id="greet-line">Bom dia, <strong>João Doe</strong> — Bem-vindo(a) de volta</div>
+      <div class="greet-line" id="greet-line">Bom dia, <strong>João Doe</strong> — Bem-vindo de volta</div>
       <div class="greet-sub" id="greet-sub">Dashboard Principal · Overview</div>
     </div>
+
+    <!-- Mobile: just section name -->
+    <div class="header-mobile-title" id="header-mobile-title">Overview</div>
 
     <div class="digital-clock-wrap">
       <div class="digital-clock" id="digital-clock">00:00:00</div>
@@ -609,118 +613,6 @@
           </div>
           <button class="dl-btn dl-btn-csv" onclick="downloadCSV('outbound')"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
-      </div>
-    </section>
-
-    <!-- SPR -->
-    <section id="section-spr" class="section">
-      <div class="section-header">
-        <div class="section-header-left">
-          <div class="section-title">SPR — Linehaul</div>
-          <div class="section-subtitle">
-            <span id="ds-badge-spr" class="ds-badge ok"><i class="fas fa-circle-dot"></i> Demo</span>
-            Cubagem · SPR · Canal · Aderência ao Scheduled · Cancelamentos
-          </div>
-        </div>
-        <div class="section-dl-group">
-          <div class="pdf-menu-wrap">
-            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('spr',event)">
-              <i class="fas fa-file-pdf"></i> PDF
-              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
-            </button>
-            <div class="pdf-dropdown" id="pdf-menu-spr">
-              <div class="pdf-dropdown-label">Formato</div>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('spr','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('spr','dash')"><i class="fas fa-display"></i> Print Dash</button>
-            </div>
-          </div>
-          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('spr')"><i class="fas fa-file-csv"></i> CSV</button>
-        </div>
-      </div>
-
-      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px">
-        <select id="spr-filter-canal" class="table-search" onchange="renderSPR()" style="max-width:180px">
-          <option value="">Canal: Todos</option>
-          <option value="XPT">XPT</option>
-          <option value="HUB">HUB</option>
-          <option value="SOC">SOC</option>
-          <option value="3PL">3PL</option>
-        </select>
-        <select id="spr-filter-turno" class="table-search" onchange="renderSPR()" style="max-width:160px">
-          <option value="">Turno: Todos</option>
-          <option value="T1">T1 (06h–14h)</option>
-          <option value="T2">T2 (14h–22h)</option>
-          <option value="T3">T3 (22h–06h)</option>
-        </select>
-      </div>
-
-      <div id="spr-kpis"></div>
-
-      <div class="chart-grid">
-        <div class="chart-card">
-          <div class="chart-header">
-            <div>
-              <div class="chart-title">SPR por Turno</div>
-              <div class="chart-subtitle">Pedidos por viagem — T1 / T2 / T3</div>
-            </div>
-          </div>
-          <div class="chart-body"><canvas id="chart-spr-turno"></canvas></div>
-        </div>
-
-        <div class="chart-card">
-          <div class="chart-header">
-            <div>
-              <div class="chart-title">Carros Expedidos por Hora</div>
-              <div class="chart-subtitle">Qtd. de viagens por hora do CPT scheduled</div>
-            </div>
-          </div>
-          <div class="chart-body"><canvas id="chart-spr-hora"></canvas></div>
-        </div>
-
-        <div class="chart-card">
-          <div class="chart-header">
-            <div>
-              <div class="chart-title">Distribuição por Canal</div>
-              <div class="chart-subtitle">XPT · HUB · SOC · 3PL</div>
-            </div>
-          </div>
-          <div class="chart-body"><canvas id="chart-spr-canal"></canvas></div>
-        </div>
-
-        <div class="chart-card">
-          <div class="chart-header">
-            <div>
-              <div class="chart-title">Aderência ao Scheduled (CPT)</div>
-              <div class="chart-subtitle">On Time vs Delay vs Early vs Aberto</div>
-            </div>
-          </div>
-          <div class="chart-body"><canvas id="chart-spr-aderencia"></canvas></div>
-        </div>
-      </div>
-
-      <div class="table-card">
-        <div class="table-toolbar">
-          <div class="table-toolbar-title">Motivos de Cancelamento</div>
-        </div>
-        <table>
-          <thead><tr><th>Motivo</th><th>Ocorrências</th><th>% do Total Cancelado</th></tr></thead>
-          <tbody id="spr-cancel-table"></tbody>
-        </table>
-      </div>
-
-      <div class="table-card">
-        <div class="table-toolbar">
-          <div class="table-toolbar-title">Viagens</div>
-          <div class="table-search"><i class="fas fa-search"></i><input id="spr-search" placeholder="Buscar trip, destino..." oninput="renderSPRTable()"/></div>
-        </div>
-        <table>
-          <thead><tr>
-            <th>Trip</th><th>Data</th><th>Turno</th><th>Hora CPT</th><th>Canal</th>
-            <th>Veículo (Plan/Real)</th><th>Agência</th><th>Destino</th>
-            <th>Status</th><th>CPT Sched.</th><th>CPT Real.</th><th>Aderência</th>
-          </tr></thead>
-          <tbody id="spr-trips-table"></tbody>
-        </table>
       </div>
     </section>
 
@@ -1105,6 +997,7 @@
         <div class="cfg-tab" onclick="cfgTab('ativos',this)"><i class="fas fa-circle-check"></i> Ativos</div>
         <div class="cfg-tab" onclick="cfgTab('inativos',this)"><i class="fas fa-circle-xmark"></i> Inativos</div>
         <div class="cfg-tab" onclick="cfgTab('todos',this)"><i class="fas fa-users"></i> Todos</div>
+        <div class="cfg-tab" onclick="cfgTab('sistema',this)"><i class="fas fa-sliders"></i> Sistema</div>
       </div>
 
       <!-- PANEL: Novo Usuário -->
@@ -1151,17 +1044,45 @@
 
       <!-- PANEL: Ativos -->
       <div class="cfg-panel" id="cfg-panel-ativos">
+        <div class="table-search" style="margin-bottom:14px;max-width:320px">
+          <i class="fas fa-search"></i>
+          <input type="text" placeholder="Pesquisar usuário ativo…" oninput="filterUserGrid(this,'grid-ativos')"/>
+        </div>
         <div class="user-grid" id="grid-ativos"></div>
       </div>
 
       <!-- PANEL: Inativos -->
       <div class="cfg-panel" id="cfg-panel-inativos">
+        <div class="table-search" style="margin-bottom:14px;max-width:320px">
+          <i class="fas fa-search"></i>
+          <input type="text" placeholder="Pesquisar usuário inativo…" oninput="filterUserGrid(this,'grid-inativos')"/>
+        </div>
         <div class="user-grid" id="grid-inativos"></div>
       </div>
 
       <!-- PANEL: Todos -->
       <div class="cfg-panel" id="cfg-panel-todos">
+        <div class="table-search" style="margin-bottom:14px;max-width:320px">
+          <i class="fas fa-search"></i>
+          <input type="text" placeholder="Pesquisar todos os usuários…" oninput="filterUserGrid(this,'grid-todos')"/>
+        </div>
         <div class="user-grid" id="grid-todos"></div>
+      </div>
+
+      <!-- PANEL: Sistema -->
+      <div class="cfg-panel" id="cfg-panel-sistema">
+        <div style="max-width:480px;display:flex;flex-direction:column;gap:24px">
+          <!-- Voz de boas-vindas -->
+          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 24px">
+            <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:4px;display:flex;align-items:center;gap:8px">
+              <i class="fas fa-volume-high" style="color:var(--orange)"></i> Voz de Boas-vindas
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:16px">
+              Selecione a voz que o JARVIS usará ao fazer login. As opções disponíveis dependem do seu dispositivo e navegador.
+            </div>
+            <div id="voice-selector-wrap"></div>
+          </div>
+        </div>
       </div>
 
     </section>
@@ -1329,9 +1250,9 @@
             <span class="gov-num">2</span>
             Plano de Comunicação
           </div>
-          <i id="gov-icon-2" class="fas fa-chevron-down" style="font-size:12px;color:var(--text-muted);transition:transform .25s;margin-left:auto;transform:rotate(180deg)"></i>
+          <i id="gov-icon-2" class="fas fa-chevron-down" style="font-size:12px;color:var(--text-muted);transition:transform .25s;margin-left:auto"></i>
         </div>
-        <div id="gov-body-2" style="display:block;padding-top:4px">
+        <div id="gov-body-2" style="display:none;padding-top:4px">
         <div class="com-grid" id="com-plan-grid"></div>
         <!-- Modal de report -->
         <div class="modal-overlay" id="com-modal-overlay" onclick="closeComModal(event)">
@@ -1414,44 +1335,244 @@
         </div>
         <div id="gov-body-4" style="display:block;padding-top:4px">
         <div class="tools-grid">
-          <a class="tool-card" href="#" onclick="return promptToolLink(this)" data-link="">
-            <div class="tool-card-thumb"><i class="fas fa-chart-bar tool-icon"></i></div>
+          <a class="tool-card" href="https://docs.google.com/spreadsheets/d/17z_nzcj8u0myPbCUZQPun4cIm4DNdX2PzYSLo_aJI0g/edit?gid=1637391407#gid=1637391407" target="_blank">
+            <div class="tool-card-thumb thumb-sheets">
+              <i class="fas fa-truck-fast tool-icon"></i>
+            </div>
             <div class="tool-card-body">
-              <div class="tool-card-name">JARVIS Dashboard</div>
-              <div class="tool-card-desc">Portal de monitoramento operacional em tempo real.</div>
-              <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(238,77,45,.12);color:var(--orange)">INBOUND</span></div>
+              <div class="tool-card-name">Previsão de chegada FM</div>
+              <div class="tool-card-desc">Acompanhamento do volume de coleta de FM vs Forecast</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>Johny Martiniano</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-sheets" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-table" style="font-size:8px"></i>Sheets</span>
+                </div>
+              </div>
             </div>
           </a>
-          <a class="tool-card" href="#" onclick="return promptToolLink(this)" data-link="">
-            <div class="tool-card-thumb"><i class="fas fa-table tool-icon"></i></div>
+          <a class="tool-card" href="https://docs.google.com/spreadsheets/d/1LhUnFfCldo_KtKFKHSzNBOawJ3KOT0s-CKd8pRAyR2o/edit?gid=392042598#gid=392042598" target="_blank">
+            <div class="tool-card-thumb thumb-sheets">
+              <i class="fas fa-traffic-light tool-icon"></i>
+            </div>
             <div class="tool-card-body">
-              <div class="tool-card-name">Google Sheets — Dados</div>
-              <div class="tool-card-desc">Planilha de dados operacionais e indicadores ao vivo.</div>
-              <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(245,158,11,.12);color:#f59e0b">Gestão</span></div>
+              <div class="tool-card-name">Farol</div>
+              <div class="tool-card-desc">Painel de gestão com visão consolidada dos indicadores operacionais</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>Paulo Magalhães</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-sheets" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-table" style="font-size:8px"></i>Sheets</span>
+                </div>
+              </div>
             </div>
           </a>
-          <a class="tool-card" href="#" onclick="return promptToolLink(this)" data-link="">
-            <div class="tool-card-thumb"><i class="fas fa-code-branch tool-icon"></i></div>
+          <a class="tool-card" href="https://docs.google.com/spreadsheets/d/15ZYHWRN0Y8qq4A6AuyNCP9ShIIgLD3ThvbZKHJ83iTA/edit?gid=136442423#gid=136442423" target="_blank">
+            <div class="tool-card-thumb thumb-sheets">
+              <i class="fas fa-feather tool-icon"></i>
+            </div>
             <div class="tool-card-body">
-              <div class="tool-card-name">GitHub — Scripts</div>
-              <div class="tool-card-desc">Repositório com scripts Python e automações operacionais.</div>
-              <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(167,139,250,.12);color:#a78bfa">ASM</span></div>
+              <div class="tool-card-name">Performance ASM</div>
+              <div class="tool-card-desc">Gestão de performance e produtividade ASM hora a hora</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>José Victor</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-sheets" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-table" style="font-size:8px"></i>Sheets</span>
+                </div>
+              </div>
             </div>
           </a>
-          <a class="tool-card" href="#" onclick="return promptToolLink(this)" data-link="">
-            <div class="tool-card-thumb"><i class="fas fa-database tool-icon"></i></div>
+          <a class="tool-card" href="https://docs.google.com/spreadsheets/d/1hOcplhj1KV94RNyTwB-sd6BEsSm2rKMaubHIZO7DUV4/edit?gid=684844547#gid=684844547" target="_blank">
+            <div class="tool-card-thumb thumb-sheets">
+              <i class="fas fa-warehouse tool-icon"></i>
+            </div>
             <div class="tool-card-body">
-              <div class="tool-card-name">SQL — Queries</div>
-              <div class="tool-card-desc">Banco de queries para extração e análise de dados.</div>
-              <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(238,77,45,.12);color:var(--orange)">INBOUND</span></div>
+              <div class="tool-card-name">Gerenciamento Inbound</div>
+              <div class="tool-card-desc">Acompanhamento de carros previstos, status, perfil de pacote e LT</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>Roberto Barboza</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-sheets" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-table" style="font-size:8px"></i>Sheets</span>
+                </div>
+              </div>
             </div>
           </a>
-          <a class="tool-card" href="#" onclick="return promptToolLink(this)" data-link="">
-            <div class="tool-card-thumb"><i class="fas fa-bell tool-icon"></i></div>
+          <a class="tool-card" href="https://docs.google.com/spreadsheets/d/18uTo3GRojaF69a2dfTC9ZwwvD90vi2CrLWiubGtUUf0/edit?gid=0#gid=0" target="_blank">
+            <div class="tool-card-thumb thumb-sheets">
+              <i class="fas fa-clock-rotate-left tool-icon"></i>
+            </div>
             <div class="tool-card-body">
-              <div class="tool-card-name">Sistema de Alertas</div>
-              <div class="tool-card-desc">Painel de notificações e alertas críticos da operação.</div>
-              <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(238,77,45,.12);color:var(--orange)">INBOUND</span></div>
+              <div class="tool-card-name">YMS FM — Produtividade da Doca</div>
+              <div class="tool-card-desc">Dados de recebimento de FM via YMS (SPX) — produtividade da doca e tempo de fila</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>Johny Martiniano</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-sheets" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-table" style="font-size:8px"></i>Sheets</span>
+                </div>
+              </div>
+            </div>
+          </a>
+          <a class="tool-card" href="https://docs.google.com/spreadsheets/d/1eFj6zKy6S8sYmtJ_0RLshfhjlmq3gFos6LkjWgc5rm0/edit?gid=1958511652#gid=1958511652" target="_blank">
+            <div class="tool-card-thumb thumb-sheets">
+              <i class="fas fa-arrow-trend-down tool-icon"></i>
+            </div>
+            <div class="tool-card-body">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(167,139,250,.12);color:#a78bfa">ASM</span></div>
+              <div class="tool-card-name">ASM Quedas</div>
+              <div class="tool-card-desc">Gestão de performance e produtividade de quedas hora a hora</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>José Victor</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-sheets" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-table" style="font-size:8px"></i>Sheets</span>
+                </div>
+              </div>
+            </div>
+          </a>
+          <a class="tool-card" href="https://docs.google.com/spreadsheets/d/14zIc71PvUrhHebrGVx8Z5kjGrc522qZjdMKqLwVujaY/edit?gid=1295204768#gid=1295204768" target="_blank">
+            <div class="tool-card-thumb thumb-sheets">
+              <i class="fas fa-truck tool-icon"></i>
+            </div>
+            <div class="tool-card-body">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(6,182,212,.12);color:var(--cyan)">Outbound</span></div>
+              <div class="tool-card-name">Gerenciamento Outbound</div>
+              <div class="tool-card-desc">Ferramenta de acompanhamento do Stage Out</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>Roberto Barboza</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-sheets" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-table" style="font-size:8px"></i>Sheets</span>
+                </div>
+              </div>
+            </div>
+          </a>
+          <a class="tool-card" href="https://datastudio.google.com/u/0/reporting/a83b4dc8-13ec-4467-8aaf-bd7377a1cfea/page/p_kp082iaf3d" target="_blank">
+            <div class="tool-card-thumb thumb-dashboard">
+              <i class="fas fa-chart-line tool-icon"></i>
+            </div>
+            <div class="tool-card-body">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(238,77,45,.12);color:var(--orange)">INBOUND</span></div>
+              <div class="tool-card-name">Curva de Recebimento FM</div>
+              <div class="tool-card-desc">Previsão de recebimento de FM por janela de horário</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>Johny Martiniano</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-dashboard" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-gauge-high" style="font-size:8px"></i>Dashboard</span>
+                </div>
+              </div>
+            </div>
+          </a>
+          <a class="tool-card" href="https://datastudio.google.com/u/0/reporting/c1f1eed6-8a68-4899-99c9-1d5ddfb615e9/page/p_obgdpjoo1d" target="_blank">
+            <div class="tool-card-thumb thumb-dashboard">
+              <i class="fas fa-boxes-stacked tool-icon"></i>
+            </div>
+            <div class="tool-card-body">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(238,77,45,.12);color:var(--orange)">INBOUND</span></div>
+              <div class="tool-card-name">Stage IN</div>
+              <div class="tool-card-desc">Gestão do Aging das ruas do Stage In do Inbound</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>Ruan Milton</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-dashboard" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-gauge-high" style="font-size:8px"></i>Dashboard</span>
+                </div>
+              </div>
+            </div>
+          </a>
+          <a class="tool-card" href="https://datastudio.google.com/u/0/reporting/058c9f41-6644-41fd-acfa-1f85c8dde775/page/p_v9f8t3j2vd" target="_blank">
+            <div class="tool-card-thumb thumb-dashboard">
+              <i class="fas fa-filter tool-icon"></i>
+            </div>
+            <div class="tool-card-body">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(238,77,45,.12);color:var(--orange)">INBOUND</span></div>
+              <div class="tool-card-name">Triagem</div>
+              <div class="tool-card-desc">Acompanhamento hora a hora da produtividade / pacote triado</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>Roberto Barboza</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-dashboard" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-gauge-high" style="font-size:8px"></i>Dashboard</span>
+                </div>
+              </div>
+            </div>
+          </a>
+          <a class="tool-card" href="https://docs.google.com/spreadsheets/d/1ZoXRmGTj_gbkJELt8UL5g9dVXLmfMgp2Dz_s-g9vgcs/edit?gid=30992283#gid=30992283" target="_blank">
+            <div class="tool-card-thumb thumb-sheets">
+              <i class="fas fa-eye tool-icon"></i>
+            </div>
+            <div class="tool-card-body">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(245,158,11,.12);color:#f59e0b">Gestão</span></div>
+              <div class="tool-card-name">Olho de Deus</div>
+              <div class="tool-card-desc">Ferramenta de Planejamento, Sizing e Labor Planning</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>Roberto Barboza</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-sheets" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-table" style="font-size:8px"></i>Sheets</span>
+                </div>
+              </div>
+            </div>
+          </a>
+          <a class="tool-card" href="https://presencaops-production.up.railway.app/" target="_blank">
+            <div class="tool-card-thumb thumb-web">
+              <i class="fas fa-user-clock tool-icon"></i>
+            </div>
+            <div class="tool-card-body">
+              <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(245,158,11,.12);color:#f59e0b">Gestão</span></div>
+              <div class="tool-card-name">Sistema de Absenteísmo</div>
+              <div class="tool-card-desc">Ferramenta de Gestão Operacional, Controle de Headcount</div>
+              <div class="tool-card-footer">
+                <div class="tool-card-owner">
+                  <i class="fas fa-user" style="font-size:9px"></i>
+                  <span>Gil Ewerton</span>
+                </div>
+                <div class="tool-card-link">
+                  <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                  <span class="type-badge-web" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-globe" style="font-size:8px"></i>Web</span>
+                </div>
+              </div>
             </div>
           </a>
           <div class="tool-card" onclick="addToolCard()" style="cursor:pointer;border-style:dashed;display:flex;align-items:center;justify-content:center;min-height:160px">
@@ -1469,6 +1590,16 @@
               <button class="modal-close" onclick="document.getElementById('tool-add-modal').classList.remove('open')"><i class="fas fa-xmark"></i></button>
             </div>
             <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="tool-name" placeholder="Ex: Dashboard JARVIS"/></div>
+            <div class="form-group">
+              <label class="form-label">Tipo *</label>
+              <div style="display:flex;gap:6px" id="tool-type-btns">
+                <button class="bkl-pf-btn active" data-ttype="Dashboard" onclick="selectToolType('Dashboard',this)"><i class="fas fa-gauge-high"></i> Dashboard</button>
+                <button class="bkl-pf-btn" data-ttype="Sheets" onclick="selectToolType('Sheets',this)"><i class="fas fa-table"></i> Sheets</button>
+                <button class="bkl-pf-btn" data-ttype="Web" onclick="selectToolType('Web',this)"><i class="fas fa-globe"></i> Web</button>
+              </div>
+            </div>
+            <div class="form-group"><label class="form-label">Descrição</label><textarea class="form-input" id="tool-desc" rows="2" placeholder="Breve descrição da ferramenta…" style="resize:vertical;font-family:inherit"></textarea></div>
+            <div class="form-group"><label class="form-label">Owner <span style="font-size:10px;font-weight:400;color:var(--text-muted)">(responsável / criador)</span></label><input class="form-input" id="tool-owner" placeholder="Ex: João Silva"/></div>
             <div class="form-group"><label class="form-label">Link (URL)</label><input class="form-input" id="tool-link" type="url" placeholder="https://…"/></div>
             <div class="form-group"><label class="form-label">Foto / Imagem</label>
               <input type="file" id="tool-img-input" accept="image/*" style="display:none" onchange="previewToolImg(this)"/>
@@ -1527,6 +1658,112 @@
         </div><!-- /gov-body-6 -->
       </div><!-- /gov-section-6 -->
 
+      <!-- 7. Treinamentos, Integrações e Guias -->
+      <div class="gov-section">
+        <div class="gov-section-title" onclick="toggleGovSection('gov-body-7')"
+          style="cursor:pointer;user-select:none;justify-content:space-between">
+          <div style="display:flex;align-items:center;gap:10px">
+            <span class="gov-num">7</span>
+            Treinamentos, Integrações e Guias
+          </div>
+          <i id="gov-icon-7" class="fas fa-chevron-down" style="font-size:12px;color:var(--text-muted);transition:transform .25s;margin-left:auto"></i>
+        </div>
+        <div id="gov-body-7" style="display:none;padding-top:14px">
+
+          <div class="tools-grid" id="train-tools-grid">
+
+            <!-- Placeholder cards -->
+            <a class="tool-card" href="https://docs.google.com/presentation/d/110iG5zHu6w4-Dq8djfmN7zswcY6_7jFMET-1BtAv4ME/edit?slide=id.g3c2d875924b_0_114#slide=id.g3c2d875924b_0_114" target="_blank">
+              <div class="tool-card-thumb thumb-dashboard">
+                <i class="fas fa-chalkboard-teacher tool-icon"></i>
+              </div>
+              <div class="tool-card-body">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(245,158,11,.12);color:#f59e0b">Gestão</span></div>
+                <div class="tool-card-name">KPIs Performance</div>
+                <div class="tool-card-desc">Treinamentos sobre os principais indicadores de performance do site</div>
+                <div class="tool-card-footer">
+                  <div class="tool-card-owner"><i class="fas fa-user" style="font-size:9px"></i><span>Roberto Barboza</span></div>
+                  <div class="tool-card-link">
+                    <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                    <span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;background:rgba(59,130,246,.15);color:#60a5fa;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-chalkboard-teacher" style="font-size:8px"></i>Treinamento</span>
+                  </div>
+                </div>
+              </div>
+            </a>
+            <a class="tool-card" href="https://docs.google.com/presentation/d/1vwNoO6sfVujmivGicpXGGG73A8tYaAlh-eELv9aDF-M/edit?slide=id.g350cf6e2555_0_0#slide=id.g350cf6e2555_0_0" target="_blank">
+              <div class="tool-card-thumb thumb-dashboard">
+                <i class="fas fa-chalkboard-teacher tool-icon"></i>
+              </div>
+              <div class="tool-card-body">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(245,158,11,.12);color:#f59e0b">Gestão</span></div>
+                <div class="tool-card-name">RMR</div>
+                <div class="tool-card-desc">Reunião Mensal de Resultados — resultados operacionais mensais</div>
+                <div class="tool-card-footer">
+                  <div class="tool-card-owner"><i class="fas fa-user" style="font-size:9px"></i><span>Paulo Magalhães</span></div>
+                  <div class="tool-card-link">
+                    <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                    <span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;background:rgba(59,130,246,.15);color:#60a5fa;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-chalkboard-teacher" style="font-size:8px"></i>Treinamento</span>
+                  </div>
+                </div>
+              </div>
+            </a>
+            <a class="tool-card" href="https://docs.google.com/presentation/d/1KKut9Qz6bvvVVK5A9CLsCOKit4CXTFSO/edit?slide=id.g1f0145233c2_0_149#slide=id.g1f0145233c2_0_149" target="_blank">
+              <div class="tool-card-thumb thumb-web">
+                <i class="fas fa-book-open tool-icon"></i>
+              </div>
+              <div class="tool-card-body">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px"><span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:rgba(167,139,250,.12);color:#a78bfa">Qualidade</span></div>
+                <div class="tool-card-name">Playbook</div>
+                <div class="tool-card-desc">Playbook de padrões de layout propostos por Qualidade</div>
+                <div class="tool-card-footer">
+                  
+                  <div class="tool-card-link">
+                    <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+                    <span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;background:rgba(167,139,250,.15);color:#a78bfa;display:inline-flex;align-items:center;gap:4px"><i class="fas fa-book-open" style="font-size:8px"></i>Guia</span>
+                  </div>
+                </div>
+              </div>
+            </a>
+
+            <!-- Add button -->
+            <div class="tool-card" onclick="addTrainCard()" style="cursor:pointer;border-style:dashed;display:flex;align-items:center;justify-content:center;min-height:160px">
+              <div style="text-align:center;color:var(--text-muted)">
+                <i class="fas fa-plus" style="font-size:24px;display:block;margin-bottom:8px"></i>
+                <span style="font-size:12px;font-weight:600">Adicionar material</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Add modal -->
+          <div class="modal-overlay" id="train-add-modal" onclick="if(event.target===this)this.classList.remove('open')">
+            <div class="modal" style="max-width:440px">
+              <div class="modal-header">
+                <span class="modal-title"><i class="fas fa-graduation-cap" style="color:var(--orange);margin-right:8px"></i>Novo Material</span>
+                <button class="modal-close" onclick="document.getElementById('train-add-modal').classList.remove('open')"><i class="fas fa-xmark"></i></button>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Tipo *</label>
+                <div style="display:flex;gap:6px;flex-wrap:wrap" id="train-type-btns">
+                  <button class="bkl-pf-btn active" data-ttype="Treinamento" onclick="selectTrainType('Treinamento',this)"><i class="fas fa-chalkboard-teacher"></i> Treinamento</button>
+                  <button class="bkl-pf-btn" data-ttype="Integração" onclick="selectTrainType('Integração',this)"><i class="fas fa-plug"></i> Integração</button>
+                  <button class="bkl-pf-btn" data-ttype="Guia" onclick="selectTrainType('Guia',this)"><i class="fas fa-book-open"></i> Guia</button>
+                  <button class="bkl-pf-btn" data-ttype="PPT" onclick="selectTrainType('PPT',this)"><i class="fas fa-file-powerpoint"></i> PPT</button>
+                </div>
+              </div>
+              <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="train-name" placeholder="Ex: Guia de Operação Inbound"/></div>
+              <div class="form-group"><label class="form-label">Descrição</label><textarea class="form-input" id="train-desc" rows="2" placeholder="Sobre o que é este material…" style="resize:vertical;font-family:inherit"></textarea></div>
+              <div class="form-group"><label class="form-label">Owner</label><input class="form-input" id="train-owner" placeholder="Responsável pelo material…"/></div>
+              <div class="form-group"><label class="form-label">Link (URL) *</label><input class="form-input" id="train-link" type="url" placeholder="https://docs.google.com/presentation/…"/></div>
+              <div class="modal-footer">
+                <button class="btn btn-outline" onclick="document.getElementById('train-add-modal').classList.remove('open')">Cancelar</button>
+                <button class="btn btn-primary" onclick="confirmAddTrainCard()"><i class="fas fa-check"></i> Adicionar</button>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /gov-body-7 -->
+      </div><!-- /gov-section-7 -->
+
     </section>
 
     <!-- MAPA DE DADOS -->
@@ -1562,8 +1799,54 @@
 
       <!-- Add new entry -->
       <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="addDataEntry()"><i class="fas fa-plus"></i> Adicionar Entrada</button>
+        <button class="btn btn-primary" onclick="openDataEntryModal()"><i class="fas fa-plus"></i> Adicionar Entrada</button>
+        <button class="btn btn-outline" id="btn-delete-entry" onclick="toggleDataDeleteMode()"
+          style="display:none;border-color:rgba(239,68,68,.4);color:#ef4444"
+          title="Modo exclusão — clique em uma entrada para removê-la">
+          <i class="fas fa-trash-can"></i> Excluir Entrada
+        </button>
+      </div>
 
+      <!-- Data entry modal -->
+      <div class="modal-overlay" id="data-entry-modal" onclick="if(event.target===this)this.classList.remove('open')">
+        <div class="modal" style="max-width:520px">
+          <div class="modal-header">
+            <span class="modal-title"><i class="fas fa-database" style="color:var(--orange);margin-right:8px"></i>Nova Entrada</span>
+            <button class="modal-close" onclick="document.getElementById('data-entry-modal').classList.remove('open')"><i class="fas fa-xmark"></i></button>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Tipo *</label>
+            <div style="display:flex;gap:6px;flex-wrap:wrap" id="de-type-btns">
+              <button class="bkl-pf-btn active" data-type="sql"   onclick="selectDataType('sql',this)"><i class="fas fa-database"></i> SQL</button>
+              <button class="bkl-pf-btn"        data-type="py"    onclick="selectDataType('py',this)"><i class="fas fa-code"></i> Python</button>
+              <button class="bkl-pf-btn"        data-type="link"  onclick="selectDataType('link',this)"><i class="fas fa-link"></i> Link</button>
+              <button class="bkl-pf-btn"        data-type="sheet" onclick="selectDataType('sheet',this)"><i class="fas fa-table"></i> Planilha</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Título *</label>
+            <input class="form-input" id="de-name" placeholder="Ex: KPIs Operacionais — Overview"/>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Descrição</label>
+            <textarea class="form-input" id="de-desc" rows="2" placeholder="Para que serve esse dado ou script…" style="resize:vertical;font-family:inherit"></textarea>
+          </div>
+          <!-- Código: SQL obrigatório, Python opcional, outros oculto -->
+          <div class="form-group" id="de-code-group">
+            <label class="form-label" id="de-code-label">Código SQL <span style="color:var(--red)">*</span></label>
+            <textarea class="form-input" id="de-code" rows="5"
+              placeholder="SELECT ..." style="resize:vertical;font-family:'Share Tech Mono',monospace;font-size:12px"></textarea>
+          </div>
+          <!-- Link: Python opcional, Link/Planilha obrigatório, SQL opcional -->
+          <div class="form-group" id="de-link-group" style="display:none">
+            <label class="form-label" id="de-link-label">Link (URL)</label>
+            <input class="form-input" id="de-link" type="url" placeholder="https://…"/>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline" onclick="document.getElementById('data-entry-modal').classList.remove('open')">Cancelar</button>
+            <button class="btn btn-primary" onclick="confirmDataEntry()"><i class="fas fa-check"></i> Adicionar</button>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -1711,6 +1994,8 @@
   </div>
 </div>
 
+<script>
 <?!= include('JS'); ?>
+</script>
 </body>
 </html>

@@ -1,39 +1,13 @@
-<script>
-
-/* ================================================================
-   GOOGLE APPS SCRIPT BRIDGE
-   Envolve google.script.run em uma Promise, com exemplos de:
-   - envio de parâmetros:      callGAS('getSprData', {canal:'XPT'})
-   - retorno de dados:         .then(data => ...)
-   - successHandler/failureHandler nativos do Apps Script
-================================================================ */
-function callGAS(fnName, ...args){
-  return new Promise((resolve, reject) => {
-    if (typeof google === 'undefined' || !google.script || !google.script.run) {
-      reject(new Error('google.script.run indisponível (fora do ambiente Apps Script).'));
-      return;
-    }
-    google.script.run
-      .withSuccessHandler((response) => {
-        // Backend.gs sempre devolve { ok, data } ou { ok:false, error }
-        if (response && response.ok === false) reject(new Error(response.error || 'Erro no servidor.'));
-        else resolve(response && 'data' in response ? response.data : response);
-      })
-      .withFailureHandler((err) => reject(err))
-      [fnName](...args);
-  });
-}
-
 /* ================================================================
    DATA SERVICE
 ================================================================ */
 const DataService = (() => {
   const CONFIG = {
-    source: 'mock', // troque para 'gas' para usar Backend.gs via google.script.run
+    source: 'mock',
     refreshInterval: 60,
-    sheets: { gestao:'', performance:'', asm:'', conveyor:'', inbound:'', outbound:'', spr:'', tratativas:'', clusterizacao:'' },
+    sheets: { gestao:'', performance:'', asm:'', conveyor:'', inbound:'', outbound:'', tratativas:'', clusterizacao:'' },
     api: { baseUrl:'', token:'', endpoints: { gestao:'/api/gestao', performance:'/api/performance',
-      asm:'/api/asm', conveyor:'/api/conveyor', inbound:'/api/inbound', outbound:'/api/outbound', spr:'/api/spr', tratativas:'/api/tratativas' } }
+      asm:'/api/asm', conveyor:'/api/conveyor', inbound:'/api/inbound', outbound:'/api/outbound', tratativas:'/api/tratativas' } }
   };
 
   function parseCSV(text){
@@ -61,21 +35,13 @@ const DataService = (() => {
     return new Promise(res=>setTimeout(()=>res(MOCK[s]||{}), 500+Math.random()*400));
   }
 
-  async function fetchGAS(s){
-    // Exemplo: seção 'spr' busca via Backend.gs -> getSprData(filters)
-    if(s==='spr') return await callGAS('getSprData', {});
-    throw new Error('Seção "'+s+'" ainda não tem função em Backend.gs.');
-  }
-
   async function load(s){
-    if(CONFIG.source==='gas') return {data:await fetchGAS(s),source:'Apps Script'};
     if(CONFIG.source==='sheets'&&CONFIG.sheets[s]) return {data:await fetchSheets(s),source:'Google Sheets'};
     if(CONFIG.source==='api'&&CONFIG.api.baseUrl) return {data:await fetchAPI(s),source:'API REST'};
     return {data:await fetchMock(s),source:'Demo'};
   }
 
   async function saveOccurrence(payload){
-    if(CONFIG.source==='gas') return await callGAS('saveOccurrence', payload);
     if(CONFIG.source==='api'&&CONFIG.api.baseUrl){
       const {baseUrl,token}=CONFIG.api;
       const r=await fetch(baseUrl+'/api/tratativas',{method:'POST',
@@ -238,68 +204,7 @@ const MOCK = {
       {tipo:'cyan',titulo:'Relatório diário disponível',sub:'Há 1h — Gestão'},
       {tipo:'amber',titulo:'Manutenção programada EQ-012',sub:'Há 2h — ASM'},
     ]
-  },
-  spr: (function(){
-    const destinos=[
-      {code:'HUB-LRJ-03',name:'LM Hub_RJ_Niterói'},
-      {code:'HUB-LSP-41',name:'LM Hub_SP_Itapevi'},
-      {code:'XPT-LAL-90',name:'XPT_AL_Maragogi'},
-      {code:'XPT-LES-12',name:'XPT_ES_Vitória'},
-      {code:'SOC-BA2',name:'SoC_BA_Simões Filho'},
-      {code:'SOC-MG1',name:'SoC_MG_Contagem'},
-      {code:'TRANSVIP-RJ',name:'3PL_RJ_Duque de Caxias'},
-    ];
-    const agencias=['RODOIND','3ZX','MJF','WLSTRANSPORTE','SPXOWNFLEET'];
-    const veiculos=['CARRETA','TRUCK','TOCO','VAN'];
-    const statusPool=['ON TIME','ON TIME','ON TIME','DELAY','EARLY'];
-    const motivosCancelamento=[
-      'Falta de pacotes no outbound','Postergação/Antecipação de LH com status de Arrived',
-      'Solicitado a troca do driver pelo 3PL','Veículo indisponível','Falha mecânica no veículo'
-    ];
-    const rows=[]; let n=1;
-    for(let d=0; d<7; d++){
-      const date=new Date(); date.setDate(date.getDate()-d);
-      const dateStr=date.toISOString().slice(0,10);
-      const tripsToday=8+Math.floor(Math.random()*7);
-      for(let i=0;i<tripsToday;i++){
-        const hora=Math.floor(Math.random()*24);
-        const turno = hora>=6&&hora<14 ? 'T1' : hora>=14&&hora<22 ? 'T2' : 'T3';
-        const destino=destinos[Math.floor(Math.random()*destinos.length)];
-        const canal = destino.code.startsWith('XPT') ? 'XPT' : destino.code.startsWith('HUB') ? 'HUB' : destino.code.startsWith('SOC') ? 'SOC' : '3PL';
-        const cancelado = Math.random()<0.08;
-        const orders = cancelado ? null : (200+Math.floor(Math.random()*900));
-        const statusCpt = cancelado ? 'OPENED' : statusPool[Math.floor(Math.random()*statusPool.length)];
-        const schedStr = dateStr+' '+String(hora).padStart(2,'0')+':00:00';
-        let realStr=null;
-        if(!cancelado){
-          const offsetMin = statusCpt==='DELAY' ? 20+Math.floor(Math.random()*60)
-                           : statusCpt==='EARLY' ? -(20+Math.floor(Math.random()*40))
-                           : Math.floor(Math.random()*10)-5;
-          const realDate=new Date(date); realDate.setHours(hora,offsetMin,0,0);
-          realStr = realDate.toISOString().slice(0,10)+' '+String(realDate.getHours()).padStart(2,'0')+':'+String(Math.abs(realDate.getMinutes())).padStart(2,'0')+':00';
-        }
-        rows.push({
-          trip_number:'LT'+(100000+n)+'BR'+String(n).padStart(2,'0'),
-          sta_origin_date:dateStr,
-          turno_cpt:turno, hora_cpt:hora, canal,
-          planned_vehicle:veiculos[Math.floor(Math.random()*veiculos.length)],
-          used_vehicle:veiculos[Math.floor(Math.random()*veiculos.length)],
-          planned_agency:agencias[Math.floor(Math.random()*agencias.length)],
-          used_agency_name:agencias[Math.floor(Math.random()*agencias.length)],
-          status_agrupado: cancelado ? 'CANCELADO' : 'FECHADA',
-          cancel_reason: cancelado ? motivosCancelamento[Math.floor(Math.random()*motivosCancelamento.length)] : '',
-          cpt_origin_scheduled: schedStr,
-          cpt_origin_realized: realStr,
-          status_cpt: statusCpt,
-          destination_station_code: destino.code,
-          destination: destino.name,
-          sum_orders: orders,
-        });
-        n++;
-      }
-    }
-    return rows;
-  })(),
+  }
 };
 
 /* ================================================================
@@ -307,13 +212,152 @@ const MOCK = {
    Formato: { email, password, name, initials, role }
 ================================================================ */
 const USERS = [
-  { email: 'admin',    password: 'admin123',  name: 'Administrador',   initials: 'AD', role: 'Administrador',   active: true,  createdBy: 'Sistema',        createdAt: '01/01/2026' },
-  { email: 'joao.doe@jarvis_rj2.com', password: 'joao123',   name: 'João Doe',        initials: 'JD', role: 'Gestor',          active: true,  createdBy: 'Administrador',  createdAt: '10/02/2026' },
-  { email: 'ana.paula@jarvis_rj2.com',password: 'ana123',    name: 'Ana Paula',       initials: 'AP', role: 'Analista',        active: true,  createdBy: 'Administrador',  createdAt: '15/02/2026' },
-  { email: 'carlos.moura@jarvis_rj2.com',password:'carlos123',name:'Carlos Moura',    initials: 'CM', role: 'Operador',        active: false, createdBy: 'João Doe',       createdAt: '20/03/2026' },
-  { email: 'fernanda@jarvis_rj2.com', password: 'fern123',   name: 'Fernanda Lima',   initials: 'FL', role: 'Supervisora',     active: true,  createdBy: 'Administrador',  createdAt: '01/04/2026' },
-  { email: 'vitoria@jarvis_rj2.com',  password: 'admin123',  name: 'Vitória',         initials: 'VT', role: 'Administradora',  active: true,  createdBy: 'Administrador',  createdAt: '05/05/2026' },
+  { email: 'admin', password: 'admin123', name: 'Administrador', initials: 'AD', role: 'Administrador', active: true, createdBy: 'Sistema', createdAt: '01/01/2026' },
+  { email: 'kellvin.pinto@shopee.com', password: 'admin123', name: 'Kellvin Pinto', initials: 'KP', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'camila.colares@shopee.com', password: 'admin123', name: 'Camila Colares', initials: 'CC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'alan.almeida@shopee.com', password: 'admin123', name: 'Alan Almeida', initials: 'AA', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'bruno.cabral@shopee.com', password: 'admin123', name: 'Bruno Cabral', initials: 'BC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'fabio.ferreira@shopeemobile-external.com', password: 'admin123', name: 'Fabio Ferreira', initials: 'FF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'gessica.velloso@shopee.com', password: 'admin123', name: 'Gessica Velloso', initials: 'GV', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'heloisa.lopes@shopee.com', password: 'admin123', name: 'Heloisa Lopes', initials: 'HL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'max.junior@shopee.com', password: 'admin123', name: 'Max Junior', initials: 'MJ', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'ramon.silva@shopee.com', password: 'admin123', name: 'Ramon Silva', initials: 'RS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'valdemir.junior@shopee.com', password: 'admin123', name: 'Valdemir Junior', initials: 'VJ', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'debora.raquel@shopee.com', password: 'admin123', name: 'Debora Raquel', initials: 'DR', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'priscila.nascimento@shopee.com', password: 'admin123', name: 'Priscila Nascimento', initials: 'PN', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'fernanda.mnascimento@shopee.com', password: 'admin123', name: 'Fernanda Mnascimento', initials: 'FM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'vagner.cruz@shopee.com', password: 'admin123', name: 'Vagner Cruz', initials: 'VC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'ursula.fragata@shopee.com', password: 'admin123', name: 'Ursula Fragata', initials: 'UF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'ruan.milton@shopee.com', password: 'admin123', name: 'Ruan Milton', initials: 'RM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'roberto.cardoso@shopee.com', password: 'admin123', name: 'Roberto Cardoso', initials: 'RC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'jonathan.fernandes@shopee.com', password: 'admin123', name: 'Jonathan Fernandes', initials: 'JF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'anderson.mssoares@shopee.com', password: 'admin123', name: 'Anderson Mssoares', initials: 'AM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'beatriz.santo@shopee.com', password: 'admin123', name: 'Beatriz Santo', initials: 'BS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'erivania.vieira@shopee.com', password: 'admin123', name: 'Erivania Vieira', initials: 'EV', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'evandro.costa@shopee.com', password: 'admin123', name: 'Evandro Costa', initials: 'EC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'camille.martins@shopee.com', password: 'admin123', name: 'Camille Martins', initials: 'CM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'benedito.filho@shopee.com', password: 'admin123', name: 'Benedito Filho', initials: 'BF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'roberto.barboza@shopee.com', password: 'admin123', name: 'Roberto Barboza', initials: 'RB', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'joao.alvarenga@shopee.com', password: 'admin123', name: 'Joao Alvarenga', initials: 'JA', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'gabriela.duarte@shopee.com', password: 'admin123', name: 'Gabriela Duarte', initials: 'GD', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'michel.rdsilva@shopee.com', password: 'admin123', name: 'Michel Rdsilva', initials: 'MR', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'tharciso.mendes@shopee.com', password: 'admin123', name: 'Tharciso Mendes', initials: 'TM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'paulo.vmagalhaes@shopee.com', password: 'admin123', name: 'Paulo Vmagalhaes', initials: 'PV', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'alexander.teixeira@shopee.com', password: 'admin123', name: 'Alexander Teixeira', initials: 'AT', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'edson.sousa@shopee.com', password: 'admin123', name: 'Edson Sousa', initials: 'ES', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'fabiano.lsilva@shopee.com', password: 'admin123', name: 'Fabiano Lsilva', initials: 'FL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'andre.marins@shopee.com', password: 'admin123', name: 'Andre Marins', initials: 'AM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'douglas.csousa@shopee.com', password: 'admin123', name: 'Douglas Csousa', initials: 'DC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'adryene.freire@shopee.com', password: 'admin123', name: 'Adryene Freire', initials: 'AF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'francisco.oscar@shopee.com', password: 'admin123', name: 'Francisco Oscar', initials: 'FO', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'william.purcell@shopee.com', password: 'admin123', name: 'William Purcell', initials: 'WP', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'glauciane.lopes@shopee.com', password: 'admin123', name: 'Glauciane Lopes', initials: 'GL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'rivadavia.silva@shopee.com', password: 'admin123', name: 'Rivadavia Silva', initials: 'RS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'carlos.david@shopee.com', password: 'admin123', name: 'Carlos David', initials: 'CD', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'carla.nascimento@shopee.com', password: 'admin123', name: 'Carla Nascimento', initials: 'CN', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'rafael.pdsilva@shopee.com', password: 'admin123', name: 'Rafael Pdsilva', initials: 'RP', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'jonathas.silva@shopeemobile-external.com', password: 'admin123', name: 'Jonathas Silva', initials: 'JS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'glaciele.barbosa@shopee.com', password: 'admin123', name: 'Glaciele Barbosa', initials: 'GB', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'patrick.caldeira@shopee.com', password: 'admin123', name: 'Patrick Caldeira', initials: 'PC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'eliezer.marinho@shopee.com', password: 'admin123', name: 'Eliezer Marinho', initials: 'EM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'diana.constantino@shopee.com', password: 'admin123', name: 'Diana Constantino', initials: 'DC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'sthefany.correa@shopee.com', password: 'admin123', name: 'Sthefany Correa', initials: 'SC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'marcelle.lemos@shopee.com', password: 'admin123', name: 'Marcelle Lemos', initials: 'ML', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'alexandre.nascimento@shopee.com', password: 'admin123', name: 'Alexandre Nascimento', initials: 'AN', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'douglas.moraessantos@shopee.com', password: 'admin123', name: 'Douglas Moraessantos', initials: 'DM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'leticia.cnascimento@shopee.com', password: 'admin123', name: 'Leticia Cnascimento', initials: 'LC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'cristiano.mendes@shopee.com', password: 'admin123', name: 'Cristiano Mendes', initials: 'CM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'joao.caraujo@shopee.com', password: 'admin123', name: 'Joao Caraujo', initials: 'JC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'ulisses.mello@shopee.com', password: 'admin123', name: 'Ulisses Mello', initials: 'UM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'diego.cassador@shopee.com', password: 'admin123', name: 'Diego Cassador', initials: 'DC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'ramon.juvenal@shopee.com', password: 'admin123', name: 'Ramon Juvenal', initials: 'RJ', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'ronaldo.oliveira@shopee.com', password: 'admin123', name: 'Ronaldo Oliveira', initials: 'RO', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'lucas.carvalho@shopee.com', password: 'admin123', name: 'Lucas Carvalho', initials: 'LC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'thiagoc.oliveira@shopee.com', password: 'admin123', name: 'Thiagoc Oliveira', initials: 'TO', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'anderson.pinheiro@shopee.com', password: 'admin123', name: 'Anderson Pinheiro', initials: 'AP', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'alexandre.ferreira@shopee.com', password: 'admin123', name: 'Alexandre Ferreira', initials: 'AF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'marcia.jesus@shopee.com', password: 'admin123', name: 'Marcia Jesus', initials: 'MJ', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'diogo.rsilva@shopee.com', password: 'admin123', name: 'Diogo Rsilva', initials: 'DR', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'luiz.vieira@shopee.com', password: 'admin123', name: 'Luiz Vieira', initials: 'LV', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'eveline.lima@shopee.com', password: 'admin123', name: 'Eveline Lima', initials: 'EL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'marcos.sousa@shopee.com', password: 'admin123', name: 'Marcos Sousa', initials: 'MS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'bruna.costa@shopee.com', password: 'admin123', name: 'Bruna Costa', initials: 'BC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'andrey.dias@shopee.com', password: 'admin123', name: 'Andrey Dias', initials: 'AD', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'anapaula.cardoso@shopee.com', password: 'admin123', name: 'Anapaula Cardoso', initials: 'AC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'rubens.lima@shopee.com', password: 'admin123', name: 'Rubens Lima', initials: 'RL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'vitoriaa.oliveira@shopee.com', password: 'admin123', name: 'Vitoriaa Oliveira', initials: 'VO', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'felipe.salvador@shopee.com', password: 'admin123', name: 'Felipe Salvador', initials: 'FS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'victor.fonseca@shopee.com', password: 'admin123', name: 'Victor Fonseca', initials: 'VF', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'tiago.gomes@shopee.com', password: 'admin123', name: 'Tiago Gomes', initials: 'TG', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'marcio.costa@shopee.com', password: 'admin123', name: 'Marcio Costa', initials: 'MC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'gilson.conceicao@shopee.com', password: 'admin123', name: 'Gilson Conceicao', initials: 'GC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'jose.genovez@shopee.com', password: 'admin123', name: 'Jose Genovez', initials: 'JG', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'vitor.brunes@shopee.com', password: 'admin123', name: 'Vitor Brunes', initials: 'VB', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'renata.msilva@shopee.com', password: 'admin123', name: 'Renata Msilva', initials: 'RM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'thiago.leonel@shopee.com', password: 'admin123', name: 'Thiago Leonel', initials: 'TL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'elisabete.silveira@shopee.com', password: 'admin123', name: 'Elisabete Silveira', initials: 'ES', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'raymenson.kelwen@shopee.com', password: 'admin123', name: 'Raymenson Kelwen', initials: 'RK', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'wallace.abreu@shopee.com', password: 'admin123', name: 'Wallace Abreu', initials: 'WA', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'rodrigo.santana@shopee.com', password: 'admin123', name: 'Rodrigo Santana', initials: 'RS', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'jaqueline.adao@shopee.com', password: 'admin123', name: 'Jaqueline Adao', initials: 'JA', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'elisangela.benevides@shopee.com', password: 'admin123', name: 'Elisangela Benevides', initials: 'EB', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'alex.cardoso@shopee.com', password: 'admin123', name: 'Alex Cardoso', initials: 'AC', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'wiliam.maria@shopee.com', password: 'admin123', name: 'Wiliam Maria', initials: 'WM', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
+  { email: 'cristiano.leal@shopee.com', password: 'admin123', name: 'Cristiano Leal', initials: 'CL', role: 'Demo', active: true, createdBy: 'Administrador', createdAt: '24/06/2026' },
 ];
+
+/* ================================================================
+   ACCESS CONTROL — Define quais seções cada role pode acessar
+   Roles: Administrador | Analista | Lider | Demo
+================================================================ */
+const ALL_SECTIONS = [
+  'gestao','performance','asm','conveyor','inbound','outbound','clusterizacao',
+  'tratativas','laborplan','backlog','arvore','kpioverview','scorecard',
+  'absenteismo','forecast','auditoria','organograma','configuracoes',
+  'matriz','mapadados','jornal'
+];
+
+const GOV_SECTIONS = ['matriz','mapadados','jornal'];
+
+const ROLE_ACCESS = {
+  // Acesso total
+  'Administrador': ALL_SECTIONS,
+
+  // Acesso total (igual ao admin, sem restrições)
+  'Analista': ALL_SECTIONS,
+
+  // Acesso total exceto Score Card
+  'Lider': ALL_SECTIONS.filter(s => s !== 'scorecard'),
+
+  // Apenas Governança
+  'Demo': GOV_SECTIONS,
+};
+
+function canAccess(section){
+  if(!currentUser) return false;
+  const allowed = ROLE_ACCESS[currentUser.role] || GOV_SECTIONS;
+  return allowed.includes(section);
+}
+
+function applyAccessControl(){
+  if(!currentUser) return;
+  const allowed = ROLE_ACCESS[currentUser.role] || GOV_SECTIONS;
+  // Hide/show nav items based on access
+  document.querySelectorAll('.nav-item[data-section]').forEach(item => {
+    const sec = item.dataset.section;
+    if(!allowed.includes(sec)){
+      item.style.display = 'none';
+    } else {
+      item.style.display = '';
+    }
+  });
+  // If current section is not allowed, redirect to first allowed
+  if(!allowed.includes(currentSection)){
+    const first = allowed[0] || 'gestao';
+    const el = document.querySelector(`.nav-item[data-section="${first}"]`);
+    navigateTo(first, el);
+  }
+}
 
 /* ================================================================
    AUTH — session via sessionStorage
@@ -327,17 +371,22 @@ function greeting(){
   return 'Boa noite';
 }
 
+const ROLE_BADGE_COLOR = {
+  'Administrador': '#ee4d2d',
+  'Analista':      '#06b6d4',
+  'Lider':         '#10b981',
+  'Demo':          '#a78bfa',
+};
+
 function applyUser(user){
   currentUser = user;
-  // Greeting
   const el = document.getElementById('greet-line');
-  if(el) el.innerHTML = `${greeting()}, <strong>${user.name}</strong> — Bem-vindo(a) de volta`;
-  // Avatar initials
+  if(el) el.innerHTML = `${greeting()}, <strong>${user.name}</strong> — Bem-vindo de volta`;
   const av = document.getElementById('user-avatar');
   if(av) av.textContent = user.initials;
-  // User menu
   const un = document.getElementById('um-name'), ue = document.getElementById('um-email');
-  if(un) un.textContent = user.name + ' · ' + user.role;
+  const badgeColor = ROLE_BADGE_COLOR[user.role] || '#9497b0';
+  if(un) un.innerHTML = `${user.name} <span style="font-size:9px;font-weight:800;padding:1px 7px;border-radius:20px;background:${badgeColor}22;color:${badgeColor};margin-left:6px">${user.role}</span>`;
   if(ue) ue.textContent = user.email;
 }
 
@@ -381,10 +430,98 @@ function doLogin(){
 function enterPortal(user){
   document.getElementById('login-screen').classList.add('hidden');
   applyUser(user);
-  renderSection('gestao');
+  applyAccessControl();
+  // Redirect Demo users straight to Governança
+  const firstSection = (ROLE_ACCESS[user.role] || ['matriz'])[0];
+  const firstEl = document.querySelector(`.nav-item[data-section="${firstSection}"]`);
+  if(firstEl) firstEl.classList.add('active');
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  const firstSec = document.getElementById('section-' + firstSection);
+  if(firstSec) firstSec.classList.add('active');
+  currentSection = firstSection;
+  renderSection(firstSection);
   DataService.load('tratativas').then(({data}) => {
-    if(data.notificacoes) renderNotifications(data.notificacoes);
+    if(data?.notificacoes) renderNotifications(data.notificacoes);
   });
+  // JARVIS voice welcome
+  jarvisSpeak(user.name);
+}
+
+let JARVIS_VOICE_NAME = 'Google português do Brasil'; // default
+
+function jarvisSpeak(userName){
+  if(!window.speechSynthesis) return;
+  window.speechSynthesis.cancel();
+
+  const firstName = userName.split(' ')[0];
+  const hour = new Date().getHours();
+  const period = hour >= 5 && hour <= 12 ? 'Bom dia'
+               : hour >= 13 && hour <= 17 ? 'Boa tarde'
+               : 'Boa noite';
+
+  const fullText = `${period}, ${firstName}. Bem-vindo de volta.`;
+  const utterance = new SpeechSynthesisUtterance(fullText);
+
+  function findVoice(){
+    const voices = window.speechSynthesis.getVoices();
+    if(JARVIS_VOICE_NAME){
+      return voices.find(v => v.name === JARVIS_VOICE_NAME) || null;
+    }
+    return voices.find(v => v.lang === 'pt-BR') || voices[0] || null;
+  }
+
+  function speak(){
+    const voice = findVoice();
+    if(voice) utterance.voice = voice;
+    utterance.lang   = 'pt-BR';
+    utterance.rate   = 1.0;
+    utterance.pitch  = 1.0;
+    utterance.volume = 1.0;
+    window.speechSynthesis.speak(utterance);
+  }
+
+  if(window.speechSynthesis.getVoices().length){
+    speak();
+  } else {
+    window.speechSynthesis.onvoiceschanged = () => { speak(); };
+  }
+}
+
+function testJarvisVoice(){
+  if(!currentUser) return;
+  jarvisSpeak(currentUser.name);
+}
+
+function buildVoiceSelector(){
+  const container = document.getElementById('voice-selector-wrap');
+  if(!container) return;
+  const voices = window.speechSynthesis?.getVoices() || [];
+  const ptVoices = voices.filter(v => v.lang.startsWith('pt'));
+  const allVoices = voices;
+
+  if(!voices.length){
+    container.innerHTML = '<p style="font-size:12px;color:var(--text-muted)">Nenhuma voz encontrada. Tente recarregar a página.</p>';
+    return;
+  }
+
+  container.innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <label class="form-label">Voz de boas-vindas</label>
+      <select class="form-input" id="voice-select" onchange="JARVIS_VOICE_NAME=this.value;try{localStorage.setItem('jarvis-voice',this.value)}catch(e){}" style="max-width:360px">
+        <option value="">Automático (melhor voz pt-BR)</option>
+        ${ptVoices.length ? '<optgroup label="── Português ──">' + ptVoices.map(v =>
+          `<option value="${v.name}" ${JARVIS_VOICE_NAME===v.name?'selected':''}>${v.name} (${v.lang})</option>`
+        ).join('') + '</optgroup>' : ''}
+        <optgroup label="── Todas as vozes ──">
+          ${allVoices.filter(v=>!v.lang.startsWith('pt')).map(v =>
+          `<option value="${v.name}" ${JARVIS_VOICE_NAME===v.name?'selected':''}>${v.name} (${v.lang})</option>`
+        ).join('')}
+        </optgroup>
+      </select>
+      <button class="btn btn-outline" onclick="testJarvisVoice()" style="width:fit-content;font-size:11px">
+        <i class="fas fa-play"></i> Testar voz
+      </button>
+    </div>`;
 }
 
 function doLogout(){
@@ -483,7 +620,6 @@ const sectionMeta = {
   conveyor:    {title:'Conveyor',    sub:'Monitoramento de Esteiras · Conveyor'},
   inbound:     {title:'Inbound',     sub:'Recebimento · Inbound'},
   outbound:    {title:'Outbound',    sub:'Expedição · Outbound'},
-  spr:         {title:'SPR',         sub:'Linehaul · Cubagem · SPR · Canal · Aderência'},
   clusterizacao: {title:'Clusterização', sub:'Mapeamento de Expedição · Operações'},
   tratativas:  {title:'Tratativas',  sub:'Ocorrências · Tratativas'},
   laborplan:   {title:'Labor Plan',   sub:'Planejamento de Mão de Obra · Labor Plan'},
@@ -506,6 +642,11 @@ const sectionMeta = {
 ================================================================ */
 function navigateTo(id, el){
   if(currentSection===id) return;
+  // Access control guard
+  if(!canAccess(id)){
+    showToast('Acesso não permitido para o seu perfil.', true);
+    return;
+  }
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const target=document.getElementById('section-'+id);
@@ -513,6 +654,8 @@ function navigateTo(id, el){
   if(el) el.classList.add('active');
   const m = sectionMeta[id] || {};
   document.getElementById('greet-sub').textContent = m.sub || id;
+  const mTitle = document.getElementById('header-mobile-title');
+  if(mTitle) mTitle.textContent = m.title || id;
   currentSection=id;
   destroyCharts();
   renderSection(id);
@@ -526,7 +669,7 @@ async function renderSection(section){
     setBadge(section,'ok',source);
     const fn = {gestao:renderGestao, performance:renderPerformance, asm:renderAsm,
       backlog:renderBacklog,
-      conveyor:renderConveyor, inbound:renderInbound, outbound:renderOutbound, spr:renderSPR, tratativas:renderTratativas,
+      conveyor:renderConveyor, inbound:renderInbound, outbound:renderOutbound, tratativas:renderTratativas,
       laborplan:renderLaborplan, arvore:renderArvore, kpioverview:renderKpioverview,
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
       configuracoes:renderConfiguracoes, forecast:renderForecast,
@@ -583,16 +726,8 @@ function destroyCharts(){
   Object.keys(chartInstances).forEach(k=>{chartInstances[k]?.destroy();delete chartInstances[k];});
 }
 
-function themeVar(name, fallback){
-  const v = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-  return v || fallback;
-}
-function chartPalette(){
-  return [1,2,3,4,5,6,7,8].map(i => themeVar('--chart-'+i, '#8890b0'));
-}
-
 function cd(){
-  const grid=themeVar('--grid','rgba(255,255,255,.05)'), tick=themeVar('--text-muted','#5c5f7a');
+  const grid='rgba(255,255,255,.05)', tick='#5c5f7a';
   return {
     grid, tick,
     plugins:{
@@ -868,96 +1003,6 @@ function renderInbound(){
 
 function renderOutbound(){
   setBadge('outbound','ok','Em Construção');
-}
-
-/* ================================================================
-   SPR — Linehaul (Cubagem · SPR · Canal · Aderência · Cancelamentos)
-================================================================ */
-function renderSPR(data){
-  const rows = (data && data.length) ? data : MOCK.spr;
-  const canalFilter = document.getElementById('spr-filter-canal')?.value || '';
-  const turnoFilter = document.getElementById('spr-filter-turno')?.value || '';
-
-  window.SPR_ROWS = rows.filter(r =>
-    (!canalFilter || r.canal === canalFilter) &&
-    (!turnoFilter || r.turno_cpt === turnoFilter)
-  );
-
-  const closed = window.SPR_ROWS.filter(r => r.status_agrupado === 'FECHADA');
-  const cancelled = window.SPR_ROWS.filter(r => r.status_agrupado === 'CANCELADO');
-
-  const totalOrders = closed.reduce((a,r) => a + (r.sum_orders || 0), 0);
-  const sprMedio = closed.length ? (totalOrders / closed.length).toFixed(1) : '0';
-  const onTime = closed.filter(r => r.status_cpt === 'ON TIME').length;
-  const aderenciaPct = closed.length ? Math.round(onTime / closed.length * 100) : 0;
-  const pctCancel = window.SPR_ROWS.length ? Math.round(cancelled.length / window.SPR_ROWS.length * 100) : 0;
-
-  buildKPIs('spr-kpis', [
-    {label:'Viagens (Fechadas)', value:closed.length, delta:cancelled.length+' canceladas', trend:'up', type:'', icon:'fa-truck'},
-    {label:'SPR Médio', value:sprMedio, delta:'pedidos / viagem', trend:'up', type:'success', icon:'fa-box'},
-    {label:'Aderência ao Scheduled', value:aderenciaPct+'%', delta:onTime+' on time de '+closed.length, trend: aderenciaPct>=90?'up':'down', type: aderenciaPct>=90?'success':'warning', icon:'fa-clock'},
-    {label:'% Cancelamento', value:pctCancel+'%', delta:cancelled.length+' viagens', trend:'down', type: pctCancel>10?'danger':'', icon:'fa-ban'},
-    {label:'Cubagem do Veículo', value:'Indisponível', delta:'requer tabela de capacidade (m³) por tipo de veículo', trend:'down', type:'warning', icon:'fa-cube'},
-  ]);
-
-  const turnos=['T1','T2','T3'];
-  const sprPorTurno = turnos.map(t=>{
-    const rs = closed.filter(r=>r.turno_cpt===t);
-    const tot = rs.reduce((a,r)=>a+(r.sum_orders||0),0);
-    return rs.length ? +(tot/rs.length).toFixed(1) : 0;
-  });
-  const palette = chartPalette();
-  mkBar('chart-spr-turno', turnos, [{label:'SPR', data:sprPorTurno, backgroundColor:palette[4], borderRadius:6}]);
-
-  const horas = Array.from({length:24},(_,i)=>i);
-  const carrosPorHora = horas.map(h => window.SPR_ROWS.filter(r=>r.hora_cpt===h).length);
-  mkBar('chart-spr-hora', horas.map(h=>String(h).padStart(2,'0')+'h'),
-    [{label:'Viagens', data:carrosPorHora, backgroundColor:palette[7], borderRadius:4}]);
-
-  const canais=['XPT','HUB','SOC','3PL'];
-  const canalCounts = canais.map(c => window.SPR_ROWS.filter(r=>r.canal===c).length);
-  mkDonut('chart-spr-canal', canais, canalCounts, [palette[0],palette[1],palette[4],palette[5]]);
-
-  const statusList=['ON TIME','DELAY','EARLY','OPENED'];
-  const statusCounts = statusList.map(s => closed.filter(r=>r.status_cpt===s).length);
-  mkPie('chart-spr-aderencia', statusList, statusCounts, [themeVar('--green','#10b981'),themeVar('--red','#ef4444'),themeVar('--amber','#f59e0b'),themeVar('--text-muted','#5c5f7a')]);
-
-  const reasonMap = {};
-  cancelled.forEach(r=>{ const k=r.cancel_reason||'Não informado'; reasonMap[k]=(reasonMap[k]||0)+1; });
-  const reasonEntries = Object.entries(reasonMap).sort((a,b)=>b[1]-a[1]);
-  const cancelTbody = document.getElementById('spr-cancel-table');
-  cancelTbody.innerHTML = reasonEntries.length ? reasonEntries.map(([reason,count])=>`
-    <tr><td>${reason}</td><td>${count}</td><td>${cancelled.length?Math.round(count/cancelled.length*100):0}%</td></tr>
-  `).join('') : '<tr class="empty-row"><td colspan="3">Nenhum cancelamento no período.</td></tr>';
-
-  renderSPRTable();
-}
-
-function renderSPRTable(){
-  const rows = window.SPR_ROWS || [];
-  const search = (document.getElementById('spr-search')?.value || '').toLowerCase();
-  const filtered = rows
-    .filter(r => !search || (r.trip_number+r.destination+r.destination_station_code).toLowerCase().includes(search))
-    .sort((a,b) => (a.cpt_origin_scheduled||'') < (b.cpt_origin_scheduled||'') ? 1 : -1);
-
-  const tbody = document.getElementById('spr-trips-table');
-  tbody.innerHTML = filtered.length ? filtered.slice(0,150).map(r=>{
-    const isCancel = r.status_agrupado==='CANCELADO';
-    const statusBadge = isCancel
-      ? '<span class="badge badge-danger">Cancelado</span>'
-      : '<span class="badge badge-success">Fechada</span>';
-    const aderBadge = r.status_cpt==='ON TIME' ? '<span class="badge badge-success">On Time</span>'
-      : r.status_cpt==='DELAY' ? '<span class="badge badge-danger">Delay</span>'
-      : r.status_cpt==='EARLY' ? '<span class="badge badge-warning">Early</span>'
-      : '<span class="badge badge-neutral">'+(r.status_cpt||'—')+'</span>';
-    return `<tr>
-      <td>${r.trip_number}</td><td>${r.sta_origin_date}</td><td>${r.turno_cpt}</td><td>${String(r.hora_cpt).padStart(2,'0')}h</td>
-      <td>${r.canal}</td><td>${r.planned_vehicle} / ${r.used_vehicle}</td><td>${r.used_agency_name}</td>
-      <td>${r.destination} (${r.destination_station_code})</td>
-      <td>${statusBadge}${isCancel?'<br><span style="font-size:10px;color:var(--text-muted)">'+r.cancel_reason+'</span>':''}</td>
-      <td>${r.cpt_origin_scheduled}</td><td>${r.cpt_origin_realized||'—'}</td><td>${aderBadge}</td>
-    </tr>`;
-  }).join('') : '<tr class="empty-row"><td colspan="12">Nenhuma viagem encontrada.</td></tr>';
 }
 
 /* ================================================================
@@ -1334,17 +1379,35 @@ function renderBacklog(){
   setBadge('backlog','ok','Em Construção');
 }
 
-let BKL_ACTIVE_PROFILE = 'all';
+// State: set of active backlog profile filters
+const activeBklProfiles = new Set(['all']);
 
 function bklProfileFilter(profile, el){
-  document.querySelectorAll('.bkl-pf-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  BKL_ACTIVE_PROFILE = profile;
-  // Rebuild active panel with new filter
+  if(profile === 'all'){
+    activeBklProfiles.clear();
+    activeBklProfiles.add('all');
+    document.querySelectorAll('.bkl-pf-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+  } else {
+    activeBklProfiles.delete('all');
+    document.querySelector('.bkl-pf-btn[data-profile="all"]')?.classList.remove('active');
+
+    if(activeBklProfiles.has(profile)){
+      activeBklProfiles.delete(profile);
+      el.classList.remove('active');
+      if(activeBklProfiles.size === 0){
+        activeBklProfiles.add('all');
+        document.querySelector('.bkl-pf-btn[data-profile="all"]')?.classList.add('active');
+      }
+    } else {
+      activeBklProfiles.add(profile);
+      el.classList.add('active');
+    }
+  }
+
   const activePanel = document.querySelector('.bkl-panel.active');
   if(!activePanel) return;
   const type = activePanel.id.replace('bkl-panel-','');
-  // Destroy charts and rebuild
   ['chart-bkl-'+type, 'chart-bkl-'+type+'-total'].forEach(cid => {
     if(chartInstances[cid]){ chartInstances[cid].destroy(); delete chartInstances[cid]; }
   });
@@ -1362,7 +1425,8 @@ function bklTab(id, el){
       if(chartInstances[cid]){ chartInstances[cid].destroy(); delete chartInstances[cid]; }
     });
   });
-  buildBklChart(id);
+  // Rebuild panel with current multi-select state preserved
+  buildBklPanel(id);
 }
 
 function buildBklPanel(type){
@@ -1370,9 +1434,10 @@ function buildBklPanel(type){
   const container = document.getElementById('bkl-cards-'+type);
   if(!container) return;
 
-  // Apply profile filter
-  const activeFilter = BKL_ACTIVE_PROFILE || 'all';
-  const filteredProfiles = activeFilter === 'all' ? PROFILES : PROFILES.filter(p => p.key === activeFilter);
+  // Apply profile filter (multi-select)
+  const filteredProfiles = activeBklProfiles.has('all')
+    ? PROFILES
+    : PROFILES.filter(p => activeBklProfiles.has(p.key));
 
   const totalAll  = PROFILES.reduce((s,p)=>s+(data[p.key]?.total||0),0);
   const totalMeta = PROFILES.reduce((s,p)=>s+(data[p.key]?.meta||0),0);
@@ -1552,6 +1617,17 @@ function renderAbsenteismo(){
 ================================================================ */
 
 function renderConfiguracoes(){
+  // Restore saved voice preference
+  try {
+    const saved = localStorage.getItem('jarvis-voice');
+    if(saved) JARVIS_VOICE_NAME = saved;
+  } catch(e){}
+  // Build voice selector after voices load
+  if(window.speechSynthesis?.getVoices().length){
+    buildVoiceSelector();
+  } else if(window.speechSynthesis){
+    window.speechSynthesis.onvoiceschanged = buildVoiceSelector;
+  }
   // OPTIMIZATION 5: expose history on render
   const histContainer = document.getElementById('edit-history-list');
   if(histContainer){
@@ -1581,9 +1657,22 @@ function cfgTab(id, el){
 
 function renderUserGrids(){
   const isAdmin = currentUser && (currentUser.role === 'Administrador' || currentUser.role === 'Administradora');
-  renderGrid('grid-ativos',   USERS.filter(u => u.active),  isAdmin);
-  renderGrid('grid-inativos', USERS.filter(u => !u.active), isAdmin);
-  renderGrid('grid-todos',    USERS,                         isAdmin);
+  const sort = arr => [...arr].sort((a,b) => a.name.localeCompare(b.name, 'pt-BR'));
+  renderGrid('grid-ativos',   sort(USERS.filter(u => u.active)),  isAdmin);
+  renderGrid('grid-inativos', sort(USERS.filter(u => !u.active)), isAdmin);
+  renderGrid('grid-todos',    sort(USERS),                         isAdmin);
+}
+
+function filterUserGrid(input, gridId){
+  const q = input.value.toLowerCase().trim();
+  const grid = document.getElementById(gridId);
+  if(!grid) return;
+  grid.querySelectorAll('.user-card').forEach(card => {
+    const name  = card.querySelector('.user-card-name')?.textContent.toLowerCase() || '';
+    const email = card.querySelector('.user-card-email')?.textContent.toLowerCase() || '';
+    const role  = card.querySelector('.user-card-role')?.textContent.toLowerCase() || '';
+    card.style.display = (!q || name.includes(q) || email.includes(q) || role.includes(q)) ? '' : 'none';
+  });
 }
 
 function renderGrid(containerId, users, isAdmin){
@@ -1601,9 +1690,9 @@ function renderGrid(containerId, users, isAdmin){
     const toggleBtn = u.active
       ? `<button class="uca-btn" onclick="toggleUser(${globalIdx})" title="Desativar"><i class="fas fa-toggle-on"></i> Desativar</button>`
       : `<button class="uca-btn success" onclick="toggleUser(${globalIdx})" title="Ativar"><i class="fas fa-toggle-off"></i> Ativar</button>`;
-    const deleteBtn = isAdmin && u.email !== 'admin'
+    const deleteBtn = isAdmin && u.email !== 'admin@jarvis_rj2.com'
       ? `<button class="uca-btn danger" onclick="deleteUser(${globalIdx})" title="Excluir"><i class="fas fa-trash"></i></button>`
-      : `<button class="uca-btn" style="opacity:.3;cursor:not-allowed" title="${u.email === 'admin' ? 'Admin não pode ser excluído' : 'Somente admins podem excluir'}" disabled><i class="fas fa-lock"></i></button>`;
+      : `<button class="uca-btn" style="opacity:.3;cursor:not-allowed" title="${u.email === 'admin@jarvis_rj2.com' ? 'Admin não pode ser excluído' : 'Somente admins podem excluir'}" disabled><i class="fas fa-lock"></i></button>`;
     return `
       <div class="user-card ${u.active ? '' : 'inactive'}" id="ucard-${globalIdx}">
         <div class="user-card-header">
@@ -1640,7 +1729,7 @@ function deleteUser(idx){
   if(!u) return;
   const isAdmin = currentUser && (currentUser.role === 'Administrador' || currentUser.role === 'Administradora');
   if(!isAdmin){ showToast('Somente administradores podem excluir usuários.', true); return; }
-  if(u.email === 'admin'){ showToast('O usuário admin não pode ser excluído.', true); return; }
+  if(u.email === 'admin@jarvis_rj2.com'){ showToast('O usuário admin não pode ser excluído.', true); return; }
   if(currentUser && u.email === currentUser.email){ showToast('Você não pode excluir sua própria conta.', true); return; }
   // Confirm
   const card = document.getElementById('ucard-' + idx);
@@ -2300,10 +2389,24 @@ function promptToolLink(el){
 }
 
 let _toolImgData = null;
+let _toolType = 'Dashboard';
+
+function selectToolType(type, el){
+  document.querySelectorAll('#tool-type-btns .bkl-pf-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  _toolType = type;
+}
+
 function addToolCard(){
   _toolImgData = null;
+  _toolType = 'Dashboard';
   document.getElementById('tool-name').value = '';
+  document.getElementById('tool-desc').value = '';
+  document.getElementById('tool-owner').value = '';
   document.getElementById('tool-link').value = '';
+  // Reset type buttons
+  document.querySelectorAll('#tool-type-btns .bkl-pf-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('#tool-type-btns .bkl-pf-btn[data-ttype="Dashboard"]')?.classList.add('active');
   const prev = document.getElementById('tool-img-preview');
   prev.innerHTML = '<span style="color:var(--text-muted);font-size:12px"><i class="fas fa-image" style="margin-right:6px"></i>Clique para selecionar imagem</span>';
   document.getElementById('tool-add-modal').classList.add('open');
@@ -2321,9 +2424,22 @@ function previewToolImg(input){
 }
 
 function confirmAddTool(){
-  const name = document.getElementById('tool-name').value.trim();
-  const link = document.getElementById('tool-link').value.trim();
+  const name  = document.getElementById('tool-name').value.trim();
+  const desc  = document.getElementById('tool-desc').value.trim();
+  const owner = document.getElementById('tool-owner').value.trim();
+  const link  = document.getElementById('tool-link').value.trim();
+  const ttype = _toolType || 'Web';
   if(!name){ showToast('Informe o nome da ferramenta.', true); return; }
+
+  const THUMB_CLS  = { Dashboard:'thumb-dashboard', Sheets:'thumb-sheets', Web:'thumb-web' };
+  const BADGE_CLS  = { Dashboard:'type-badge-dashboard', Sheets:'type-badge-sheets', Web:'type-badge-web' };
+  const TYPE_ICONS = { Dashboard:'fa-gauge-high', Sheets:'fa-table', Web:'fa-globe' };
+  const thumbCls  = THUMB_CLS[ttype]  || 'thumb-default';
+  const badgeCls  = BADGE_CLS[ttype]  || 'type-badge-web';
+  const tIconName = TYPE_ICONS[ttype] || 'fa-globe';
+  const typeBadge = `<span class="${badgeCls}" style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;display:inline-flex;align-items:center;gap:4px"><i class="fas ${tIconName}" style="font-size:8px"></i>${ttype}</span>`;
+  const ownerHTML = owner ? `<div class="tool-card-owner"><i class="fas fa-user" style="font-size:9px"></i><span>${owner}</span></div>` : '';
+
   const grid = document.querySelector('.tools-grid');
   const addBtn = grid.lastElementChild;
   const card = document.createElement('a');
@@ -2331,12 +2447,19 @@ function confirmAddTool(){
   card.href = link || '#';
   if(link) card.target = '_blank';
   card.innerHTML = `
-    <div class="tool-card-thumb">
-      ${_toolImgData ? `<img src="${_toolImgData}" alt="${name}"/>` : '<i class="fas fa-link tool-icon"></i>'}
+    <div class="tool-card-thumb ${thumbCls}">
+      ${_toolImgData ? `<img src="${_toolImgData}" alt="${name}"/>` : `<i class="fas fa-link tool-icon"></i>`}
     </div>
     <div class="tool-card-body">
       <div class="tool-card-name">${name}</div>
-      <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
+      ${desc ? `<div class="tool-card-desc">${desc}</div>` : ''}
+      <div class="tool-card-footer">
+        ${ownerHTML}
+        <div class="tool-card-link">
+          <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+          ${typeBadge}
+        </div>
+      </div>
     </div>`;
   grid.insertBefore(card, addBtn);
   document.getElementById('tool-add-modal').classList.remove('open');
@@ -2344,46 +2467,182 @@ function confirmAddTool(){
 }
 
 /* ── Mapa de Dados ── */
-function renderMapaDados(){
-  buildDataMap('all');
+let _dataDeleteMode = false;
+
+function toggleDataDeleteMode(){
+  _dataDeleteMode = !_dataDeleteMode;
+  const btn = document.getElementById('btn-delete-entry');
+  if(btn){
+    btn.style.background = _dataDeleteMode ? 'rgba(239,68,68,.12)' : '';
+    btn.innerHTML = _dataDeleteMode
+      ? '<i class="fas fa-xmark"></i> Cancelar Exclusão'
+      : '<i class="fas fa-trash-can"></i> Excluir Entrada';
+  }
+  buildDataMap(activeDataFilters);
+  if(_dataDeleteMode) showToast('Modo exclusão ativo — clique em uma entrada para removê-la.', true);
 }
 
+function deleteDataEntry(i){
+  if(!_dataDeleteMode) return;
+  if(!confirm(`Remover "${dataMapEntries[i]?.name}"?`)) return;
+  dataMapEntries.splice(i, 1);
+  buildDataMap(activeDataFilters);
+  showToast('Entrada removida.');
+  if(!dataMapEntries.length){ _dataDeleteMode = false; toggleDataDeleteMode(); }
+}
+
+function renderMapaDados(){
+  // Show delete button only for admin
+  const btn = document.getElementById('btn-delete-entry');
+  if(btn) btn.style.display = currentUser?.role === 'Administrador' ? '' : 'none';
+  buildDataMap(activeDataFilters);
+}
+
+// State: set of active data map filters
+const activeDataFilters = new Set(['all']);
+
 function filterDataMap(type, el){
-  document.querySelectorAll('#datamap-filters .bkl-pf-btn').forEach(b=>b.classList.remove('active'));
-  el.classList.add('active');
-  buildDataMap(type);
+  if(type === 'all'){
+    // "Todos" resets everything
+    activeDataFilters.clear();
+    activeDataFilters.add('all');
+    document.querySelectorAll('#datamap-filters .bkl-pf-btn').forEach(b => b.classList.remove('active'));
+    el.classList.add('active');
+  } else {
+    // Remove "Todos" if selecting a specific type
+    activeDataFilters.delete('all');
+    document.querySelector('#datamap-filters .bkl-pf-btn:first-child')?.classList.remove('active');
+
+    if(activeDataFilters.has(type)){
+      // Deselect if already active
+      activeDataFilters.delete(type);
+      el.classList.remove('active');
+      // If nothing selected, revert to "Todos"
+      if(activeDataFilters.size === 0){
+        activeDataFilters.add('all');
+        document.querySelector('#datamap-filters .bkl-pf-btn:first-child')?.classList.add('active');
+      }
+    } else {
+      activeDataFilters.add(type);
+      el.classList.add('active');
+    }
+  }
+  buildDataMap(activeDataFilters);
 }
 
 function buildDataMap(filter){
   const grid = document.getElementById('data-map-grid');
   if(!grid) return;
-  const entries = filter==='all' ? dataMapEntries : dataMapEntries.filter(e=>e.type===filter);
-  const typeIcons = { sql:'fa-database', py:'fa-code', link:'fa-link', sheet:'fa-table' };
+  const filterSet = filter instanceof Set ? filter : new Set([filter]);
+  const entries = filterSet.has('all') ? dataMapEntries : dataMapEntries.filter(e => filterSet.has(e.type));
+  const typeIcons  = { sql:'fa-database', py:'fa-code', link:'fa-link', sheet:'fa-table' };
   const typeLabels = { sql:'SQL', py:'Python', link:'Link', sheet:'Planilha' };
-  grid.innerHTML = entries.map((e,i) => `
-    <div class="data-card" data-type="${e.type}">
+
+  grid.innerHTML = entries.map((e, i) => {
+    // Find real index in dataMapEntries for delete
+    const realIdx = dataMapEntries.indexOf(e);
+    const deleteOverlay = _dataDeleteMode ? `
+      <div onclick="deleteDataEntry(${realIdx})"
+        style="position:absolute;inset:0;background:rgba(239,68,68,.08);border:2px dashed #ef4444;
+               border-radius:inherit;display:flex;align-items:center;justify-content:center;
+               cursor:pointer;z-index:10;transition:background .2s"
+        onmouseover="this.style.background='rgba(239,68,68,.18)'"
+        onmouseout="this.style.background='rgba(239,68,68,.08)'">
+        <div style="text-align:center;color:#ef4444;pointer-events:none">
+          <i class="fas fa-trash-can" style="font-size:22px;display:block;margin-bottom:4px"></i>
+          <span style="font-size:11px;font-weight:700">Remover</span>
+        </div>
+      </div>` : '';
+
+    return `
+    <div class="data-card" data-type="${e.type}" style="position:relative">
+      ${deleteOverlay}
       <span class="data-card-type ${e.type}"><i class="fas ${typeIcons[e.type]}"></i> ${typeLabels[e.type]}</span>
       <div class="data-card-name">${e.name}</div>
       <div class="data-card-desc">${e.desc}</div>
       ${e.code ? `<div class="data-card-code">${e.code}</div>` : ''}
       ${e.link
         ? `<a class="data-card-link" href="${e.link}" target="_blank"><i class="fas fa-arrow-up-right-from-square"></i> Abrir link</a>`
-        : `<input class="data-card-input" placeholder="Cole o link aqui…" value="${e.link||''}" onchange="dataMapEntries.find(x=>x.name==='${e.name.replace(/'/g,"\\'")}')&&(dataMapEntries.find(x=>x.name==='${e.name.replace(/'/g,"\\'")}').link=this.value)"/>`
+        : `<input class="data-card-input" placeholder="Cole o link aqui…" value="${e.link||''}"
+             onchange="dataMapEntries.find(x=>x.name==='${e.name.replace(/'/g,"\\'")}')&&(dataMapEntries.find(x=>x.name==='${e.name.replace(/'/g,"\\'")}').link=this.value)"/>`
       }
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 
-function addDataEntry(){
-  const type = prompt('Tipo (sql / py / link / sheet):','sql');
-  if(!type) return;
-  const name = prompt('Nome:'); if(!name) return;
-  const desc = prompt('Descrição:') || '';
-  const code = (type==='sql'||type==='py') ? prompt('Código/snippet (opcional):') || '' : '';
-  const link = (type==='link'||type==='sheet') ? prompt('Link (URL):') || '' : '';
-  dataMapEntries.push({type, name, desc, code, link});
-  const activeBtn = document.querySelector('#datamap-filters .bkl-pf-btn.active');
-  const activeFilter = activeBtn?.dataset?.profile || 'all';
-  buildDataMap(activeFilter);
+let _currentDataType = 'sql';
+
+function openDataEntryModal(){
+  _currentDataType = 'sql';
+  document.getElementById('de-name').value = '';
+  document.getElementById('de-desc').value = '';
+  document.getElementById('de-code').value = '';
+  document.getElementById('de-link').value = '';
+  // Reset type buttons
+  document.querySelectorAll('#de-type-btns .bkl-pf-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('#de-type-btns .bkl-pf-btn[data-type="sql"]').classList.add('active');
+  updateDataTypeUI('sql');
+  document.getElementById('data-entry-modal').classList.add('open');
+}
+
+function selectDataType(type, el){
+  document.querySelectorAll('#de-type-btns .bkl-pf-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  _currentDataType = type;
+  updateDataTypeUI(type);
+}
+
+function updateDataTypeUI(type){
+  const codeGroup = document.getElementById('de-code-group');
+  const codeLabel = document.getElementById('de-code-label');
+  const codeTxt   = document.getElementById('de-code');
+  const linkGroup = document.getElementById('de-link-group');
+  const linkLabel = document.getElementById('de-link-label');
+
+  if(type === 'sql'){
+    // SQL: código obrigatório + link opcional
+    codeGroup.style.display = '';
+    codeLabel.innerHTML = 'Código SQL <span style="color:var(--red)">*</span>';
+    codeTxt.placeholder = 'SELECT kpi_label, valor\nFROM tb_kpis\nWHERE data = CURDATE();';
+    linkGroup.style.display = '';
+    linkLabel.textContent = 'Link (opcional)';
+    document.getElementById('de-link').placeholder = 'https://… (opcional)';
+
+  } else if(type === 'py'){
+    // Python: código opcional + link obrigatório (GitHub)
+    codeGroup.style.display = '';
+    codeLabel.innerHTML = 'Snippet de código <span style="color:var(--text-muted);font-weight:400;font-size:10px">(opcional)</span>';
+    codeTxt.placeholder = '# Cole um trecho do script aqui…';
+    linkGroup.style.display = '';
+    linkLabel.innerHTML = 'Link GitHub <span style="color:var(--red)">*</span>';
+    document.getElementById('de-link').placeholder = 'https://github.com/…';
+
+  } else {
+    // Link / Planilha: só link obrigatório, sem código
+    codeGroup.style.display = 'none';
+    linkGroup.style.display = '';
+    linkLabel.innerHTML = 'Link <span style="color:var(--red)">*</span>';
+    document.getElementById('de-link').placeholder = type === 'sheet'
+      ? 'https://docs.google.com/spreadsheets/…'
+      : 'https://…';
+  }
+}
+
+function confirmDataEntry(){
+  const type = _currentDataType;
+  const name = document.getElementById('de-name').value.trim();
+  const desc = document.getElementById('de-desc').value.trim();
+  const code = document.getElementById('de-code').value.trim();
+  const link = document.getElementById('de-link').value.trim();
+
+  if(!name){ showToast('Informe o título da entrada.', true); return; }
+  if(type === 'sql' && !code){ showToast('O código SQL é obrigatório.', true); return; }
+  if(type === 'py' && !link){ showToast('Informe o link do repositório GitHub.', true); return; }
+  if((type === 'link' || type === 'sheet') && !link){ showToast('Informe o link.', true); return; }
+
+  dataMapEntries.unshift({ type, name, desc, code, link });
+  document.getElementById('data-entry-modal').classList.remove('open');
+  buildDataMap(activeDataFilters);
   showToast('✓ Entrada adicionada!');
 }
 
@@ -2631,6 +2890,72 @@ function removeCampanha(i){
   buildCampanhas();
 }
 
+/* ── Treinamentos, Integrações e Guias ── */
+let _trainType = 'Treinamento';
+
+function selectTrainType(type, el){
+  document.querySelectorAll('#train-type-btns .bkl-pf-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  _trainType = type;
+}
+
+function addTrainCard(){
+  _trainType = 'Treinamento';
+  document.getElementById('train-name').value = '';
+  document.getElementById('train-desc').value = '';
+  document.getElementById('train-owner').value = '';
+  document.getElementById('train-link').value = '';
+  document.querySelectorAll('#train-type-btns .bkl-pf-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('#train-type-btns .bkl-pf-btn[data-ttype="Treinamento"]')?.classList.add('active');
+  document.getElementById('train-add-modal').classList.add('open');
+}
+
+function confirmAddTrainCard(){
+  const name  = document.getElementById('train-name').value.trim();
+  const desc  = document.getElementById('train-desc').value.trim();
+  const owner = document.getElementById('train-owner').value.trim();
+  const link  = document.getElementById('train-link').value.trim();
+  const ttype = _trainType || 'Guia';
+  if(!name){ showToast('Informe o nome do material.', true); return; }
+  if(!link){ showToast('Informe o link do material.', true); return; }
+
+  const TYPE_ICONS  = { 'Treinamento':'fa-chalkboard-teacher', 'Integração':'fa-plug', 'Guia':'fa-book-open', 'PPT':'fa-file-powerpoint' };
+  const TYPE_COLORS = { 'Treinamento':'rgba(96,165,250,.15);color:#60a5fa', 'Integração':'rgba(16,185,129,.15);color:#34d399', 'Guia':'rgba(167,139,250,.15);color:#a78bfa', 'PPT':'rgba(251,146,60,.15);color:#fb923c' };
+  const THUMB_CLS   = { 'Treinamento':'thumb-dashboard', 'Integração':'thumb-sheets', 'Guia':'thumb-web', 'PPT':'thumb-ppt' };
+
+  const tIcon  = TYPE_ICONS[ttype]  || 'fa-file';
+  const tColor = TYPE_COLORS[ttype] || TYPE_COLORS['Guia'];
+  const tThumb = THUMB_CLS[ttype]   || 'thumb-default';
+  const areaBadge = `<span style="font-size:9px;font-weight:700;padding:1px 7px;border-radius:20px;background:${tColor.split(';')[0].replace('color','').replace('rgba','rgba')};${tColor.split(';')[1]}">${ttype}</span>`;
+  const typeBadge = `<span style="font-size:9px;font-weight:800;padding:2px 7px;border-radius:20px;background:${tColor.split(';')[0]};${tColor.split(';')[1]};display:inline-flex;align-items:center;gap:4px"><i class="fas ${tIcon}" style="font-size:8px"></i>${ttype}</span>`;
+  const ownerHTML = owner ? `<div class="tool-card-owner"><i class="fas fa-user" style="font-size:9px"></i><span>${owner}</span></div>` : '';
+
+  const grid   = document.getElementById('train-tools-grid');
+  const addBtn = grid.lastElementChild;
+  const card   = document.createElement('a');
+  card.className = 'tool-card';
+  card.href = link; card.target = '_blank';
+  card.innerHTML = `
+    <div class="tool-card-thumb ${tThumb}">
+      <i class="fas ${tIcon} tool-icon"></i>
+    </div>
+    <div class="tool-card-body">
+      <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">${areaBadge}</div>
+      <div class="tool-card-name">${name}</div>
+      ${desc ? `<div class="tool-card-desc">${desc}</div>` : ''}
+      <div class="tool-card-footer">
+        ${ownerHTML}
+        <div class="tool-card-link">
+          <span style="display:flex;align-items:center;gap:4px"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</span>
+          ${typeBadge}
+        </div>
+      </div>
+    </div>`;
+  grid.insertBefore(card, addBtn);
+  document.getElementById('train-add-modal').classList.remove('open');
+  showToast('✓ Material adicionado!');
+}
+
 /* ================================================================
    AUTO-REFRESH
 ================================================================ */
@@ -2648,9 +2973,6 @@ function toggleTheme(){
   // Update label
   const lbl = document.querySelector('.theme-switch-label');
   if(lbl) lbl.textContent = next === 'dark' ? 'Tema Claro' : 'Tema Escuro';
-  // Recria os gráficos para pegar as cores do novo tema (--grid, --chart-1..8 etc.)
-  destroyCharts();
-  renderSection(currentSection);
 }
 
 // Restore saved theme on load
@@ -2678,5 +3000,3 @@ document.addEventListener('keydown',e=>{
    INIT
 ================================================================ */
 // Init handled by auth system above
-
-</script>

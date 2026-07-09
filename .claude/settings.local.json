@@ -17,7 +17,12 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git branch *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(gh auth *)",
+      "Bash(clasp --version)",
+      "Bash(git mv *)",
+      "Bash(sed -n '1899,3876p' 29_06.html)",
+      "Read(//tmp/**)"
     ]
   }
 }
