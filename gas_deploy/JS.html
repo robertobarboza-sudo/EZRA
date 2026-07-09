@@ -8,6 +8,21 @@ window.__CURRENT_USER_EMAIL__ = window.__CURRENT_USER_EMAIL__ ||
   new URLSearchParams(location.search).get('email') || '';
 
 /* ================================================================
+   DEBUG — mostra qualquer erro JS não tratado direto na tela de
+   login, para diagnosticar sem precisar do DevTools.
+================================================================ */
+window.addEventListener('error', function(e){
+  var panel = document.getElementById('login-form-panel');
+  if(panel){
+    panel.innerHTML = '<div style="color:#ef4444;font-size:11px;white-space:pre-wrap;word-break:break-word;text-align:left;font-family:monospace">'+
+      '<b>Erro JS:</b> ' + (e.message||'') + '\n' +
+      '<b>Arquivo:</b> ' + (e.filename||'') + '\n' +
+      '<b>Linha:</b> ' + (e.lineno||'') + ':' + (e.colno||'') +
+      '</div>';
+  }
+});
+
+/* ================================================================
    DATA SERVICE
 ================================================================ */
 const DataService = (() => {
