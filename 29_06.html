@@ -8,7 +8,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js" defer></script>
   <style>
     /* ── TOKENS ─────────────────────────────────────────────── */
     :root {
@@ -1149,7 +1150,7 @@
     }
 
     /* ── DIGITAL CLOCK ───────────────────────────────────────── */
-    @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+    /* Fonte Share Tech Mono carregada via <link> no <head> (evita @import bloqueante) */
     .digital-clock-wrap { display:flex;flex-direction:column;align-items:flex-end;gap:2px;flex-shrink:0; }
     .digital-clock { font-family:'Share Tech Mono','Courier New',monospace;font-size:26px;font-weight:400;
       line-height:1;letter-spacing:.08em;color:var(--orange);
@@ -3857,17 +3858,9 @@
 
 <script>
 /* ================================================================
-   DEBUG — checkpoints visuais de execução (linha do tempo do boot)
+   DEBUG — checkpoints só no console (sem tocar no DOM em produção)
 ================================================================ */
-window.__DEBUG_STEPS__ = [];
-function __dbg__(step){
-  window.__DEBUG_STEPS__.push(step);
-  var panel = document.getElementById('login-form-panel');
-  if(panel){
-    panel.innerHTML = '<div style="color:#f59e0b;font-size:11px;white-space:pre-wrap;text-align:left;font-family:monospace">' +
-      window.__DEBUG_STEPS__.map(function(s,i){ return (i+1)+'. '+s; }).join('\n') + '</div>';
-  }
-}
+function __dbg__(step){ try { console.log('[JARVIS]', step); } catch(e){} }
 __dbg__('Script principal iniciado');
 
 /* ================================================================
@@ -3879,19 +3872,9 @@ window.__CURRENT_USER_EMAIL__ = window.__CURRENT_USER_EMAIL__ ||
   new URLSearchParams(location.search).get('email') || '';
 __dbg__('Email detectado: ' + (window.__CURRENT_USER_EMAIL__ || '(vazio)'));
 
-/* ================================================================
-   DEBUG — mostra qualquer erro JS não tratado direto na tela de
-   login, para diagnosticar sem precisar do DevTools.
-================================================================ */
+/* Erros não tratados vão para o console (sem sobrescrever a UI). */
 window.addEventListener('error', function(e){
-  var panel = document.getElementById('login-form-panel');
-  if(panel){
-    panel.innerHTML = '<div style="color:#ef4444;font-size:11px;white-space:pre-wrap;word-break:break-word;text-align:left;font-family:monospace">'+
-      '<b>Erro JS:</b> ' + (e.message||'') + '\n' +
-      '<b>Arquivo:</b> ' + (e.filename||'') + '\n' +
-      '<b>Linha:</b> ' + (e.lineno||'') + ':' + (e.colno||'') +
-      '</div>';
-  }
+  try { console.error('[JARVIS] Erro JS:', e.message, e.filename, e.lineno + ':' + e.colno); } catch(_){}
 });
 
 /* ================================================================
@@ -3928,7 +3911,8 @@ const DataService = (() => {
   }
 
   function fetchMock(s){
-    return new Promise(res=>setTimeout(()=>res(MOCK[s]||{}), 500+Math.random()*400));
+    // Dados locais: resolve imediato (sem simular latência de rede).
+    return Promise.resolve(MOCK[s]||{});
   }
 
   async function load(s){
@@ -6844,8 +6828,18 @@ function confirmAddTrainCard(){
 
 /* ================================================================
    AUTO-REFRESH
+   - Pausa quando a aba está em segundo plano (economiza CPU/bateria).
+   - Não re-renderiza seções com conteúdo editável (Matriz, Jornal,
+     Mapa de Dados, Configurações): o rebuild via innerHTML apagaria
+     o que o usuário estiver digitando.
 ================================================================ */
-setInterval(()=>{triggerSync();renderSection(currentSection);},60000);
+const NO_AUTOREFRESH_SECTIONS = ['matriz','jornal','mapadados','configuracoes'];
+setInterval(()=>{
+  if(document.hidden) return;
+  if(NO_AUTOREFRESH_SECTIONS.includes(currentSection)) return;
+  triggerSync();
+  renderSection(currentSection);
+},60000);
 
 
 /* ================================================================
