@@ -61,7 +61,8 @@
       "Bash(grep -n \"^</script>$\\\\|document.addEventListener\\('DOMContentLoaded'\\\\|function runAutoAuth\" 29_06.html)",
       "Bash(grep -n \"^  <style>$\\\\|^  </style>$\\\\|^<body>$\\\\|^<script>$\\\\|^</script>$\\\\|^</body>$\\\\|^</html>$\" 29_06.html)",
       "Bash(cp /tmp/js.raw /tmp/js_check.js)",
-      "Bash(node --check /tmp/js_check.js)"
+      "Bash(node --check /tmp/js_check.js)",
+      "Bash(grep -n \"^<div id=\\\\\"login-screen\\\\\">$\\\\|DOMContentLoaded\\\\|function runAutoAuth\" 29_06.html)"
     ]
   }
 }

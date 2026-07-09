@@ -15,8 +15,9 @@
 <script>window.__CURRENT_USER_EMAIL__ = <?!= JSON.stringify(currentUserEmail || "") ?>;</script>
 
 
-<!-- LOGIN SCREEN -->
-<div id="login-screen">
+<!-- LOGIN SCREEN — oculta por padrão via HTML (não depende do JS carregar
+     para não travar o acesso ao site) -->
+<div id="login-screen" class="hidden">
   <div class="login-wrap">
     <div class="login-brand">
       <div class="login-brand-eye"><svg class="jarvis-arc-lg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">

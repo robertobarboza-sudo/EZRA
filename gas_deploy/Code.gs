@@ -18,23 +18,6 @@ function doGet(e) {
       try { activeEmail = Session.getEffectiveUser().getEmail() || ''; } catch (e) {}
     }
 
-    // Gate de acesso feito no servidor: qualquer conta @shopee.com entra.
-    // Não depende do JS do cliente para decidir quem acessa.
-    var domainOk = /@shopee\.com$/i.test(activeEmail);
-    if (!domainOk) {
-      return HtmlService.createHtmlOutput(
-        '<div style="font-family:Inter,Arial,sans-serif;background:#1a1d2e;color:#e8eaf0;' +
-        'min-height:100vh;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px">' +
-        '<div style="max-width:420px">' +
-        '<h2 style="margin-bottom:12px">Acesso restrito</h2>' +
-        '<p style="color:#9497b0;font-size:13px;line-height:1.6">' +
-        'Este sistema é restrito a contas @shopee.com.<br><br>' +
-        (activeEmail ? 'Conta identificada: ' + escapeHtml_(activeEmail) + '<br><br>' : '') +
-        'Procure o desenvolvedor para cadastrar ou ajustar acesso<br>' +
-        'SeaTalk: roberto.barboza@shopee.com</p></div></div>'
-      ).setTitle('Acesso restrito — J.A.R.V.I.S.');
-    }
-
     var template = HtmlService.createTemplateFromFile('Index');
 
     // Exemplo de dado passado do servidor para o template no carregamento inicial.
