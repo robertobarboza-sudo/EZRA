@@ -22,7 +22,13 @@
       "Bash(clasp --version)",
       "Bash(git mv *)",
       "Bash(sed -n '1899,3876p' 29_06.html)",
-      "Read(//tmp/**)"
+      "Read(//tmp/**)",
+      "Bash(npm install *)",
+      "Bash(clasp login *)",
+      "Bash(clasp create *)",
+      "Bash(clasp push *)",
+      "Bash(clasp deploy *)",
+      "Bash(clasp deployments *)"
     ]
   }
 }
