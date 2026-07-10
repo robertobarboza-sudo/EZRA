@@ -1,4 +1,9 @@
 <script>
+(function(){
+  var b = document.getElementById('js-boot-badge');
+  if(b){ b.textContent = 'JS: OK'; b.style.background = '#10b981'; }
+})();
+
 /* ================================================================
    DEBUG — checkpoints só no console (sem tocar no DOM em produção)
 ================================================================ */
