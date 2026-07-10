@@ -64,7 +64,11 @@
       "Bash(node --check /tmp/js_check.js)",
       "Bash(grep -n \"^<div id=\\\\\"login-screen\\\\\">$\\\\|DOMContentLoaded\\\\|function runAutoAuth\" 29_06.html)",
       "Bash(sed -n '3859,6888p' 29_06.html)",
-      "Bash(node --check /tmp/perf_js.js)"
+      "Bash(node --check /tmp/perf_js.js)",
+      "Bash(mkdir -p /tmp/jarvis_minitest)",
+      "Bash(mkdir -p \"/c/Users/SPXBR2983/Documents/Ezra/minitest\" && cp /tmp/jarvis_minitest/Code.gs /tmp/jarvis_minitest/appsscript.json \"/c/Users/SPXBR2983/Documents/Ezra/minitest/\" && ls \"/c/Users/SPXBR2983/Documents/Ezra/minitest/\")",
+      "Bash(sed -n '3865,6892p' Index.html)",
+      "Bash(node --check /tmp/idx_js_check.js)"
     ]
   }
 }

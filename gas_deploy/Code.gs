@@ -18,15 +18,13 @@ function doGet(e) {
       try { activeEmail = Session.getEffectiveUser().getEmail() || ''; } catch (e) {}
     }
 
-    var template = HtmlService.createTemplateFromFile('Index');
+    // Sem template do Apps Script (evaluate()/scriptlets): em testes, o <script>
+    // de uma página grande servida via template perdia a permissão de execução
+    // no sandbox do Google. Substituição de texto simples evita esse problema.
+    var html = HtmlService.createHtmlOutputFromFile('Index').getContent();
+    html = html.replace('__CURRENT_USER_EMAIL_PLACEHOLDER__', JSON.stringify(activeEmail));
 
-    // Exemplo de dado passado do servidor para o template no carregamento inicial.
-    // Fica disponível em Index.html como: <?= appVersion ?>
-    template.appVersion = '1.0.0';
-    template.deployedAt = new Date().toISOString();
-    template.currentUserEmail = activeEmail;
-
-    return template.evaluate()
+    return HtmlService.createHtmlOutput(html)
       .setTitle('J.A.R.V.I.S. — COP RJ2 2026')
       .addMetaTag('viewport', 'width=device-width, initial-scale=1.0')
       // IFRAME é o único modo suportado atualmente pelo HtmlService para Web Apps
@@ -39,18 +37,6 @@ function doGet(e) {
       '<h3>Erro ao carregar o dashboard</h3><p>' + escapeHtml_(err.message) + '</p>'
     );
   }
-}
-
-/**
- * include — usada dentro dos templates HTML para injetar outros arquivos .html.
- * Uso em Index.html:  <?!= include('CSS'); ?>   <?!= include('JS'); ?>
- * O "!" (vs "=") é obrigatório: ele diz ao HtmlService para NÃO escapar o conteúdo,
- * já que estamos inserindo HTML/CSS/JS puro, não texto.
- * @param {string} filename
- * @returns {string}
- */
-function include(filename) {
-  return HtmlService.createHtmlOutputFromFile(filename).getContent();
 }
 
 /**
