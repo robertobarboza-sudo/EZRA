@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>J.A.R.V.I.S. v1.0 — COP RJ2 2026</title>
+  <title>PULSO v1.0 — COP RJ2 2026</title>
   <link rel="preconnect" href="https://fonts.googleapis.com"/>
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
@@ -1586,7 +1586,7 @@
       margin-bottom: 24px; position: relative; overflow: hidden;
     }
     .jornal-header-card::before {
-      content: 'JARVIS INFORMA';
+      content: 'PULSO INFORMA';
       position: absolute; right: 24px; top: 50%; transform: translateY(-50%);
       font-size: 80px; font-weight: 900; color: rgba(238,77,45,.06);
       letter-spacing: -.02em; pointer-events: none;
@@ -1833,7 +1833,7 @@
   </circle>
 </svg></div>
       <div class="login-brand-name">
-        <span class="jarvis-top">J.A.R.V.I.S.</span>
+        <span class="jarvis-top">PULSO</span>
         <span class="jarvis-ver">v 1 . 0</span>
       </div>
       <div class="login-brand-sub">Sistema de monitoramento operacional</div>
@@ -1873,7 +1873,7 @@
         <i class="fas fa-arrow-right-to-bracket"></i> Entrar
       </button>
       <div class="login-footer">
-        J.A.R.V.I.S. v1.0 · COP RJ2 2026 · Acesso restrito
+        PULSO v1.0 · COP RJ2 2026 · Acesso restrito
       </div>
     </div>
   </div>
@@ -1927,7 +1927,7 @@
     <animate attributeName="opacity" values="0.85;1;0.85" dur="2s" repeatCount="indefinite"/>
   </circle>
 </svg></div>
-    <span class="logo-text">JARVIS</span>
+    <span class="logo-text">PULSO</span>
   </div>
 
   <div class="sidebar-nav">
@@ -3061,7 +3061,7 @@
           <a class="tool-card" href="#" onclick="return promptToolLink(this)" data-link="">
             <div class="tool-card-thumb"><i class="fas fa-chart-bar tool-icon"></i></div>
             <div class="tool-card-body">
-              <div class="tool-card-name">JARVIS Dashboard</div>
+              <div class="tool-card-name">PULSO Dashboard</div>
               <div class="tool-card-desc">Portal de monitoramento operacional em tempo real.</div>
               <div class="tool-card-link"><i class="fas fa-arrow-up-right-from-square"></i> Acessar</div>
             </div>
@@ -3112,7 +3112,7 @@
               <span class="modal-title"><i class="fas fa-plus-circle" style="color:var(--orange);margin-right:8px"></i>Nova Ferramenta</span>
               <button class="modal-close" onclick="document.getElementById('tool-add-modal').classList.remove('open')"><i class="fas fa-xmark"></i></button>
             </div>
-            <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="tool-name" placeholder="Ex: Dashboard JARVIS"/></div>
+            <div class="form-group"><label class="form-label">Nome *</label><input class="form-input" id="tool-name" placeholder="Ex: Dashboard PULSO"/></div>
             <div class="form-group"><label class="form-label">Link (URL)</label><input class="form-input" id="tool-link" type="url" placeholder="https://…"/></div>
             <div class="form-group"><label class="form-label">Foto / Imagem</label>
               <input type="file" id="tool-img-input" accept="image/*" style="display:none" onchange="previewToolImg(this)"/>
@@ -5200,7 +5200,7 @@ function printDash(sectionId){
 </style></head><body>
 <div style="padding:16px">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:10px;border-bottom:1px solid rgba(255,255,255,.1)">
-    <div style="font-size:11px;color:#ee4d2d;font-weight:700;letter-spacing:.1em">JARVIS RJ2 2026</div>
+    <div style="font-size:11px;color:#ee4d2d;font-weight:700;letter-spacing:.1em">PULSO RJ2 2026</div>
     <div style="font-size:11px;color:#5c5f7a">|</div>
     <div style="font-size:11px;color:#9497b0">${title}</div>
     <div style="margin-left:auto;font-size:10px;color:#5c5f7a">${new Date().toLocaleString('pt-BR')} — ${typeof currentUser!=='undefined' && currentUser ? currentUser.name : '—'}</div>
@@ -5228,7 +5228,7 @@ function corporativoPDF(sectionId){
   const html = `<!DOCTYPE html>
 <html><head>
 <meta charset="UTF-8"/>
-<title>${title} — JARVIS RJ2</title>
+<title>${title} — PULSO RJ2</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
   * { box-sizing:border-box; margin:0; padding:0; }
@@ -5251,11 +5251,11 @@ function corporativoPDF(sectionId){
   @media print { body { padding:10px; } }
 </style>
 </head><body>
-<h1 class="accent">JARVIS <span style="font-weight:300;color:#999">RJ2 2026</span></h1>
+<h1 class="accent">PULSO <span style="font-weight:300;color:#999">RJ2 2026</span></h1>
 <div class="sub">${title}</div>
 <div class="meta">Gerado em: ${new Date().toLocaleString('pt-BR')} &nbsp;|&nbsp; Usuário: ${typeof currentUser!=='undefined' && currentUser ? currentUser.name : '—'} &nbsp;|&nbsp; COP RJ2 2026</div>
 ${buildPrintContent(section)}
-<div class="footer"><span>JARVIS v1.0 — COP RJ2 2026</span><span>${title} — ${new Date().toLocaleDateString('pt-BR')}</span></div>
+<div class="footer"><span>PULSO v1.0 — COP RJ2 2026</span><span>${title} — ${new Date().toLocaleDateString('pt-BR')}</span></div>
 </body></html>`;
 
   const win = window.open('', '_blank');
@@ -5729,7 +5729,7 @@ function addDataEntry(){
 /* ── Shared state ── */
 const JORNAL_STATE = {
   articles: [
-    { tag:'Operação', title:'Bem-vindos à nova edição do Jornal JARVIS', content:'Esta é a nossa comunicação semanal com toda a equipe. Use este espaço para compartilhar conquistas, alertas e novidades da operação.', date: new Date().toLocaleDateString('pt-BR') },
+    { tag:'Operação', title:'Bem-vindos à nova edição do Jornal PULSO', content:'Esta é a nossa comunicação semanal com toda a equipe. Use este espaço para compartilhar conquistas, alertas e novidades da operação.', date: new Date().toLocaleDateString('pt-BR') },
   ],
   birthdays: [],
   avisos: [
