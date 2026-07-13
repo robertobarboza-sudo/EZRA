@@ -4,6 +4,7 @@ Registro das alterações do site PULSO, em ordem cronológica (mais recente no 
 
 ## 2026-07-13
 
+- **Vercel Web Analytics habilitado.** Snippet de script adicionado no `<head>` do `index.html` (sem pacote npm, já que o site não tem build step). (`87a3c51`)
 - **Filtros removidos do header global.** Semana, Mês, Data e Turno saíram do topo do site — vão ser recolocados dentro de cada página específica em vez de ficar fixos globalmente. (`55734a7`)
 - **Rebranding: J.A.R.V.I.S. → PULSO.** Nome trocado em todo o texto visível (título da aba, tela de login, sidebar, relatórios exportados). (`a76bd76`)
 - **Site publicado na Vercel.** `index.html` (cópia de `checkpoints/versão_demo.html`) adicionado na raiz do repositório para hospedagem estática. Domínio ativo: `pulso-rj2.vercel.app`. (`b0f3b2c`)
