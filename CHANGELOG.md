@@ -2,6 +2,11 @@
 
 Registro das alterações do site PULSO, em ordem cronológica (mais recente no topo).
 
+## 2026-07-15
+
+- **Integração Google Sheets — estrutura completa (piloto: Backlog).** Criados o Apps Script (`gas/Code.gs`) que publica abas da planilha como JSON, a function `/api/dados` na Vercel (proxy com cache de 5 min; URL do script protegida em env var `GAS_URL`) e a camada `LIVE_SECTIONS` no DataService do front. A seção Backlog saiu do placeholder "Em Construção" e ganhou interface completa (abas Received/Packed/EHA, filtro por perfil, cards e gráficos por hora), lendo da planilha com fallback automático para dados demo. Contrato de colunas e passo a passo em `docs/integracao-planilha.md`.
+- **Correção: troca de aba no Backlog não montava os cards.** `bklTab` agora reconstrói o painel completo (cards + gráficos), não só os gráficos.
+
 ## 2026-07-13
 
 - **Vercel Web Analytics habilitado.** Snippet de script adicionado no `<head>` do `index.html` (sem pacote npm, já que o site não tem build step). (`87a3c51`)

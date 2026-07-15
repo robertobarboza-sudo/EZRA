@@ -2389,31 +2389,11 @@
     <!-- BACKLOG -->
         <section id="section-backlog" class="section">
       <div class="section-header" id="section-backlog-header">
-        <!-- header restored below by JS -->
-      </div>
-      <div id="section-backlog-wip" style="
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        min-height:420px;text-align:center;gap:20px;padding:40px">
-        <div style="
-          width:90px;height:90px;border-radius:50%;
-          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
-          display:flex;align-items:center;justify-content:center;font-size:36px">
-          🚧
+        <div class="section-header-left">
+          <div class="section-title">Backlog <span class="ds-badge ok" id="ds-badge-backlog" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Monitoramento de fila · Received / Packed / EHA</div>
         </div>
-        <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Backlog</div>
-          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
-            Esta seção está em construção.<br/>
-            Os dados reais serão integrados via Google Sheets.
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;
-          background:var(--surface);border:1px solid var(--border);
-          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
-          <i class="fas fa-database" style="color:var(--orange)"></i>
-          Aguardando conexão com a fonte de dados
-        </div>
-        <div style="display:flex;gap:10px">
+        <div class="section-dl-group">
           <div class="pdf-menu-wrap">
             <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('backlog',event)">
               <i class="fas fa-file-pdf"></i> PDF
@@ -2426,6 +2406,57 @@
             </div>
           </div>
           <button class="dl-btn dl-btn-csv" onclick="downloadCSV('backlog')"><i class="fas fa-file-csv"></i> CSV</button>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
+        <div class="bkl-tabs">
+          <div class="bkl-tab active" onclick="bklTab('received',this)">Received</div>
+          <div class="bkl-tab" onclick="bklTab('packed',this)">Packed</div>
+          <div class="bkl-tab" onclick="bklTab('eha',this)">EHA</div>
+        </div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <button class="bkl-pf-btn active" onclick="bklProfileFilter('all',this)">Todos</button>
+          <button class="bkl-pf-btn" onclick="bklProfileFilter('p',this)">P</button>
+          <button class="bkl-pf-btn" onclick="bklProfileFilter('m',this)">M</button>
+          <button class="bkl-pf-btn" onclick="bklProfileFilter('g',this)">G</button>
+          <button class="bkl-pf-btn" onclick="bklProfileFilter('bk',this)">Bulky</button>
+        </div>
+      </div>
+
+      <div class="bkl-panel active" id="bkl-panel-received">
+        <div class="bkl-profiles" id="bkl-cards-received"></div>
+        <div class="chart-card full">
+          <div class="chart-title">Backlog por perfil — por hora</div>
+          <div style="height:300px;margin-top:12px"><canvas id="chart-bkl-received"></canvas></div>
+        </div>
+        <div class="chart-card full accent-orange" style="margin-top:16px">
+          <div class="chart-title">Backlog total — por hora</div>
+          <div style="height:280px;margin-top:12px"><canvas id="chart-bkl-received-total"></canvas></div>
+        </div>
+      </div>
+
+      <div class="bkl-panel" id="bkl-panel-packed">
+        <div class="bkl-profiles" id="bkl-cards-packed"></div>
+        <div class="chart-card full">
+          <div class="chart-title">Backlog por perfil — por hora</div>
+          <div style="height:300px;margin-top:12px"><canvas id="chart-bkl-packed"></canvas></div>
+        </div>
+        <div class="chart-card full accent-orange" style="margin-top:16px">
+          <div class="chart-title">Backlog total — por hora</div>
+          <div style="height:280px;margin-top:12px"><canvas id="chart-bkl-packed-total"></canvas></div>
+        </div>
+      </div>
+
+      <div class="bkl-panel" id="bkl-panel-eha">
+        <div class="bkl-profiles" id="bkl-cards-eha"></div>
+        <div class="chart-card full">
+          <div class="chart-title">Backlog por perfil — por hora</div>
+          <div style="height:300px;margin-top:12px"><canvas id="chart-bkl-eha"></canvas></div>
+        </div>
+        <div class="chart-card full accent-orange" style="margin-top:16px">
+          <div class="chart-title">Backlog total — por hora</div>
+          <div style="height:280px;margin-top:12px"><canvas id="chart-bkl-eha-total"></canvas></div>
         </div>
       </div>
     </section>
@@ -3379,7 +3410,30 @@ const DataService = (() => {
     return new Promise(res=>setTimeout(()=>res(MOCK[s]||{}), 500+Math.random()*400));
   }
 
+  // Seções ligadas à planilha (Google Sheets → Apps Script → /api/dados)
+  const LIVE_SECTIONS = ['backlog'];
+
+  async function fetchLive(s){
+    const r = await fetch('/api/dados?tabs='+encodeURIComponent(s), {cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro||'resposta inválida');
+    return j;
+  }
+
   async function load(s){
+    if(LIVE_SECTIONS.includes(s)){
+      try {
+        const j = await fetchLive(s);
+        const rows = (j.dados && j.dados[s]) || [];
+        if(rows.length){
+          const hora = new Date(j.atualizadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+          return {data:rows, source:'Planilha · '+hora};
+        }
+      } catch(err){
+        console.warn('[DataService] planilha indisponível para "'+s+'", usando demo:', err.message);
+      }
+    }
     if(CONFIG.source==='sheets'&&CONFIG.sheets[s]) return {data:await fetchSheets(s),source:'Google Sheets'};
     if(CONFIG.source==='api'&&CONFIG.api.baseUrl) return {data:await fetchAPI(s),source:'API REST'};
     return {data:await fetchMock(s),source:'Demo'};
@@ -4638,8 +4692,30 @@ const BKL_DATA = {
   eha:      genBklData('eha'),
 };
 
-function renderBacklog(){
-  setBadge('backlog','ok','Em Construção');
+// Aplica as linhas da planilha (tipo, perfil, total, meta, h1..h24 opcionais) sobre BKL_DATA
+function aplicarBacklogPlanilha(rows){
+  rows.forEach(r => {
+    const tipo   = String(r.tipo||'').trim().toLowerCase();
+    const perfil = String(r.perfil||'').trim().toLowerCase();
+    const alvo = BKL_DATA[tipo] && BKL_DATA[tipo][perfil];
+    if(!alvo) return;
+    if(r.total !== '' && r.total != null && !isNaN(+r.total)) alvo.total = Math.round(+r.total);
+    if(r.meta  !== '' && r.meta  != null && !isNaN(+r.meta))  alvo.meta  = Math.round(+r.meta);
+    const hourly = [];
+    for(let h=1; h<=24; h++){
+      const v = r['h'+h];
+      if(v === undefined || v === '' || isNaN(+v)) break;
+      hourly.push(Math.round(+v));
+    }
+    if(hourly.length === 24) alvo.hourly = hourly;
+  });
+}
+
+function renderBacklog(data){
+  if(Array.isArray(data) && data.length) aplicarBacklogPlanilha(data);
+  const activePanel = document.querySelector('.bkl-panel.active');
+  const type = activePanel ? activePanel.id.replace('bkl-panel-','') : 'received';
+  buildBklPanel(type);
 }
 
 let BKL_ACTIVE_PROFILE = 'all';
@@ -4670,7 +4746,7 @@ function bklTab(id, el){
       if(chartInstances[cid]){ chartInstances[cid].destroy(); delete chartInstances[cid]; }
     });
   });
-  buildBklChart(id);
+  buildBklPanel(id);
 }
 
 function buildBklPanel(type){
