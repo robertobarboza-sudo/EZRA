@@ -1,27 +1,45 @@
 /**
- * PULSO — proxy de dados: planilha (Apps Script) → front-end.
+ * PULSO — proxy de dados: Google Sheets (Service Account) → front-end.
  *
- * O front chama /api/dados?tabs=backlog. Esta function repassa a chamada
- * ao Web App do Apps Script (URL guardada na env var GAS_URL, nunca exposta
- * ao navegador) e devolve o JSON com cache de CDN de 5 minutos.
+ * O front chama /api/dados?tabs=clusterizacao. Esta function autentica como
+ * a Service Account (GOOGLE_SERVICE_ACCOUNT_EMAIL/GOOGLE_PRIVATE_KEY, nunca
+ * expostas ao navegador) e lê a aba correspondente via Sheets API v4.
  */
+const { fetchTabByGid } = require('./_google');
+
+// section (usado pelo front) → planilha + gid da aba
+const CONFIG = {
+  clusterizacao: {
+    spreadsheetId: '1sn2V55qslwcjrbnCklVzxjoPrerO_Ba7XAfRKQ-XV_0',
+    gid: '1819579584', // aba "Outbound Ontime"
+  },
+};
+
 module.exports = async (req, res) => {
-  const base = process.env.GAS_URL;
-  if (!base) {
-    res.status(503).json({ ok: false, erro: 'GAS_URL não configurada no projeto Vercel' });
-    return;
-  }
+  const pedidas = typeof req.query.tabs === 'string'
+    ? req.query.tabs.split(',').map(t => t.trim()).filter(Boolean)
+    : Object.keys(CONFIG);
 
-  const tabs = typeof req.query.tabs === 'string' ? req.query.tabs : '';
-  const url = base + (tabs ? '?tabs=' + encodeURIComponent(tabs) : '');
+  const dados = {};
+  const erros = {};
 
-  try {
-    const r = await fetch(url, { redirect: 'follow' });
-    if (!r.ok) throw new Error('HTTP ' + r.status);
-    const body = await r.json();
-    res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
-    res.status(200).json(body);
-  } catch (err) {
-    res.status(502).json({ ok: false, erro: 'Falha ao consultar a planilha: ' + err.message });
-  }
+  await Promise.all(pedidas.map(async (secao) => {
+    const cfg = CONFIG[secao];
+    if (!cfg) return;
+    try {
+      const { rows } = await fetchTabByGid(cfg.spreadsheetId, cfg.gid);
+      dados[secao] = rows;
+    } catch (err) {
+      erros[secao] = err.message;
+    }
+  }));
+
+  const errKeys = Object.keys(erros);
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
+  res.status(200).json({
+    ok: errKeys.length === 0,
+    atualizadoEm: new Date().toISOString(),
+    dados,
+    ...(errKeys.length ? { erro: erros[errKeys[0]], erros } : {}),
+  });
 };

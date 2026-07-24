@@ -4,10 +4,10 @@
 
 ```
 Google Sheets (planilha privada, você edita)
-        │  lida pelo Apps Script (gas/Code.gs, vinculado à planilha)
+        │  compartilhada como Leitor com a Service Account
         ▼
-Web App do Apps Script — endpoint JSON (URL secreta)
-        │  chamada servidor-a-servidor
+Google Sheets API v4 — autenticado via JWT Bearer (Service Account)
+        │  chamada servidor-a-servidor (api/_google.js)
         ▼
 Vercel Function  /api/dados  (api/dados.js)
         │  cache de CDN: 5 min (s-maxage=300)
@@ -15,53 +15,82 @@ Vercel Function  /api/dados  (api/dados.js)
 Front-end PULSO (index.html → DataService)
         │  fallback automático para dados demo se a planilha estiver fora
         ▼
-Cards e gráficos da seção
+Cards, gráficos e o mapa de Clusterização
 ```
 
-- A URL do Web App fica **só** na variável de ambiente `GAS_URL` do projeto
-  Vercel — nunca aparece no navegador.
-- O cache de 5 minutos na CDN protege a planilha de excesso de chamadas.
-  Dados "a cada 30 min" e "a cada 5 min" são cobertos pelo mesmo cache.
-- Se a API falhar, o site continua no ar com os dados demo e a etiqueta
-  da seção mostra `Demo` em vez de `Planilha · HH:MM`.
+> Histórico: a primeira versão usava um Apps Script Web App como proxy.
+> O admin do Workspace da Shopee desabilitou acesso "ANYONE" (anônimo) em
+> Web Apps do domínio, então trocamos para uma Service Account do Google
+> Cloud + Sheets API — abordagem padrão para acesso servidor-a-servidor
+> sem depender de link público.
 
-## Contrato da aba `backlog`
+- As credenciais da Service Account ficam **só** nas variáveis de ambiente
+  `GOOGLE_SERVICE_ACCOUNT_EMAIL` e `GOOGLE_PRIVATE_KEY` do projeto Vercel —
+  nunca aparecem no navegador.
+- Cada aba é referenciada pelo **gid** (id numérico fixo da aba, visível na
+  URL `...#gid=NNNN`), não pelo nome — sobrevive a renomeações da aba.
+- Cache de 5 minutos na CDN cobre as cadências de "a cada 30 min" e
+  "a cada 5 min" sem sobrecarregar a API do Google.
+- Se a API falhar, o site continua no ar com dados demo e a etiqueta da
+  seção mostra `Demo` em vez de `Planilha · HH:MM`.
 
-Primeira linha = cabeçalho (sem distinção de maiúsculas/minúsculas). Uma
-linha por combinação tipo × perfil:
+## Configuração da Service Account (uma vez)
 
-| tipo     | perfil | total | meta | h1  | h2  | ... | h24 |
-|----------|--------|-------|------|-----|-----|-----|-----|
-| received | p      | 4200  | 4000 | 180 | 210 | ... | 95  |
-| received | m      | 3100  | 3000 |     |     |     |     |
-| received | g      | 1500  | 1500 |     |     |     |     |
-| received | bk     | 600   | 700  |     |     |     |     |
-| packed   | p      | 3800  | 4000 |     |     |     |     |
-| ...      | ...    | ...   | ...  |     |     |     |     |
+1. Google Cloud Console → ativar **Google Sheets API** no projeto.
+2. Criar uma Service Account (ex: `pulso-sheets-reader`) e gerar uma
+   chave JSON.
+3. Compartilhar a planilha com o `client_email` da Service Account,
+   permissão **Leitor**.
+4. No projeto `pulso` da Vercel → Settings → Environment Variables,
+   adicionar:
+   - `GOOGLE_SERVICE_ACCOUNT_EMAIL` — o `client_email` do JSON.
+   - `GOOGLE_PRIVATE_KEY` — o valor de `private_key` do JSON (com as
+     quebras de linha `\n`).
+5. Redeploy do projeto para as variáveis valerem.
 
-- `tipo`: `received`, `packed` ou `eha`
-- `perfil`: `p`, `m`, `g` ou `bk`
-- `total` e `meta`: números inteiros
-- `h1`..`h24` (opcionais): série horária dos gráficos, na ordem do eixo —
-  `h1` = 06:00, `h2` = 07:00 … `h24` = 05:00. Se ausentes ou incompletas,
-  o gráfico mantém a série demo.
+## Seções ligadas e suas planilhas
 
-## Como publicar o Apps Script (uma vez)
+Configurado em `CONFIG` no topo de [api/dados.js](../api/dados.js):
 
-O código está em [gas/Code.gs](../gas/Code.gs). Deploy via `clasp` (já
-logado nesta máquina) depois de vincular ao ID da planilha, ou manualmente:
-Extensões → Apps Script na planilha → colar o código → Implantar →
-Nova implantação → App da Web → Executar como "Eu" · Acesso "Qualquer
-pessoa" → copiar a URL `/exec`.
+| Seção          | Planilha (spreadsheetId)              | Aba (gid)   |
+|----------------|----------------------------------------|-------------|
+| `clusterizacao`| `1sn2V55qslwcjrbnCklVzxjoPrerO_Ba7XAfRKQ-XV_0` | `1819579584` (aba `outbound_ontime`) |
 
-A URL vai na env var `GAS_URL` do projeto `pulso` na Vercel
-(Settings → Environment Variables) e exige um redeploy para valer.
+## Contrato de colunas — Clusterização (aba `outbound_ontime`)
+
+Primeira linha = cabeçalho (case-insensitive). Uma linha por combinação
+doca × rua/posição de stage:
+
+| coluna         | obrigatório | descrição                                   |
+|----------------|-------------|----------------------------------------------|
+| `doca`         | sim         | identificador da doca (ex: `D01`)             |
+| `rua`          | sim         | identificador da rua/posição (ex: `RUA 01`)   |
+| `spp`          | não         | posição SPP                                   |
+| `saca`         | não         | identificação da saca                         |
+| `scuttle`      | não         | identificação do scuttle                      |
+| `posocc`       | sim         | posições ocupadas (número)                    |
+| `poscap`       | sim         | capacidade de posições (número)               |
+| `aging`        | não         | aging médio em horas (número)                 |
+| `pacotesovr`   | não         | pacotes em overflow (número)                  |
+| `proxcpt`      | não         | próximo CPT (texto/horário)                   |
+| `timercpt`     | não         | timer até o CPT (texto)                       |
+| `ocupacao`     | não         | % ocupação; se ausente, calculado de posocc/poscap |
+| `posicoespend` | não         | posições pendentes de endereçamento (número)  |
+| `cidade`       | não         | cidade/hub do fanout endereçado                |
+| `clusterideal` | não         | cluster ideal sugerido, pra comparar com `cidade` |
+
+O front-end (`linhasParaDocas` em `index.html`) agrupa as linhas por
+`doca` e monta a grade doca × rua que alimenta `buildClusterSummary` e
+`buildClusterTable` — o mapa de ocupação, KPIs (% clusterização, aging
+médio, ruas OK/NOK etc.) e as barras de stage.
 
 ## Como ligar uma nova seção
 
-1. Criar a aba na planilha e definir o contrato de colunas.
-2. Adicionar o nome da aba em `ABAS_LIBERADAS` no `gas/Code.gs` e
-   republicar o script.
-3. Adicionar a seção em `LIVE_SECTIONS` no `DataService` (index.html).
-4. Fazer o `render<Seção>` consumir as linhas recebidas (ver
-   `aplicarBacklogPlanilha` como referência).
+1. Definir o contrato de colunas da aba de origem.
+2. Adicionar a entrada em `CONFIG` (`api/dados.js`) com `spreadsheetId` e
+   `gid`.
+3. Adicionar o nome da seção em `LIVE_SECTIONS` no `DataService`
+   (`index.html`).
+4. Compartilhar a planilha (se for outra) com a Service Account.
+5. Escrever a função de conversão linhas → estrutura da UI (ver
+   `linhasParaDocas` como referência) e plugar no `render<Seção>`.

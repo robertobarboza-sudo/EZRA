@@ -2,6 +2,11 @@
 
 Registro das alterações do site PULSO, em ordem cronológica (mais recente no topo).
 
+## 2026-07-24
+
+- **Troca de arquitetura: Apps Script → Service Account (Google Sheets API).** O admin do Workspace da Shopee desabilitou acesso anônimo ("ANYONE") em Web Apps do Apps Script, bloqueando a abordagem anterior. Substituído por autenticação servidor-a-servidor via Service Account (`api/_google.js`, JWT Bearer + Sheets API v4), com credenciais em `GOOGLE_SERVICE_ACCOUNT_EMAIL`/`GOOGLE_PRIVATE_KEY`. `gas/` removido. `/api/dados` agora resolve abas pelo `gid` (sobrevive a renomeações).
+- **Seção Clusterização ligada à planilha — mapa de docas/ruas ao vivo.** A aba `outbound_ontime` alimenta o mapa de ocupação (já existia pronto no código, só não estava conectado): grade doca × rua, barras de stage, aging, fanout endereçado, cluster ideal e KPIs (% clusterização, ruas OK/NOK etc.). Contrato de colunas em `docs/integracao-planilha.md`.
+
 ## 2026-07-15
 
 - **Integração Google Sheets — estrutura completa (piloto: Backlog).** Criados o Apps Script (`gas/Code.gs`) que publica abas da planilha como JSON, a function `/api/dados` na Vercel (proxy com cache de 5 min; URL do script protegida em env var `GAS_URL`) e a camada `LIVE_SECTIONS` no DataService do front. A seção Backlog saiu do placeholder "Em Construção" e ganhou interface completa (abas Received/Packed/EHA, filtro por perfil, cards e gráficos por hora), lendo da planilha com fallback automático para dados demo. Contrato de colunas e passo a passo em `docs/integracao-planilha.md`.

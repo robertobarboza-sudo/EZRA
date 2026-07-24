@@ -2345,31 +2345,11 @@
     <!-- CLUSTERIZAÇÃO -->
         <section id="section-clusterizacao" class="section">
       <div class="section-header" id="section-clusterizacao-header">
-        <!-- header restored below by JS -->
-      </div>
-      <div id="section-clusterizacao-wip" style="
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        min-height:420px;text-align:center;gap:20px;padding:40px">
-        <div style="
-          width:90px;height:90px;border-radius:50%;
-          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
-          display:flex;align-items:center;justify-content:center;font-size:36px">
-          🚧
+        <div class="section-header-left">
+          <div class="section-title">Clusterização <span class="ds-badge ok" id="ds-badge-clusterizacao" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Mapa de Ocupação · Docas / Ruas de Stage</div>
         </div>
-        <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Clusterização</div>
-          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
-            Esta seção está em construção.<br/>
-            Os dados reais serão integrados via Google Sheets.
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;
-          background:var(--surface);border:1px solid var(--border);
-          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
-          <i class="fas fa-database" style="color:var(--orange)"></i>
-          Aguardando conexão com a fonte de dados
-        </div>
-        <div style="display:flex;gap:10px">
+        <div class="section-dl-group">
           <div class="pdf-menu-wrap">
             <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('clusterizacao',event)">
               <i class="fas fa-file-pdf"></i> PDF
@@ -2383,6 +2363,12 @@
           </div>
           <button class="dl-btn dl-btn-csv" onclick="downloadCSV('clusterizacao')"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
+      </div>
+
+      <div class="clst-summary-bar" id="clst-summary"></div>
+
+      <div class="clst-table-wrap">
+        <table class="clst-table" id="clst-main-table"></table>
       </div>
     </section>
 
@@ -3411,7 +3397,7 @@ const DataService = (() => {
   }
 
   // Seções ligadas à planilha (Google Sheets → Apps Script → /api/dados)
-  const LIVE_SECTIONS = ['backlog'];
+  const LIVE_SECTIONS = ['backlog', 'clusterizacao'];
 
   async function fetchLive(s){
     const r = await fetch('/api/dados?tabs='+encodeURIComponent(s), {cache:'no-store'});
@@ -4403,8 +4389,58 @@ function genClusterData(){
 
 let CLUSTER_DATA = null;
 
-function renderClusterizacao(){
-  setBadge('clusterizacao','ok','Em Construção');
+// Converte linhas planas da aba "Outbound Ontime" (1 linha por rua/posição de stage)
+// na estrutura aninhada docas → ruas usada por buildClusterSummary/buildClusterTable.
+// Colunas esperadas (case-insensitive): doca, rua, spp, saca, scuttle, posocc, poscap,
+// aging, pacotesovr, proxcpt, timercpt, posicoespend, cidade, clusterideal
+function linhasParaDocas(rows){
+  const num = v => { const n = parseFloat(String(v).replace(',','.')); return isNaN(n) ? 0 : n; };
+  const numOrNull = v => (v===undefined||v===null||v==='') ? null : num(v);
+
+  const porDoca = new Map();
+  rows.forEach(r => {
+    const docaId = String(r.doca ?? r.doca_id ?? '').trim();
+    const ruaId  = String(r.rua ?? r.rua_id ?? '').trim();
+    if(!docaId || !ruaId) return;
+    if(!porDoca.has(docaId)) porDoca.set(docaId, { id: docaId, ruas: [] });
+
+    const posOcc = num(r.posocc ?? r.pos_occ);
+    const posCap = num(r.poscap ?? r.pos_cap);
+    const ocupacao = r.ocupacao !== undefined && r.ocupacao !== ''
+      ? Math.round(num(r.ocupacao))
+      : (posCap > 0 ? Math.round((posOcc/posCap)*100) : 0);
+
+    porDoca.get(docaId).ruas.push({
+      rua: ruaId,
+      spp: r.spp || null,
+      saca: r.saca || null,
+      scuttle: r.scuttle || null,
+      posOcc, posCap,
+      aging: numOrNull(r.aging),
+      pacotesOvr: numOrNull(r.pacotesovr ?? r.pacotes_ovr),
+      proxCpt: r.proxcpt ?? r.prox_cpt ?? '',
+      timerCpt: r.timercpt ?? r.timer_cpt ?? '',
+      ocupacao,
+      posicoesPend: num(r.posicoespend ?? r.posicoes_pend),
+      cidade: r.cidade || '',
+      clusterIdeal: r.clusterideal ?? r.cluster_ideal ?? '',
+    });
+  });
+
+  return Array.from(porDoca.values());
+}
+
+function renderClusterizacao(data){
+  const rows = Array.isArray(data) ? data : [];
+  if(!rows.length){
+    document.getElementById('clst-summary').innerHTML = '';
+    document.getElementById('clst-main-table').innerHTML =
+      '<tbody><tr class="empty-row"><td>Nenhum dado disponível na planilha.</td></tr></tbody>';
+    return;
+  }
+  const docas = linhasParaDocas(rows);
+  buildClusterSummary(docas);
+  buildClusterTable(docas);
 }
 
 function buildClusterSummary(docas){
