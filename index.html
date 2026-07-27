@@ -2178,7 +2178,7 @@
     </button>
 
     <div class="header-greeting">
-      <div class="greet-line" id="greet-line">Bom dia, <strong>João Doe</strong> — Bem-vindo(a) de volta</div>
+      <div class="greet-line" id="greet-line">Bem-vindo(a) de volta</div>
       <div class="greet-sub" id="greet-sub">Dashboard Principal · Overview</div>
     </div>
 
@@ -3906,7 +3906,7 @@ const ROLE_BADGE_COLOR = {
 function applyUser(user){
   currentUser = user;
   const el = document.getElementById('greet-line');
-  if(el) el.innerHTML = `${greeting()}, <strong>${user.name}</strong> — Bem-vindo(a) de volta`;
+  if(el) el.textContent = 'Bem-vindo(a) de volta';
   const av = document.getElementById('user-avatar');
   if(av) av.textContent = user.initials;
   const un = document.getElementById('um-name'), ue = document.getElementById('um-email');
