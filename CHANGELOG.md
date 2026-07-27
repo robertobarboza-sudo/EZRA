@@ -2,6 +2,12 @@
 
 Registro das alterações do site PULSO, em ordem cronológica (mais recente no topo).
 
+## 2026-07-27
+
+- **Nova camada visual (inspirada em `versao_demo_codex.html`).** Paleta clara/quente com fundo em gradiente e cards translúcidos ("glassmorphism"), substituindo o visual escuro anterior como padrão. O arquivo de referência partia de uma cópia anterior ao trabalho de integração — só o CSS visual foi portado; PULSO, Analytics e a integração com Google Sheets (Backlog/Clusterização) foram mantidos.
+- **Modo kiosk: tela de login removida.** O portal entra direto como usuário fixo (`PORTAL_USER`, papel Administrador) ao carregar — pensado pra exibição tipo TV/painel na operação, sem precisar autenticar. Código de login (`doLogin`, `USERS`, formulário) permanece no arquivo, só não é mais acionado; reversível se decidirem reativar.
+- **Botão de alternância de tema claro/escuro ocultado.** O sistema `[data-theme="light"]` antigo usa uma paleta que conflita com a nova camada visual — desativado até ser refeito especificamente pra ela.
+
 ## 2026-07-24
 
 - **Troca de arquitetura: Apps Script → Service Account (Google Sheets API).** O admin do Workspace da Shopee desabilitou acesso anônimo ("ANYONE") em Web Apps do Apps Script, bloqueando a abordagem anterior. Substituído por autenticação servidor-a-servidor via Service Account (`api/_google.js`, JWT Bearer + Sheets API v4), com credenciais em `GOOGLE_SERVICE_ACCOUNT_EMAIL`/`GOOGLE_PRIVATE_KEY`. `gas/` removido. `/api/dados` agora resolve abas pelo `gid` (sobrevive a renomeações).
