@@ -4466,7 +4466,7 @@ function sprRenderViagens(viagens, total){
   if(footer){
     footer.textContent = total > SPR_VIAGENS.length
       ? `Mostrando ${SPR_VIAGENS.length} de ${total.toLocaleString('pt-BR')} viagens — refine os filtros pra ver todas.`
-      : `${total.toLocaleString('pt-BR')} viagem${total===1?'':'s'} no período.`;
+      : `${total.toLocaleString('pt-BR')} ${total===1?'viagem':'viagens'} no período.`;
   }
   document.getElementById('spr-lt-search').value = '';
 }
