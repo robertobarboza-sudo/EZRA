@@ -119,12 +119,28 @@ module.exports = async (req, res) => {
 
   const uniq = key => [...new Set(withDate.map(r => r[key]).filter(Boolean))].sort();
 
+  const LIMITE_VIAGENS = 500;
+  const ordenadas = [...doPeriodo].sort((a, b) => b.__date - a.__date);
+  const viagens = ordenadas.slice(0, LIMITE_VIAGENS).map(r => ({
+    trip_number: r.trip_number,
+    status_agrupado: r.status_agrupado,
+    solicitation_by: r.solicitation_by,
+    origin_station_code: r.origin_station_code,
+    destination_station_code: r.destination_station_code,
+    total_orders: toNum(r.total_orders),
+    used_vehicle: r.used_vehicle,
+    used_agency_name: r.used_agency_name,
+    turno: r.turno,
+    cpt_scheduled_origin_edited: r.cpt_scheduled_origin_edited,
+  }));
+
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
   res.status(200).json({
     ok: true,
     atualizadoEm: new Date().toISOString(),
     periodo: { dim, inicio: fmtDate(inicio), fim: fmtDate(new Date(fim - 86400000)), inicioAnterior: fmtDate(inicioAnt), fimAnterior: fmtDate(new Date(fimAnt - 86400000)) },
     atual, anterior, delta,
+    viagens, viagensTotal: doPeriodo.length,
     opcoesFiltro: {
       turno: uniq('turno'),
       solicitation_by: uniq('solicitation_by'),

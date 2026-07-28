@@ -1256,9 +1256,19 @@
     }
 
     /* ── SPR ─────────────────────────────────────────────────── */
-    .spr-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
-    .spr-filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .spr-filters { display: flex; align-items: stretch; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .spr-filter-group { display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap; }
     .spr-period-label { font-size: 11px; color: var(--text-muted); margin-bottom: 16px; }
+
+    /* Altura única pra tudo na barra de filtros ficar alinhado */
+    .spr-filters .bkl-tabs { padding: 3px; height: 34px; box-sizing: border-box; }
+    .spr-filters .bkl-tab { height: 100%; box-sizing: border-box; display: flex; align-items: center; padding: 0 16px; }
+    .spr-filters .bkl-pf-btn,
+    .spr-filters .spr-ms-btn,
+    .spr-filters #spr-date {
+      height: 34px; box-sizing: border-box; display: flex; align-items: center;
+    }
+    .spr-filters #spr-date { padding: 0 10px; }
 
     .spr-ms-wrap { position: relative; display: inline-flex; }
     .spr-ms-btn {
@@ -1292,6 +1302,7 @@
     .spr-ms-item:hover { background: var(--surface-3); }
     .spr-ms-item input { accent-color: var(--orange); }
     .spr-ms-empty { padding: 12px; font-size: 11px; color: var(--text-muted); text-align: center; }
+    .spr-lt-footer { margin-top: 10px; font-size: 11px; color: var(--text-muted); }
 
     /* ── GOVERNANÇA ──────────────────────────────────────────── */
     .gov-section { margin-bottom: 32px; }
@@ -1819,9 +1830,9 @@
       --green: #65d1a5;
       --amber: #f0b86c;
       --red: #fa8c9a;
-      --radius: 12px;
-      --radius-lg: 18px;
-      --radius-xl: 26px;
+      --radius: 8px;
+      --radius-lg: 12px;
+      --radius-xl: 16px;
       --shadow: 0 12px 30px rgba(151, 66, 35, .13);
       --shadow-lg: 0 30px 75px rgba(151, 66, 35, .20);
     }
@@ -2382,6 +2393,28 @@
       <div class="spr-period-label" id="spr-period-label"></div>
 
       <div id="spr-kpis"></div>
+
+      <div class="table-card" style="margin-top:16px">
+        <div class="table-toolbar">
+          <div class="table-toolbar-title">LTs do período selecionado</div>
+          <div class="table-search">
+            <i class="fas fa-search"></i>
+            <input type="text" id="spr-lt-search" placeholder="Buscar LT…" oninput="sprFilterViagensTable(this.value)"/>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="resp-table" style="min-width:900px">
+            <thead>
+              <tr>
+                <th>LT</th><th>Status</th><th>Solicitante</th><th>Origem</th><th>Destino</th>
+                <th>Pedidos</th><th>Veículo</th><th>Agência</th><th>Turno</th><th>CPT Programado</th>
+              </tr>
+            </thead>
+            <tbody id="spr-lt-tbody"></tbody>
+          </table>
+        </div>
+        <div class="spr-lt-footer" id="spr-lt-footer"></div>
+      </div>
     </section>
 
     <!-- ASM -->
@@ -4361,6 +4394,7 @@ async function sprLoad(){
     sprPopulateOptions(j.opcoesFiltro);
     sprRenderPeriodo(j.periodo);
     sprRenderKpis(j.atual, j.delta);
+    sprRenderViagens(j.viagens, j.viagensTotal);
   } catch(err){
     setBadge('spr','error','Erro: '+err.message);
     console.error('[SPR]', err);
@@ -4392,6 +4426,58 @@ function sprRenderKpis(atual, delta){
     { label:'TO Saca', value: atual.toSaca.toLocaleString('pt-BR'), delta: fmtDelta(delta.toSaca), trend: trend(delta.toSaca), type:'', icon:'fa-sack-xmark' },
   ];
   buildKPIs('spr-kpis', kpis);
+}
+
+let SPR_VIAGENS = [];
+
+function sprFmtCpt(v){
+  if(!v) return '—';
+  const d = new Date(String(v).replace(' ','T'));
+  if(isNaN(d)) return v;
+  return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+}
+
+function sprRenderViagens(viagens, total){
+  SPR_VIAGENS = viagens || [];
+  const tbody = document.getElementById('spr-lt-tbody');
+  const footer = document.getElementById('spr-lt-footer');
+  if(!tbody) return;
+
+  if(!SPR_VIAGENS.length){
+    tbody.innerHTML = '<tr class="empty-row"><td colspan="10">Nenhuma viagem no período/filtros selecionados.</td></tr>';
+    if(footer) footer.textContent = '';
+    return;
+  }
+
+  tbody.innerHTML = SPR_VIAGENS.map(v => `
+    <tr>
+      <td>${sprEscHtml(v.trip_number||'—')}</td>
+      <td>${sprEscHtml(v.status_agrupado||'—')}</td>
+      <td>${sprEscHtml(v.solicitation_by||'—')}</td>
+      <td>${sprEscHtml(v.origin_station_code||'—')}</td>
+      <td>${sprEscHtml(v.destination_station_code||'—')}</td>
+      <td>${(v.total_orders||0).toLocaleString('pt-BR')}</td>
+      <td>${sprEscHtml(v.used_vehicle||'—')}</td>
+      <td>${sprEscHtml(v.used_agency_name||'—')}</td>
+      <td>${sprEscHtml(v.turno||'—')}</td>
+      <td>${sprFmtCpt(v.cpt_scheduled_origin_edited)}</td>
+    </tr>`).join('');
+
+  if(footer){
+    footer.textContent = total > SPR_VIAGENS.length
+      ? `Mostrando ${SPR_VIAGENS.length} de ${total.toLocaleString('pt-BR')} viagens — refine os filtros pra ver todas.`
+      : `${total.toLocaleString('pt-BR')} viagem${total===1?'':'s'} no período.`;
+  }
+  document.getElementById('spr-lt-search').value = '';
+}
+
+function sprFilterViagensTable(term){
+  const t = term.trim().toLowerCase();
+  const rows = document.querySelectorAll('#spr-lt-tbody tr');
+  SPR_VIAGENS.forEach((v, i) => {
+    const hit = !t || String(v.trip_number||'').toLowerCase().includes(t) || String(v.destination_station_code||'').toLowerCase().includes(t);
+    if(rows[i]) rows[i].style.display = hit ? '' : 'none';
+  });
 }
 
 /* ================================================================
