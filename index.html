@@ -4697,7 +4697,7 @@ function sprComputeInsights(){
       const resumo = porStatus.map(([s,n])=>`${n} ${sprEscHtml(s)}`).join(', ');
       insights.push({
         icon: 'fa-triangle-exclamation',
-        html: `${naoFechadas.length} viagem${naoFechadas.length===1?'':'s'} ainda não fechada${naoFechadas.length===1?'':'s'}: ${resumo}.`
+        html: `${naoFechadas.length} ${naoFechadas.length===1?'viagem':'viagens'} ainda não fechada${naoFechadas.length===1?'':'s'}: ${resumo}.`
       });
     }
 
