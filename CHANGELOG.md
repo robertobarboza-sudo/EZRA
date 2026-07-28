@@ -4,6 +4,10 @@ Registro das alterações do site PULSO, em ordem cronológica (mais recente no 
 
 ## 2026-07-28
 
+- **Refino da SPR**: dropdowns de filtro ganharam "Todos"/"Limpar"; colunas da tabela de LTs ficaram clicáveis pra ordenar (asc/desc/original); novo filtro de **Canal** (HUB/SOC/FMH…) derivado do prefixo de `destination_station_code`, já que não existe coluna própria pra isso; e um botão **Pipboy** que abre um painel de insights automáticos (maior variação vs período anterior, concentração por destino/agência, viagens não fechadas, turno mais movimentado) — calculado a partir dos dados já carregados, sem chamada a IA externa.
+- Cantos menos arredondados (`--radius-lg` 18px → 12px) e barra de filtros da SPR com altura alinhada entre os controles.
+- Corrigido erro de digitação "viagems" → "viagens" (apareceu duas vezes, no rodapé da tabela e no Pipboy).
+
 - **Fix: `GOOGLE_PRIVATE_KEY` não autenticava.** Normalização mais robusta (aspas em volta, `\n` escapado, CRLF) e erro mais claro quando falta o `-----BEGIN PRIVATE KEY-----`. Causa raiz das duas tentativas anteriores: colagens incompletas/malformadas da chave.
 - **Nova planilha conectada: SPR/Leftover/Outbound.** `1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4`, compartilhada com a Service Account. Abas: `spr_pulso`, `leftover_hub_pulso`, `rawdata_out_pulso`, `cluster_pulso`.
 - **Nova seção SPR.** Filtros (Dia/Semana/Mês + calendário, Turno, e busca por Solicitante/Destino/Veículo/Agência) e cards de KPI (SPR Overall = pedidos/viagem, viagens, orders e TO por scuttle/saca) com comparação automática vs. período anterior. Agregação feita no servidor (`api/spr.js`) — a aba tem ~20 mil linhas/~15MB, grande demais pra filtrar no navegador.
