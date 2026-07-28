@@ -12,11 +12,29 @@ function base64url(input) {
     .replace(/=+$/, '');
 }
 
+// Normaliza os jeitos mais comuns de colar a chave errado: aspas em volta
+// (se copiaram o valor de dentro do .json com as aspas do JSON incluídas),
+// \r\n do Windows, e \n escapado (texto literal) em vez de quebra de linha real.
+function normalizePrivateKey(raw) {
+  let key = raw.trim();
+  if ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'"))) {
+    key = key.slice(1, -1);
+  }
+  key = key.replace(/\\r\\n/g, '\n').replace(/\\n/g, '\n').replace(/\r\n/g, '\n').trim();
+  return key;
+}
+
 async function getAccessToken() {
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const rawKey = process.env.GOOGLE_PRIVATE_KEY;
   if (!email || !rawKey) throw new Error('GOOGLE_SERVICE_ACCOUNT_EMAIL/GOOGLE_PRIVATE_KEY não configuradas');
-  const privateKey = rawKey.replace(/\\n/g, '\n');
+  const privateKey = normalizePrivateKey(rawKey);
+  if (!privateKey.includes('BEGIN PRIVATE KEY')) {
+    throw new Error(
+      'GOOGLE_PRIVATE_KEY não parece um PEM válido (faltando "BEGIN PRIVATE KEY"). ' +
+      'Tamanho recebido: ' + privateKey.length + ' caracteres.'
+    );
+  }
 
   const now = Math.floor(Date.now() / 1000);
   const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
