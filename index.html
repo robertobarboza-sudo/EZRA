@@ -1254,6 +1254,45 @@
       .bkl-tabs { flex-wrap: wrap; width: 100%; }
       .bkl-tab { flex: 1; text-align: center; }
     }
+
+    /* ── SPR ─────────────────────────────────────────────────── */
+    .spr-filters { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 14px; }
+    .spr-filter-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+    .spr-period-label { font-size: 11px; color: var(--text-muted); margin-bottom: 16px; }
+
+    .spr-ms-wrap { position: relative; display: inline-flex; }
+    .spr-ms-btn {
+      padding: 5px 12px; border-radius: var(--radius);
+      font-size: 11px; font-weight: 700; cursor: pointer;
+      border: 1.5px solid var(--border); background: var(--surface-2); color: var(--text-muted);
+      font-family: inherit; transition: all var(--transition); letter-spacing: .02em;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .spr-ms-btn:hover { border-color: var(--orange); color: var(--orange); }
+    .spr-ms-btn.active { background: rgba(238,77,45,.1); border-color: var(--orange); color: var(--orange); }
+    .spr-ms-dropdown {
+      display: none; position: absolute; top: calc(100% + 6px); left: 0;
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+      width: 240px; max-height: 280px; z-index: 600; overflow: hidden;
+      flex-direction: column;
+    }
+    .spr-ms-dropdown.open { display: flex; }
+    .spr-ms-search {
+      margin: 8px; padding: 6px 10px; border-radius: var(--radius);
+      border: 1px solid var(--border); background: var(--surface); color: var(--text);
+      font-size: 12px; font-family: inherit;
+    }
+    .spr-ms-list { overflow-y: auto; padding: 0 4px 8px; }
+    .spr-ms-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 10px; font-size: 12px; color: var(--text-sub);
+      cursor: pointer; border-radius: var(--radius);
+    }
+    .spr-ms-item:hover { background: var(--surface-3); }
+    .spr-ms-item input { accent-color: var(--orange); }
+    .spr-ms-empty { padding: 12px; font-size: 11px; color: var(--text-muted); text-align: center; }
+
     /* ── GOVERNANÇA ──────────────────────────────────────────── */
     .gov-section { margin-bottom: 32px; }
     .gov-section-title {
@@ -2091,6 +2130,9 @@
 
     <div class="nav-group">
       <div class="nav-group-label">Operações</div>
+      <div class="nav-item" data-section="spr" data-label="SPR" onclick="navigateTo('spr',this)">
+        <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">SPR</span>
+      </div>
       <div class="nav-item" data-section="asm" data-label="ASM" onclick="navigateTo('asm',this)">
         <i class="fas fa-feather nav-icon"></i><span class="nav-label">ASM</span>
       </div>
@@ -2302,6 +2344,44 @@
           <button class="dl-btn dl-btn-csv" onclick="downloadCSV('performance')"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
       </div>
+    </section>
+
+    <!-- SPR -->
+        <section id="section-spr" class="section">
+      <div class="section-header" id="section-spr-header">
+        <div class="section-header-left">
+          <div class="section-title">SPR <span class="ds-badge ok" id="ds-badge-spr" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Solicitação de Programação de Rota · Viagens</div>
+        </div>
+        <div class="section-dl-group">
+          <button class="dl-btn dl-btn-csv" onclick="sprLoad()"><i class="fas fa-rotate-right"></i> Atualizar</button>
+        </div>
+      </div>
+
+      <div class="spr-filters">
+        <div class="spr-filter-group">
+          <div class="bkl-tabs" id="spr-dim-tabs">
+            <div class="bkl-tab active" onclick="sprSetDim('day',this)">Dia</div>
+            <div class="bkl-tab" onclick="sprSetDim('week',this)">Semana</div>
+            <div class="bkl-tab" onclick="sprSetDim('month',this)">Mês</div>
+          </div>
+          <input type="date" class="filter-select" id="spr-date" onchange="sprSetDate(this.value)" style="color-scheme:dark"/>
+        </div>
+
+        <div class="spr-filter-group" id="spr-turno-group">
+          <button class="bkl-pf-btn" onclick="sprToggleTurno('T1',this)">T1</button>
+          <button class="bkl-pf-btn" onclick="sprToggleTurno('T2',this)">T2</button>
+          <button class="bkl-pf-btn" onclick="sprToggleTurno('T3',this)">T3</button>
+        </div>
+
+        <div class="spr-filter-group" id="spr-multiselects">
+          <!-- populado por sprBuildMultiselects() -->
+        </div>
+      </div>
+
+      <div class="spr-period-label" id="spr-period-label"></div>
+
+      <div id="spr-kpis"></div>
     </section>
 
     <!-- ASM -->
@@ -3833,7 +3913,7 @@ const USERS = [
    Roles: Administrador | Analista | Lider | Demo
 ================================================================ */
 const ALL_SECTIONS = [
-  'gestao','performance','asm','conveyor','inbound','outbound','clusterizacao',
+  'gestao','performance','spr','asm','conveyor','inbound','outbound','clusterizacao',
   'tratativas','laborplan','backlog','arvore','kpioverview','scorecard',
   'absenteismo','forecast','auditoria','organograma','configuracoes',
   'matriz','mapadados','jornal'
@@ -4035,6 +4115,7 @@ function closeMobileSidebar(){
 let currentSection = 'gestao';
 const sectionMeta = {
   gestao:      {title:'Overview',      sub:'Dashboard Principal · Overview'},
+  spr:         {title:'SPR',           sub:'Solicitação de Programação de Rota · Viagens'},
   backlog:     {title:'Backlog',       sub:'Monitoramento de Fila · Principal'},
   performance: {title:'Performance', sub:'KPIs Operacionais · Performance'},
   asm:         {title:'ASM',         sub:'Gestão de Ativos · ASM'},
@@ -4087,7 +4168,7 @@ async function renderSection(section){
     const {data,source} = await DataService.load(section);
     setBadge(section,'ok',source);
     const fn = {gestao:renderGestao, performance:renderPerformance, asm:renderAsm,
-      backlog:renderBacklog,
+      backlog:renderBacklog, spr:renderSpr,
       conveyor:renderConveyor, inbound:renderInbound, outbound:renderOutbound, tratativas:renderTratativas,
       laborplan:renderLaborplan, arvore:renderArvore, kpioverview:renderKpioverview,
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
@@ -4134,6 +4215,181 @@ function buildKPIs(id, kpis){
       </div>
       <i class="fas ${k.icon} kpi-strip-icon"></i>
     </div>`).join('')}</div>`;
+}
+
+/* ================================================================
+   SPR — Solicitação de Programação de Rota (viagens)
+   Agregação feita no servidor (/api/spr) — a base tem ~20 mil linhas,
+   grande demais pra filtrar no navegador a cada troca de filtro.
+================================================================ */
+const SPR_STATE = {
+  dim: 'day',
+  date: null, // YYYY-MM-DD; null = usa a data mais recente disponível na base
+  turno: [],
+  solicitation_by: [],
+  destination: [],
+  vehicle: [],
+  agency: [],
+};
+
+const SPR_MULTISELECTS = [
+  { key:'solicitation_by', label:'Solicitante', field:'solicitation_by' },
+  { key:'destination',     label:'Destino',     field:'destination_station_code', searchable:true },
+  { key:'vehicle',         label:'Veículo',     field:'used_vehicle' },
+  { key:'agency',          label:'Agência',     field:'used_agency_name' },
+];
+
+function sprEscHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderSpr(){
+  if(!document.getElementById('spr-ms-wrap-solicitation_by')) sprBuildMultiselects();
+  sprLoad();
+}
+
+function sprBuildMultiselects(){
+  const wrap = document.getElementById('spr-multiselects');
+  if(!wrap) return;
+  wrap.innerHTML = SPR_MULTISELECTS.map(ms => `
+    <div class="spr-ms-wrap" id="spr-ms-wrap-${ms.key}">
+      <button class="spr-ms-btn" id="spr-ms-btn-${ms.key}" type="button" onclick="sprToggleDropdown('${ms.key}')">
+        ${ms.label} <i class="fas fa-chevron-down" style="font-size:9px"></i>
+      </button>
+      <div class="spr-ms-dropdown" id="spr-ms-dropdown-${ms.key}">
+        ${ms.searchable ? `<input class="spr-ms-search" placeholder="Buscar…" oninput="sprFilterOptions('${ms.key}', this.value)"/>` : ''}
+        <div class="spr-ms-list" id="spr-ms-list-${ms.key}" data-key="${ms.key}"><div class="spr-ms-empty">Carregando…</div></div>
+      </div>
+    </div>`).join('');
+}
+
+// Delegação: evita ter que escapar valores dinâmicos dentro de atributos onclick/onchange
+document.addEventListener('change', e => {
+  if(!e.target.classList.contains('spr-ms-checkbox')) return;
+  const list = e.target.closest('.spr-ms-list');
+  sprToggleOption(list.dataset.key, e.target.dataset.value, e.target.checked);
+});
+document.addEventListener('click', e => {
+  if(!e.target.closest('.spr-ms-wrap')) document.querySelectorAll('.spr-ms-dropdown').forEach(d => d.classList.remove('open'));
+});
+
+function sprToggleDropdown(key){
+  document.querySelectorAll('.spr-ms-dropdown').forEach(d => { if(d.id !== 'spr-ms-dropdown-'+key) d.classList.remove('open'); });
+  document.getElementById('spr-ms-dropdown-'+key).classList.toggle('open');
+}
+
+function sprFilterOptions(key, term){
+  const list = document.getElementById('spr-ms-list-'+key);
+  if(!list) return;
+  const t = term.trim().toLowerCase();
+  list.querySelectorAll('.spr-ms-item').forEach(item => {
+    item.style.display = item.dataset.value.toLowerCase().includes(t) ? '' : 'none';
+  });
+}
+
+function sprToggleOption(key, value, checked){
+  const arr = SPR_STATE[key];
+  const i = arr.indexOf(value);
+  if(checked && i===-1) arr.push(value);
+  if(!checked && i!==-1) arr.splice(i,1);
+  const btn = document.getElementById('spr-ms-btn-'+key);
+  const ms = SPR_MULTISELECTS.find(m=>m.key===key);
+  if(btn){
+    btn.innerHTML = (arr.length ? `${ms.label} (${arr.length})` : ms.label) + ' <i class="fas fa-chevron-down" style="font-size:9px"></i>';
+    btn.classList.toggle('active', arr.length>0);
+  }
+  sprLoad();
+}
+
+function sprPopulateOptions(opcoes){
+  SPR_MULTISELECTS.forEach(ms => {
+    const list = document.getElementById('spr-ms-list-'+ms.key);
+    if(!list) return;
+    const values = opcoes[ms.field] || [];
+    if(!values.length){ list.innerHTML = '<div class="spr-ms-empty">Nenhuma opção</div>'; return; }
+    list.innerHTML = values.map(v => `
+      <label class="spr-ms-item" data-value="${sprEscHtml(v)}">
+        <input type="checkbox" class="spr-ms-checkbox" data-value="${sprEscHtml(v)}" ${SPR_STATE[ms.key].includes(v)?'checked':''}/>
+        <span>${sprEscHtml(v)}</span>
+      </label>`).join('');
+  });
+}
+
+function sprSetDim(dim, el){
+  SPR_STATE.dim = dim;
+  document.querySelectorAll('#spr-dim-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  sprLoad();
+}
+
+function sprSetDate(value){
+  SPR_STATE.date = value || null;
+  sprLoad();
+}
+
+function sprToggleTurno(t, el){
+  const i = SPR_STATE.turno.indexOf(t);
+  if(i===-1) SPR_STATE.turno.push(t); else SPR_STATE.turno.splice(i,1);
+  el.classList.toggle('active');
+  sprLoad();
+}
+
+function sprQueryString(){
+  const p = new URLSearchParams();
+  p.set('dim', SPR_STATE.dim);
+  if(SPR_STATE.date) p.set('date', SPR_STATE.date);
+  if(SPR_STATE.turno.length) p.set('turno', SPR_STATE.turno.join(','));
+  if(SPR_STATE.solicitation_by.length) p.set('solicitation_by', SPR_STATE.solicitation_by.join(','));
+  if(SPR_STATE.destination.length) p.set('destination', SPR_STATE.destination.join(','));
+  if(SPR_STATE.vehicle.length) p.set('vehicle', SPR_STATE.vehicle.join(','));
+  if(SPR_STATE.agency.length) p.set('agency', SPR_STATE.agency.join(','));
+  return p.toString();
+}
+
+let SPR_LOADING = false;
+async function sprLoad(){
+  if(SPR_LOADING) return;
+  SPR_LOADING = true;
+  setBadge('spr','loading');
+  try {
+    const r = await fetch('/api/spr?'+sprQueryString(), {cache:'no-store'});
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    setBadge('spr','ok','Planilha · '+new Date(j.atualizadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    sprPopulateOptions(j.opcoesFiltro);
+    sprRenderPeriodo(j.periodo);
+    sprRenderKpis(j.atual, j.delta);
+  } catch(err){
+    setBadge('spr','error','Erro: '+err.message);
+    console.error('[SPR]', err);
+  } finally {
+    SPR_LOADING = false;
+  }
+}
+
+function sprRenderPeriodo(p){
+  const el = document.getElementById('spr-period-label');
+  if(el){
+    const labelDim = {day:'Dia', week:'Semana', month:'Mês'}[p.dim] || p.dim;
+    el.textContent = `${labelDim}: ${p.inicio}${p.inicio!==p.fim ? ' a '+p.fim : ''} · comparado a ${p.inicioAnterior}${p.inicioAnterior!==p.fimAnterior ? ' a '+p.fimAnterior : ''}`;
+  }
+  // Reflete a data de referência real no calendário (útil no 1º load, sem data escolhida)
+  const dateInput = document.getElementById('spr-date');
+  if(dateInput && !SPR_STATE.date) dateInput.value = p.inicio;
+}
+
+function sprRenderKpis(atual, delta){
+  const trend = d => d < 0 ? 'down' : 'up';
+  const fmtDelta = d => (d>0?'+':'')+d+'% vs período ant.';
+  const kpis = [
+    { label:'Pedidos por Viagem (SPR Overall)', value: atual.pedidosPorViagem.toLocaleString('pt-BR'), delta: fmtDelta(delta.pedidosPorViagem), trend: trend(delta.pedidosPorViagem), type:'', icon:'fa-route' },
+    { label:'Viagens', value: atual.viagens.toLocaleString('pt-BR'), delta: fmtDelta(delta.viagens), trend: trend(delta.viagens), type:'', icon:'fa-truck' },
+    { label:'Orders Scuttle', value: atual.ordersScuttle.toLocaleString('pt-BR'), delta: fmtDelta(delta.ordersScuttle), trend: trend(delta.ordersScuttle), type:'', icon:'fa-box' },
+    { label:'Orders Saca', value: atual.ordersSaca.toLocaleString('pt-BR'), delta: fmtDelta(delta.ordersSaca), trend: trend(delta.ordersSaca), type:'', icon:'fa-sack-dollar' },
+    { label:'TO Scuttle', value: atual.toScuttle.toLocaleString('pt-BR'), delta: fmtDelta(delta.toScuttle), trend: trend(delta.toScuttle), type:'', icon:'fa-dolly' },
+    { label:'TO Saca', value: atual.toSaca.toLocaleString('pt-BR'), delta: fmtDelta(delta.toSaca), trend: trend(delta.toSaca), type:'', icon:'fa-sack-xmark' },
+  ];
+  buildKPIs('spr-kpis', kpis);
 }
 
 /* ================================================================
