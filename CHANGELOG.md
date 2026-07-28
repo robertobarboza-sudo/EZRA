@@ -4,6 +4,9 @@ Registro das alterações do site PULSO, em ordem cronológica (mais recente no 
 
 ## 2026-07-28
 
+- **Pipboy ganhou tela de carregamento.** Clicar no botão mostra a imagem do mascote (`assets/pipboy.webp`) por 2s antes de revelar os insights — puramente de apresentação, os insights já são calculados na hora. Confirmado que o Pipboy só abre por clique, nunca automaticamente.
+- **Motor de dashboard reutilizável.** Extraído tudo que foi construído pra SPR (filtros por período, agrupadores, dropdowns com busca, tabela ordenável, Pipboy) num motor genérico orientado a configuração (`pulsoRegister`/`pulsoRender` em `index.html`). Páginas novas (Leftover, Outbound, ...) agora só precisam de um endpoint no formato padrão + um objeto de config — sem recriar a UI do zero. Documentado em `docs/pulso-dashboard-engine.md`. Comportamento da SPR verificado idêntico após a migração.
+
 - **Refino da SPR**: dropdowns de filtro ganharam "Todos"/"Limpar"; colunas da tabela de LTs ficaram clicáveis pra ordenar (asc/desc/original); novo filtro de **Canal** (HUB/SOC/FMH…) derivado do prefixo de `destination_station_code`, já que não existe coluna própria pra isso; e um botão **Pipboy** que abre um painel de insights automáticos (maior variação vs período anterior, concentração por destino/agência, viagens não fechadas, turno mais movimentado) — calculado a partir dos dados já carregados, sem chamada a IA externa.
 - Cantos menos arredondados (`--radius-lg` 18px → 12px) e barra de filtros da SPR com altura alinhada entre os controles.
 - Corrigido erro de digitação "viagems" → "viagens" (apareceu duas vezes, no rodapé da tabela e no Pipboy).
