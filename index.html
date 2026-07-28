@@ -3615,7 +3615,9 @@ const DataService = (() => {
   }
 
   // Seções ligadas à planilha (Google Sheets → Apps Script → /api/dados)
-  const LIVE_SECTIONS = ['backlog', 'clusterizacao'];
+  // 'clusterizacao' fica de fora por ora: o modelo doca/rua já construído
+  // não bate com os dados reais da aba outbound_ontime (ver docs/integracao-planilha.md).
+  const LIVE_SECTIONS = ['backlog'];
 
   async function fetchLive(s){
     const r = await fetch('/api/dados?tabs='+encodeURIComponent(s), {cache:'no-store'});

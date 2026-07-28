@@ -2,6 +2,14 @@
 
 Registro das alterações do site PULSO, em ordem cronológica (mais recente no topo).
 
+## 2026-07-28
+
+- **Fix: `GOOGLE_PRIVATE_KEY` não autenticava.** Normalização mais robusta (aspas em volta, `\n` escapado, CRLF) e erro mais claro quando falta o `-----BEGIN PRIVATE KEY-----`. Causa raiz das duas tentativas anteriores: colagens incompletas/malformadas da chave.
+- **Nova planilha conectada: SPR/Leftover/Outbound.** `1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4`, compartilhada com a Service Account. Abas: `spr_pulso`, `leftover_hub_pulso`, `rawdata_out_pulso`, `cluster_pulso`.
+- **Nova seção SPR.** Filtros (Dia/Semana/Mês + calendário, Turno, e busca por Solicitante/Destino/Veículo/Agência) e cards de KPI (SPR Overall = pedidos/viagem, viagens, orders e TO por scuttle/saca) com comparação automática vs. período anterior. Agregação feita no servidor (`api/spr.js`) — a aba tem ~20 mil linhas/~15MB, grande demais pra filtrar no navegador.
+- **Clusterização pausada (não é mais seção "ao vivo").** O mapa doca×rua que construímos partiu de colunas assumidas sem ver os dados reais; a aba real (`outbound_ontime`) é uma tabela de TOs individuais, não de ocupação por doca/rua. Código mantido, só desligado de `LIVE_SECTIONS` até definirmos com o time como derivar ocupação a partir dos dados reais.
+- **Ferramenta de introspecção `/api/debug-meta`** pra inspecionar planilhas novas (lista abas, cabeçalhos, amostra, tamanho do JSON) sem chutar estrutura. Vai ser usada pra ligar Leftover e Outbound a seguir.
+
 ## 2026-07-27
 
 - **Nova camada visual (inspirada em `versao_demo_codex.html`).** Paleta clara/quente com fundo em gradiente e cards translúcidos ("glassmorphism"), substituindo o visual escuro anterior como padrão. O arquivo de referência partia de uma cópia anterior ao trabalho de integração — só o CSS visual foi portado; PULSO, Analytics e a integração com Google Sheets (Backlog/Clusterização) foram mantidos.

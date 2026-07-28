@@ -48,15 +48,45 @@ Cards, gráficos e o mapa de Clusterização
      quebras de linha `\n`).
 5. Redeploy do projeto para as variáveis valerem.
 
-## Seções ligadas e suas planilhas
+## Planilhas em uso
 
-Configurado em `CONFIG` no topo de [api/dados.js](../api/dados.js):
+| Planilha | spreadsheetId | Abas relevantes |
+|---|---|---|
+| Outbound Ontime (antiga, piloto) | `1sn2V55qslwcjrbnCklVzxjoPrerO_Ba7XAfRKQ-XV_0` | `outbound_ontime` (gid `1819579584`) |
+| SPR/Leftover/Outbound (atual) | `1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4` | `spr_pulso` (gid `1276487267`), `leftover_hub_pulso` (gid `352174025`), `rawdata_out_pulso` (gid `0`), `cluster_pulso` (gid `646168208`) |
 
-| Seção          | Planilha (spreadsheetId)              | Aba (gid)   |
-|----------------|----------------------------------------|-------------|
-| `clusterizacao`| `1sn2V55qslwcjrbnCklVzxjoPrerO_Ba7XAfRKQ-XV_0` | `1819579584` (aba `outbound_ontime`) |
+## Seções ligadas
 
-## Contrato de colunas — Clusterização (aba `outbound_ontime`)
+Seções simples (fetch + fallback pra demo) usam `CONFIG` no topo de
+[api/dados.js](../api/dados.js) — front chama `/api/dados?tabs=<seção>`:
+
+| Seção     | Planilha | Aba (gid) |
+|-----------|----------|-----------|
+| `backlog` | *(pendente — usar aba real quando definida)* | — |
+
+Seções com filtro/agregação pesada têm endpoint dedicado, porque
+mandar a planilha inteira pro navegador a cada filtro não escala
+(ex: `spr_pulso` tem ~20 mil linhas / ~15MB em JSON):
+
+| Seção | Endpoint | Planilha (gid) |
+|---|---|---|
+| SPR | [api/spr.js](../api/spr.js) | `spr_pulso` (gid `1276487267`) da planilha SPR/Leftover/Outbound |
+
+## Clusterização — modelo pausado
+
+O mapa doca × rua (`buildClusterSummary`/`buildClusterTable`,
+`linhasParaDocas`) continua no código, mas **não está em
+`LIVE_SECTIONS`** — a aba `outbound_ontime` real é uma tabela de ~7.500
+registros individuais de TO (transfer order: `to number`, `driver`,
+`receiver`, `quantity`, `staging area` etc.), não uma tabela de
+ocupação por doca/rua com capacidade. O contrato de colunas abaixo foi
+uma suposição feita sem ver os dados reais — para reativar, é preciso
+antes decidir com o time de operação como derivar ocupação/capacidade/
+cluster ideal a partir dos dados reais (o campo `staging area`, ex.
+`OBS-01S0`, parece decompor em doca+posição, mas isso não foi
+confirmado).
+
+## Contrato de colunas — Clusterização (aba `outbound_ontime`, não usado atualmente)
 
 Primeira linha = cabeçalho (case-insensitive). Uma linha por combinação
 doca × rua/posição de stage:
@@ -84,13 +114,61 @@ O front-end (`linhasParaDocas` em `index.html`) agrupa as linhas por
 `buildClusterTable` — o mapa de ocupação, KPIs (% clusterização, aging
 médio, ruas OK/NOK etc.) e as barras de stage.
 
+## SPR — `/api/spr`
+
+Endpoint dedicado (não passa por `/api/dados`) porque a aba `spr_pulso`
+é grande demais pra filtrar no navegador. Faz o fetch da planilha,
+filtra e agrega no servidor a cada chamada (cache de CDN de 5 min por
+combinação de query params).
+
+**Query params:** `dim` (`day`|`week`|`month`, default `day`), `date`
+(`YYYY-MM-DD`, default = data mais recente da base), `turno`,
+`solicitation_by`, `destination`, `vehicle`, `agency` (todos listas
+separadas por vírgula), `q` (busca livre em `destination_station_code`).
+
+**Resposta:** `{ ok, atualizadoEm, periodo: {dim, inicio, fim,
+inicioAnterior, fimAnterior}, atual: {viagens, pedidosPorViagem,
+ordersScuttle, ordersSaca, toScuttle, toSaca}, anterior: {...},
+delta: {...% por métrica}, opcoesFiltro: {turno, solicitation_by,
+destination_station_code, used_vehicle, used_agency_name} }`.
+
+Comparação de período: dia compara com o dia anterior, semana com a
+semana anterior (segunda–domingo), mês com o mês anterior — sempre
+calculado a partir de `cutoff_date`, não das colunas `mes`/`semana`
+(que não têm ano, ambíguas entre anos diferentes).
+
+O front (`index.html`, bloco "SPR") faz seu próprio fetch em `sprLoad()`
+em vez de passar pelo `DataService` genérico, porque tem estado de
+filtro complexo (`SPR_STATE`) que precisa disparar refetch a cada
+mudança.
+
+## Ferramenta de introspecção (`/api/debug-meta`)
+
+Criada pra descobrir a estrutura de uma planilha nova sem chutar
+colunas. Restrita a uma lista fixa de `spreadsheetId` permitidos
+(`PERMITIDAS` em `api/debug-meta.js`) — não aceita qualquer ID.
+
+- `?id=<spreadsheetId>` — lista abas (título + gid).
+- `?id=<spreadsheetId>&gid=<gid>` — cabeçalho + 5 linhas de amostra.
+- `?id=<spreadsheetId>&gid=<gid>&raw=1` — valores brutos (sem tratar
+  linha 1 como cabeçalho; útil pra abas tipo "ReadMe").
+- `?id=<spreadsheetId>&gid=<gid>&size=1` — tamanho do JSON resultante,
+  pra decidir se cabe em `/api/dados` (proxy simples) ou precisa de
+  endpoint dedicado com agregação server-side (como o SPR).
+
+Ainda em uso pra onboarding de Leftover e Outbound. Remover quando não
+precisar mais adicionar planilhas novas.
+
 ## Como ligar uma nova seção
 
-1. Definir o contrato de colunas da aba de origem.
-2. Adicionar a entrada em `CONFIG` (`api/dados.js`) com `spreadsheetId` e
-   `gid`.
-3. Adicionar o nome da seção em `LIVE_SECTIONS` no `DataService`
-   (`index.html`).
-4. Compartilhar a planilha (se for outra) com a Service Account.
-5. Escrever a função de conversão linhas → estrutura da UI (ver
-   `linhasParaDocas` como referência) e plugar no `render<Seção>`.
+1. Rodar o `/api/debug-meta` pra ver a estrutura real da aba (nunca
+   assumir colunas sem ver os dados).
+2. Se a aba for pequena (cabe tranquilo num fetch só): adicionar a
+   entrada em `CONFIG` (`api/dados.js`) com `spreadsheetId` e `gid`, e
+   o nome da seção em `LIVE_SECTIONS` no `DataService` (`index.html`).
+   Se for grande ou precisar de filtro/agregação (como o SPR): criar
+   um endpoint dedicado em `api/`, reaproveitando `fetchTabByGid` de
+   `api/_google.js`.
+3. Compartilhar a planilha (se for outra) com a Service Account.
+4. Escrever a função de conversão linhas → estrutura da UI e plugar no
+   `render<Seção>`.
