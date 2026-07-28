@@ -11,6 +11,8 @@
  *   date        data de referência 'YYYY-MM-DD' (default: data mais recente na base)
  *   turno       lista separada por vírgula (ex: T1,T2)
  *   solicitation_by, destination, vehicle, agency  idem, listas separadas por vírgula
+ *   canal       lista separada por vírgula (ex: HUB,SOC) — prefixo de destination_station_code
+ *               antes do primeiro "-"; não existe coluna própria pra isso na planilha
  *   q           texto livre pra busca em destination_station_code (contains)
  */
 const { fetchTabByGid } = require('./_google');
@@ -25,6 +27,13 @@ function toNum(v) {
 
 function parseCSV(v) {
   return v ? String(v).split(',').map(s => s.trim()).filter(Boolean) : [];
+}
+
+// Não existe coluna de "canal" na planilha — deriva do prefixo do código da
+// estação de destino (ex: "HUB-LMG-15" -> "HUB", "SOC-RJ2" -> "SOC").
+function canalDe(destino) {
+  const m = String(destino || '').match(/^([A-Za-z]+)-/);
+  return m ? m[1].toUpperCase() : null;
 }
 
 // Início do dia/semana(seg-dom)/mês que contém `date`, em UTC pra evitar fuso.
@@ -92,6 +101,7 @@ module.exports = async (req, res) => {
   const destinos = parseCSV(req.query.destination);
   const veiculos = parseCSV(req.query.vehicle);
   const agencias = parseCSV(req.query.agency);
+  const canais = parseCSV(req.query.canal);
   const busca = (req.query.q || '').trim().toLowerCase();
 
   const passaFiltros = r =>
@@ -100,6 +110,7 @@ module.exports = async (req, res) => {
     (!destinos.length || destinos.includes(r.destination_station_code)) &&
     (!veiculos.length || veiculos.includes(r.used_vehicle)) &&
     (!agencias.length || agencias.includes(r.used_agency_name)) &&
+    (!canais.length || canais.includes(canalDe(r.destination_station_code))) &&
     (!busca || String(r.destination_station_code || '').toLowerCase().includes(busca));
 
   const filtradas = withDate.filter(passaFiltros);
@@ -147,6 +158,7 @@ module.exports = async (req, res) => {
       destination_station_code: uniq('destination_station_code'),
       used_vehicle: uniq('used_vehicle'),
       used_agency_name: uniq('used_agency_name'),
+      canal: [...new Set(withDate.map(r => canalDe(r.destination_station_code)).filter(Boolean))].sort(),
     },
   });
 };
