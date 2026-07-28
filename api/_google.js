@@ -63,17 +63,30 @@ async function getAccessToken() {
   return body.access_token;
 }
 
-// Resolve o título real da aba a partir do gid (evita depender do nome, que pode mudar)
-async function resolveTabTitle(token, spreadsheetId, gid) {
+async function fetchSheetsMeta(token, spreadsheetId) {
   const r = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties`,
     { headers: { Authorization: 'Bearer ' + token } }
   );
   const body = await r.json();
   if (!r.ok) throw new Error('Sheets metadata: ' + (body.error?.message || r.status));
-  const sheet = (body.sheets || []).find(s => String(s.properties.sheetId) === String(gid));
+  return body.sheets || [];
+}
+
+// Resolve o título real da aba a partir do gid (evita depender do nome, que pode mudar)
+async function resolveTabTitle(token, spreadsheetId, gid) {
+  const sheets = await fetchSheetsMeta(token, spreadsheetId);
+  const sheet = sheets.find(s => String(s.properties.sheetId) === String(gid));
   if (!sheet) throw new Error('Aba com gid ' + gid + ' não encontrada na planilha');
   return sheet.properties.title;
+}
+
+// Lista as abas (título + gid) de uma planilha — usado só pra onboarding manual
+// de novas planilhas, nunca chamado pelo front-end.
+async function listTabs(spreadsheetId) {
+  const token = await getAccessToken();
+  const sheets = await fetchSheetsMeta(token, spreadsheetId);
+  return sheets.map(s => ({ title: s.properties.title, gid: s.properties.sheetId }));
 }
 
 function rowsToObjects(values) {
@@ -101,4 +114,4 @@ async function fetchTabByGid(spreadsheetId, gid) {
   return { title, rows: rowsToObjects(body.values) };
 }
 
-module.exports = { fetchTabByGid };
+module.exports = { fetchTabByGid, listTabs };
