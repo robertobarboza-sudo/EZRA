@@ -101,7 +101,7 @@ function rowsToObjects(values) {
     });
 }
 
-async function fetchTabByGid(spreadsheetId, gid) {
+async function fetchTabRawValues(spreadsheetId, gid) {
   const token = await getAccessToken();
   const title = await resolveTabTitle(token, spreadsheetId, gid);
   const range = `'${title.replace(/'/g, "''")}'`;
@@ -111,7 +111,12 @@ async function fetchTabByGid(spreadsheetId, gid) {
   );
   const body = await r.json();
   if (!r.ok) throw new Error('Sheets values: ' + (body.error?.message || r.status));
-  return { title, rows: rowsToObjects(body.values) };
+  return { title, values: body.values || [] };
 }
 
-module.exports = { fetchTabByGid, listTabs };
+async function fetchTabByGid(spreadsheetId, gid) {
+  const { title, values } = await fetchTabRawValues(spreadsheetId, gid);
+  return { title, rows: rowsToObjects(values) };
+}
+
+module.exports = { fetchTabByGid, fetchTabRawValues, listTabs };

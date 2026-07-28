@@ -5,7 +5,7 @@
  * query, pra não virar um scanner de qualquer planilha da Service Account).
  * Remover depois do onboarding.
  */
-const { listTabs, fetchTabByGid } = require('./_google');
+const { listTabs, fetchTabByGid, fetchTabRawValues } = require('./_google');
 
 const PERMITIDAS = new Set([
   '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4',
@@ -18,6 +18,11 @@ module.exports = async (req, res) => {
     return;
   }
   try {
+    if (req.query.gid !== undefined && req.query.raw !== undefined) {
+      const { title, values } = await fetchTabRawValues(id, req.query.gid);
+      res.status(200).json({ ok: true, title, totalRows: values.length, sample: values.slice(0, 15) });
+      return;
+    }
     if (req.query.gid !== undefined) {
       const { title, rows } = await fetchTabByGid(id, req.query.gid);
       res.status(200).json({
