@@ -18,6 +18,16 @@ module.exports = async (req, res) => {
     return;
   }
   try {
+    if (req.query.gid !== undefined && req.query.size !== undefined) {
+      const { title, rows } = await fetchTabByGid(id, req.query.gid);
+      const json = JSON.stringify(rows);
+      res.status(200).json({
+        ok: true, title, totalRows: rows.length,
+        jsonBytes: Buffer.byteLength(json),
+        jsonBytesGzipEstimate: require('zlib').gzipSync(json).length,
+      });
+      return;
+    }
     if (req.query.gid !== undefined && req.query.raw !== undefined) {
       const { title, values } = await fetchTabRawValues(id, req.query.gid);
       res.status(200).json({ ok: true, title, totalRows: values.length, sample: values.slice(0, 15) });
