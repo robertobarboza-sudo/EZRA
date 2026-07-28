@@ -1264,11 +1264,11 @@
     .spr-filters .bkl-tabs { padding: 3px; height: 34px; box-sizing: border-box; }
     .spr-filters .bkl-tab { height: 100%; box-sizing: border-box; display: flex; align-items: center; padding: 0 16px; }
     .spr-filters .bkl-pf-btn,
-    .spr-filters .spr-ms-btn,
-    .spr-filters #spr-date {
+    .spr-filters .spr-ms-btn {
       height: 34px; box-sizing: border-box; display: flex; align-items: center;
     }
-    .spr-filters #spr-date { padding: 0 10px; }
+    /* Input nativo de data: sem display:flex (atrapalha o seletor de calendário do navegador) */
+    .spr-filters .pulso-date-input { height: 34px; box-sizing: border-box; padding: 0 10px; }
 
     .spr-ms-wrap { position: relative; display: inline-flex; }
     .spr-ms-btn {
@@ -4342,7 +4342,7 @@ function pulsoBuildHTML(cfg){
     <div class="spr-filters">
       <div class="spr-filter-group">
         <div class="bkl-tabs" id="pulso-dim-${cfg.key}">${dimTabs}</div>
-        <input type="date" class="filter-select" id="pulso-date-${cfg.key}" onchange="pulsoSetDate('${cfg.key}', this.value)" style="color-scheme:dark"/>
+        <input type="date" class="filter-select pulso-date-input" id="pulso-date-${cfg.key}" onchange="pulsoSetDate('${cfg.key}', this.value)" style="color-scheme:dark"/>
       </div>
       ${toggleGroupsHtml}
       <div class="spr-filter-group">${msHtml}</div>
