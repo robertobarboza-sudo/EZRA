@@ -2406,70 +2406,25 @@
           <div class="section-subtitle">Solicitação de Programação de Rota · Viagens</div>
         </div>
         <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="sprOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
-          <button class="dl-btn dl-btn-csv" onclick="sprLoad()"><i class="fas fa-rotate-right"></i> Atualizar</button>
+          <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy('spr')"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="dl-btn dl-btn-csv" onclick="pulsoLoad('spr')"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
-
-      <div class="spr-filters">
-        <div class="spr-filter-group">
-          <div class="bkl-tabs" id="spr-dim-tabs">
-            <div class="bkl-tab active" onclick="sprSetDim('day',this)">Dia</div>
-            <div class="bkl-tab" onclick="sprSetDim('week',this)">Semana</div>
-            <div class="bkl-tab" onclick="sprSetDim('month',this)">Mês</div>
-          </div>
-          <input type="date" class="filter-select" id="spr-date" onchange="sprSetDate(this.value)" style="color-scheme:dark"/>
-        </div>
-
-        <div class="spr-filter-group" id="spr-turno-group">
-          <button class="bkl-pf-btn" onclick="sprToggleTurno('T1',this)">T1</button>
-          <button class="bkl-pf-btn" onclick="sprToggleTurno('T2',this)">T2</button>
-          <button class="bkl-pf-btn" onclick="sprToggleTurno('T3',this)">T3</button>
-        </div>
-
-        <div class="spr-filter-group" id="spr-canal-group">
-          <!-- populado por sprPopulateOptions() a partir dos canais reais -->
-        </div>
-
-        <div class="spr-filter-group" id="spr-multiselects">
-          <!-- populado por sprBuildMultiselects() -->
-        </div>
-      </div>
-
-      <div class="spr-period-label" id="spr-period-label"></div>
-
-      <div id="spr-kpis"></div>
-
-      <div class="table-card" style="margin-top:16px">
-        <div class="table-toolbar">
-          <div class="table-toolbar-title">LTs do período selecionado</div>
-          <div class="table-search">
-            <i class="fas fa-search"></i>
-            <input type="text" id="spr-lt-search" placeholder="Buscar LT…" oninput="sprRenderViagensTable()"/>
-          </div>
-        </div>
-        <div style="overflow-x:auto">
-          <table class="resp-table" style="min-width:900px">
-            <thead><tr id="spr-lt-thead"></tr></thead>
-            <tbody id="spr-lt-tbody"></tbody>
-          </table>
-        </div>
-        <div class="spr-lt-footer" id="spr-lt-footer"></div>
-      </div>
+      <div id="pulso-root-spr"></div>
     </section>
 
-    <!-- Pipboy — insights automáticos do SPR -->
-    <div class="modal-overlay" id="spr-pipboy-overlay" onclick="if(event.target===this) sprClosePipboy()">
+    <!-- Pipboy — painel de insights compartilhado por todas as páginas do pacote padrão -->
+    <div class="modal-overlay" id="pulso-pipboy-overlay" onclick="if(event.target===this) pulsoClosePipboy()">
       <div class="modal" style="max-width:560px">
         <div class="modal-header">
-          <span class="modal-title"><i class="fas fa-satellite-dish" style="color:#3fae82;margin-right:8px"></i>Pipboy — Insights SPR</span>
-          <button class="modal-close" onclick="sprClosePipboy()"><i class="fas fa-xmark"></i></button>
+          <span class="modal-title"><i class="fas fa-satellite-dish" style="color:#3fae82;margin-right:8px"></i>Pipboy — Insights <span id="pulso-pipboy-title"></span></span>
+          <button class="modal-close" onclick="pulsoClosePipboy()"><i class="fas fa-xmark"></i></button>
         </div>
-        <div id="spr-pipboy-loading" class="spr-pipboy-loading">
+        <div id="pulso-pipboy-loading" class="spr-pipboy-loading">
           <img src="/assets/pipboy.webp" alt="Pipboy"/>
-          <div class="spr-pipboy-loading-text"><i class="fas fa-circle-notch fa-spin"></i> Analisando dados da SPR…</div>
+          <div class="spr-pipboy-loading-text"><i class="fas fa-circle-notch fa-spin"></i> Analisando dados…</div>
         </div>
-        <div id="spr-pipboy-body" style="display:none"></div>
+        <div id="pulso-pipboy-body" style="display:none"></div>
       </div>
     </div>
 
@@ -4259,7 +4214,7 @@ async function renderSection(section){
     const {data,source} = await DataService.load(section);
     setBadge(section,'ok',source);
     const fn = {gestao:renderGestao, performance:renderPerformance, asm:renderAsm,
-      backlog:renderBacklog, spr:renderSpr,
+      backlog:renderBacklog, spr:()=>pulsoRender('spr'),
       conveyor:renderConveyor, inbound:renderInbound, outbound:renderOutbound, tratativas:renderTratativas,
       laborplan:renderLaborplan, arvore:renderArvore, kpioverview:renderKpioverview,
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
@@ -4309,102 +4264,127 @@ function buildKPIs(id, kpis){
 }
 
 /* ================================================================
-   SPR — Solicitação de Programação de Rota (viagens)
-   Agregação feita no servidor (/api/spr) — a base tem ~20 mil linhas,
-   grande demais pra filtrar no navegador a cada troca de filtro.
+   PULSO DASHBOARD ENGINE — pacote padrão reutilizável (filtros por
+   período, agrupadores, dropdowns com busca, tabela ordenável e
+   Pipboy) pra qualquer página alimentada por um endpoint no formato
+   { atual, anterior, delta, periodo, <rowsField>, <totalField>,
+   opcoesFiltro }, como o /api/spr. Cada página só precisa de um
+   objeto de config (ver "SPR — config" logo abaixo como exemplo) e
+   de um <div id="pulso-root-<key>"></div> na seção — o resto (HTML
+   interno, filtros, KPIs, tabela e Pipboy) é montado por aqui.
 ================================================================ */
-const SPR_STATE = {
-  dim: 'day',
-  date: null, // YYYY-MM-DD; null = usa a data mais recente disponível na base
-  turno: [],
-  canal: [],
-  solicitation_by: [],
-  destination: [],
-  vehicle: [],
-  agency: [],
-};
+const PULSO_DASHBOARDS = {};   // key -> config
+const PULSO_STATE = {};        // key -> { dim, date, toggles:{}, ms:{} }
+const PULSO_OPTIONS = {};      // key -> última opcoesFiltro recebida
+const PULSO_SORT = {};         // key -> { key, dir }
+const PULSO_ROWS = {};         // key -> { rows, total }
+const PULSO_DATA = {};         // key -> última resposta completa da API (pro Pipboy)
+const PULSO_LOADING = {};      // key -> bool
+let PULSO_PIPBOY_TIMER = null;
 
-const SPR_MULTISELECTS = [
-  { key:'solicitation_by', label:'Solicitante', field:'solicitation_by' },
-  { key:'destination',     label:'Destino',     field:'destination_station_code', searchable:true },
-  { key:'vehicle',         label:'Veículo',     field:'used_vehicle' },
-  { key:'agency',          label:'Agência',     field:'used_agency_name' },
-];
-
-let SPR_OPTIONS_CACHE = {};
-
-function sprEscHtml(s){
+function pulsoEscHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
-function renderSpr(){
-  if(!document.getElementById('spr-ms-wrap-solicitation_by')) sprBuildMultiselects();
-  if(!document.getElementById('spr-lt-thead').children.length) sprBuildLtHead();
-  sprLoad();
+// Registra uma página no motor. Chamar uma vez por página, no carregamento do script.
+function pulsoRegister(cfg){
+  PULSO_DASHBOARDS[cfg.key] = cfg;
+  PULSO_STATE[cfg.key] = {
+    dim: (cfg.dims && cfg.dims[0]) || 'day',
+    date: null, // YYYY-MM-DD; null = usa a data mais recente disponível na base
+    toggles: Object.fromEntries(cfg.toggleGroups.map(g => [g.key, []])),
+    ms: Object.fromEntries(cfg.multiselects.map(m => [m.key, []])),
+  };
+  PULSO_OPTIONS[cfg.key] = {};
+  PULSO_SORT[cfg.key] = { key: null, dir: 0 };
+  PULSO_ROWS[cfg.key] = { rows: [], total: 0 };
 }
 
-function sprBuildMultiselects(){
-  const wrap = document.getElementById('spr-multiselects');
-  if(!wrap) return;
-  wrap.innerHTML = SPR_MULTISELECTS.map(ms => `
-    <div class="spr-ms-wrap" id="spr-ms-wrap-${ms.key}">
-      <button class="spr-ms-btn" id="spr-ms-btn-${ms.key}" type="button" onclick="sprToggleDropdown('${ms.key}')">
+// Chamado pelo dispatch de renderSection — monta o HTML na 1ª vez, depois só recarrega os dados.
+function pulsoRender(key){
+  const root = document.getElementById('pulso-root-'+key);
+  if(root && !root.dataset.built){
+    root.innerHTML = pulsoBuildHTML(PULSO_DASHBOARDS[key]);
+    root.dataset.built = '1';
+  }
+  pulsoLoad(key);
+}
+
+function pulsoBuildHTML(cfg){
+  const dims = cfg.dims || ['day','week','month'];
+  const dimLabels = { day:'Dia', week:'Semana', month:'Mês' };
+  const dimTabs = dims.map((d,i) => `<div class="bkl-tab ${i===0?'active':''}" onclick="pulsoSetDim('${cfg.key}','${d}',this)">${dimLabels[d]||d}</div>`).join('');
+
+  const toggleGroupsHtml = cfg.toggleGroups.map(g => `
+    <div class="spr-filter-group" id="pulso-toggle-${cfg.key}-${g.key}">
+      ${(g.static||[]).map(v => `<button type="button" class="bkl-pf-btn" onclick="pulsoToggle('${cfg.key}','${g.key}','${v}',this)">${v}</button>`).join('')}
+    </div>`).join('');
+
+  const msHtml = cfg.multiselects.map(ms => `
+    <div class="spr-ms-wrap" id="pulso-ms-wrap-${cfg.key}-${ms.key}">
+      <button class="spr-ms-btn" id="pulso-ms-btn-${cfg.key}-${ms.key}" type="button" onclick="pulsoToggleDropdown('${cfg.key}','${ms.key}')">
         ${ms.label} <i class="fas fa-chevron-down" style="font-size:9px"></i>
       </button>
-      <div class="spr-ms-dropdown" id="spr-ms-dropdown-${ms.key}">
+      <div class="spr-ms-dropdown" id="pulso-ms-dropdown-${cfg.key}-${ms.key}">
         <div class="spr-ms-actions">
-          <button type="button" class="spr-ms-action-btn" onclick="sprSelectAll('${ms.key}')">Todos</button>
-          <button type="button" class="spr-ms-action-btn" onclick="sprClearFilter('${ms.key}')">Limpar</button>
+          <button type="button" class="spr-ms-action-btn" onclick="pulsoSelectAll('${cfg.key}','${ms.key}')">Todos</button>
+          <button type="button" class="spr-ms-action-btn" onclick="pulsoClearFilter('${cfg.key}','${ms.key}')">Limpar</button>
         </div>
-        ${ms.searchable ? `<input class="spr-ms-search" placeholder="Buscar…" oninput="sprFilterOptions('${ms.key}', this.value)"/>` : ''}
-        <div class="spr-ms-list" id="spr-ms-list-${ms.key}" data-key="${ms.key}"><div class="spr-ms-empty">Carregando…</div></div>
+        ${ms.searchable ? `<input class="spr-ms-search" placeholder="Buscar…" oninput="pulsoFilterOptions('${cfg.key}','${ms.key}', this.value)"/>` : ''}
+        <div class="spr-ms-list" id="pulso-ms-list-${cfg.key}-${ms.key}" data-dash="${cfg.key}" data-key="${ms.key}"><div class="spr-ms-empty">Carregando…</div></div>
       </div>
     </div>`).join('');
-}
 
-function sprSelectAll(key){
-  const ms = SPR_MULTISELECTS.find(m=>m.key===key);
-  SPR_STATE[key] = [...(SPR_OPTIONS_CACHE[ms.field] || [])];
-  sprRefreshMsUI(key);
-  sprLoad();
-}
+  const theadHtml = cfg.table.columns.map(c => `
+    <th class="spr-sortable" onclick="pulsoSortBy('${cfg.key}','${c.key}')" id="pulso-th-${cfg.key}-${c.key}">${c.label} <i class="fas fa-sort"></i></th>`).join('');
 
-function sprClearFilter(key){
-  SPR_STATE[key] = [];
-  sprRefreshMsUI(key);
-  sprLoad();
-}
-
-function sprRefreshMsUI(key){
-  const ms = SPR_MULTISELECTS.find(m=>m.key===key);
-  const btn = document.getElementById('spr-ms-btn-'+key);
-  const arr = SPR_STATE[key];
-  if(btn){
-    btn.innerHTML = (arr.length ? `${ms.label} (${arr.length})` : ms.label) + ' <i class="fas fa-chevron-down" style="font-size:9px"></i>';
-    btn.classList.toggle('active', arr.length>0);
-  }
-  document.querySelectorAll('#spr-ms-list-'+key+' .spr-ms-checkbox').forEach(cb => {
-    cb.checked = arr.includes(cb.dataset.value);
-  });
+  return `
+    <div class="spr-filters">
+      <div class="spr-filter-group">
+        <div class="bkl-tabs" id="pulso-dim-${cfg.key}">${dimTabs}</div>
+        <input type="date" class="filter-select" id="pulso-date-${cfg.key}" onchange="pulsoSetDate('${cfg.key}', this.value)" style="color-scheme:dark"/>
+      </div>
+      ${toggleGroupsHtml}
+      <div class="spr-filter-group">${msHtml}</div>
+    </div>
+    <div class="spr-period-label" id="pulso-period-${cfg.key}"></div>
+    <div id="pulso-kpis-${cfg.key}"></div>
+    <div class="table-card" style="margin-top:16px">
+      <div class="table-toolbar">
+        <div class="table-toolbar-title">${cfg.table.title}</div>
+        <div class="table-search">
+          <i class="fas fa-search"></i>
+          <input type="text" id="pulso-search-${cfg.key}" placeholder="${cfg.table.searchPlaceholder||'Buscar…'}" oninput="pulsoRenderTable('${cfg.key}')"/>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="resp-table" style="min-width:900px">
+          <thead><tr id="pulso-thead-${cfg.key}">${theadHtml}</tr></thead>
+          <tbody id="pulso-tbody-${cfg.key}"></tbody>
+        </table>
+      </div>
+      <div class="spr-lt-footer" id="pulso-footer-${cfg.key}"></div>
+    </div>`;
 }
 
 // Delegação: evita ter que escapar valores dinâmicos dentro de atributos onclick/onchange
 document.addEventListener('change', e => {
   if(!e.target.classList.contains('spr-ms-checkbox')) return;
   const list = e.target.closest('.spr-ms-list');
-  sprToggleOption(list.dataset.key, e.target.dataset.value, e.target.checked);
+  pulsoToggleOption(list.dataset.dash, list.dataset.key, e.target.dataset.value, e.target.checked);
 });
 document.addEventListener('click', e => {
   if(!e.target.closest('.spr-ms-wrap')) document.querySelectorAll('.spr-ms-dropdown').forEach(d => d.classList.remove('open'));
 });
 
-function sprToggleDropdown(key){
-  document.querySelectorAll('.spr-ms-dropdown').forEach(d => { if(d.id !== 'spr-ms-dropdown-'+key) d.classList.remove('open'); });
-  document.getElementById('spr-ms-dropdown-'+key).classList.toggle('open');
+function pulsoToggleDropdown(key, msKey){
+  const id = `pulso-ms-dropdown-${key}-${msKey}`;
+  document.querySelectorAll('.spr-ms-dropdown').forEach(d => { if(d.id !== id) d.classList.remove('open'); });
+  document.getElementById(id).classList.toggle('open');
 }
 
-function sprFilterOptions(key, term){
-  const list = document.getElementById('spr-ms-list-'+key);
+function pulsoFilterOptions(key, msKey, term){
+  const list = document.getElementById(`pulso-ms-list-${key}-${msKey}`);
   if(!list) return;
   const t = term.trim().toLowerCase();
   list.querySelectorAll('.spr-ms-item').forEach(item => {
@@ -4412,335 +4392,262 @@ function sprFilterOptions(key, term){
   });
 }
 
-function sprToggleOption(key, value, checked){
-  const arr = SPR_STATE[key];
+function pulsoToggleOption(key, msKey, value, checked){
+  const arr = PULSO_STATE[key].ms[msKey];
   const i = arr.indexOf(value);
   if(checked && i===-1) arr.push(value);
   if(!checked && i!==-1) arr.splice(i,1);
-  const btn = document.getElementById('spr-ms-btn-'+key);
-  const ms = SPR_MULTISELECTS.find(m=>m.key===key);
+  pulsoRefreshMsUI(key, msKey);
+  pulsoLoad(key);
+}
+
+function pulsoSelectAll(key, msKey){
+  const ms = PULSO_DASHBOARDS[key].multiselects.find(m=>m.key===msKey);
+  PULSO_STATE[key].ms[msKey] = [...(PULSO_OPTIONS[key][ms.field] || [])];
+  pulsoRefreshMsUI(key, msKey);
+  pulsoLoad(key);
+}
+
+function pulsoClearFilter(key, msKey){
+  PULSO_STATE[key].ms[msKey] = [];
+  pulsoRefreshMsUI(key, msKey);
+  pulsoLoad(key);
+}
+
+function pulsoRefreshMsUI(key, msKey){
+  const ms = PULSO_DASHBOARDS[key].multiselects.find(m=>m.key===msKey);
+  const btn = document.getElementById(`pulso-ms-btn-${key}-${msKey}`);
+  const arr = PULSO_STATE[key].ms[msKey];
   if(btn){
     btn.innerHTML = (arr.length ? `${ms.label} (${arr.length})` : ms.label) + ' <i class="fas fa-chevron-down" style="font-size:9px"></i>';
     btn.classList.toggle('active', arr.length>0);
   }
-  sprLoad();
+  document.querySelectorAll(`#pulso-ms-list-${key}-${msKey} .spr-ms-checkbox`).forEach(cb => {
+    cb.checked = arr.includes(cb.dataset.value);
+  });
 }
 
-function sprPopulateOptions(opcoes){
-  SPR_OPTIONS_CACHE = opcoes;
-  SPR_MULTISELECTS.forEach(ms => {
-    const list = document.getElementById('spr-ms-list-'+ms.key);
+function pulsoPopulateOptions(key, opcoes){
+  PULSO_OPTIONS[key] = opcoes;
+  const cfg = PULSO_DASHBOARDS[key];
+  cfg.multiselects.forEach(ms => {
+    const list = document.getElementById(`pulso-ms-list-${key}-${ms.key}`);
     if(!list) return;
     const values = opcoes[ms.field] || [];
     if(!values.length){ list.innerHTML = '<div class="spr-ms-empty">Nenhuma opção</div>'; return; }
     list.innerHTML = values.map(v => `
-      <label class="spr-ms-item" data-value="${sprEscHtml(v)}">
-        <input type="checkbox" class="spr-ms-checkbox" data-value="${sprEscHtml(v)}" ${SPR_STATE[ms.key].includes(v)?'checked':''}/>
-        <span>${sprEscHtml(v)}</span>
+      <label class="spr-ms-item" data-value="${pulsoEscHtml(v)}">
+        <input type="checkbox" class="spr-ms-checkbox" data-value="${pulsoEscHtml(v)}" ${PULSO_STATE[key].ms[ms.key].includes(v)?'checked':''}/>
+        <span>${pulsoEscHtml(v)}</span>
       </label>`).join('');
   });
-  sprRenderCanalToggle(opcoes.canal || []);
+  // Agrupadores dinâmicos (ex: Canal) — opções descobertas a partir da resposta da API,
+  // não fixas no HTML, porque não sabemos de antemão quais valores existem.
+  cfg.toggleGroups.filter(g => g.dynamic).forEach(g => {
+    const wrap = document.getElementById(`pulso-toggle-${key}-${g.key}`);
+    if(!wrap) return;
+    const values = opcoes[g.dynamic] || [];
+    wrap.innerHTML = values.map(v => `
+      <button type="button" class="bkl-pf-btn ${PULSO_STATE[key].toggles[g.key].includes(v)?'active':''}" onclick="pulsoToggle('${key}','${g.key}','${v}',this)">${pulsoEscHtml(v)}</button>`).join('');
+  });
 }
 
-// Não existe coluna de "canal" na planilha — o backend deriva do prefixo
-// do código de destino (HUB-, SOC- etc.). Os botões são montados
-// dinamicamente porque não sabemos de antemão quais canais existem.
-function sprRenderCanalToggle(canais){
-  const wrap = document.getElementById('spr-canal-group');
-  if(!wrap) return;
-  wrap.innerHTML = canais.map(c => `
-    <button type="button" class="bkl-pf-btn ${SPR_STATE.canal.includes(c)?'active':''}" onclick="sprToggleCanal('${c}',this)">${sprEscHtml(c)}</button>
-  `).join('');
-}
-
-function sprToggleCanal(c, el){
-  const i = SPR_STATE.canal.indexOf(c);
-  if(i===-1) SPR_STATE.canal.push(c); else SPR_STATE.canal.splice(i,1);
+function pulsoToggle(key, groupKey, value, el){
+  const arr = PULSO_STATE[key].toggles[groupKey];
+  const i = arr.indexOf(value);
+  if(i===-1) arr.push(value); else arr.splice(i,1);
   el.classList.toggle('active');
-  sprLoad();
+  pulsoLoad(key);
 }
 
-function sprSetDim(dim, el){
-  SPR_STATE.dim = dim;
-  document.querySelectorAll('#spr-dim-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
+function pulsoSetDim(key, dim, el){
+  PULSO_STATE[key].dim = dim;
+  document.querySelectorAll(`#pulso-dim-${key} .bkl-tab`).forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  sprLoad();
+  pulsoLoad(key);
 }
 
-function sprSetDate(value){
-  SPR_STATE.date = value || null;
-  sprLoad();
+function pulsoSetDate(key, value){
+  PULSO_STATE[key].date = value || null;
+  pulsoLoad(key);
 }
 
-function sprToggleTurno(t, el){
-  const i = SPR_STATE.turno.indexOf(t);
-  if(i===-1) SPR_STATE.turno.push(t); else SPR_STATE.turno.splice(i,1);
-  el.classList.toggle('active');
-  sprLoad();
-}
-
-function sprQueryString(){
+function pulsoQueryString(key){
+  const cfg = PULSO_DASHBOARDS[key], st = PULSO_STATE[key];
   const p = new URLSearchParams();
-  p.set('dim', SPR_STATE.dim);
-  if(SPR_STATE.date) p.set('date', SPR_STATE.date);
-  if(SPR_STATE.turno.length) p.set('turno', SPR_STATE.turno.join(','));
-  if(SPR_STATE.canal.length) p.set('canal', SPR_STATE.canal.join(','));
-  if(SPR_STATE.solicitation_by.length) p.set('solicitation_by', SPR_STATE.solicitation_by.join(','));
-  if(SPR_STATE.destination.length) p.set('destination', SPR_STATE.destination.join(','));
-  if(SPR_STATE.vehicle.length) p.set('vehicle', SPR_STATE.vehicle.join(','));
-  if(SPR_STATE.agency.length) p.set('agency', SPR_STATE.agency.join(','));
+  p.set('dim', st.dim);
+  if(st.date) p.set('date', st.date);
+  cfg.toggleGroups.forEach(g => { if(st.toggles[g.key].length) p.set(g.key, st.toggles[g.key].join(',')); });
+  cfg.multiselects.forEach(m => { if(st.ms[m.key].length) p.set(m.key, st.ms[m.key].join(',')); });
   return p.toString();
 }
 
-let SPR_LOADING = false;
-async function sprLoad(){
-  if(SPR_LOADING) return;
-  SPR_LOADING = true;
-  setBadge('spr','loading');
+async function pulsoLoad(key){
+  if(PULSO_LOADING[key]) return;
+  PULSO_LOADING[key] = true;
+  const cfg = PULSO_DASHBOARDS[key];
+  setBadge(key, 'loading');
   try {
-    const r = await fetch('/api/spr?'+sprQueryString(), {cache:'no-store'});
+    const r = await fetch(cfg.apiPath + '?' + pulsoQueryString(key), { cache:'no-store' });
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
-    setBadge('spr','ok','Planilha · '+new Date(j.atualizadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
-    sprPopulateOptions(j.opcoesFiltro);
-    sprRenderPeriodo(j.periodo);
-    sprRenderKpis(j.atual, j.delta);
-    sprRenderViagens(j.viagens, j.viagensTotal);
-    SPR_LAST = j; // guarda a última resposta completa pro Pipboy calcular insights
+    setBadge(key, 'ok', 'Planilha · '+new Date(j.atualizadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    pulsoPopulateOptions(key, j.opcoesFiltro || {});
+    pulsoRenderPeriodo(key, j.periodo);
+    pulsoRenderKpis(key, j.atual, j.delta);
+    PULSO_ROWS[key] = { rows: j[cfg.table.rowsField] || [], total: j[cfg.table.totalField] || 0 };
+    const search = document.getElementById('pulso-search-'+key);
+    if(search) search.value = '';
+    pulsoRenderTable(key);
+    PULSO_DATA[key] = j;
   } catch(err){
-    setBadge('spr','error','Erro: '+err.message);
-    console.error('[SPR]', err);
+    setBadge(key, 'error', 'Erro: '+err.message);
+    console.error('['+key+']', err);
   } finally {
-    SPR_LOADING = false;
+    PULSO_LOADING[key] = false;
   }
 }
 
-function sprRenderPeriodo(p){
-  const el = document.getElementById('spr-period-label');
+function pulsoRenderPeriodo(key, p){
+  const el = document.getElementById('pulso-period-'+key);
   if(el){
-    const labelDim = {day:'Dia', week:'Semana', month:'Mês'}[p.dim] || p.dim;
+    const labelDim = { day:'Dia', week:'Semana', month:'Mês' }[p.dim] || p.dim;
     el.textContent = `${labelDim}: ${p.inicio}${p.inicio!==p.fim ? ' a '+p.fim : ''} · comparado a ${p.inicioAnterior}${p.inicioAnterior!==p.fimAnterior ? ' a '+p.fimAnterior : ''}`;
   }
   // Reflete a data de referência real no calendário (útil no 1º load, sem data escolhida)
-  const dateInput = document.getElementById('spr-date');
-  if(dateInput && !SPR_STATE.date) dateInput.value = p.inicio;
+  const dateInput = document.getElementById('pulso-date-'+key);
+  if(dateInput && !PULSO_STATE[key].date) dateInput.value = p.inicio;
 }
 
-function sprRenderKpis(atual, delta){
+function pulsoRenderKpis(key, atual, delta){
+  const cfg = PULSO_DASHBOARDS[key];
   const trend = d => d < 0 ? 'down' : 'up';
   const fmtDelta = d => (d>0?'+':'')+d+'% vs período ant.';
-  const kpis = [
-    { label:'Pedidos por Viagem (SPR Overall)', value: atual.pedidosPorViagem.toLocaleString('pt-BR'), delta: fmtDelta(delta.pedidosPorViagem), trend: trend(delta.pedidosPorViagem), type:'', icon:'fa-route' },
-    { label:'Viagens', value: atual.viagens.toLocaleString('pt-BR'), delta: fmtDelta(delta.viagens), trend: trend(delta.viagens), type:'', icon:'fa-truck' },
-    { label:'Orders Scuttle', value: atual.ordersScuttle.toLocaleString('pt-BR'), delta: fmtDelta(delta.ordersScuttle), trend: trend(delta.ordersScuttle), type:'', icon:'fa-box' },
-    { label:'Orders Saca', value: atual.ordersSaca.toLocaleString('pt-BR'), delta: fmtDelta(delta.ordersSaca), trend: trend(delta.ordersSaca), type:'', icon:'fa-sack-dollar' },
-    { label:'TO Scuttle', value: atual.toScuttle.toLocaleString('pt-BR'), delta: fmtDelta(delta.toScuttle), trend: trend(delta.toScuttle), type:'', icon:'fa-dolly' },
-    { label:'TO Saca', value: atual.toSaca.toLocaleString('pt-BR'), delta: fmtDelta(delta.toSaca), trend: trend(delta.toSaca), type:'', icon:'fa-sack-xmark' },
-  ];
-  buildKPIs('spr-kpis', kpis);
+  const kpis = cfg.kpis.map(k => ({
+    label: k.label,
+    value: (atual[k.key]||0).toLocaleString('pt-BR'),
+    delta: fmtDelta(delta[k.key]||0),
+    trend: trend(delta[k.key]||0),
+    type: '', icon: k.icon,
+  }));
+  buildKPIs('pulso-kpis-'+key, kpis);
 }
 
-let SPR_VIAGENS = [];
-let SPR_VIAGENS_TOTAL = 0;
-let SPR_LAST = null;
-
-const SPR_LT_COLUMNS = [
-  { key:'trip_number',                label:'LT',              type:'text' },
-  { key:'status_agrupado',            label:'Status',          type:'text' },
-  { key:'solicitation_by',            label:'Solicitante',     type:'text' },
-  { key:'origin_station_code',        label:'Origem',          type:'text' },
-  { key:'destination_station_code',   label:'Destino',         type:'text' },
-  { key:'total_orders',               label:'Pedidos',         type:'number' },
-  { key:'used_vehicle',               label:'Veículo',         type:'text' },
-  { key:'used_agency_name',           label:'Agência',         type:'text' },
-  { key:'turno',                      label:'Turno',           type:'text' },
-  { key:'cpt_scheduled_origin_edited',label:'CPT Programado',  type:'date' },
-];
-let SPR_SORT = { key: null, dir: 0 }; // dir: 0 = ordem original, 1 = asc, -1 = desc
-
-function sprBuildLtHead(){
-  const tr = document.getElementById('spr-lt-thead');
-  if(!tr) return;
-  tr.innerHTML = SPR_LT_COLUMNS.map(c => `
-    <th class="spr-sortable" onclick="sprSortBy('${c.key}')" id="spr-th-${c.key}">
-      ${c.label} <i class="fas fa-sort"></i>
-    </th>`).join('');
+function pulsoFmtCell(v, type){
+  if(type === 'date'){
+    if(!v) return '—';
+    const d = new Date(String(v).replace(' ','T'));
+    return isNaN(d) ? pulsoEscHtml(v) : d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+  }
+  if(type === 'number') return (v||0).toLocaleString('pt-BR');
+  return pulsoEscHtml(v || '—');
 }
 
-function sprSortBy(key){
-  if(SPR_SORT.key !== key) SPR_SORT = { key, dir: 1 };
-  else if(SPR_SORT.dir === 1) SPR_SORT.dir = -1;
-  else SPR_SORT = { key: null, dir: 0 };
+function pulsoSortBy(key, colKey){
+  const s = PULSO_SORT[key];
+  if(s.key !== colKey) PULSO_SORT[key] = { key: colKey, dir: 1 };
+  else if(s.dir === 1) s.dir = -1;
+  else PULSO_SORT[key] = { key: null, dir: 0 };
 
-  SPR_LT_COLUMNS.forEach(c => {
-    const th = document.getElementById('spr-th-'+c.key);
+  PULSO_DASHBOARDS[key].table.columns.forEach(c => {
+    const th = document.getElementById(`pulso-th-${key}-${c.key}`);
     if(!th) return;
     const icon = th.querySelector('i');
-    const active = SPR_SORT.key === c.key;
+    const active = PULSO_SORT[key].key === c.key;
     th.classList.toggle('active', active);
-    icon.className = 'fas ' + (active ? (SPR_SORT.dir===1 ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort');
+    icon.className = 'fas ' + (active ? (PULSO_SORT[key].dir===1 ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort');
   });
-  sprRenderViagensTable();
+  pulsoRenderTable(key);
 }
 
-function sprFmtCpt(v){
-  if(!v) return '—';
-  const d = new Date(String(v).replace(' ','T'));
-  if(isNaN(d)) return v;
-  return d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-}
-
-function sprRenderViagens(viagens, total){
-  SPR_VIAGENS = viagens || [];
-  SPR_VIAGENS_TOTAL = total || 0;
-  const search = document.getElementById('spr-lt-search');
-  if(search) search.value = '';
-  sprRenderViagensTable();
-}
-
-function sprRenderViagensTable(){
-  const tbody = document.getElementById('spr-lt-tbody');
-  const footer = document.getElementById('spr-lt-footer');
+function pulsoRenderTable(key){
+  const cfg = PULSO_DASHBOARDS[key];
+  const tbody = document.getElementById('pulso-tbody-'+key);
+  const footer = document.getElementById('pulso-footer-'+key);
   if(!tbody) return;
+  const { rows, total } = PULSO_ROWS[key];
 
-  const termo = (document.getElementById('spr-lt-search')?.value || '').trim().toLowerCase();
-  let linhas = !termo ? SPR_VIAGENS : SPR_VIAGENS.filter(v =>
-    String(v.trip_number||'').toLowerCase().includes(termo) ||
-    String(v.destination_station_code||'').toLowerCase().includes(termo));
+  const termo = (document.getElementById('pulso-search-'+key)?.value || '').trim().toLowerCase();
+  const searchFields = cfg.table.searchFields || [];
+  let linhas = !termo ? rows : rows.filter(r => searchFields.some(f => String(r[f]||'').toLowerCase().includes(termo)));
 
-  if(SPR_SORT.key){
-    const col = SPR_LT_COLUMNS.find(c=>c.key===SPR_SORT.key);
+  const sort = PULSO_SORT[key];
+  if(sort.key){
+    const col = cfg.table.columns.find(c=>c.key===sort.key);
     linhas = [...linhas].sort((a,b) => {
-      let va = a[SPR_SORT.key], vb = b[SPR_SORT.key];
+      let va = a[sort.key], vb = b[sort.key];
       if(col.type==='number'){ va = va||0; vb = vb||0; }
       else if(col.type==='date'){ va = va ? new Date(String(va).replace(' ','T')) : new Date(0); vb = vb ? new Date(String(vb).replace(' ','T')) : new Date(0); }
       else { va = String(va||''); vb = String(vb||''); }
       const cmp = va < vb ? -1 : va > vb ? 1 : 0;
-      return cmp * SPR_SORT.dir;
+      return cmp * sort.dir;
     });
   }
 
   if(!linhas.length){
-    tbody.innerHTML = `<tr class="empty-row"><td colspan="${SPR_LT_COLUMNS.length}">Nenhuma viagem encontrada.</td></tr>`;
+    tbody.innerHTML = `<tr class="empty-row"><td colspan="${cfg.table.columns.length}">Nenhum registro encontrado.</td></tr>`;
     if(footer) footer.textContent = '';
     return;
   }
 
-  tbody.innerHTML = linhas.map(v => `
-    <tr>
-      <td>${sprEscHtml(v.trip_number||'—')}</td>
-      <td>${sprEscHtml(v.status_agrupado||'—')}</td>
-      <td>${sprEscHtml(v.solicitation_by||'—')}</td>
-      <td>${sprEscHtml(v.origin_station_code||'—')}</td>
-      <td>${sprEscHtml(v.destination_station_code||'—')}</td>
-      <td>${(v.total_orders||0).toLocaleString('pt-BR')}</td>
-      <td>${sprEscHtml(v.used_vehicle||'—')}</td>
-      <td>${sprEscHtml(v.used_agency_name||'—')}</td>
-      <td>${sprEscHtml(v.turno||'—')}</td>
-      <td>${sprFmtCpt(v.cpt_scheduled_origin_edited)}</td>
-    </tr>`).join('');
+  tbody.innerHTML = linhas.map(r => `<tr>${cfg.table.columns.map(c => `<td>${pulsoFmtCell(r[c.key], c.type)}</td>`).join('')}</tr>`).join('');
 
+  const singular = cfg.table.itemNameSingular || 'registro', plural = cfg.table.itemNamePlural || 'registros';
   if(footer){
-    footer.textContent = SPR_VIAGENS_TOTAL > SPR_VIAGENS.length
-      ? `Mostrando ${linhas.length} de ${SPR_VIAGENS_TOTAL.toLocaleString('pt-BR')} viagens no período — refine os filtros pra ver todas.`
-      : `${linhas.length.toLocaleString('pt-BR')} ${linhas.length===1?'viagem':'viagens'}${termo||SPR_SORT.key ? ' (de '+SPR_VIAGENS_TOTAL+' no período)' : ' no período'}.`;
+    footer.textContent = total > rows.length
+      ? `Mostrando ${linhas.length} de ${total.toLocaleString('pt-BR')} ${plural} no período — refine os filtros pra ver todas.`
+      : `${linhas.length.toLocaleString('pt-BR')} ${linhas.length===1?singular:plural}${termo||sort.key ? ' (de '+total+' no período)' : ' no período'}.`;
   }
 }
 
-/* ================================================================
-   PIPBOY — insights automáticos sobre o SPR (regras sobre os dados já
-   carregados, sem chamada a IA externa)
-================================================================ */
-function sprTopGroup(viagens, field, valueField){
+/* ── PIPBOY — insights automáticos, compartilhado por todas as páginas ──
+   Regras sobre os dados já carregados, sem chamada a IA externa. Toda
+   página ganha de graça o insight de "maior variação vs período
+   anterior" (baseado nos KPIs do config); insights mais específicos
+   do domínio (concentração por destino, status pendente etc.) vêm de
+   cfg.insights(data, rows), opcional. */
+function pulsoTopGroup(rows, field, valueField){
   const soma = new Map();
-  viagens.forEach(v => {
-    const k = v[field] || '—';
-    soma.set(k, (soma.get(k)||0) + (valueField ? (v[valueField]||0) : 1));
+  rows.forEach(r => {
+    const k = r[field] || '—';
+    soma.set(k, (soma.get(k)||0) + (valueField ? (r[valueField]||0) : 1));
   });
   return [...soma.entries()].sort((a,b)=>b[1]-a[1]);
 }
 
-function sprComputeInsights(){
-  if(!SPR_LAST) return [];
-  const { atual, delta, viagens } = SPR_LAST;
+function pulsoGenericInsights(key, data){
+  if(!data) return [];
+  const cfg = PULSO_DASHBOARDS[key];
   const insights = [];
-
-  // 1. Maior variação vs período anterior
-  const deltaLabels = { pedidosPorViagem:'Pedidos por viagem', viagens:'Viagens', ordersScuttle:'Orders Scuttle', ordersSaca:'Orders Saca', toScuttle:'TO Scuttle', toSaca:'TO Saca' };
-  const maiorMov = Object.entries(delta).sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]))[0];
-  if(maiorMov){
-    const [k, v] = maiorMov;
+  const entries = Object.entries(data.delta || {});
+  if(entries.length){
+    const [k, v] = entries.sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]))[0];
+    const kpiDef = cfg.kpis.find(x=>x.key===k);
     insights.push({
       icon: v>=0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down',
-      html: `<strong>${deltaLabels[k]||k}</strong> foi o que mais mudou: ${v>0?'+':''}${v}% vs o período anterior.`
+      html: `<strong>${kpiDef ? kpiDef.label : k}</strong> foi o que mais mudou: ${v>0?'+':''}${v}% vs o período anterior.`
     });
-  }
-
-  // 2. Concentração por destino
-  if(viagens && viagens.length){
-    const porDestino = sprTopGroup(viagens, 'destination_station_code', 'total_orders');
-    const totalPedidos = porDestino.reduce((s,[,v])=>s+v,0);
-    if(porDestino.length && totalPedidos){
-      const [destino, pedidos] = porDestino[0];
-      const pct = ((pedidos/totalPedidos)*100).toFixed(0);
-      insights.push({
-        icon: 'fa-location-dot',
-        html: `<strong>${sprEscHtml(destino)}</strong> concentra ${pct}% dos pedidos do período (${pedidos.toLocaleString('pt-BR')} de ${totalPedidos.toLocaleString('pt-BR')}).`
-      });
-    }
-
-    // 3. Concentração por agência
-    const porAgencia = sprTopGroup(viagens, 'used_agency_name');
-    if(porAgencia.length){
-      const [agencia, n] = porAgencia[0];
-      const pct = ((n/viagens.length)*100).toFixed(0);
-      insights.push({
-        icon: 'fa-truck-field',
-        html: `<strong>${sprEscHtml(agencia)}</strong> operou ${n} de ${viagens.length} viagens (${pct}%) no período.`
-      });
-    }
-
-    // 4. Status fora de FECHADA
-    const naoFechadas = viagens.filter(v => v.status_agrupado && v.status_agrupado !== 'FECHADA');
-    if(naoFechadas.length){
-      const porStatus = sprTopGroup(naoFechadas, 'status_agrupado');
-      const resumo = porStatus.map(([s,n])=>`${n} ${sprEscHtml(s)}`).join(', ');
-      insights.push({
-        icon: 'fa-triangle-exclamation',
-        html: `${naoFechadas.length} ${naoFechadas.length===1?'viagem':'viagens'} ainda não fechada${naoFechadas.length===1?'':'s'}: ${resumo}.`
-      });
-    }
-
-    // 5. Turno com mais viagens
-    const porTurno = sprTopGroup(viagens, 'turno');
-    if(porTurno.length > 1){
-      const [turno, n] = porTurno[0];
-      insights.push({
-        icon: 'fa-clock',
-        html: `Turno <strong>${sprEscHtml(turno)}</strong> concentra o maior número de viagens (${n} de ${viagens.length}).`
-      });
-    }
-  }
-
-  if(!insights.length){
-    insights.push({ icon:'fa-circle-info', html:'Sem dados suficientes no período/filtros atuais pra gerar insights.' });
   }
   return insights;
 }
 
-let SPR_PIPBOY_TIMER = null;
+function pulsoOpenPipboy(key){
+  const cfg = PULSO_DASHBOARDS[key];
+  const data = PULSO_DATA[key];
+  const rows = PULSO_ROWS[key].rows;
+  let insights = pulsoGenericInsights(key, data);
+  if(cfg.insights) insights = insights.concat(cfg.insights(data, rows) || []);
+  if(!insights.length) insights = [{ icon:'fa-circle-info', html:'Sem dados suficientes no período/filtros atuais pra gerar insights.' }];
 
-function sprOpenPipboy(){
-  const insights = sprComputeInsights(); // calculado já, só a exibição é adiada
-  const loading = document.getElementById('spr-pipboy-loading');
-  const body = document.getElementById('spr-pipboy-body');
-
+  document.getElementById('pulso-pipboy-title').textContent = cfg.label || key.toUpperCase();
+  const loading = document.getElementById('pulso-pipboy-loading');
+  const body = document.getElementById('pulso-pipboy-body');
   loading.style.display = '';
   body.style.display = 'none';
-  document.getElementById('spr-pipboy-overlay').classList.add('open');
+  document.getElementById('pulso-pipboy-overlay').classList.add('open');
 
-  clearTimeout(SPR_PIPBOY_TIMER);
-  SPR_PIPBOY_TIMER = setTimeout(() => {
+  clearTimeout(PULSO_PIPBOY_TIMER);
+  PULSO_PIPBOY_TIMER = setTimeout(() => {
     body.innerHTML = insights.map(it => `
       <div class="spr-pipboy-insight">
         <i class="fas ${it.icon}"></i>
@@ -4751,10 +4658,87 @@ function sprOpenPipboy(){
   }, 2000);
 }
 
-function sprClosePipboy(){
-  clearTimeout(SPR_PIPBOY_TIMER);
-  document.getElementById('spr-pipboy-overlay').classList.remove('open');
+function pulsoClosePipboy(){
+  clearTimeout(PULSO_PIPBOY_TIMER);
+  document.getElementById('pulso-pipboy-overlay').classList.remove('open');
 }
+
+/* ── SPR — config da página, usando o motor acima ── */
+pulsoRegister({
+  key: 'spr',
+  label: 'SPR',
+  apiPath: '/api/spr',
+  toggleGroups: [
+    { key:'turno', static:['T1','T2','T3'] },
+    { key:'canal', dynamic:'canal' }, // não existe coluna de canal; opções vêm de opcoesFiltro.canal (ver api/spr.js)
+  ],
+  multiselects: [
+    { key:'solicitation_by', label:'Solicitante', field:'solicitation_by' },
+    { key:'destination',     label:'Destino',     field:'destination_station_code', searchable:true },
+    { key:'vehicle',         label:'Veículo',     field:'used_vehicle' },
+    { key:'agency',          label:'Agência',     field:'used_agency_name' },
+  ],
+  kpis: [
+    { key:'pedidosPorViagem', label:'Pedidos por Viagem (SPR Overall)', icon:'fa-route' },
+    { key:'viagens',          label:'Viagens',       icon:'fa-truck' },
+    { key:'ordersScuttle',    label:'Orders Scuttle', icon:'fa-box' },
+    { key:'ordersSaca',       label:'Orders Saca',    icon:'fa-sack-dollar' },
+    { key:'toScuttle',        label:'TO Scuttle',     icon:'fa-dolly' },
+    { key:'toSaca',           label:'TO Saca',        icon:'fa-sack-xmark' },
+  ],
+  table: {
+    title: 'LTs do período selecionado',
+    rowsField: 'viagens', totalField: 'viagensTotal',
+    searchFields: ['trip_number','destination_station_code'],
+    searchPlaceholder: 'Buscar LT…',
+    itemNameSingular: 'viagem', itemNamePlural: 'viagens',
+    columns: [
+      { key:'trip_number',                 label:'LT',             type:'text' },
+      { key:'status_agrupado',             label:'Status',         type:'text' },
+      { key:'solicitation_by',             label:'Solicitante',    type:'text' },
+      { key:'origin_station_code',         label:'Origem',         type:'text' },
+      { key:'destination_station_code',    label:'Destino',        type:'text' },
+      { key:'total_orders',                label:'Pedidos',        type:'number' },
+      { key:'used_vehicle',                label:'Veículo',        type:'text' },
+      { key:'used_agency_name',            label:'Agência',        type:'text' },
+      { key:'turno',                       label:'Turno',          type:'text' },
+      { key:'cpt_scheduled_origin_edited', label:'CPT Programado', type:'date' },
+    ],
+  },
+  insights(data, rows){
+    const out = [];
+    if(!rows || !rows.length) return out;
+
+    const porDestino = pulsoTopGroup(rows, 'destination_station_code', 'total_orders');
+    const totalPedidos = porDestino.reduce((s,[,v])=>s+v,0);
+    if(porDestino.length && totalPedidos){
+      const [destino, pedidos] = porDestino[0];
+      const pct = ((pedidos/totalPedidos)*100).toFixed(0);
+      out.push({ icon:'fa-location-dot', html: `<strong>${pulsoEscHtml(destino)}</strong> concentra ${pct}% dos pedidos do período (${pedidos.toLocaleString('pt-BR')} de ${totalPedidos.toLocaleString('pt-BR')}).` });
+    }
+
+    const porAgencia = pulsoTopGroup(rows, 'used_agency_name');
+    if(porAgencia.length){
+      const [agencia, n] = porAgencia[0];
+      const pct = ((n/rows.length)*100).toFixed(0);
+      out.push({ icon:'fa-truck-field', html: `<strong>${pulsoEscHtml(agencia)}</strong> operou ${n} de ${rows.length} viagens (${pct}%) no período.` });
+    }
+
+    const naoFechadas = rows.filter(r => r.status_agrupado && r.status_agrupado !== 'FECHADA');
+    if(naoFechadas.length){
+      const porStatus = pulsoTopGroup(naoFechadas, 'status_agrupado');
+      const resumo = porStatus.map(([s,n])=>`${n} ${pulsoEscHtml(s)}`).join(', ');
+      out.push({ icon:'fa-triangle-exclamation', html: `${naoFechadas.length} ${naoFechadas.length===1?'viagem':'viagens'} ainda não fechada${naoFechadas.length===1?'':'s'}: ${resumo}.` });
+    }
+
+    const porTurno = pulsoTopGroup(rows, 'turno');
+    if(porTurno.length > 1){
+      const [turno, n] = porTurno[0];
+      out.push({ icon:'fa-clock', html: `Turno <strong>${pulsoEscHtml(turno)}</strong> concentra o maior número de viagens (${n} de ${rows.length}).` });
+    }
+    return out;
+  },
+});
 
 /* ================================================================
    CHARTS
