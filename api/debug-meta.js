@@ -18,6 +18,15 @@ module.exports = async (req, res) => {
     return;
   }
   try {
+    if (req.query.gid !== undefined && req.query.uniq !== undefined) {
+      const { rows } = await fetchTabByGid(id, req.query.gid);
+      const col = req.query.uniq;
+      const counts = {};
+      rows.forEach(r => { const v = r[col] ?? ''; counts[v] = (counts[v]||0) + 1; });
+      const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+      res.status(200).json({ ok: true, column: col, distinctCount: sorted.length, values: sorted });
+      return;
+    }
     if (req.query.gid !== undefined && req.query.size !== undefined) {
       const { title, rows } = await fetchTabByGid(id, req.query.gid);
       const json = JSON.stringify(rows);
