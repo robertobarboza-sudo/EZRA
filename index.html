@@ -2195,8 +2195,8 @@
 
     <div class="nav-group">
       <div class="nav-group-label">Operações</div>
-      <div class="nav-item" data-section="spr" data-label="SPR" onclick="navigateTo('spr',this)">
-        <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">SPR</span>
+      <div class="nav-item" data-section="spr" data-label="SPR / Leftover" onclick="navigateTo('spr',this)">
+        <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">SPR / Leftover</span>
       </div>
       <div class="nav-item" data-section="asm" data-label="ASM" onclick="navigateTo('asm',this)">
         <i class="fas fa-feather nav-icon"></i><span class="nav-label">ASM</span>
@@ -2415,15 +2415,26 @@
         <section id="section-spr" class="section">
       <div class="section-header" id="section-spr-header">
         <div class="section-header-left">
-          <div class="section-title">SPR <span class="ds-badge ok" id="ds-badge-spr" style="margin-left:8px"></span></div>
-          <div class="section-subtitle">Solicitação de Programação de Rota · Viagens</div>
+          <div class="section-title">
+            <span id="pulso-page-title">SPR</span>
+            <span class="ds-badge ok" id="ds-badge-spr" style="margin-left:8px"></span>
+            <span class="ds-badge ok" id="ds-badge-leftover" style="margin-left:8px;display:none"></span>
+          </div>
+          <div class="section-subtitle" id="pulso-page-subtitle">Solicitação de Programação de Rota · Viagens</div>
         </div>
         <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy('spr')"><i class="fas fa-satellite-dish"></i> Pipboy</button>
-          <button class="dl-btn dl-btn-csv" onclick="pulsoLoad('spr')"><i class="fas fa-rotate-right"></i> Atualizar</button>
+          <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy(PULSO_ACTIVE_SUBPAGE)"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="dl-btn dl-btn-csv" onclick="pulsoLoad(PULSO_ACTIVE_SUBPAGE)"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
+
+      <div class="bkl-tabs" id="pulso-subpage-tabs" style="margin-bottom:16px">
+        <div class="bkl-tab active" onclick="pulsoSwitchSubpage('spr',this)">SPR</div>
+        <div class="bkl-tab" onclick="pulsoSwitchSubpage('leftover',this)">Leftover</div>
+      </div>
+
       <div id="pulso-root-spr"></div>
+      <div id="pulso-root-leftover" style="display:none"></div>
     </section>
 
     <!-- Pipboy — painel de insights compartilhado por todas as páginas do pacote padrão -->
@@ -4676,6 +4687,32 @@ function pulsoClosePipboy(){
   document.getElementById('pulso-pipboy-overlay').classList.remove('open');
 }
 
+/* ── SPR / Leftover compartilham um único item de menu — troca de
+   sub-página feita em cima, sem passar por navigateTo/renderSection. ── */
+let PULSO_ACTIVE_SUBPAGE = 'spr';
+const PULSO_SUBPAGE_META = {
+  spr:      { title:'SPR',      subtitle:'Solicitação de Programação de Rota · Viagens' },
+  leftover: { title:'Leftover', subtitle:'Pacotes remanescentes por hub · Causas' },
+};
+
+function pulsoSwitchSubpage(key, el){
+  PULSO_ACTIVE_SUBPAGE = key;
+  document.querySelectorAll('#pulso-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+
+  document.getElementById('pulso-root-spr').style.display = key==='spr' ? '' : 'none';
+  document.getElementById('pulso-root-leftover').style.display = key==='leftover' ? '' : 'none';
+  document.getElementById('ds-badge-spr').style.display = key==='spr' ? '' : 'none';
+  document.getElementById('ds-badge-leftover').style.display = key==='leftover' ? '' : 'none';
+
+  const meta = PULSO_SUBPAGE_META[key];
+  document.getElementById('pulso-page-title').textContent = meta.title;
+  document.getElementById('pulso-page-subtitle').textContent = meta.subtitle;
+  document.getElementById('greet-sub').textContent = meta.subtitle;
+
+  pulsoRender(key);
+}
+
 /* ── SPR — config da página, usando o motor acima ── */
 pulsoRegister({
   key: 'spr',
@@ -4748,6 +4785,86 @@ pulsoRegister({
     if(porTurno.length > 1){
       const [turno, n] = porTurno[0];
       out.push({ icon:'fa-clock', html: `Turno <strong>${pulsoEscHtml(turno)}</strong> concentra o maior número de viagens (${n} de ${rows.length}).` });
+    }
+    return out;
+  },
+});
+
+/* ── Leftover — config da página, usando o mesmo motor ──
+   Classificação de causa (leftover_until_cap_causa_l1), decidida com o
+   time: [SOC] = Operacional; [GOV] = Inconsistência de Dados (não vira
+   card, só aparece no Pipboy); qualquer outro prefixo ([LH]/[3PL]/[XPT]/
+   [EXT]/[INFO]) = Externo. Mesma regra em api/leftover.js. */
+pulsoRegister({
+  key: 'leftover',
+  label: 'Leftover',
+  apiPath: '/api/leftover',
+  toggleGroups: [
+    { key:'turno', static:['T1','T2','T3'] },
+    { key:'type_cpt', dynamic:'type_cpt' },
+  ],
+  multiselects: [
+    { key:'hub',    label:'Hub',     field:'hub', searchable:true },
+    { key:'causa1', label:'Causa 1', field:'causa1' },
+    { key:'causa2', label:'Causa 2', field:'causa2', searchable:true },
+  ],
+  kpis: [
+    { key:'registros',          label:'Registros de Leftover',    icon:'fa-list' },
+    { key:'destinos',           label:'Destinos Diferentes',      icon:'fa-location-dot' },
+    { key:'pacotesLeftover',    label:'Pacotes Leftover',         icon:'fa-box-open' },
+    { key:'pctOperacional',     label:'% Impacto Operacional',    icon:'fa-gears' },
+    { key:'pacotesOperacional', label:'Pacotes (Operacional)',    icon:'fa-gears' },
+    { key:'pctExterno',         label:'% Impacto Externo',        icon:'fa-truck-ramp-box' },
+    { key:'pacotesExterno',     label:'Pacotes (Externo)',        icon:'fa-truck-ramp-box' },
+  ],
+  table: {
+    title: 'Registros de Leftover do período selecionado',
+    rowsField: 'leftovers', totalField: 'leftoversTotal',
+    searchFields: ['hub','observacao'],
+    searchPlaceholder: 'Buscar hub ou observação…',
+    itemNameSingular: 'registro', itemNamePlural: 'registros',
+    columns: [
+      { key:'hub',                        label:'Hub',        type:'text' },
+      { key:'type_cpt',                   label:'Type CPT',   type:'text' },
+      { key:'turno',                      label:'Turno',      type:'text' },
+      { key:'hora',                       label:'Hora',       type:'number' },
+      { key:'cpt_planejado',              label:'CPT',        type:'date' },
+      { key:'leftover_until_cap',         label:'Leftover',   type:'number' },
+      { key:'leftover_until_cap_causa_l1',label:'Causa 1',    type:'text' },
+      { key:'leftover_until_cap_causa_l2',label:'Causa 2',    type:'text' },
+      { key:'expedido',                   label:'Expedido',   type:'number' },
+      { key:'backlog_2hrs_cpt',           label:'Backlog 2h', type:'number' },
+    ],
+  },
+  insights(data, rows){
+    const out = [];
+    if(!rows || !rows.length) return out;
+
+    const porHub = pulsoTopGroup(rows, 'hub', 'leftover_until_cap');
+    const totalPacotes = porHub.reduce((s,[,v])=>s+v,0);
+    if(porHub.length && totalPacotes){
+      const [hub, pacotes] = porHub[0];
+      const pct = ((pacotes/totalPacotes)*100).toFixed(0);
+      out.push({ icon:'fa-location-dot', html: `<strong>${pulsoEscHtml(hub)}</strong> é o maior ofensor: ${pct}% dos pacotes leftover do período (${pacotes.toLocaleString('pt-BR')} de ${totalPacotes.toLocaleString('pt-BR')}).` });
+    }
+
+    const porCausa = pulsoTopGroup(rows, 'leftover_until_cap_causa_l1', 'leftover_until_cap');
+    if(porCausa.length && totalPacotes){
+      const [causa, pacotes] = porCausa[0];
+      const pct = ((pacotes/totalPacotes)*100).toFixed(0);
+      out.push({ icon:'fa-magnifying-glass', html: `Causa mais frequente: <strong>${pulsoEscHtml(causa)}</strong>, responsável por ${pct}% dos pacotes leftover (${pacotes.toLocaleString('pt-BR')}).` });
+    }
+
+    const inconsistencia = rows.filter(r => String(r.leftover_until_cap_causa_l1||'').startsWith('[GOV]'));
+    if(inconsistencia.length){
+      const pacotesInc = inconsistencia.reduce((s,r)=>s+(r.leftover_until_cap||0),0);
+      out.push({ icon:'fa-triangle-exclamation', html: `${inconsistencia.length} registro${inconsistencia.length===1?'':'s'} classificado${inconsistencia.length===1?'':'s'} como <strong>Inconsistência de Dados</strong> [GOV] (${pacotesInc.toLocaleString('pt-BR')} pacotes) — fora dos cards de Operacional/Externo.` });
+    }
+
+    const porTurno = pulsoTopGroup(rows, 'turno', 'leftover_until_cap');
+    if(porTurno.length > 1){
+      const [turno, pacotes] = porTurno[0];
+      out.push({ icon:'fa-clock', html: `Turno <strong>${pulsoEscHtml(turno)}</strong> concentra o maior volume de leftover (${pacotes.toLocaleString('pt-BR')} pacotes).` });
     }
     return out;
   },
