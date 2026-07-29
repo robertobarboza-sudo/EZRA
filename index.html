@@ -282,7 +282,20 @@
       transition: border-color var(--transition);
     }
     .filter-select:focus { border-color: var(--orange); color: var(--text); }
-    input.filter-select::-webkit-calendar-picker-indicator { filter: invert(1) opacity(.6); cursor: pointer; }
+    /* Ícone nativo de calendário é minúsculo e fica escondido no canto —
+       troca por uma seta pra baixo bem visível, do tamanho do alvo clicável real. */
+    input.filter-select::-webkit-calendar-picker-indicator {
+      cursor: pointer;
+      opacity: .8;
+      width: 18px; height: 18px;
+      padding: 0; margin-left: 6px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%2375809b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 6l4 4 4-4'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-size: 16px 16px;
+      background-position: center;
+      filter: none;
+    }
+    input.filter-select::-webkit-calendar-picker-indicator:hover { opacity: 1; }
     input.filter-select { font-family: inherit; }
 
     /* Actions */
