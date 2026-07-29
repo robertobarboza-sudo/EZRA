@@ -2,6 +2,13 @@
 
 Registro das alterações do site PULSO, em ordem cronológica (mais recente no topo).
 
+## 2026-07-29
+
+- **Nova página: Leftover**, dividindo o item de menu "SPR / Leftover" com a SPR — uma aba no topo da seção troca entre as duas sem sair da página. Dados da aba `leftover_hub_pulso` via `api/leftover.js`. Filtros: Turno, Type CPT, Hub, Causa 1, Causa 2. 7 cards: registros de leftover, destinos diferentes, pacotes leftover, % impacto operacional + pacotes, % impacto externo + pacotes. Pipboy com insights (hub ofensor, causa mais frequente, turno com mais volume, e um aviso separado pra registros classificados como Inconsistência de Dados).
+- **Classificação Operacional × Externo definida com o time**: causas `[SOC]` = Operacional; `[GOV]` = Inconsistência de Dados (não entra nos 2 cards, só aparece como insight no Pipboy); qualquer outro prefixo (`[LH]`, `[3PL]`, `[XPT]`, `[EXT]`, `[INFO]`) = Externo.
+- **Fix: campo de data do SPR sem clique.** O alvo real pra abrir o calendário é o ícone nativo do navegador, minúsculo e escondido no canto — parecia "quebrado" porque clicar no resto da caixa só seleciona texto. Trocado por uma seta pra baixo maior e visível.
+- Extraída a matemática de período (dia/semana/mês) pra `api/_period.js`, compartilhada entre `api/spr.js` e `api/leftover.js` — evita duplicar a mesma lógica em cada endpoint novo.
+
 ## 2026-07-28
 
 - **Pipboy ganhou tela de carregamento.** Clicar no botão mostra a imagem do mascote (`assets/pipboy.webp`) por 2s antes de revelar os insights — puramente de apresentação, os insights já são calculados na hora. Confirmado que o Pipboy só abre por clique, nunca automaticamente.

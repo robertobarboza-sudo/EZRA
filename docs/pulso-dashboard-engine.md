@@ -10,6 +10,29 @@ Está todo em `index.html`, no bloco `PULSO DASHBOARD ENGINE` (funções
 `pulso*`). Uma página nova (Leftover, Outbound, ...) não recria nada disso —
 só registra um **config** e ganha a UI inteira pronta.
 
+Duas páginas em produção usando o motor: **SPR** (`api/spr.js`) e
+**Leftover** (`api/leftover.js`) — use o config do Leftover como segunda
+referência além do da SPR, principalmente pra ver como tratar filtros
+categóricos com muitos valores (`hub`, `causa2`) vs. campos de texto livre
+(`observacao`, via `searchFields`, não vira dropdown).
+
+## Duas páginas sob um único item de menu
+
+SPR e Leftover dividem o mesmo item de navegação ("SPR / Leftover") — não
+são duas seções separadas. Um seletor de abas no topo da seção
+(`pulso-subpage-tabs`) troca qual delas está visível, via
+`pulsoSwitchSubpage(key, el)`, sem passar por `navigateTo`/`renderSection`.
+
+Pra isso funcionar, cada sub-página tem seu próprio `<div id="pulso-root-<key>">`
+e seu próprio badge `<span id="ds-badge-<key>">` dentro do MESMO
+`section-header` — `pulsoSwitchSubpage` alterna a visibilidade dos dois e
+atualiza o título/subtítulo. Os botões de Pipboy/Atualizar do header chamam
+`pulsoOpenPipboy(PULSO_ACTIVE_SUBPAGE)`/`pulsoLoad(PULSO_ACTIVE_SUBPAGE)` em
+vez de uma key fixa, pra sempre agir na sub-página visível no momento.
+Use esse padrão quando fizer sentido agrupar páginas relacionadas (como
+Outbound poderia se juntar a essa mesma dupla, virando "SPR / Leftover /
+Outbound") em vez de poluir o menu lateral com um item por planilha.
+
 ## Contrato esperado da API
 
 O endpoint da página (ex: `api/spr.js`) precisa devolver:
