@@ -4574,14 +4574,16 @@ function pulsoRenderKpis(key, atual, delta){
   const trend = d => d < 0 ? 'down' : 'up';
   const fmtDelta = d => (d>0?'+':'')+d+'% vs período ant.';
   const kpis = cfg.kpis.map(k => {
-    // Card de percentual: mostra "%" junto do valor e, se configurado com
-    // countKey, a quantidade absoluta correspondente entre parênteses —
-    // ex: "11,6% (1.297)". Funciona pra qualquer página que marcar um kpi
-    // com isPercent (não é algo específico do Leftover).
+    // isPercent: acrescenta "%" ao valor. countKey (independente do
+    // isPercent): mostra a quantidade absoluta de outra métrica entre
+    // parênteses, com sufixo opcional (countSuffix) — ex: "1.297 (243
+    // registros)". Genérico pra qualquer página do motor, não é algo
+    // específico do Leftover.
     let value = (atual[k.key]||0).toLocaleString('pt-BR');
-    if(k.isPercent){
-      value += '%';
-      if(k.countKey) value += ` (${(atual[k.countKey]||0).toLocaleString('pt-BR')})`;
+    if(k.isPercent) value += '%';
+    if(k.countKey){
+      const suffix = k.countSuffix ? ' '+k.countSuffix : '';
+      value += ` (${(atual[k.countKey]||0).toLocaleString('pt-BR')}${suffix})`;
     }
     return {
       label: k.label,
@@ -4851,8 +4853,10 @@ pulsoRegister({
     { key:'registros',          label:'Registros de Leftover',    icon:'fa-list' },
     { key:'destinos',           label:'Destinos Diferentes',      icon:'fa-location-dot' },
     { key:'pacotesLeftover',    label:'Pacotes Leftover',         icon:'fa-box-open' },
-    { key:'pctOperacional', label:'% Impacto Operacional', icon:'fa-gears',          isPercent:true, countKey:'pacotesOperacional' },
-    { key:'pctExterno',     label:'% Impacto Externo',     icon:'fa-truck-ramp-box', isPercent:true, countKey:'pacotesExterno' },
+    { key:'pctOperacional',     label:'% Impacto Operacional', icon:'fa-gears',          isPercent:true },
+    { key:'pacotesOperacional', label:'Pacotes (Operacional)', icon:'fa-gears',          countKey:'registrosOperacional', countSuffix:'registros' },
+    { key:'pctExterno',         label:'% Impacto Externo',     icon:'fa-truck-ramp-box', isPercent:true },
+    { key:'pacotesExterno',     label:'Pacotes (Externo)',     icon:'fa-truck-ramp-box', countKey:'registrosExterno', countSuffix:'registros' },
   ],
   table: {
     title: 'Registros de Leftover do período selecionado',

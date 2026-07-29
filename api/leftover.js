@@ -37,18 +37,22 @@ function aggregate(rows) {
   const pacotesLeftover = rows.reduce((s, r) => s + toNum(r.leftover_until_cap), 0);
 
   let pacotesOperacional = 0, pacotesExterno = 0, pacotesInconsistencia = 0;
+  let registrosOperacional = 0, registrosExterno = 0, registrosInconsistencia = 0;
   rows.forEach(r => {
     const qtd = toNum(r.leftover_until_cap);
     const cls = classificarCausa(r.leftover_until_cap_causa_l1);
-    if (cls === 'operacional') pacotesOperacional += qtd;
-    else if (cls === 'inconsistencia') pacotesInconsistencia += qtd;
-    else pacotesExterno += qtd;
+    if (cls === 'operacional') { pacotesOperacional += qtd; registrosOperacional++; }
+    else if (cls === 'inconsistencia') { pacotesInconsistencia += qtd; registrosInconsistencia++; }
+    else { pacotesExterno += qtd; registrosExterno++; }
   });
 
   return {
     registros,
     destinos,
     pacotesLeftover,
+    registrosOperacional,
+    registrosExterno,
+    registrosInconsistencia,
     pctOperacional: pacotesLeftover ? +(pacotesOperacional / pacotesLeftover * 100).toFixed(1) : 0,
     pacotesOperacional,
     pctExterno: pacotesLeftover ? +(pacotesExterno / pacotesLeftover * 100).toFixed(1) : 0,
