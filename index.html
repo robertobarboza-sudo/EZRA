@@ -4508,8 +4508,11 @@ function pulsoQueryString(key){
   const p = new URLSearchParams();
   p.set('dim', st.dim);
   if(st.date) p.set('date', st.date);
-  cfg.toggleGroups.forEach(g => { if(st.toggles[g.key].length) p.set(g.key, st.toggles[g.key].join(',')); });
-  cfg.multiselects.forEach(m => { if(st.ms[m.key].length) p.set(m.key, st.ms[m.key].join(',')); });
+  // encodeURIComponent por valor antes de juntar com vírgula — alguns valores
+  // de filtro (ex: causas do Leftover) têm vírgula dentro do próprio texto,
+  // o que corrompia a lista se só desse join(',') puro.
+  cfg.toggleGroups.forEach(g => { if(st.toggles[g.key].length) p.set(g.key, st.toggles[g.key].map(encodeURIComponent).join(',')); });
+  cfg.multiselects.forEach(m => { if(st.ms[m.key].length) p.set(m.key, st.ms[m.key].map(encodeURIComponent).join(',')); });
   return p.toString();
 }
 
@@ -4570,13 +4573,24 @@ function pulsoRenderKpis(key, atual, delta){
   const cfg = PULSO_DASHBOARDS[key];
   const trend = d => d < 0 ? 'down' : 'up';
   const fmtDelta = d => (d>0?'+':'')+d+'% vs período ant.';
-  const kpis = cfg.kpis.map(k => ({
-    label: k.label,
-    value: (atual[k.key]||0).toLocaleString('pt-BR'),
-    delta: fmtDelta(delta[k.key]||0),
-    trend: trend(delta[k.key]||0),
-    type: '', icon: k.icon,
-  }));
+  const kpis = cfg.kpis.map(k => {
+    // Card de percentual: mostra "%" junto do valor e, se configurado com
+    // countKey, a quantidade absoluta correspondente entre parênteses —
+    // ex: "11,6% (1.297)". Funciona pra qualquer página que marcar um kpi
+    // com isPercent (não é algo específico do Leftover).
+    let value = (atual[k.key]||0).toLocaleString('pt-BR');
+    if(k.isPercent){
+      value += '%';
+      if(k.countKey) value += ` (${(atual[k.countKey]||0).toLocaleString('pt-BR')})`;
+    }
+    return {
+      label: k.label,
+      value,
+      delta: fmtDelta(delta[k.key]||0),
+      trend: trend(delta[k.key]||0),
+      type: '', icon: k.icon,
+    };
+  });
   buildKPIs('pulso-kpis-'+key, kpis);
 }
 
@@ -4837,10 +4851,8 @@ pulsoRegister({
     { key:'registros',          label:'Registros de Leftover',    icon:'fa-list' },
     { key:'destinos',           label:'Destinos Diferentes',      icon:'fa-location-dot' },
     { key:'pacotesLeftover',    label:'Pacotes Leftover',         icon:'fa-box-open' },
-    { key:'pctOperacional',     label:'% Impacto Operacional',    icon:'fa-gears' },
-    { key:'pacotesOperacional', label:'Pacotes (Operacional)',    icon:'fa-gears' },
-    { key:'pctExterno',         label:'% Impacto Externo',        icon:'fa-truck-ramp-box' },
-    { key:'pacotesExterno',     label:'Pacotes (Externo)',        icon:'fa-truck-ramp-box' },
+    { key:'pctOperacional', label:'% Impacto Operacional', icon:'fa-gears',          isPercent:true, countKey:'pacotesOperacional' },
+    { key:'pctExterno',     label:'% Impacto Externo',     icon:'fa-truck-ramp-box', isPercent:true, countKey:'pacotesExterno' },
   ],
   table: {
     title: 'Registros de Leftover do período selecionado',

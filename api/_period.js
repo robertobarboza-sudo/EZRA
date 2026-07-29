@@ -37,8 +37,15 @@ function toNum(v) {
   return isNaN(n) ? 0 : n;
 }
 
+// Cada valor vem individualmente com encodeURIComponent do front (ver
+// pulsoQueryString em index.html) antes de juntar com vírgula — necessário
+// porque alguns valores de filtro (ex: causas do Leftover) têm vírgula
+// dentro do próprio texto, o que corromperia um split(',') ingênuo.
 function parseCSV(v) {
-  return v ? String(v).split(',').map(s => s.trim()).filter(Boolean) : [];
+  if (!v) return [];
+  return String(v).split(',').map(s => {
+    try { return decodeURIComponent(s.trim()); } catch (e) { return s.trim(); }
+  }).filter(Boolean);
 }
 
 function pctDelta(atual, anterior) {
