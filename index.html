@@ -1316,6 +1316,12 @@
     .spr-ms-item input { accent-color: var(--orange); }
     .spr-ms-empty { padding: 12px; font-size: 11px; color: var(--text-muted); text-align: center; }
     .spr-lt-footer { margin-top: 10px; font-size: 11px; color: var(--text-muted); }
+    .pulso-coverage {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 11px; color: var(--text-muted);
+      margin: 10px 0 4px;
+    }
+    .pulso-coverage i { color: var(--orange); font-size: 11px; }
     .spr-ms-actions {
       display: flex; gap: 6px; padding: 8px 8px 0;
       border-bottom: 1px solid var(--border); padding-bottom: 8px; margin: 0 4px 4px;
@@ -4373,6 +4379,7 @@ function pulsoBuildHTML(cfg){
     </div>
     <div class="spr-period-label" id="pulso-period-${cfg.key}"></div>
     <div id="pulso-kpis-${cfg.key}"></div>
+    <div class="pulso-coverage" id="pulso-coverage-${cfg.key}"></div>
     <div class="table-card" style="margin-top:16px">
       <div class="table-toolbar">
         <div class="table-toolbar-title">${cfg.table.title}</div>
@@ -4519,6 +4526,7 @@ async function pulsoLoad(key){
     pulsoPopulateOptions(key, j.opcoesFiltro || {});
     pulsoRenderPeriodo(key, j.periodo);
     pulsoRenderKpis(key, j.atual, j.delta);
+    pulsoRenderCoverage(key, j.cobertura);
     PULSO_ROWS[key] = { rows: j[cfg.table.rowsField] || [], total: j[cfg.table.totalField] || 0 };
     const search = document.getElementById('pulso-search-'+key);
     if(search) search.value = '';
@@ -4541,6 +4549,21 @@ function pulsoRenderPeriodo(key, p){
   // Reflete a data de referência real no calendário (útil no 1º load, sem data escolhida)
   const dateInput = document.getElementById('pulso-date-'+key);
   if(dateInput && !PULSO_STATE[key].date) dateInput.value = p.inicio;
+}
+
+function pulsoFmtDataBr(iso){
+  const [y,m,d] = String(iso||'').split('-');
+  return (y && m && d) ? `${d}/${m}/${y}` : (iso || '—');
+}
+
+// Informativo abaixo dos cards: até quando a planilha tem dados (cobertura
+// real da base, não o período filtrado nos cards) — sempre que a API
+// devolver `cobertura`, funciona em qualquer página do motor.
+function pulsoRenderCoverage(key, cobertura){
+  const el = document.getElementById('pulso-coverage-'+key);
+  if(!el) return;
+  if(!cobertura || !cobertura.inicio || !cobertura.fim){ el.innerHTML = ''; return; }
+  el.innerHTML = `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(cobertura.fim)}</strong>`;
 }
 
 function pulsoRenderKpis(key, atual, delta){
@@ -4735,6 +4758,8 @@ pulsoRegister({
     { key:'ordersSaca',       label:'Orders Saca',    icon:'fa-sack-dollar' },
     { key:'toScuttle',        label:'TO Scuttle',     icon:'fa-dolly' },
     { key:'toSaca',           label:'TO Saca',        icon:'fa-sack-xmark' },
+    { key:'ocupacaoMediaScuttle', label:'Ocupação Média — Scuttle', icon:'fa-gauge' },
+    { key:'ocupacaoMediaSaca',    label:'Ocupação Média — Saca',    icon:'fa-gauge-high' },
   ],
   table: {
     title: 'LTs do período selecionado',

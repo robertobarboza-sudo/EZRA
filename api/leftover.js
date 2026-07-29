@@ -106,6 +106,10 @@ module.exports = async (req, res) => {
 
   const uniq = key => [...new Set(withDate.map(r => r[key]).filter(Boolean))].sort();
 
+  // Cobertura real da base (não o período filtrado) — pra avisar até quando os dados vão.
+  const dataMinima = withDate.reduce((min, r) => (r.__date < min ? r.__date : min), withDate[0]?.__date || refDate);
+  const dataMaxima = maisRecente;
+
   const LIMITE = 500;
   const ordenadas = [...doPeriodo].sort((a, b) => b.__date - a.__date);
   const leftovers = ordenadas.slice(0, LIMITE).map(r => ({
@@ -127,6 +131,7 @@ module.exports = async (req, res) => {
     ok: true,
     atualizadoEm: new Date().toISOString(),
     periodo: { dim, inicio: fmtDate(inicio), fim: fmtDate(new Date(fim - 86400000)), inicioAnterior: fmtDate(inicioAnt), fimAnterior: fmtDate(new Date(fimAnt - 86400000)) },
+    cobertura: { inicio: fmtDate(dataMinima), fim: fmtDate(dataMaxima) },
     atual, anterior, delta,
     leftovers, leftoversTotal: doPeriodo.length,
     opcoesFiltro: {

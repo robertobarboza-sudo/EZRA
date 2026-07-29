@@ -30,13 +30,19 @@ function canalDe(destino) {
 function aggregate(rows) {
   const tripCount = rows.length;
   const totalOrders = rows.reduce((s, r) => s + toNum(r.total_orders), 0);
+  const totalToScuttle = rows.reduce((s, r) => s + toNum(r.to_scuttle), 0);
+  const totalToSaca = rows.reduce((s, r) => s + toNum(r.to_saca), 0);
   return {
     viagens: tripCount,
     pedidosPorViagem: tripCount ? +(totalOrders / tripCount).toFixed(1) : 0,
     ordersScuttle: rows.reduce((s, r) => s + toNum(r.orders_scuttle), 0),
     ordersSaca: rows.reduce((s, r) => s + toNum(r.orders_saca), 0),
-    toScuttle: rows.reduce((s, r) => s + toNum(r.to_scuttle), 0),
-    toSaca: rows.reduce((s, r) => s + toNum(r.to_saca), 0),
+    toScuttle: totalToScuttle,
+    toSaca: totalToSaca,
+    // "Ocupação média" = quantos scuttles/sacas em média por viagem (mesmo
+    // cálculo do pedidosPorViagem, aplicado a to_scuttle/to_saca).
+    ocupacaoMediaScuttle: tripCount ? +(totalToScuttle / tripCount).toFixed(1) : 0,
+    ocupacaoMediaSaca: tripCount ? +(totalToSaca / tripCount).toFixed(1) : 0,
   };
 }
 
@@ -91,6 +97,10 @@ module.exports = async (req, res) => {
 
   const uniq = key => [...new Set(withDate.map(r => r[key]).filter(Boolean))].sort();
 
+  // Cobertura real da base (não o período filtrado) — pra avisar até quando os dados vão.
+  const dataMinima = withDate.reduce((min, r) => (r.__date < min ? r.__date : min), withDate[0]?.__date || refDate);
+  const dataMaxima = maisRecente;
+
   const LIMITE_VIAGENS = 500;
   const ordenadas = [...doPeriodo].sort((a, b) => b.__date - a.__date);
   const viagens = ordenadas.slice(0, LIMITE_VIAGENS).map(r => ({
@@ -111,6 +121,7 @@ module.exports = async (req, res) => {
     ok: true,
     atualizadoEm: new Date().toISOString(),
     periodo: { dim, inicio: fmtDate(inicio), fim: fmtDate(new Date(fim - 86400000)), inicioAnterior: fmtDate(inicioAnt), fimAnterior: fmtDate(new Date(fimAnt - 86400000)) },
+    cobertura: { inicio: fmtDate(dataMinima), fim: fmtDate(dataMaxima) },
     atual, anterior, delta,
     viagens, viagensTotal: doPeriodo.length,
     opcoesFiltro: {
