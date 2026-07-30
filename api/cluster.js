@@ -258,8 +258,12 @@ module.exports = async (req, res) => {
     .slice(0, 5)
     .map(([destino, pacotes]) => ({ destino, pacotes }));
 
-  const ordenadas = [...filtradas].sort((a, b) => (b.__date || 0) - (a.__date || 0));
-  const LIMITE = 500;
+  // Do mais antigo pro mais novo (pedido do Roberto em 2026-07-30) — a
+  // paginação no front (100/página) faz a 1ª página ser o backlog mais velho.
+  // Limite alto: manda o piso inteiro (a aba tem ~7-10 mil TOs, ~1-2MB de
+  // JSON que a CDN comprime bem); o limite é só um teto de segurança.
+  const ordenadas = [...filtradas].sort((a, b) => (a.__date || 0) - (b.__date || 0));
+  const LIMITE = 20000;
   const tos = ordenadas.slice(0, LIMITE).map(r => ({
     to_number: r['to number'],
     destino: r.destino,

@@ -101,7 +101,9 @@ module.exports = async (req, res) => {
   const dataMinima = withDate.reduce((min, r) => (r.__date < min ? r.__date : min), withDate[0]?.__date || refDate);
   const dataMaxima = maisRecente;
 
-  const LIMITE_VIAGENS = 500;
+  // Limite alto: com a paginação no front (100/página), dá pra mandar o
+  // período filtrado inteiro; o teto protege contra períodos gigantes.
+  const LIMITE_VIAGENS = 5000;
   const ordenadas = [...doPeriodo].sort((a, b) => b.__date - a.__date);
   const viagens = ordenadas.slice(0, LIMITE_VIAGENS).map(r => ({
     trip_number: r.trip_number,

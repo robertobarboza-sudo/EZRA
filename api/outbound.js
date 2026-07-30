@@ -73,7 +73,9 @@ module.exports = async (req, res) => {
   const filtradas = doIntervalo.filter(passaFiltros);
   const atual = aggregate(filtradas);
 
-  const LIMITE = 500;
+  // Limite alto: com a paginação no front (100/página), dá pra mandar a base
+  // filtrada inteira (~3,5 mil linhas hoje) sem estourar o navegador.
+  const LIMITE = 20000;
   const ordenadas = modo === 'hoje'
     ? [...filtradas].sort((a, b) => String(a.hora_cpt_planejado || '99').localeCompare(String(b.hora_cpt_planejado || '99')))
     : [...filtradas].sort((a, b) => (b.cutoff || '').localeCompare(a.cutoff || ''));

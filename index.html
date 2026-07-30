@@ -1354,7 +1354,14 @@
     .spr-ms-item:hover { background: var(--surface-3); }
     .spr-ms-item input { accent-color: var(--orange); }
     .spr-ms-empty { padding: 12px; font-size: 11px; color: var(--text-muted); text-align: center; }
-    .spr-lt-footer { margin-top: 10px; font-size: 11px; color: var(--text-muted); }
+    .spr-lt-footer {
+      margin-top: 10px; font-size: 11px; color: var(--text-muted);
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 12px; flex-wrap: wrap;
+    }
+    .spr-lt-footer:empty { display: none; }
+    .pulso-pager { display: flex; align-items: center; gap: 10px; }
+    .pulso-pager button[disabled] { opacity: .4; cursor: default; pointer-events: none; }
     .pulso-coverage {
       display: flex; align-items: center; gap: 8px;
       font-size: 11px; color: var(--text-muted);
@@ -4287,6 +4294,7 @@ const PULSO_DATA = {};         // key -> última resposta completa da API (pro P
 const PULSO_LOADING = {};      // key -> bool
 const PULSO_RELOAD_PENDING = {}; // key -> bool (mudança de filtro chegou durante um load em voo)
 const PULSO_ACTIVE_CARD = {};  // key -> cardKey ativo como filtro da tabela, ou null
+const PULSO_PAGE = {};         // key -> página atual da tabela (0-based, 100 linhas/página)
 let PULSO_PIPBOY_TIMER = null;
 
 function pulsoEscHtml(s){
@@ -4374,7 +4382,7 @@ function pulsoBuildHTML(cfg){
         <div class="table-toolbar-title">${cfg.table.title}</div>
         <div class="table-search">
           <i class="fas fa-search"></i>
-          <input type="text" id="pulso-search-${cfg.key}" placeholder="${cfg.table.searchPlaceholder||'Buscar…'}" oninput="pulsoRenderTable('${cfg.key}')"/>
+          <input type="text" id="pulso-search-${cfg.key}" placeholder="${cfg.table.searchPlaceholder||'Buscar…'}" oninput="PULSO_PAGE['${cfg.key}']=0;pulsoRenderTable('${cfg.key}')"/>
         </div>
       </div>
       <div class="pulso-card-filter" id="pulso-card-filter-${cfg.key}"></div>
@@ -4553,6 +4561,7 @@ async function pulsoLoad(key){
     PULSO_ROWS[key] = { rows: j[cfg.table.rowsField] || [], total: j[cfg.table.totalField] || 0 };
     const search = document.getElementById('pulso-search-'+key);
     if(search) search.value = '';
+    PULSO_PAGE[key] = 0;
     pulsoRenderTable(key);
     PULSO_DATA[key] = j;
     if(cfg.onData) cfg.onData(j);
@@ -4646,6 +4655,7 @@ function pulsoRenderKpis(key, atual, delta){
 
 function pulsoCardClick(key, cardKey){
   PULSO_ACTIVE_CARD[key] = (PULSO_ACTIVE_CARD[key] === cardKey) ? null : cardKey;
+  PULSO_PAGE[key] = 0;
   const data = PULSO_DATA[key];
   if(data) pulsoRenderKpis(key, data.atual, data.delta || {});
   pulsoRenderTable(key);
@@ -4667,6 +4677,7 @@ function pulsoSortBy(key, colKey){
   if(s.key !== colKey) PULSO_SORT[key] = { key: colKey, dir: 1 };
   else if(s.dir === 1) s.dir = -1;
   else PULSO_SORT[key] = { key: null, dir: 0 };
+  PULSO_PAGE[key] = 0;
 
   PULSO_DASHBOARDS[key].table.columns.forEach(c => {
     const th = document.getElementById(`pulso-th-${key}-${c.key}`);
@@ -4716,15 +4727,35 @@ function pulsoRenderTable(key){
     return;
   }
 
-  tbody.innerHTML = linhas.map(r => `<tr>${cfg.table.columns.map(c => `<td>${pulsoFmtCell(r[c.key], c.type)}</td>`).join('')}</tr>`).join('');
+  // Paginação local: 100 linhas por página. A página atual é preservada
+  // entre re-renders e resetada quando filtro/busca/ordenação mudam.
+  const PAGE_SIZE = 100;
+  const totalPaginas = Math.max(1, Math.ceil(linhas.length / PAGE_SIZE));
+  const pg = Math.min(PULSO_PAGE[key] || 0, totalPaginas - 1);
+  PULSO_PAGE[key] = pg;
+  const pageRows = linhas.slice(pg * PAGE_SIZE, (pg + 1) * PAGE_SIZE);
+
+  tbody.innerHTML = pageRows.map(r => `<tr>${cfg.table.columns.map(c => `<td>${pulsoFmtCell(r[c.key], c.type)}</td>`).join('')}</tr>`).join('');
 
   const singular = cfg.table.itemNameSingular || 'registro', plural = cfg.table.itemNamePlural || 'registros';
   const quando = cfg.hidePeriod ? 'agora' : 'no período';
   if(footer){
-    footer.textContent = total > rows.length
-      ? `Mostrando ${linhas.length} de ${total.toLocaleString('pt-BR')} ${plural} ${quando} — refine os filtros pra ver todas.`
+    const resumo = total > rows.length
+      ? `${linhas.length.toLocaleString('pt-BR')} de ${total.toLocaleString('pt-BR')} ${plural} ${quando} — refine os filtros pra ver todas.`
       : `${linhas.length.toLocaleString('pt-BR')} ${linhas.length===1?singular:plural}${termo||sort.key||activeCard ? ' (de '+total+' '+quando+')' : ' '+quando}.`;
+    const pager = totalPaginas > 1 ? `
+      <span class="pulso-pager">
+        <button type="button" class="spr-ms-action-btn" ${pg===0?'disabled':''} onclick="pulsoSetPage('${key}',${pg-1})"><i class="fas fa-chevron-left"></i> Anterior</button>
+        <span>Página ${pg+1} de ${totalPaginas}</span>
+        <button type="button" class="spr-ms-action-btn" ${pg>=totalPaginas-1?'disabled':''} onclick="pulsoSetPage('${key}',${pg+1})">Próxima <i class="fas fa-chevron-right"></i></button>
+      </span>` : '';
+    footer.innerHTML = `<span>${resumo}</span>${pager}`;
   }
+}
+
+function pulsoSetPage(key, pg){
+  PULSO_PAGE[key] = Math.max(0, pg);
+  pulsoRenderTable(key);
 }
 
 // Card ativo como filtro: pequeno aviso acima da tabela com botão pra limpar.
