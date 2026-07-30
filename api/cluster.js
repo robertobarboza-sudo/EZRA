@@ -11,12 +11,19 @@
  *
  * Capacidade por rua: fixa em 20 posições (confirmado com o Roberto em
  * 2026-07-30 — não existe coluna de capacidade na planilha ainda; ele vai
- * adicionar depois). Ocupação total % = TOs endereçados / (nº de ruas
- * conhecidas × 20).
+ * adicionar depois). Ocupação total % = TOs endereçados / (142 ruas do
+ * roster fixo + reservas conhecidas) × 20 — não é derivado do histórico de
+ * dados, que só mostra as ruas já usadas nos últimos dias (~90 de 142).
  *
  * Classificação de "to pack": "Saca Sorter" e "Saca" contam como sacas;
  * "Scuttle" conta como scuttle; "Volumoso"/"Pallet"/"-" entram no total de
  * pacotes mas não em nenhum dos dois cards específicos.
+ *
+ * `grade`: 1 item por rua do roster fixo (142 + reservas), com estatísticas
+ * do período filtrado (ocupadas/saca/scuttle/pacotes/agingMedio/fanout).
+ * Campos que o modelo visual antigo tinha mas não existem em cluster_pulso
+ * (SPP posição, doca, próx. CPT, timer CPT, cluster ideal) ficam de fora —
+ * decidido com o Roberto em 2026-07-30, adicionar depois se a coluna surgir.
  *
  * Query params:
  *   dim, date                    iguais ao /api/spr (baseado em "create time")
@@ -34,7 +41,18 @@ const CAPACIDADE_POR_RUA = 20;
 const SACA_TIPOS = new Set(['Saca Sorter', 'Saca']);
 const SCUTTLE_TIPOS = new Set(['Scuttle']);
 
-function aggregate(rows, capacidadeTotal) {
+// Roster fixo das 142 ruas físicas (confirmado com o Roberto em 2026-07-30 —
+// não é derivado do histórico de dados, que só tem TOs pras ruas já usadas
+// nos últimos dias) + ruas de reserva conhecidas (vistas na base real; se
+// surgir outra reserva nova, adicionar aqui).
+const RUA_RESERVAS_CONHECIDAS = ['RESERVA 37A'];
+const RUA_ROSTER = [
+  ...Array.from({ length: 142 }, (_, i) => 'RUA ' + String(i + 1).padStart(3, '0')),
+  ...RUA_RESERVAS_CONHECIDAS,
+];
+const CAPACIDADE_TOTAL_CD = RUA_ROSTER.length * CAPACIDADE_POR_RUA;
+
+function aggregate(rows) {
   const totalRegistros = rows.length;
   const pacotesTotal = rows.reduce((s, r) => s + toNum(r.quantity), 0);
 
@@ -49,7 +67,7 @@ function aggregate(rows, capacidadeTotal) {
   const enderecados = rows.filter(r => r.stage === 'ENDEREÇADO').length;
   const agingMedio = totalRegistros ? +(rows.reduce((s, r) => s + toNum(r.aging), 0) / totalRegistros).toFixed(1) : 0;
   const pctAtendimento = totalRegistros ? +(enderecados / totalRegistros * 100).toFixed(1) : 0;
-  const ocupacaoTotalPct = capacidadeTotal ? +(enderecados / capacidadeTotal * 100).toFixed(1) : 0;
+  const ocupacaoTotalPct = +(enderecados / CAPACIDADE_TOTAL_CD * 100).toFixed(1);
 
   return {
     totalRegistros,
@@ -61,12 +79,6 @@ function aggregate(rows, capacidadeTotal) {
     pctAtendimento,
     ocupacaoTotalPct,
   };
-}
-
-// Ordena "RUA 007" antes de "RUA 041" e deixa "RESERVA..."/outros no final.
-function ordemRua(rua) {
-  const m = String(rua).match(/(\d+)/);
-  return m ? parseInt(m[1], 10) : 9999;
 }
 
 module.exports = async (req, res) => {
@@ -81,11 +93,6 @@ module.exports = async (req, res) => {
   const withDate = rows
     .map(r => ({ ...r, __date: r['create time'] ? new Date(String(r['create time']).replace(' ', 'T') + 'Z') : null }))
     .filter(r => r.__date && !isNaN(r.__date));
-
-  // Nº de ruas conhecidas na base inteira (não só no período filtrado) — a
-  // capacidade física do CD não muda com o filtro de data/turno.
-  const ruasConhecidas = new Set(withDate.map(r => r.rua).filter(r => r && r !== 'Pendente'));
-  const capacidadeTotal = ruasConhecidas.size * CAPACIDADE_POR_RUA;
 
   const dim = ['day', 'week', 'month'].includes(req.query.dim) ? req.query.dim : 'day';
   const maisRecente = withDate.reduce((max, r) => (r.__date > max ? r.__date : max), withDate[0]?.__date || new Date());
@@ -116,20 +123,46 @@ module.exports = async (req, res) => {
   const doPeriodo = filtradas.filter(r => r.__date >= inicio && r.__date < fim);
   const doPeriodoAnterior = filtradas.filter(r => r.__date >= inicioAnt && r.__date < fimAnt);
 
-  const atual = aggregate(doPeriodo, capacidadeTotal);
-  const anterior = aggregate(doPeriodoAnterior, capacidadeTotal);
+  const atual = aggregate(doPeriodo);
+  const anterior = aggregate(doPeriodoAnterior);
   const delta = {};
   Object.keys(atual).forEach(k => { delta[k] = pctDelta(atual[k], anterior[k]); });
 
-  // Mapa: ocupação por rua no período selecionado (TOs com stage=ENDEREÇADO).
+  // Grade por rua no período selecionado — só TOs com stage=ENDEREÇADO contam
+  // como posição ocupada. "Pendente" (sem rua) não entra em nenhuma coluna;
+  // aparece só como aviso separado (pendentesNoPeriodo).
   const porRua = new Map();
   doPeriodo.forEach(r => {
     if (r.stage !== 'ENDEREÇADO' || !r.rua || r.rua === 'Pendente') return;
-    porRua.set(r.rua, (porRua.get(r.rua) || 0) + 1);
+    if (!porRua.has(r.rua)) porRua.set(r.rua, { ocupadas: 0, saca: 0, scuttle: 0, pacotes: 0, agingSoma: 0, destinos: new Map() });
+    const acc = porRua.get(r.rua);
+    const q = toNum(r.quantity);
+    acc.ocupadas++;
+    acc.pacotes += q;
+    if (SACA_TIPOS.has(r['to pack'])) acc.saca += q;
+    else if (SCUTTLE_TIPOS.has(r['to pack'])) acc.scuttle += q;
+    acc.agingSoma += toNum(r.aging);
+    if (r.destino) acc.destinos.set(r.destino, (acc.destinos.get(r.destino) || 0) + 1);
   });
-  const mapa = [...ruasConhecidas].sort((a, b) => ordemRua(a) - ordemRua(b)).map(rua => {
-    const ocupadas = porRua.get(rua) || 0;
-    return { rua, ocupadas, capacidade: CAPACIDADE_POR_RUA, pct: +(ocupadas / CAPACIDADE_POR_RUA * 100).toFixed(1) };
+
+  const grade = RUA_ROSTER.map(rua => {
+    const acc = porRua.get(rua);
+    if (!acc || !acc.ocupadas) {
+      return { rua, ocupadas: 0, capacidade: CAPACIDADE_POR_RUA, pct: 0, saca: 0, scuttle: 0, pacotes: 0, agingMedio: null, fanout: null };
+    }
+    let fanout = null, fanoutMax = 0;
+    acc.destinos.forEach((n, destino) => { if (n > fanoutMax) { fanoutMax = n; fanout = destino; } });
+    return {
+      rua,
+      ocupadas: acc.ocupadas,
+      capacidade: CAPACIDADE_POR_RUA,
+      pct: +(acc.ocupadas / CAPACIDADE_POR_RUA * 100).toFixed(1),
+      saca: acc.saca,
+      scuttle: acc.scuttle,
+      pacotes: acc.pacotes,
+      agingMedio: +(acc.agingSoma / acc.ocupadas).toFixed(1),
+      fanout,
+    };
   });
   const pendentesNoPeriodo = doPeriodo.filter(r => r.stage === 'PENDENTE').length;
 
@@ -159,7 +192,7 @@ module.exports = async (req, res) => {
     periodo: { dim, inicio: fmtDate(inicio), fim: fmtDate(new Date(fim - 86400000)), inicioAnterior: fmtDate(inicioAnt), fimAnterior: fmtDate(new Date(fimAnt - 86400000)) },
     cobertura: { inicio: fmtDate(dataMinima), fim: fmtDate(dataMaxima) },
     atual, anterior, delta,
-    mapa, capacidadeTotal, ruasConhecidas: ruasConhecidas.size, pendentesNoPeriodo,
+    grade, capacidadeTotal: CAPACIDADE_TOTAL_CD, totalRuas: RUA_ROSTER.length, pendentesNoPeriodo,
     tos, tosTotal: doPeriodo.length,
     opcoesFiltro: {
       direction: uniq('direction'),

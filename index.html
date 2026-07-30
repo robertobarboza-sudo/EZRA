@@ -1160,27 +1160,22 @@
     .clst-legend-item { display: flex; align-items: center; gap: 6px; }
     .clst-legend-swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
 
-    /* Mapa de ruas — visto de cima, 1 tile por rua física (grid, não mais cruzamento doca×rua) */
-    .clst-map-grid {
+    /* Grade de posições dentro de cada rua — 1 quadradinho = 1 posição (ver
+       OCUPAÇÃO STAGE POR RUA no .clst-table), empilhados de cima pra baixo. */
+    .clst-pos-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
-      gap: 6px;
+      grid-template-columns: repeat(4, 8px);
+      gap: 1.5px;
+      justify-content: center;
     }
-    .clst-tile {
-      border-radius: 8px;
-      padding: 8px 6px;
-      text-align: center;
-      border: 1px solid var(--border);
-      transition: transform .15s;
-      cursor: default;
-    }
-    .clst-tile:hover { transform: translateY(-2px); }
-    .clst-tile-rua { font-size: 9.5px; font-weight: 700; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .clst-tile-pct { font-size: 13px; font-weight: 800; color: var(--text); margin-top: 2px; }
+    .clst-pos-sq { width: 8px; height: 8px; border-radius: 1.5px; }
+    .clst-pos-sq.free { background: rgba(16,185,129,.35); }
+    .clst-pos-sq.occ  { background: #ef4444; }
+    [data-theme="dark"] .clst-pos-sq.free { background: rgba(16,185,129,.28); }
+    .clst-pos-overflow { font-size: 8px; font-weight: 800; color: var(--red); text-align: center; margin-top: 2px; }
 
     @media(max-width:768px){
       .clst-summary-bar { grid-template-columns: repeat(2,1fr); }
-      .clst-map-grid { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }
     }
 
     /* ── BACKLOG ──────────────────────────────────────────────── */
@@ -5285,26 +5280,67 @@ function genClusterData(){
   return docas;
 }
 
-/* ── Clusterização — mapa top-down das ruas de stage, renderizado por cima
-   do motor padrão (pulsoRegister abaixo cuida de filtros/KPIs/tabela/Pipboy;
-   cfg.onData aqui só desenha o grid de ruas com a ocupação do período). ── */
+/* ── Clusterização — grade de ruas no formato do relatório em uso hoje
+   (imagem de referência do Roberto, 2026-07-30), renderizada por cima do
+   motor padrão (pulsoRegister abaixo cuida de filtros/KPIs/tabela/Pipboy;
+   cfg.onData aqui desenha a grade de 142 ruas + reservas). Sem coluna de
+   DOCA (removida — sem dado em cluster_pulso, Roberto vai incluir depois);
+   linhas SPP Posição / Próx. CPT / Timer CPT / Sugestão de Cluster ficam
+   vazias pelo mesmo motivo. */
 function clusterOcupClasse(pct){
   return pct === 0 ? 'clst-occ-free' : pct >= 70 ? 'clst-occ-busy' : pct >= 40 ? 'clst-occ-mid' : 'clst-occ-free';
 }
+function clusterAgingClasse(v){
+  return v==null ? '' : v>=15 ? 'clst-aging-hi' : v>=8 ? 'clst-aging-mid' : 'clst-aging-lo';
+}
+function clusterRuaCurta(rua){
+  return rua.replace('RUA ','').replace('RESERVA ','R.');
+}
 
-function renderClusterMap(data){
+function renderClusterGrid(data){
   const wrap = document.getElementById('cluster-map-wrap');
   if(!wrap) return;
-  const mapa = data.mapa || [];
-  if(!mapa.length){
-    wrap.innerHTML = '<div class="spr-ms-empty">Nenhuma rua com dados no período/filtros atuais.</div>';
+  const grade = data.grade || [];
+  if(!grade.length){
+    wrap.innerHTML = '<div class="spr-ms-empty">Nenhuma rua no roster.</div>';
     return;
   }
-  const tiles = mapa.map(r => `
-    <div class="clst-tile ${clusterOcupClasse(r.pct)}" title="${pulsoEscHtml(r.rua)}: ${r.ocupadas}/${r.capacidade} posições (${r.pct}%)">
-      <div class="clst-tile-rua">${pulsoEscHtml(r.rua.replace('RUA ','').replace('RESERVA ',''))}</div>
-      <div class="clst-tile-pct">${r.pct}%</div>
-    </div>`).join('');
+
+  const emptyRow = label => `<tr><td class="clst-rowlabel">${label}</td>${grade.map(()=>'<td></td>').join('')}</tr>`;
+  const sectionRow = label => `<tr class="clst-section-row"><td colspan="${grade.length+1}">${label}</td></tr>`;
+
+  const thead = `<thead><tr><th class="clst-rowlabel">RUA</th>${grade.map(g => `<th class="clst-rua-header">${pulsoEscHtml(clusterRuaCurta(g.rua))}</th>`).join('')}</tr></thead>`;
+
+  let tbody = '<tbody>';
+  tbody += emptyRow('SPP Posição');
+  tbody += `<tr><td class="clst-rowlabel">SACA</td>${grade.map(g => `<td>${g.ocupadas ? g.saca.toLocaleString('pt-BR') : ''}</td>`).join('')}</tr>`;
+  tbody += `<tr><td class="clst-rowlabel">SCUTTLE</td>${grade.map(g => `<td>${g.ocupadas ? g.scuttle.toLocaleString('pt-BR') : ''}</td>`).join('')}</tr>`;
+  tbody += `<tr><td class="clst-rowlabel">POS. OCC</td>${grade.map(g => `<td>${g.ocupadas}</td>`).join('')}</tr>`;
+  tbody += `<tr><td class="clst-rowlabel">POS. CAP</td>${grade.map(g => `<td>${g.capacidade}</td>`).join('')}</tr>`;
+  tbody += `<tr><td class="clst-rowlabel">AGING TO'S</td>${grade.map(g => `<td class="${clusterAgingClasse(g.agingMedio)}">${g.agingMedio==null?'':String(g.agingMedio).replace('.',',')}</td>`).join('')}</tr>`;
+  tbody += `<tr><td class="clst-rowlabel">PACOTES</td>${grade.map(g => `<td>${g.ocupadas ? g.pacotes.toLocaleString('pt-BR') : ''}</td>`).join('')}</tr>`;
+  tbody += emptyRow('Próx. CPT');
+  tbody += emptyRow('Timer CPT');
+  tbody += `<tr><td class="clst-rowlabel">OCUPAÇÃO</td>${grade.map(g => `<td class="${clusterOcupClasse(g.pct)}">${g.pct}%</td>`).join('')}</tr>`;
+
+  tbody += sectionRow('OCUPAÇÃO STAGE POR RUA — cada quadrado = 1 posição');
+  tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom">Posições</td>${grade.map(g => {
+    const ocupInSquares = Math.min(g.ocupadas, g.capacidade);
+    const overflow = Math.max(g.ocupadas - g.capacidade, 0);
+    let squares = '';
+    for(let i=0;i<g.capacidade;i++) squares += `<div class="clst-pos-sq ${i<ocupInSquares?'occ':'free'}"></div>`;
+    return `<td style="padding:3px;vertical-align:top"><div class="clst-pos-grid">${squares}</div>${overflow?`<div class="clst-pos-overflow">+${overflow}</div>`:''}</td>`;
+  }).join('')}</tr>`;
+
+  tbody += sectionRow('FANOUT ENDEREÇADO');
+  tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom">Destino</td>${grade.map(g => g.fanout
+    ? `<td style="writing-mode:vertical-rl;text-orientation:mixed;height:150px;font-size:9px;padding:6px 3px;white-space:nowrap;overflow:visible">${pulsoEscHtml(g.fanout)}</td>`
+    : '<td>—</td>').join('')}</tr>`;
+
+  tbody += sectionRow('CLUSTERIZAÇÃO IDEAL');
+  tbody += emptyRow('Sugestão de Cluster');
+  tbody += '</tbody>';
+
   wrap.innerHTML = `
     <div class="clst-legend">
       <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-free"></span> Livre (&lt;40%)</div>
@@ -5312,7 +5348,7 @@ function renderClusterMap(data){
       <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-busy"></span> Cheia (≥70%)</div>
       ${data.pendentesNoPeriodo ? `<div class="clst-legend-item"><i class="fas fa-triangle-exclamation" style="color:var(--orange)"></i> ${data.pendentesNoPeriodo.toLocaleString('pt-BR')} TO(s) ainda sem rua (Pendente) no período</div>` : ''}
     </div>
-    <div class="clst-map-grid">${tiles}</div>`;
+    <div class="clst-table-wrap"><table class="clst-table">${thead}${tbody}</table></div>`;
 }
 
 pulsoRegister({
@@ -5331,7 +5367,7 @@ pulsoRegister({
   extraHtml: `
     <div class="table-card" style="margin-top:16px">
       <div class="table-toolbar">
-        <div class="table-toolbar-title">Mapa de Ruas — visto de cima · ocupação no período selecionado</div>
+        <div class="table-toolbar-title">Grade de Ruas — 142 ruas + reservas · ocupação no período selecionado</div>
       </div>
       <div id="cluster-map-wrap" style="padding:16px"></div>
     </div>`,
@@ -5361,12 +5397,12 @@ pulsoRegister({
       { key:'create_time',     label:'Criado em', type:'date' },
     ],
   },
-  onData(data){ renderClusterMap(data); },
+  onData(data){ renderClusterGrid(data); },
   insights(data, rows){
     const out = [];
     if(!rows || !rows.length) return out;
 
-    const mapa = (data.mapa || []).filter(r => r.ocupadas > 0).sort((a,b)=>b.pct-a.pct);
+    const mapa = (data.grade || []).filter(r => r.ocupadas > 0).sort((a,b)=>b.pct-a.pct);
     if(mapa.length){
       const top = mapa[0];
       out.push({ icon:'fa-warehouse', html: `<strong>${pulsoEscHtml(top.rua)}</strong> é a rua mais ocupada do período: ${top.ocupadas}/${top.capacidade} posições (${top.pct}%).` });
