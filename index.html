@@ -1738,6 +1738,28 @@
     .jornal-panel { display: none; }
     .jornal-panel.active { display: block; }
 
+    /* Acervo de edições do RJ2 News (PDFs em /jornais) */
+    .jrn-ed-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 10px;
+    }
+    .jrn-ed-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 16px 12px;
+      text-align: center; cursor: pointer; position: relative;
+      transition: transform .15s, border-color .15s;
+    }
+    .jrn-ed-card:hover { transform: translateY(-3px); border-color: var(--orange); }
+    .jrn-ed-card.latest { border-color: var(--orange); background: rgba(238,77,45,.06); }
+    .jrn-ed-week { font-size: 22px; font-weight: 800; color: var(--text); margin-top: 6px; }
+    .jrn-ed-year { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+    .jrn-ed-badge {
+      position: absolute; top: 6px; right: 8px;
+      font-size: 8px; font-weight: 800; letter-spacing: .06em;
+      text-transform: uppercase; color: var(--orange);
+    }
+
     /* ── Jornal Semanal ── */
     .jornal-header-card {
       background: linear-gradient(135deg, #1a1d2e 0%, rgba(238,77,45,.15) 100%);
@@ -3532,16 +3554,49 @@
         <div class="jornal-tab" onclick="jornalTab('campanhas',this)"><i class="fas fa-flag"></i> Campanhas</div>
       </div>
 
-      <!-- ── JORNAL SEMANAL ── -->
+      <!-- ── JORNAL SEMANAL (RJ2 News — edições reais em PDF, /jornais) ── -->
       <div class="jornal-panel active" id="jornal-panel-semanal">
-        <div class="jornal-header-card">
-          <div class="jornal-edition" id="jornal-edition"></div>
-          <div class="jornal-title-big" contenteditable="true" id="jornal-headline">Clique para editar o título desta edição</div>
-          <div class="jornal-meta" id="jornal-date-meta"></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">📰 RJ2 News — Edições</div>
+            <div style="font-size:12px;color:var(--text-muted)" id="jrn-ed-sub">Clique numa edição pra ler no próprio site</div>
+          </div>
+          <!-- Visível só pra admin (hoje o modo kiosk entra como Administrador;
+               quando o controle de acesso real for criado, o gate passa a valer) -->
+          <div id="jrn-ed-admin" style="display:none;gap:8px">
+            <button class="btn btn-primary" onclick="jornalAdminModal()"><i class="fas fa-plus"></i> Adicionar / Editar jornais</button>
+          </div>
         </div>
-        <div class="jornal-articles" id="jornal-articles-list"></div>
-        <div class="jornal-add-btn" onclick="addJornalArticle()">
-          <i class="fas fa-plus"></i> Adicionar matéria
+        <div class="jrn-ed-grid" id="jrn-ed-grid"><div class="spr-ms-empty">Carregando edições…</div></div>
+      </div>
+
+      <!-- Visualizador de edição (PDF embutido) -->
+      <div class="modal-overlay" id="jrn-viewer-overlay" onclick="if(event.target===this) jornalCloseViewer()">
+        <div class="modal" style="max-width:920px;width:95vw">
+          <div class="modal-header">
+            <span class="modal-title"><i class="fas fa-newspaper" style="color:var(--orange);margin-right:8px"></i><span id="jrn-viewer-title"></span></span>
+            <button class="modal-close" onclick="jornalCloseViewer()"><i class="fas fa-xmark"></i></button>
+          </div>
+          <iframe id="jrn-viewer-frame" style="width:100%;height:78vh;border:none;border-radius:8px;background:#fff"></iframe>
+        </div>
+      </div>
+
+      <!-- Adicionar/editar jornais (admin) -->
+      <div class="modal-overlay" id="jrn-admin-overlay" onclick="if(event.target===this) this.classList.remove('open')">
+        <div class="modal" style="max-width:520px">
+          <div class="modal-header">
+            <span class="modal-title"><i class="fas fa-newspaper" style="color:var(--orange);margin-right:8px"></i>Adicionar / Editar jornais</span>
+            <button class="modal-close" onclick="document.getElementById('jrn-admin-overlay').classList.remove('open')"><i class="fas fa-xmark"></i></button>
+          </div>
+          <div style="font-size:13px;color:var(--text-sub);line-height:1.7">
+            <p style="margin-bottom:10px">As edições ficam na pasta <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">jornais/</code> do site, uma por semana:</p>
+            <ol style="margin:0 0 12px 18px">
+              <li>Salve o PDF da edição como <strong style="color:var(--text)">ANO-WXX.pdf</strong> (ex: <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">2026-W31.pdf</code>) dentro de <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">jornais/</code>.</li>
+              <li>Adicione a edição em <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">jornais/manifest.json</code> (semana, ano e arquivo).</li>
+              <li>Publique — a nova edição aparece aqui automaticamente.</li>
+            </ol>
+            <p style="font-size:12px;color:var(--text-muted)">O envio direto por upload nesta tela vai ser habilitado junto com o controle de acesso admin.</p>
+          </div>
         </div>
       </div>
 
@@ -6869,9 +6924,6 @@ function addDataEntry(){
 
 /* ── Shared state ── */
 const JORNAL_STATE = {
-  articles: [
-    { tag:'Operação', title:'Bem-vindos à nova edição do Jornal PULSO', content:'Esta é a nossa comunicação semanal com toda a equipe. Use este espaço para compartilhar conquistas, alertas e novidades da operação.', date: new Date().toLocaleDateString('pt-BR') },
-  ],
   birthdays: [],
   avisos: [
     { icon:'fa-calendar-check', type:'info',    title:'Escala de Feriado', content:'A escala para o próximo feriado estará disponível até sexta-feira. Solicite ajustes com seu supervisor.', date: new Date().toLocaleDateString('pt-BR') },
@@ -6915,41 +6967,68 @@ function getWeekNumber(d){
   return Math.ceil((((date - yearStart) / 86400000) + 1) / 7);
 }
 
-/* ── Jornal Semanal ── */
-function buildJornalSemanal(){
-  const list = document.getElementById('jornal-articles-list');
-  if(!list) return;
-  list.innerHTML = JORNAL_STATE.articles.map((a, i) => `
-    <div class="jornal-article">
-      <div class="jornal-article-num">${String(i+1).padStart(2,'0')}</div>
-      <div class="jornal-article-body">
-        <div class="jornal-article-tag"><i class="fas fa-tag"></i>
-          <input style="background:none;border:none;outline:none;font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:var(--orange);font-family:inherit;width:120px"
-            value="${a.tag}" onchange="JORNAL_STATE.articles[${i}].tag=this.value"/>
-        </div>
-        <div class="jornal-article-title" contenteditable="true"
-          onblur="JORNAL_STATE.articles[${i}].title=this.textContent">${a.title}</div>
-        <textarea class="jornal-article-content" rows="3"
-          onchange="JORNAL_STATE.articles[${i}].content=this.value">${a.content}</textarea>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
-          <span style="font-size:10px;color:var(--text-muted)">${a.date}</span>
-          <button onclick="removeJornalArticle(${i})" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:11px;padding:2px 6px"
-            title="Remover matéria"><i class="fas fa-trash-can"></i></button>
-        </div>
-      </div>
+/* ── Jornal Semanal — acervo real de edições do RJ2 News ──
+   As edições são PDFs em /jornais (1 por semana, divididos do compilado
+   original), listados por /jornais/manifest.json. Pra adicionar uma edição:
+   salvar o PDF como jornais/ANO-WXX.pdf + registrar no manifest (ver o
+   modal "Adicionar / Editar jornais", visível só pra admin). */
+let JORNAL_EDICOES = null;        // manifest carregado (cache da sessão)
+let JORNAL_EDICOES_SORTED = [];   // mais recente primeiro (índice usado no onclick)
+
+async function buildJornalSemanal(){
+  const grid = document.getElementById('jrn-ed-grid');
+  if(!grid) return;
+
+  // Gate de admin: hoje o modo kiosk entra como Administrador, então o botão
+  // aparece; quando o controle de acesso real for criado, o gate passa a valer.
+  const admin = typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'Administrador';
+  const adminEl = document.getElementById('jrn-ed-admin');
+  if(adminEl) adminEl.style.display = admin ? 'flex' : 'none';
+
+  if(!JORNAL_EDICOES){
+    try {
+      const r = await fetch('/jornais/manifest.json', { cache:'no-store' });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      JORNAL_EDICOES = (await r.json()).edicoes || [];
+    } catch(err){
+      grid.innerHTML = '<div class="spr-ms-empty">Não foi possível carregar as edições.</div>';
+      return;
+    }
+  }
+
+  JORNAL_EDICOES_SORTED = [...JORNAL_EDICOES].sort((a,b) =>
+    (b.ano - a.ano) || (parseInt(b.semana.slice(1)) - parseInt(a.semana.slice(1))));
+
+  const sub = document.getElementById('jrn-ed-sub');
+  if(sub && JORNAL_EDICOES_SORTED.length){
+    const nova = JORNAL_EDICOES_SORTED[0], velha = JORNAL_EDICOES_SORTED[JORNAL_EDICOES_SORTED.length-1];
+    sub.textContent = `${JORNAL_EDICOES_SORTED.length} edições · ${velha.semana}/${velha.ano} até ${nova.semana}/${nova.ano} · clique pra ler no site`;
+  }
+
+  grid.innerHTML = JORNAL_EDICOES_SORTED.map((e, i) => `
+    <div class="jrn-ed-card ${i===0?'latest':''}" onclick="jornalOpenEdicao(${i})">
+      ${i===0 ? '<div class="jrn-ed-badge">Mais recente</div>' : ''}
+      <i class="fas fa-newspaper" style="font-size:16px;color:var(--orange);opacity:.65"></i>
+      <div class="jrn-ed-week">${pulsoEscHtml(e.semana)}</div>
+      <div class="jrn-ed-year">${e.ano}</div>
     </div>`).join('');
 }
 
-function addJornalArticle(){
-  JORNAL_STATE.articles.push({
-    tag:'Novidade', title:'Nova matéria', content:'Escreva o conteúdo aqui…', date: new Date().toLocaleDateString('pt-BR')
-  });
-  buildJornalSemanal();
+function jornalOpenEdicao(i){
+  const e = JORNAL_EDICOES_SORTED[i];
+  if(!e) return;
+  document.getElementById('jrn-viewer-title').textContent = `RJ2 News — ${e.semana} · ${e.ano}`;
+  document.getElementById('jrn-viewer-frame').src = e.arquivo;
+  document.getElementById('jrn-viewer-overlay').classList.add('open');
 }
 
-function removeJornalArticle(i){
-  JORNAL_STATE.articles.splice(i, 1);
-  buildJornalSemanal();
+function jornalCloseViewer(){
+  document.getElementById('jrn-viewer-overlay').classList.remove('open');
+  document.getElementById('jrn-viewer-frame').src = '';
+}
+
+function jornalAdminModal(){
+  document.getElementById('jrn-admin-overlay').classList.add('open');
 }
 
 /* ── Aniversariantes ── */
