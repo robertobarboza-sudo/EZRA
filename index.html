@@ -1177,6 +1177,15 @@
       .clst-summary-bar { grid-template-columns: repeat(2,1fr); }
     }
 
+    /* Bloco de cards da Clusterização tem mais itens que as outras páginas
+       (12 cards) — versão mais compacta só aqui, pra caber mais por linha. */
+    #pulso-kpis-clusterizacao .kpi-strip { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
+    #pulso-kpis-clusterizacao .kpi-strip-item { padding: 11px 12px; }
+    #pulso-kpis-clusterizacao .kpi-strip-label { font-size: 9px; margin-bottom: 3px; }
+    #pulso-kpis-clusterizacao .kpi-strip-value { font-size: 16px; margin-bottom: 3px; }
+    #pulso-kpis-clusterizacao .kpi-strip-delta { font-size: 9px; }
+    #pulso-kpis-clusterizacao .kpi-strip-icon { font-size: 14px; top: 9px; right: 9px; }
+
     /* ── BACKLOG ──────────────────────────────────────────────── */
     .bkl-tabs {
       display: flex; gap: 2px; margin-bottom: 24px;
@@ -5387,24 +5396,24 @@ pulsoRegister({
       </div>
       <div id="cluster-map-wrap" style="padding:16px"></div>
     </div>`,
+  // Todo card de pacotes mostra a quantidade de TOs entre parênteses
+  // (countKey/countSuffix) em vez de ter um card "TOs" separado — mantém a
+  // informação com menos cards no bloco.
   kpis: [
-    { key:'pacotesTotal',      label:'Total de Pacotes',   icon:'fa-boxes-stacked' },
-    { key:'pacotesSaca',       label:'Total de Sacas',     icon:'fa-sack-xmark' },
-    { key:'pacotesScuttle',    label:'Total de Scuttles',  icon:'fa-dolly' },
+    { key:'pacotesTotal',      label:'Total de Pacotes',   icon:'fa-boxes-stacked', countKey:'totalRegistros',    countSuffix:'TOs' },
+    { key:'pacotesSaca',       label:'Total de Sacas',     icon:'fa-sack-xmark',    countKey:'pacotesSacaTOs',    countSuffix:'TOs' },
+    { key:'pacotesScuttle',    label:'Total de Scuttles',  icon:'fa-dolly',         countKey:'pacotesScuttleTOs', countSuffix:'TOs' },
     { key:'agingMedio',        label:'Aging Médio (h)',    icon:'fa-clock' },
     { key:'ocupacaoTotalPct',  label:'Ocupação Total',     icon:'fa-warehouse',        isPercent:true },
     { key:'pctAtendimento',    label:'% Atendimento da Clusterização', icon:'fa-map-location-dot', isPercent:true },
     { key:'att',               label:'Att.',                icon:'fa-clock-rotate-left', isText:true },
     // Pendentes = Saca/Scuttle ainda sem rua, exceto 3PL (3PL nunca é
     // endereçado — ver classificação em api/cluster.js).
-    { key:'pendentesPacotes',  label:'Pendentes',    icon:'fa-hourglass-half', countKey:'pendentesTOs', countSuffix:'TOs' },
-    { key:'socTOs',            label:'SoC TOs',      icon:'fa-clipboard-list' },
-    { key:'socSacas',          label:'SoC Sacas',    icon:'fa-sack-xmark' },
-    { key:'xptTOs',            label:'XPT TOs',      icon:'fa-route' },
-    { key:'xptSacas',          label:'XPT Sacas',    icon:'fa-sack-xmark' },
-    { key:'lmHubTOs',          label:'LM Hub TOs',   icon:'fa-building' },
-    { key:'lmHubSacas',        label:'LM Hub Sacas', icon:'fa-sack-xmark' },
-    { key:'pl3SacaScuttle',    label:'3PL (Saca + Scuttle)', icon:'fa-truck-ramp-box' },
+    { key:'pendentesPacotes',  label:'Pendentes',    icon:'fa-hourglass-half', countKey:'pendentesTOs',  countSuffix:'TOs' },
+    { key:'socSacas',          label:'SoC Sacas',    icon:'fa-sack-xmark',     countKey:'socSacaTOs',    countSuffix:'TOs' },
+    { key:'xptSacas',          label:'XPT Sacas',    icon:'fa-sack-xmark',     countKey:'xptSacaTOs',    countSuffix:'TOs' },
+    { key:'lmHubSacas',        label:'LM Hub Sacas', icon:'fa-building',       countKey:'lmHubSacaTOs',  countSuffix:'TOs' },
+    { key:'pl3SacaScuttle',    label:'3PL (Saca + Scuttle)', icon:'fa-truck-ramp-box', countKey:'pl3TOs', countSuffix:'TOs' },
   ],
   table: {
     title: 'TOs no piso agora',

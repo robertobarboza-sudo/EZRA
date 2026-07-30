@@ -32,10 +32,14 @@
  * (recebem rua); 3PL vai pra uma área própria que não é endereçada — por
  * isso o card "Pendentes" (pacotes de Saca/Scuttle ainda sem rua) EXCLUI
  * 3PL, senão infla o indicador com volume que nunca ia ganhar endereço.
- *   - "SoC/XPT/LM Hub TOs": contagem de TOs da categoria (qualquer to pack).
- *   - "SoC/XPT/LM Hub Sacas": soma de quantity dos TOs tipo Saca da categoria.
+ *   - "SoC/XPT/LM Hub Sacas": soma de quantity dos TOs tipo Saca da
+ *     categoria, com a contagem de TOs entre parênteses no card (não existe
+ *     mais card separado de "TOs" — consolidado num card só por categoria).
  *   - "3PL (Saca+Scuttle)": soma de quantity dos TOs tipo Saca OU Scuttle da
- *     categoria 3PL, num card só (não separa Saca de Scuttle pro 3PL).
+ *     categoria 3PL, com a contagem de TOs entre parênteses (não separa Saca
+ *     de Scuttle pro 3PL).
+ * Todo card de pacotes (Total de Pacotes/Sacas/Scuttles, Pendentes, os por
+ * categoria) segue o mesmo padrão: quantidade de pacotes + (N TOs).
  *
  * `grade`: 1 item por rua do roster fixo (142 + reservas). Campos que o
  * modelo visual antigo tinha mas não existem em cluster_pulso (SPP posição,
@@ -97,9 +101,9 @@ function aggregate(rows) {
   const totalRegistros = rows.length;
   const pacotesTotal = rows.reduce((s, r) => s + toNum(r.quantity), 0);
 
-  let pacotesSaca = 0, pacotesScuttle = 0;
-  const porCategoria = { SoC: { tos: 0, saca: 0 }, XPT: { tos: 0, saca: 0 }, 'LM Hub': { tos: 0, saca: 0 } };
-  let pl3SacaScuttle = 0;
+  let pacotesSaca = 0, pacotesSacaTOs = 0, pacotesScuttle = 0, pacotesScuttleTOs = 0;
+  const porCategoria = { SoC: { saca: 0, sacaTOs: 0 }, XPT: { saca: 0, sacaTOs: 0 }, 'LM Hub': { saca: 0, sacaTOs: 0 } };
+  let pl3SacaScuttle = 0, pl3TOs = 0;
   let pendentesPacotes = 0, pendentesTOs = 0;
 
   rows.forEach(r => {
@@ -107,15 +111,15 @@ function aggregate(rows) {
     const q = toNum(r.quantity);
     const isSaca = SACA_TIPOS.has(tp);
     const isScuttle = SCUTTLE_TIPOS.has(tp);
-    if (isSaca) pacotesSaca += q;
-    else if (isScuttle) pacotesScuttle += q;
+    if (isSaca) { pacotesSaca += q; pacotesSacaTOs++; }
+    else if (isScuttle) { pacotesScuttle += q; pacotesScuttleTOs++; }
 
     const cat = destinoCategoria(r.destino);
     if (cat === '3PL') {
-      if (isSaca || isScuttle) pl3SacaScuttle += q;
-    } else {
-      porCategoria[cat].tos++;
-      if (isSaca) porCategoria[cat].saca += q;
+      if (isSaca || isScuttle) { pl3SacaScuttle += q; pl3TOs++; }
+    } else if (isSaca) {
+      porCategoria[cat].saca += q;
+      porCategoria[cat].sacaTOs++;
     }
 
     // Pendentes = Saca/Scuttle ainda sem rua, EXCETO 3PL (3PL nunca recebe
@@ -136,19 +140,22 @@ function aggregate(rows) {
     totalRegistros,
     pacotesTotal,
     pacotesSaca,
+    pacotesSacaTOs,
     pacotesScuttle,
+    pacotesScuttleTOs,
     enderecados,
     agingMedio,
     pctAtendimento,
     pendentesPacotes,
     pendentesTOs,
-    socTOs: porCategoria.SoC.tos,
     socSacas: porCategoria.SoC.saca,
-    xptTOs: porCategoria.XPT.tos,
+    socSacaTOs: porCategoria.SoC.sacaTOs,
     xptSacas: porCategoria.XPT.saca,
-    lmHubTOs: porCategoria['LM Hub'].tos,
+    xptSacaTOs: porCategoria.XPT.sacaTOs,
     lmHubSacas: porCategoria['LM Hub'].saca,
+    lmHubSacaTOs: porCategoria['LM Hub'].sacaTOs,
     pl3SacaScuttle,
+    pl3TOs,
   };
 }
 
