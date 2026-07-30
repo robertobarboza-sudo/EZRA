@@ -2674,9 +2674,12 @@
           <div class="section-title">Clusterização <span class="ds-badge ok" id="ds-badge-clusterizacao" style="margin-left:8px"></span></div>
           <div class="section-subtitle">Mapa de Ocupação · Ruas de Stage</div>
         </div>
-        <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy('clusterizacao')"><i class="fas fa-satellite-dish"></i> Pipboy</button>
-          <button class="dl-btn dl-btn-csv" onclick="pulsoLoad('clusterizacao')"><i class="fas fa-rotate-right"></i> Atualizar</button>
+        <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+          <div class="section-dl-group">
+            <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy('clusterizacao')"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+            <button class="dl-btn dl-btn-csv" onclick="pulsoLoad('clusterizacao')"><i class="fas fa-rotate-right"></i> Atualizar</button>
+          </div>
+          <div id="cluster-last-update" style="font-size:11px;color:var(--text-muted)"></div>
         </div>
       </div>
 
@@ -5417,7 +5420,6 @@ pulsoRegister({
     { key:'agingMedio',        label:'Aging Médio (h)',    icon:'fa-clock' },
     { key:'ocupacaoTotalPct',  label:'Ocupação Total',     icon:'fa-warehouse',        isPercent:true },
     { key:'pctAtendimento',    label:'% Atendimento da Clusterização', icon:'fa-map-location-dot', isPercent:true },
-    { key:'att',               label:'Att.',                icon:'fa-clock-rotate-left', isText:true },
     // Pendentes = Saca/Scuttle ainda sem rua, exceto 3PL (3PL nunca é
     // endereçado — ver classificação em api/cluster.js).
     { key:'pendentesPacotes',  label:'Pendentes',    icon:'fa-hourglass-half', countKey:'pendentesTOs',  countSuffix:"TO's" },
@@ -5444,7 +5446,11 @@ pulsoRegister({
       { key:'complete_time',   label:'Concluído em', type:'date' },
     ],
   },
-  onData(data){ renderClusterGrid(data); },
+  onData(data){
+    renderClusterGrid(data);
+    const el = document.getElementById('cluster-last-update');
+    if(el) el.innerHTML = `<i class="fas fa-clock"></i> Última atualização: <strong style="color:var(--text)">${pulsoEscHtml(data.atual.att || '—')}</strong>`;
+  },
   // Insights com viés "on time": como o piso está agora, não uma comparação
   // com período anterior (esta página não tem esse conceito).
   insights(data){
