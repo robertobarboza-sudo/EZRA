@@ -5423,10 +5423,14 @@ pulsoRegister({
     // Pendentes = Saca/Scuttle ainda sem rua, exceto 3PL (3PL nunca é
     // endereçado — ver classificação em api/cluster.js).
     { key:'pendentesPacotes',  label:'Pendentes',    icon:'fa-hourglass-half', countKey:'pendentesTOs',  countSuffix:"TO's" },
-    { key:'socSacas',          label:'SoC Sacas',    icon:'fa-sack-xmark',     countKey:'socSacaTOs',    countSuffix:"TO's" },
-    { key:'xptSacas',          label:'XPT Sacas',    icon:'fa-sack-xmark',     countKey:'xptSacaTOs',    countSuffix:"TO's" },
-    { key:'lmHubSacas',        label:'LM Hub Sacas', icon:'fa-building',       countKey:'lmHubSacaTOs',  countSuffix:"TO's" },
-    { key:'pl3SacaScuttle',    label:'3PL (Saca + Scuttle)', icon:'fa-truck-ramp-box', countKey:'pl3TOs', countSuffix:"TO's" },
+    { key:'socSacas',          label:'SoC Sacas',      icon:'fa-sack-xmark', countKey:'socSacaTOs',    countSuffix:"TO's" },
+    { key:'socScuttle',        label:'SoC Scuttle',    icon:'fa-dolly',      countKey:'socScuttleTOs', countSuffix:"TO's" },
+    { key:'xptSacas',          label:'XPT Sacas',      icon:'fa-sack-xmark', countKey:'xptSacaTOs',    countSuffix:"TO's" },
+    { key:'xptScuttle',        label:'XPT Scuttle',    icon:'fa-dolly',      countKey:'xptScuttleTOs', countSuffix:"TO's" },
+    { key:'lmHubSacas',        label:'LM Hub Sacas',   icon:'fa-building',   countKey:'lmHubSacaTOs',    countSuffix:"TO's" },
+    { key:'lmHubScuttle',      label:'LM Hub Scuttle', icon:'fa-dolly',      countKey:'lmHubScuttleTOs', countSuffix:"TO's" },
+    { key:'pl3Sacas',          label:'3PL Sacas',      icon:'fa-sack-xmark', countKey:'pl3SacaTOs',    countSuffix:"TO's" },
+    { key:'pl3Scuttle',        label:'3PL Scuttle',    icon:'fa-dolly',      countKey:'pl3ScuttleTOs', countSuffix:"TO's" },
   ],
   table: {
     title: 'TOs no piso agora',

@@ -32,12 +32,10 @@
  * (recebem rua); 3PL vai pra uma área própria que não é endereçada — por
  * isso o card "Pendentes" (pacotes de Saca/Scuttle ainda sem rua) EXCLUI
  * 3PL, senão infla o indicador com volume que nunca ia ganhar endereço.
- *   - "SoC/XPT/LM Hub Sacas": soma de quantity dos TOs tipo Saca da
- *     categoria, com a contagem de TOs entre parênteses no card (não existe
- *     mais card separado de "TOs" — consolidado num card só por categoria).
- *   - "3PL (Saca+Scuttle)": soma de quantity dos TOs tipo Saca OU Scuttle da
- *     categoria 3PL, com a contagem de TOs entre parênteses (não separa Saca
- *     de Scuttle pro 3PL).
+ * Cada categoria (SoC/XPT/LM Hub/3PL) tem 2 cards: "<Categoria> Sacas" e
+ * "<Categoria> Scuttle", cada um com a contagem de TOs entre parênteses
+ * (não existe card separado de "TOs" — consolidado dentro do card de
+ * pacotes, ver countKey/countSuffix em index.html).
  * Todo card de pacotes (Total de Pacotes/Sacas/Scuttles, Pendentes, os por
  * categoria) segue o mesmo padrão: quantidade de pacotes + (N TOs).
  *
@@ -102,8 +100,8 @@ function aggregate(rows) {
   const pacotesTotal = rows.reduce((s, r) => s + toNum(r.quantity), 0);
 
   let pacotesSaca = 0, pacotesSacaTOs = 0, pacotesScuttle = 0, pacotesScuttleTOs = 0;
-  const porCategoria = { SoC: { saca: 0, sacaTOs: 0 }, XPT: { saca: 0, sacaTOs: 0 }, 'LM Hub': { saca: 0, sacaTOs: 0 } };
-  let pl3SacaScuttle = 0, pl3TOs = 0;
+  const catVazia = () => ({ saca: 0, sacaTOs: 0, scuttle: 0, scuttleTOs: 0 });
+  const porCategoria = { SoC: catVazia(), XPT: catVazia(), 'LM Hub': catVazia(), '3PL': catVazia() };
   let pendentesPacotes = 0, pendentesTOs = 0;
 
   rows.forEach(r => {
@@ -115,12 +113,8 @@ function aggregate(rows) {
     else if (isScuttle) { pacotesScuttle += q; pacotesScuttleTOs++; }
 
     const cat = destinoCategoria(r.destino);
-    if (cat === '3PL') {
-      if (isSaca || isScuttle) { pl3SacaScuttle += q; pl3TOs++; }
-    } else if (isSaca) {
-      porCategoria[cat].saca += q;
-      porCategoria[cat].sacaTOs++;
-    }
+    if (isSaca) { porCategoria[cat].saca += q; porCategoria[cat].sacaTOs++; }
+    else if (isScuttle) { porCategoria[cat].scuttle += q; porCategoria[cat].scuttleTOs++; }
 
     // Pendentes = Saca/Scuttle ainda sem rua, EXCETO 3PL (3PL nunca recebe
     // endereço — não faz sentido contar como "pendente de endereçar").
@@ -150,12 +144,20 @@ function aggregate(rows) {
     pendentesTOs,
     socSacas: porCategoria.SoC.saca,
     socSacaTOs: porCategoria.SoC.sacaTOs,
+    socScuttle: porCategoria.SoC.scuttle,
+    socScuttleTOs: porCategoria.SoC.scuttleTOs,
     xptSacas: porCategoria.XPT.saca,
     xptSacaTOs: porCategoria.XPT.sacaTOs,
+    xptScuttle: porCategoria.XPT.scuttle,
+    xptScuttleTOs: porCategoria.XPT.scuttleTOs,
     lmHubSacas: porCategoria['LM Hub'].saca,
     lmHubSacaTOs: porCategoria['LM Hub'].sacaTOs,
-    pl3SacaScuttle,
-    pl3TOs,
+    lmHubScuttle: porCategoria['LM Hub'].scuttle,
+    lmHubScuttleTOs: porCategoria['LM Hub'].scuttleTOs,
+    pl3Sacas: porCategoria['3PL'].saca,
+    pl3SacaTOs: porCategoria['3PL'].sacaTOs,
+    pl3Scuttle: porCategoria['3PL'].scuttle,
+    pl3ScuttleTOs: porCategoria['3PL'].scuttleTOs,
   };
 }
 
