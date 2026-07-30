@@ -462,6 +462,10 @@
       font-size: 26px; font-weight: 700; color: var(--text);
       line-height: 1; margin-bottom: 6px;
     }
+    .kpi-strip-sub {
+      font-size: 11px; font-weight: 500; color: var(--text-muted);
+      line-height: 1.2; margin-top: -3px; margin-bottom: 6px;
+    }
     .kpi-strip-delta {
       font-size: 11px; font-weight: 600;
       display: flex; align-items: center; gap: 3px;
@@ -1182,7 +1186,8 @@
     #pulso-kpis-clusterizacao .kpi-strip { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
     #pulso-kpis-clusterizacao .kpi-strip-item { padding: 11px 12px; }
     #pulso-kpis-clusterizacao .kpi-strip-label { font-size: 9px; margin-bottom: 3px; }
-    #pulso-kpis-clusterizacao .kpi-strip-value { font-size: 16px; margin-bottom: 3px; }
+    #pulso-kpis-clusterizacao .kpi-strip-value { font-size: 16px; margin-bottom: 2px; }
+    #pulso-kpis-clusterizacao .kpi-strip-sub { font-size: 9px; margin-top: -2px; margin-bottom: 3px; }
     #pulso-kpis-clusterizacao .kpi-strip-delta { font-size: 9px; }
     #pulso-kpis-clusterizacao .kpi-strip-icon { font-size: 14px; top: 9px; right: 9px; }
 
@@ -4300,6 +4305,7 @@ function buildKPIs(id, kpis){
     <div class="kpi-strip-item ${k.type}">
       <div class="kpi-strip-label">${k.label}</div>
       <div class="kpi-strip-value">${k.value}</div>
+      ${k.sub ? `<div class="kpi-strip-sub">${k.sub}</div>` : ''}
       ${k.delta ? `<div class="kpi-strip-delta ${k.trend}">
         <i class="fas fa-arrow-trend-${k.trend}"></i> ${k.delta}
       </div>` : ''}
@@ -4604,13 +4610,18 @@ function pulsoRenderKpis(key, atual, delta){
     // específico do Leftover.
     let value = k.isText ? String(atual[k.key]||'—') : (atual[k.key]||0).toLocaleString('pt-BR');
     if(k.isPercent) value += '%';
+    // countKey/countSuffix renderiza numa 2ª linha menor abaixo do valor
+    // principal (ex: "273.364" em cima, "(5.667 TO's)" embaixo), não mais
+    // concatenado na mesma linha — padrão pra qualquer card do motor.
+    let sub = '';
     if(k.countKey){
       const suffix = k.countSuffix ? ' '+k.countSuffix : '';
-      value += ` (${(atual[k.countKey]||0).toLocaleString('pt-BR')}${suffix})`;
+      sub = `(${(atual[k.countKey]||0).toLocaleString('pt-BR')}${suffix})`;
     }
     return {
       label: k.label,
       value,
+      sub,
       delta: cfg.hideDelta ? '' : fmtDelta(delta[k.key]||0),
       trend: trend(delta[k.key]||0),
       type: '', icon: k.icon,
@@ -5400,20 +5411,20 @@ pulsoRegister({
   // (countKey/countSuffix) em vez de ter um card "TOs" separado — mantém a
   // informação com menos cards no bloco.
   kpis: [
-    { key:'pacotesTotal',      label:'Total de Pacotes',   icon:'fa-boxes-stacked', countKey:'totalRegistros',    countSuffix:'TOs' },
-    { key:'pacotesSaca',       label:'Total de Sacas',     icon:'fa-sack-xmark',    countKey:'pacotesSacaTOs',    countSuffix:'TOs' },
-    { key:'pacotesScuttle',    label:'Total de Scuttles',  icon:'fa-dolly',         countKey:'pacotesScuttleTOs', countSuffix:'TOs' },
+    { key:'pacotesTotal',      label:'Total de Pacotes',   icon:'fa-boxes-stacked', countKey:'totalRegistros',    countSuffix:"TO's" },
+    { key:'pacotesSaca',       label:'Total de Sacas',     icon:'fa-sack-xmark',    countKey:'pacotesSacaTOs',    countSuffix:"TO's" },
+    { key:'pacotesScuttle',    label:'Total de Scuttles',  icon:'fa-dolly',         countKey:'pacotesScuttleTOs', countSuffix:"TO's" },
     { key:'agingMedio',        label:'Aging Médio (h)',    icon:'fa-clock' },
     { key:'ocupacaoTotalPct',  label:'Ocupação Total',     icon:'fa-warehouse',        isPercent:true },
     { key:'pctAtendimento',    label:'% Atendimento da Clusterização', icon:'fa-map-location-dot', isPercent:true },
     { key:'att',               label:'Att.',                icon:'fa-clock-rotate-left', isText:true },
     // Pendentes = Saca/Scuttle ainda sem rua, exceto 3PL (3PL nunca é
     // endereçado — ver classificação em api/cluster.js).
-    { key:'pendentesPacotes',  label:'Pendentes',    icon:'fa-hourglass-half', countKey:'pendentesTOs',  countSuffix:'TOs' },
-    { key:'socSacas',          label:'SoC Sacas',    icon:'fa-sack-xmark',     countKey:'socSacaTOs',    countSuffix:'TOs' },
-    { key:'xptSacas',          label:'XPT Sacas',    icon:'fa-sack-xmark',     countKey:'xptSacaTOs',    countSuffix:'TOs' },
-    { key:'lmHubSacas',        label:'LM Hub Sacas', icon:'fa-building',       countKey:'lmHubSacaTOs',  countSuffix:'TOs' },
-    { key:'pl3SacaScuttle',    label:'3PL (Saca + Scuttle)', icon:'fa-truck-ramp-box', countKey:'pl3TOs', countSuffix:'TOs' },
+    { key:'pendentesPacotes',  label:'Pendentes',    icon:'fa-hourglass-half', countKey:'pendentesTOs',  countSuffix:"TO's" },
+    { key:'socSacas',          label:'SoC Sacas',    icon:'fa-sack-xmark',     countKey:'socSacaTOs',    countSuffix:"TO's" },
+    { key:'xptSacas',          label:'XPT Sacas',    icon:'fa-sack-xmark',     countKey:'xptSacaTOs',    countSuffix:"TO's" },
+    { key:'lmHubSacas',        label:'LM Hub Sacas', icon:'fa-building',       countKey:'lmHubSacaTOs',  countSuffix:"TO's" },
+    { key:'pl3SacaScuttle',    label:'3PL (Saca + Scuttle)', icon:'fa-truck-ramp-box', countKey:'pl3TOs', countSuffix:"TO's" },
   ],
   table: {
     title: 'TOs no piso agora',
