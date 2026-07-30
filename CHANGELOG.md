@@ -2,6 +2,13 @@
 
 Registro das alterações do site PULSO, em ordem cronológica (mais recente no topo).
 
+## 2026-07-30
+
+- **Clusterização religada — dados reais de `cluster_pulso`.** A tentativa anterior (mapa doca×rua) partiu de colunas assumidas sem ver os dados reais e foi pausada em 2026-07-24 (ver histórico abaixo). Reconstruída do zero em cima do motor padrão (`api/cluster.js` + `pulsoRegister`), com filtros (Direção, To Pack, Destino, Estação, Rua), 6 cards (Total de Pacotes, Total de Sacas, Total de Scuttles, Aging Médio, Ocupação Total %, % Atendimento da Clusterização), tabela de TOs e Pipboy.
+- **Novo: mapa de ruas visto de cima.** Grid com 1 tile por rua física (89 ruas reais na base), colorido por ocupação (livre/média/cheia) no período filtrado — engine ganhou os hooks genéricos `cfg.onData` (callback pós-carregamento) e `cfg.extraHtml` (bloco extra entre os cards e a tabela) pra suportar isso, reutilizáveis por qualquer página futura.
+- **Capacidade por rua = 20 posições (provisório).** Não existe coluna de capacidade na planilha ainda; confirmado com o Roberto que 20/rua é um valor fixo temporário até a coluna real ser adicionada — por isso ruas muito movimentadas no dia podem passar de 100% de ocupação no card/mapa (sinal real de densidade acima do provisório, não bug).
+- **Classificação "to pack" → Sacas/Scuttles:** `Saca Sorter` + `Saca` = sacas; `Scuttle` = scuttle; `Volumoso`/`Pallet`/`-` entram no total de pacotes mas não nos 2 cards específicos.
+
 ## 2026-07-29
 
 - **Nova página: Leftover**, dividindo o item de menu "SPR / Leftover" com a SPR — uma aba no topo da seção troca entre as duas sem sair da página. Dados da aba `leftover_hub_pulso` via `api/leftover.js`. Filtros: Turno, Type CPT, Hub, Causa 1, Causa 2. 7 cards: registros de leftover, destinos diferentes, pacotes leftover, % impacto operacional + pacotes, % impacto externo + pacotes. Pipboy com insights (hub ofensor, causa mais frequente, turno com mais volume, e um aviso separado pra registros classificados como Inconsistência de Dados).

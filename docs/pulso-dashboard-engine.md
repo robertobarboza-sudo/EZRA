@@ -111,8 +111,17 @@ pulsoRegister({
   insights(data, rows){                          // opcional — insights específicos do domínio
     return [{ icon:'fa-star', html:'Texto do insight.' }];
   },
+  extraHtml: `<div>...</div>`,                    // opcional — HTML extra entre os cards e a tabela
+  onData(data){ /* ... */ },                      // opcional — chamado a cada recarga, com a resposta completa da API
 });
 ```
+
+`extraHtml`/`onData` existem pra páginas que precisam de uma
+visualização além do pacote padrão (ex: o mapa de ruas visto de cima
+da Clusterização, ver `renderClusterMap` em `index.html` e
+`api/cluster.js`) — o motor só monta o container declarado em
+`extraHtml` e chama `onData(data)` depois de popular KPIs/tabela; o
+resto (o que desenhar dentro do container) é livre.
 
 **4. Dispatch** — em `renderSection`, adicionar `'<pagina>': ()=>pulsoRender('<pagina>')`.
 

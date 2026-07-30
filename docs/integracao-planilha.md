@@ -71,48 +71,52 @@ mandar a planilha inteira pro navegador a cada filtro não escala
 | Seção | Endpoint | Planilha (gid) |
 |---|---|---|
 | SPR | [api/spr.js](../api/spr.js) | `spr_pulso` (gid `1276487267`) da planilha SPR/Leftover/Outbound |
+| Leftover | [api/leftover.js](../api/leftover.js) | `leftover_hub_pulso` (gid `352174025`) da planilha SPR/Leftover/Outbound |
+| Clusterização | [api/cluster.js](../api/cluster.js) | `cluster_pulso` (gid `646168208`) da planilha SPR/Leftover/Outbound |
 
-## Clusterização — modelo pausado
+## Clusterização — histórico do modelo pausado (2026-07-24 a 2026-07-30)
 
-O mapa doca × rua (`buildClusterSummary`/`buildClusterTable`,
-`linhasParaDocas`) continua no código, mas **não está em
-`LIVE_SECTIONS`** — a aba `outbound_ontime` real é uma tabela de ~7.500
-registros individuais de TO (transfer order: `to number`, `driver`,
-`receiver`, `quantity`, `staging area` etc.), não uma tabela de
-ocupação por doca/rua com capacidade. O contrato de colunas abaixo foi
-uma suposição feita sem ver os dados reais — para reativar, é preciso
-antes decidir com o time de operação como derivar ocupação/capacidade/
-cluster ideal a partir dos dados reais (o campo `staging area`, ex.
-`OBS-01S0`, parece decompor em doca+posição, mas isso não foi
-confirmado).
+A primeira tentativa (mapa doca × rua, `buildClusterSummary`/
+`buildClusterTable`/`linhasParaDocas`) assumiu um contrato de colunas
+sem nunca ter visto os dados reais — ficou pausada porque a aba então
+usada (`outbound_ontime`) era uma tabela plana de TOs individuais, sem
+doca/capacidade. Esse código foi removido em 2026-07-30 ao reconstruir
+a página do zero em cima da aba certa (`cluster_pulso`, ver abaixo) e
+do motor padrão (`pulsoRegister`) — lição que motivou a regra do time
+de sempre inspecionar `/api/debug-meta` antes de escrever qualquer
+lógica de negócio pra uma planilha nova.
 
-## Contrato de colunas — Clusterização (aba `outbound_ontime`, não usado atualmente)
+## Clusterização — `/api/cluster`
 
-Primeira linha = cabeçalho (case-insensitive). Uma linha por combinação
-doca × rua/posição de stage:
+Igual ao SPR/Leftover: agrega no servidor porque a aba `cluster_pulso`
+é uma tabela de ~7 mil TOs individuais (uma linha por TO), não uma
+grade de ocupação pronta. Cada TO com `stage`=`ENDEREÇADO` ocupa 1
+posição na `rua` indicada; `rua`="Pendente" (`stage`=`PENDENTE`)
+significa que o TO ainda não foi endereçado fisicamente.
 
-| coluna         | obrigatório | descrição                                   |
-|----------------|-------------|----------------------------------------------|
-| `doca`         | sim         | identificador da doca (ex: `D01`)             |
-| `rua`          | sim         | identificador da rua/posição (ex: `RUA 01`)   |
-| `spp`          | não         | posição SPP                                   |
-| `saca`         | não         | identificação da saca                         |
-| `scuttle`      | não         | identificação do scuttle                      |
-| `posocc`       | sim         | posições ocupadas (número)                    |
-| `poscap`       | sim         | capacidade de posições (número)               |
-| `aging`        | não         | aging médio em horas (número)                 |
-| `pacotesovr`   | não         | pacotes em overflow (número)                  |
-| `proxcpt`      | não         | próximo CPT (texto/horário)                   |
-| `timercpt`     | não         | timer até o CPT (texto)                       |
-| `ocupacao`     | não         | % ocupação; se ausente, calculado de posocc/poscap |
-| `posicoespend` | não         | posições pendentes de endereçamento (número)  |
-| `cidade`       | não         | cidade/hub do fanout endereçado                |
-| `clusterideal` | não         | cluster ideal sugerido, pra comparar com `cidade` |
+**Capacidade por rua = 20 posições, fixa no código** (confirmado com o
+Roberto em 2026-07-30) — não existe coluna de capacidade na planilha
+ainda; quando ela for adicionada, trocar a constante
+`CAPACIDADE_POR_RUA` em `api/cluster.js` por um valor lido da planilha.
+Enquanto isso, ruas muito movimentadas no período podem passar de 100%
+de ocupação nos cards/mapa — é esperado, não é bug.
 
-O front-end (`linhasParaDocas` em `index.html`) agrupa as linhas por
-`doca` e monta a grade doca × rua que alimenta `buildClusterSummary` e
-`buildClusterTable` — o mapa de ocupação, KPIs (% clusterização, aging
-médio, ruas OK/NOK etc.) e as barras de stage.
+**Classificação `to pack`:** `Saca Sorter` + `Saca` = card "Total de
+Sacas"; `Scuttle` = card "Total de Scuttles"; `Volumoso`/`Pallet`/`-`
+entram no total geral de pacotes mas não nesses dois cards.
+
+**Query params:** `dim`/`date` (baseado em `create time`, não em
+`cutoff_date` como o SPR), `direction`, `to_pack`, `destino`,
+`estacao`, `rua` (listas separadas por vírgula), `q` (busca em `to
+number` + `destino`).
+
+O mapa de ruas visto de cima (`renderClusterMap` em `index.html`) é
+desenhado por cima do motor padrão via dois hooks genéricos novos em
+`pulsoBuildHTML`/`pulsoLoad`: `cfg.extraHtml` (bloco de HTML extra
+entre os KPIs e a tabela) e `cfg.onData(data)` (callback chamado a
+cada recarga, com a resposta completa da API) — reutilizáveis por
+qualquer página futura que precise de uma visualização custom além do
+pacote padrão de filtros/KPIs/tabela/Pipboy.
 
 ## SPR — `/api/spr`
 
