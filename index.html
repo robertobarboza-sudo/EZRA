@@ -1158,10 +1158,29 @@
     /* Legend */
     .clst-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 16px; font-size: 11px; color: var(--text-muted); }
     .clst-legend-item { display: flex; align-items: center; gap: 6px; }
-    .clst-legend-swatch { width: 14px; height: 14px; border-radius: 3px; }
+    .clst-legend-swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+
+    /* Mapa de ruas — visto de cima, 1 tile por rua física (grid, não mais cruzamento doca×rua) */
+    .clst-map-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+      gap: 6px;
+    }
+    .clst-tile {
+      border-radius: 8px;
+      padding: 8px 6px;
+      text-align: center;
+      border: 1px solid var(--border);
+      transition: transform .15s;
+      cursor: default;
+    }
+    .clst-tile:hover { transform: translateY(-2px); }
+    .clst-tile-rua { font-size: 9.5px; font-weight: 700; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .clst-tile-pct { font-size: 13px; font-weight: 800; color: var(--text); margin-top: 2px; }
 
     @media(max-width:768px){
       .clst-summary-bar { grid-template-columns: repeat(2,1fr); }
+      .clst-map-grid { grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); }
     }
 
     /* ── BACKLOG ──────────────────────────────────────────────── */
@@ -2639,29 +2658,15 @@
       <div class="section-header" id="section-clusterizacao-header">
         <div class="section-header-left">
           <div class="section-title">Clusterização <span class="ds-badge ok" id="ds-badge-clusterizacao" style="margin-left:8px"></span></div>
-          <div class="section-subtitle">Mapa de Ocupação · Docas / Ruas de Stage</div>
+          <div class="section-subtitle">Mapa de Ocupação · Ruas de Stage</div>
         </div>
         <div class="section-dl-group">
-          <div class="pdf-menu-wrap">
-            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('clusterizacao',event)">
-              <i class="fas fa-file-pdf"></i> PDF
-              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
-            </button>
-            <div class="pdf-dropdown" id="pdf-menu-clusterizacao">
-              <div class="pdf-dropdown-label">Formato</div>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('clusterizacao','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('clusterizacao','dash')"><i class="fas fa-display"></i> Print Dash</button>
-            </div>
-          </div>
-          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('clusterizacao')"><i class="fas fa-file-csv"></i> CSV</button>
+          <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy('clusterizacao')"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="dl-btn dl-btn-csv" onclick="pulsoLoad('clusterizacao')"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
 
-      <div class="clst-summary-bar" id="clst-summary"></div>
-
-      <div class="clst-table-wrap">
-        <table class="clst-table" id="clst-main-table"></table>
-      </div>
+      <div id="pulso-root-clusterizacao"></div>
     </section>
 
     <!-- BACKLOG -->
@@ -4249,7 +4254,7 @@ async function renderSection(section){
       laborplan:renderLaborplan, arvore:renderArvore, kpioverview:renderKpioverview,
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
       configuracoes:renderConfiguracoes, forecast:renderForecast,
-      auditoria:renderAuditoria, clusterizacao:renderClusterizacao,
+      auditoria:renderAuditoria, clusterizacao:()=>pulsoRender('clusterizacao'),
       matriz:renderMatriz, mapadados:renderMapaDados, jornal:renderJornal};
     if(fn[section]) fn[section](data);
     else renderPlaceholder(section);
@@ -4380,6 +4385,7 @@ function pulsoBuildHTML(cfg){
     <div class="spr-period-label" id="pulso-period-${cfg.key}"></div>
     <div id="pulso-kpis-${cfg.key}"></div>
     <div class="pulso-coverage" id="pulso-coverage-${cfg.key}"></div>
+    ${cfg.extraHtml || ''}
     <div class="table-card" style="margin-top:16px">
       <div class="table-toolbar">
         <div class="table-toolbar-title">${cfg.table.title}</div>
@@ -4535,6 +4541,7 @@ async function pulsoLoad(key){
     if(search) search.value = '';
     pulsoRenderTable(key);
     PULSO_DATA[key] = j;
+    if(cfg.onData) cfg.onData(j);
   } catch(err){
     setBadge(key, 'error', 'Erro: '+err.message);
     console.error('['+key+']', err);
@@ -5278,199 +5285,113 @@ function genClusterData(){
   return docas;
 }
 
-let CLUSTER_DATA = null;
-
-// Converte linhas planas da aba "Outbound Ontime" (1 linha por rua/posição de stage)
-// na estrutura aninhada docas → ruas usada por buildClusterSummary/buildClusterTable.
-// Colunas esperadas (case-insensitive): doca, rua, spp, saca, scuttle, posocc, poscap,
-// aging, pacotesovr, proxcpt, timercpt, posicoespend, cidade, clusterideal
-function linhasParaDocas(rows){
-  const num = v => { const n = parseFloat(String(v).replace(',','.')); return isNaN(n) ? 0 : n; };
-  const numOrNull = v => (v===undefined||v===null||v==='') ? null : num(v);
-
-  const porDoca = new Map();
-  rows.forEach(r => {
-    const docaId = String(r.doca ?? r.doca_id ?? '').trim();
-    const ruaId  = String(r.rua ?? r.rua_id ?? '').trim();
-    if(!docaId || !ruaId) return;
-    if(!porDoca.has(docaId)) porDoca.set(docaId, { id: docaId, ruas: [] });
-
-    const posOcc = num(r.posocc ?? r.pos_occ);
-    const posCap = num(r.poscap ?? r.pos_cap);
-    const ocupacao = r.ocupacao !== undefined && r.ocupacao !== ''
-      ? Math.round(num(r.ocupacao))
-      : (posCap > 0 ? Math.round((posOcc/posCap)*100) : 0);
-
-    porDoca.get(docaId).ruas.push({
-      rua: ruaId,
-      spp: r.spp || null,
-      saca: r.saca || null,
-      scuttle: r.scuttle || null,
-      posOcc, posCap,
-      aging: numOrNull(r.aging),
-      pacotesOvr: numOrNull(r.pacotesovr ?? r.pacotes_ovr),
-      proxCpt: r.proxcpt ?? r.prox_cpt ?? '',
-      timerCpt: r.timercpt ?? r.timer_cpt ?? '',
-      ocupacao,
-      posicoesPend: num(r.posicoespend ?? r.posicoes_pend),
-      cidade: r.cidade || '',
-      clusterIdeal: r.clusterideal ?? r.cluster_ideal ?? '',
-    });
-  });
-
-  return Array.from(porDoca.values());
+/* ── Clusterização — mapa top-down das ruas de stage, renderizado por cima
+   do motor padrão (pulsoRegister abaixo cuida de filtros/KPIs/tabela/Pipboy;
+   cfg.onData aqui só desenha o grid de ruas com a ocupação do período). ── */
+function clusterOcupClasse(pct){
+  return pct === 0 ? 'clst-occ-free' : pct >= 70 ? 'clst-occ-busy' : pct >= 40 ? 'clst-occ-mid' : 'clst-occ-free';
 }
 
-function renderClusterizacao(data){
-  const rows = Array.isArray(data) ? data : [];
-  if(!rows.length){
-    document.getElementById('clst-summary').innerHTML = '';
-    document.getElementById('clst-main-table').innerHTML =
-      '<tbody><tr class="empty-row"><td>Nenhum dado disponível na planilha.</td></tr></tbody>';
+function renderClusterMap(data){
+  const wrap = document.getElementById('cluster-map-wrap');
+  if(!wrap) return;
+  const mapa = data.mapa || [];
+  if(!mapa.length){
+    wrap.innerHTML = '<div class="spr-ms-empty">Nenhuma rua com dados no período/filtros atuais.</div>';
     return;
   }
-  const docas = linhasParaDocas(rows);
-  buildClusterSummary(docas);
-  buildClusterTable(docas);
-}
-
-function buildClusterSummary(docas){
-  const allRuas = docas.flatMap(d => d.ruas);
-  const ocupadas = allRuas.filter(r => r.posOcc > 0).length;
-  const livres = allRuas.length - ocupadas;
-  const totalPacotes = allRuas.reduce((s,r)=>s+(r.pacotesOvr||0),0);
-  const agingVals = allRuas.filter(r=>r.aging!=null).map(r=>r.aging);
-  const agingMedio = agingVals.length ? (agingVals.reduce((a,b)=>a+b,0)/agingVals.length).toFixed(1) : '0.0';
-  const pendEnd = allRuas.reduce((s,r)=>s+(r.posicoesPend||0),0);
-  const posOcupadas = allRuas.reduce((s,r)=>s+r.posOcc,0);
-  const posDisponiveis = allRuas.reduce((s,r)=>s+(r.posCap-r.posOcc),0);
-  const ruasOk = allRuas.filter(r => !r.cidade || r.cidade === r.clusterIdeal).length;
-  const ruasNok = allRuas.length - ruasOk;
-  const pctClusterizacao = ((ruasOk/allRuas.length)*100).toFixed(1);
-
-  const now = new Date();
-  const atualizacao = `${String(now.getDate()).padStart(2,'0')}/${String(now.getMonth()+1).padStart(2,'0')}/${now.getFullYear()} ${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
-
-  const items = [
-    { label:'Atualização', value:atualizacao, cls:'' },
-    { label:'% Clusterização', value:pctClusterizacao+'%', cls: pctClusterizacao<60?'alert':'ok' },
-    { label:'Total Pacotes End.', value:totalPacotes.toLocaleString('pt-BR'), cls:'accent' },
-    { label:'Aging Médio', value:agingMedio, cls: agingMedio>12?'alert':'' },
-    { label:'Pctos. Pendentes End.', value:pendEnd.toLocaleString('pt-BR'), cls:'' },
-    { label:'Pos. Ocupadas', value:posOcupadas.toLocaleString('pt-BR'), cls:'' },
-    { label:'Pos. Disponíveis', value:posDisponiveis.toLocaleString('pt-BR'), cls:'ok' },
-    { label:'Ruas Ocupadas', value:ocupadas, cls:'alert' },
-    { label:'Ruas Livres', value:livres, cls:'ok' },
-    { label:'Ruas OK', value:ruasOk, cls:'ok' },
-    { label:'Ruas NOK', value:ruasNok, cls:'alert' },
-  ];
-
-  document.getElementById('clst-summary').innerHTML = items.map(it => `
-    <div class="clst-summary-item">
-      <div class="clst-summary-label">${it.label}</div>
-      <div class="clst-summary-value ${it.cls}">${it.value}</div>
+  const tiles = mapa.map(r => `
+    <div class="clst-tile ${clusterOcupClasse(r.pct)}" title="${pulsoEscHtml(r.rua)}: ${r.ocupadas}/${r.capacidade} posições (${r.pct}%)">
+      <div class="clst-tile-rua">${pulsoEscHtml(r.rua.replace('RUA ','').replace('RESERVA ',''))}</div>
+      <div class="clst-tile-pct">${r.pct}%</div>
     </div>`).join('');
+  wrap.innerHTML = `
+    <div class="clst-legend">
+      <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-free"></span> Livre (&lt;40%)</div>
+      <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-mid"></span> Média (40–69%)</div>
+      <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-busy"></span> Cheia (≥70%)</div>
+      ${data.pendentesNoPeriodo ? `<div class="clst-legend-item"><i class="fas fa-triangle-exclamation" style="color:var(--orange)"></i> ${data.pendentesNoPeriodo.toLocaleString('pt-BR')} TO(s) ainda sem rua (Pendente) no período</div>` : ''}
+    </div>
+    <div class="clst-map-grid">${tiles}</div>`;
 }
 
-function buildClusterTable(docas){
-  const allRuas = docas.flatMap(d => d.ruas);
-
-  // ── HEADER ROWS ──
-  let thead = '<thead>';
-  // Row 1: DOCA group headers
-  thead += '<tr><th class="clst-rowlabel">DOCA</th>';
-  docas.forEach(d => {
-    thead += `<th class="clst-doca-header" colspan="${d.ruas.length}">${d.id}</th>`;
-  });
-  thead += '</tr>';
-  // Row 2: RUA headers
-  thead += '<tr><th class="clst-rowlabel">RUA</th>';
-  allRuas.forEach(r => { thead += `<th class="clst-rua-header">${r.rua.replace('RUA ','')}</th>`; });
-  thead += '</tr>';
-  thead += '</thead>';
-
-  // ── DATA ROWS ──
-  const rowDefs = [
-    { key:'spp',        label:'SPP Posição',        fmt:v=>v==null?'':v },
-    { key:'saca',       label:'SACA',                fmt:v=>v==null?'':v },
-    { key:'scuttle',    label:'SCUTTLE',             fmt:v=>v==null?'':v },
-    { key:'posOcc',     label:'POS. OCC',            fmt:v=>v },
-    { key:'posCap',     label:'POS. CAP',            fmt:v=>v },
-    { key:'aging',      label:"AGING TO'S",          fmt:v=>v==null?'':v.toFixed(1).replace('.',',') },
-    { key:'pacotesOvr', label:'PACOTES OVR.',        fmt:v=>v==null?'':v.toLocaleString('pt-BR') },
-    { key:'proxCpt',    label:'PRÓX. CPT',           fmt:v=>v||'' },
-    { key:'timerCpt',   label:'TIMER CPT',           fmt:v=>v||'' },
-    { key:'ocupacao',   label:'OCUPAÇÃO',            fmt:v=>v+'%', isOcc:true },
-  ];
-
-  let tbody = '<tbody>';
-  rowDefs.forEach(rd => {
-    tbody += `<tr><td class="clst-rowlabel">${rd.label}</td>`;
-    allRuas.forEach(r => {
-      const raw = r[rd.key];
-      let cls = '';
-      if(rd.isOcc){
-        cls = raw===0?'clst-occ-free':raw>=70?'clst-occ-busy':raw>=40?'clst-occ-mid':'clst-occ-free';
-      }
-      tbody += `<td class="${cls}">${rd.fmt(raw)}</td>`;
-    });
-    tbody += '</tr>';
-  });
-
-  // ── OCUPAÇÃO STAGE POR RUA (fundo verde fixo, barra vermelha sobe conforme ocupação) ──
-  tbody += `<tr class="clst-section-row"><td colspan="${allRuas.length+1}">OCUPAÇÃO STAGE POR RUA</td></tr>`;
-  tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom">% Ocupação</td>`;
-  allRuas.forEach(r => {
-    const pct = r.posCap>0 ? r.ocupacao : 0;
-    const labelInside = pct >= 14; // só cabe o texto dentro se a barra tiver altura mínima
-    tbody += `<td style="padding:6px 4px;min-width:42px;vertical-align:bottom">
-      <div style="height:200px;width:100%;background:rgba(16,185,129,.35);border-radius:3px;position:relative;overflow:hidden;display:flex;align-items:flex-end;justify-content:center">
-        <div style="position:absolute;bottom:0;left:0;width:100%;height:${pct}%;background:#ef4444;transition:height .4s;display:flex;align-items:flex-start;justify-content:center">
-          ${labelInside ? `<span style="font-size:9px;font-weight:700;color:#fff;margin-top:4px;text-shadow:0 1px 2px rgba(0,0,0,.4)">${pct}%</span>` : ''}
-        </div>
-        ${!labelInside ? `<span style="position:absolute;bottom:2px;font-size:9px;font-weight:700;color:var(--text-muted)">${pct}%</span>` : ''}
+pulsoRegister({
+  key: 'clusterizacao',
+  label: 'Clusterização',
+  apiPath: '/api/cluster',
+  toggleGroups: [
+    { key:'direction', static:['Forward','General','Return'] },
+    { key:'to_pack', dynamic:'to_pack' },
+  ],
+  multiselects: [
+    { key:'destino', label:'Destino',  field:'destino', searchable:true },
+    { key:'estacao', label:'Estação',  field:'estacao', searchable:true },
+    { key:'rua',     label:'Rua',      field:'rua',     searchable:true },
+  ],
+  extraHtml: `
+    <div class="table-card" style="margin-top:16px">
+      <div class="table-toolbar">
+        <div class="table-toolbar-title">Mapa de Ruas — visto de cima · ocupação no período selecionado</div>
       </div>
-    </td>`;
-  });
-  tbody += '</tr>';
+      <div id="cluster-map-wrap" style="padding:16px"></div>
+    </div>`,
+  kpis: [
+    { key:'pacotesTotal',      label:'Total de Pacotes',   icon:'fa-boxes-stacked' },
+    { key:'pacotesSaca',       label:'Total de Sacas',     icon:'fa-sack-xmark' },
+    { key:'pacotesScuttle',    label:'Total de Scuttles',  icon:'fa-dolly' },
+    { key:'agingMedio',        label:'Aging Médio (h)',    icon:'fa-clock' },
+    { key:'ocupacaoTotalPct',  label:'Ocupação Total',     icon:'fa-warehouse',        isPercent:true },
+    { key:'pctAtendimento',    label:'% Atendimento da Clusterização', icon:'fa-map-location-dot', isPercent:true },
+  ],
+  table: {
+    title: 'TOs do período selecionado',
+    rowsField: 'tos', totalField: 'tosTotal',
+    searchFields: ['to_number','destino'],
+    searchPlaceholder: 'Buscar TO ou destino…',
+    itemNameSingular: 'TO', itemNamePlural: 'TOs',
+    columns: [
+      { key:'to_number',       label:'TO',        type:'text' },
+      { key:'destino',         label:'Destino',   type:'text' },
+      { key:'current_station', label:'Estação',   type:'text' },
+      { key:'to_pack',         label:'To Pack',   type:'text' },
+      { key:'quantity',        label:'Qtd.',      type:'number' },
+      { key:'aging',           label:'Aging (h)', type:'number' },
+      { key:'stage',           label:'Stage',     type:'text' },
+      { key:'rua',             label:'Rua',       type:'text' },
+      { key:'create_time',     label:'Criado em', type:'date' },
+    ],
+  },
+  onData(data){ renderClusterMap(data); },
+  insights(data, rows){
+    const out = [];
+    if(!rows || !rows.length) return out;
 
-  // ── POSIÇÕES PEND. END. ──
-  tbody += '<tr><td class="clst-rowlabel">POSIÇÕES PEND. END.</td>';
-  allRuas.forEach(r => { tbody += `<td>${r.posicoesPend}</td>`; });
-  tbody += '</tr>';
+    const mapa = (data.mapa || []).filter(r => r.ocupadas > 0).sort((a,b)=>b.pct-a.pct);
+    if(mapa.length){
+      const top = mapa[0];
+      out.push({ icon:'fa-warehouse', html: `<strong>${pulsoEscHtml(top.rua)}</strong> é a rua mais ocupada do período: ${top.ocupadas}/${top.capacidade} posições (${top.pct}%).` });
+    }
 
-  // ── FANOUT ENDEREÇADO ──
-  tbody += `<tr class="clst-section-row"><td colspan="${allRuas.length+1}">FANOUT ENDEREÇADO</td></tr>`;
-  tbody += '<tr><td class="clst-rowlabel" style="vertical-align:bottom">Cidade / Hub</td>';
-  allRuas.forEach(r => {
-    tbody += `<td style="writing-mode:vertical-rl;text-orientation:mixed;height:170px;font-size:9px;padding:6px 3px;white-space:nowrap;overflow:visible">${r.cidade||'—'}</td>`;
-  });
-  tbody += '</tr>';
+    const porDestino = pulsoTopGroup(rows, 'destino', 'quantity');
+    const totalQtd = porDestino.reduce((s,[,v])=>s+v,0);
+    if(porDestino.length && totalQtd){
+      const [destino, qtd] = porDestino[0];
+      const pct = ((qtd/totalQtd)*100).toFixed(0);
+      out.push({ icon:'fa-location-dot', html: `<strong>${pulsoEscHtml(destino)}</strong> concentra ${pct}% dos pacotes do período (${qtd.toLocaleString('pt-BR')} de ${totalQtd.toLocaleString('pt-BR')}).` });
+    }
 
-  // ── MATCH LINE — verde se Fanout == Ideal (ou vazio), vermelho se diferente ──
-  tbody += '<tr style="height:6px">';
-  tbody += '<td class="clst-rowlabel" style="padding:0;font-size:0">&nbsp;</td>';
-  allRuas.forEach(r => {
-    const isEmpty = !r.cidade;
-    const matches = isEmpty || r.cidade === r.clusterIdeal;
-    const color = matches ? '#10b981' : '#ef4444';
-    tbody += `<td style="padding:0;height:6px;background:${color}" title="${isEmpty?'Vazio':matches?'Fanout = Ideal':'Fanout ≠ Ideal'}"></td>`;
-  });
-  tbody += '</tr>';
+    const agingAlto = rows.filter(r => (r.aging||0) >= 20);
+    if(agingAlto.length){
+      const pct = ((agingAlto.length/rows.length)*100).toFixed(0);
+      out.push({ icon:'fa-triangle-exclamation', html: `${agingAlto.length} TO(s) com aging ≥ 20h (${pct}% do período) — risco de atraso.` });
+    }
 
-  // ── CLUSTERIZAÇÃO IDEAL ──
-  tbody += `<tr class="clst-section-row"><td colspan="${allRuas.length+1}">CLUSTERIZAÇÃO IDEAL</td></tr>`;
-  tbody += '<tr><td class="clst-rowlabel" style="vertical-align:bottom">Sugestão de Cluster</td>';
-  allRuas.forEach(r => {
-    if(!r.cidade){ tbody += '<td>—</td>'; return; }
-    tbody += `<td style="writing-mode:vertical-rl;text-orientation:mixed;height:170px;font-size:9px;padding:6px 3px;white-space:nowrap;overflow:visible">${r.clusterIdeal}</td>`;
-  });
-  tbody += '</tr>';
-
-  tbody += '</tbody>';
-
-  document.getElementById('clst-main-table').innerHTML = thead + tbody;
-}
+    if(data.pendentesNoPeriodo){
+      out.push({ icon:'fa-clipboard-question', html: `${data.pendentesNoPeriodo.toLocaleString('pt-BR')} TO(s) do período ainda sem rua endereçada (Pendente).` });
+    }
+    return out;
+  },
+});
 
 function renderTratativas(){
   setBadge('tratativas','ok','Em Construção');
