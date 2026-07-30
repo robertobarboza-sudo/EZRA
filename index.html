@@ -1102,18 +1102,18 @@
       padding: 4px 6px; text-align: center; white-space: nowrap;
       color: var(--text);
     }
-    .clst-table th { background: var(--surface-2); font-weight: 700; }
+    .clst-table th { background: var(--surface-2-solid); font-weight: 700; }
 
     /* Sticky row labels (first column) */
     .clst-table th.clst-rowlabel, .clst-table td.clst-rowlabel {
       position: sticky; left: 0; z-index: 5;
-      background: var(--surface-2);
+      background: var(--surface-2-solid);
       text-align: left; font-weight: 700;
       font-size: 9.5px; text-transform: uppercase; letter-spacing: .04em;
       color: var(--text-muted); min-width: 140px; max-width: 140px;
       white-space: normal; line-height: 1.3;
     }
-    .clst-table td.clst-rowlabel { background: var(--surface); color: var(--text-sub); }
+    .clst-table td.clst-rowlabel { background: var(--surface-solid); color: var(--text-sub); }
 
     /* Sticky header row */
     .clst-table thead th { position: sticky; top: 0; z-index: 6; }
@@ -1126,7 +1126,7 @@
     }
     .clst-rua-header {
       font-size: 8.5px; font-weight: 700; color: var(--text-muted);
-      background: var(--surface-3); min-width: 42px;
+      background: var(--surface-2-solid); min-width: 42px;
     }
 
     /* Occupation heatmap cells */
@@ -1165,14 +1165,12 @@
        numa coluna só, proporção parecida com o relatório de referência. */
     .clst-pos-grid {
       display: grid;
-      grid-template-columns: 16px;
+      grid-template-columns: 1fr;
       gap: 2px;
-      justify-content: center;
     }
-    .clst-pos-sq { width: 16px; height: 16px; border-radius: 2px; }
-    .clst-pos-sq.free { background: rgba(16,185,129,.35); }
+    .clst-pos-sq { width: 100%; height: 15px; border-radius: 0; }
+    .clst-pos-sq.free { background: #10b981; }
     .clst-pos-sq.occ  { background: #ef4444; }
-    [data-theme="dark"] .clst-pos-sq.free { background: rgba(16,185,129,.28); }
     .clst-pos-overflow { font-size: 9px; font-weight: 800; color: var(--red); text-align: center; margin-top: 3px; }
 
     @media(max-width:768px){
@@ -1910,6 +1908,12 @@
       --radius-xl: 16px;
       --shadow: 0 12px 30px rgba(151, 66, 35, .13);
       --shadow-lg: 0 30px 75px rgba(151, 66, 35, .20);
+      /* Versões opacas de --surface/--surface-2, só pra elementos sticky (ex:
+         coluna fixa da tabela de Clusterização) — --surface* normal é
+         translúcido de propósito (visual "glass"), mas isso deixa o conteúdo
+         que passa por baixo aparecendo através da coluna fixa ao rolar. */
+      --surface-solid: #fdf3ee;
+      --surface-2-solid: #fdece2;
     }
 
     body {
@@ -4589,7 +4593,7 @@ function pulsoRenderKpis(key, atual, delta){
     // parênteses, com sufixo opcional (countSuffix) — ex: "1.297 (243
     // registros)". Genérico pra qualquer página do motor, não é algo
     // específico do Leftover.
-    let value = (atual[k.key]||0).toLocaleString('pt-BR');
+    let value = k.isText ? String(atual[k.key]||'—') : (atual[k.key]||0).toLocaleString('pt-BR');
     if(k.isPercent) value += '%';
     if(k.countKey){
       const suffix = k.countSuffix ? ' '+k.countSuffix : '';
@@ -5390,6 +5394,7 @@ pulsoRegister({
     { key:'agingMedio',        label:'Aging Médio (h)',    icon:'fa-clock' },
     { key:'ocupacaoTotalPct',  label:'Ocupação Total',     icon:'fa-warehouse',        isPercent:true },
     { key:'pctAtendimento',    label:'% Atendimento da Clusterização', icon:'fa-map-location-dot', isPercent:true },
+    { key:'att',               label:'Att.',                icon:'fa-clock-rotate-left', isText:true },
   ],
   table: {
     title: 'TOs no piso agora',
@@ -5406,7 +5411,7 @@ pulsoRegister({
       { key:'aging',           label:'Aging (h)', type:'number' },
       { key:'stage',           label:'Stage',     type:'text' },
       { key:'rua',             label:'Rua',       type:'text' },
-      { key:'create_time',     label:'Criado em', type:'date' },
+      { key:'complete_time',   label:'Concluído em', type:'date' },
     ],
   },
   onData(data){ renderClusterGrid(data); },
