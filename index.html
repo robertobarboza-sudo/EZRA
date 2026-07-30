@@ -5045,8 +5045,8 @@ const OUTBOUND_KPIS = [
   { key:'infrutiferas',     label:'Infrutíferas',       icon:'fa-triangle-exclamation', rowFilter: r => r.status_agrupado === 'INFRUTÍFERA' },
   { key:'noShow',           label:'No Show',            icon:'fa-user-slash', rowFilter: r => r.status_agrupado === 'NO SHOW' },
   { key:'naoConsumida',     label:'Não Consumida',      icon:'fa-circle-xmark', rowFilter: r => r.status_agrupado === 'NÃO CONSUMIDA' },
-  { key:'pacotesSaca',      label:'Sacas Carregadas',    icon:'fa-sack-xmark', countKey:'qtySaca',    countSuffix:'qty', rowFilter: r => (r.orders_saca||0) > 0 },
-  { key:'pacotesScuttle',   label:'Scuttles Carregados', icon:'fa-dolly',      countKey:'qtyScuttle', countSuffix:'qty', rowFilter: r => (r.orders_scuttle||0) > 0 },
+  { key:'pacotesSaca',      label:'Sacas Carregadas',    icon:'fa-sack-xmark', countKey:'qtySaca',    countSuffix:"TO's", rowFilter: r => (r.orders_saca||0) > 0 },
+  { key:'pacotesScuttle',   label:'Scuttles Carregados', icon:'fa-dolly',      countKey:'qtyScuttle', countSuffix:"TO's", rowFilter: r => (r.orders_scuttle||0) > 0 },
 ];
 const OUTBOUND_MULTISELECTS = [
   { key:'status',      label:'Status',      field:'status' },
