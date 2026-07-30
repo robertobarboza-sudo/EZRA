@@ -2234,8 +2234,8 @@
 
     <div class="nav-group">
       <div class="nav-group-label">Operações</div>
-      <div class="nav-item" data-section="spr" data-label="SPR / Leftover" onclick="navigateTo('spr',this)">
-        <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">SPR / Leftover</span>
+      <div class="nav-item" data-section="spr" data-label="SPR / Leftover / Outbound" onclick="navigateTo('spr',this)">
+        <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">SPR / Leftover / Outbound</span>
       </div>
       <div class="nav-item" data-section="asm" data-label="ASM" onclick="navigateTo('asm',this)">
         <i class="fas fa-feather nav-icon"></i><span class="nav-label">ASM</span>
@@ -2245,9 +2245,6 @@
       </div>
       <div class="nav-item" data-section="inbound" data-label="Inbound" onclick="navigateTo('inbound',this)">
         <span class="nav-icon-composite"><i class="fas fa-truck icon-base" style="font-size:14px"></i><span class="icon-badge">IN</span></span><span class="nav-label">Inbound</span>
-      </div>
-      <div class="nav-item" data-section="outbound" data-label="Outbound" onclick="navigateTo('outbound',this)">
-        <span class="nav-icon-composite"><i class="fas fa-truck icon-base" style="font-size:14px"></i><span class="icon-badge">OT</span></span><span class="nav-label">Outbound</span>
       </div>
       <div class="nav-item" data-section="clusterizacao" data-label="Clusterização" onclick="navigateTo('clusterizacao',this)">
         <i class="fas fa-circle-nodes nav-icon"></i><span class="nav-label">Clusterização</span>
@@ -2458,6 +2455,8 @@
             <span id="pulso-page-title">SPR</span>
             <span class="ds-badge ok" id="ds-badge-spr" style="margin-left:8px"></span>
             <span class="ds-badge ok" id="ds-badge-leftover" style="margin-left:8px;display:none"></span>
+            <span class="ds-badge ok" id="ds-badge-outbound-ontime" style="margin-left:8px;display:none"></span>
+            <span class="ds-badge ok" id="ds-badge-outbound-historico" style="margin-left:8px;display:none"></span>
           </div>
           <div class="section-subtitle" id="pulso-page-subtitle">Solicitação de Programação de Rota · Viagens</div>
         </div>
@@ -2470,10 +2469,14 @@
       <div class="bkl-tabs" id="pulso-subpage-tabs" style="margin-bottom:16px">
         <div class="bkl-tab active" onclick="pulsoSwitchSubpage('spr',this)">SPR</div>
         <div class="bkl-tab" onclick="pulsoSwitchSubpage('leftover',this)">Leftover</div>
+        <div class="bkl-tab" onclick="pulsoSwitchSubpage('outbound-ontime',this)">Outbound · On-time</div>
+        <div class="bkl-tab" onclick="pulsoSwitchSubpage('outbound-historico',this)">Outbound · Histórico</div>
       </div>
 
       <div id="pulso-root-spr"></div>
       <div id="pulso-root-leftover" style="display:none"></div>
+      <div id="pulso-root-outbound-ontime" style="display:none"></div>
+      <div id="pulso-root-outbound-historico" style="display:none"></div>
     </section>
 
     <!-- Pipboy — painel de insights compartilhado por todas as páginas do pacote padrão -->
@@ -2619,50 +2622,6 @@
             </div>
           </div>
           <button class="dl-btn dl-btn-csv" onclick="downloadCSV('inbound')"><i class="fas fa-file-csv"></i> CSV</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- OUTBOUND -->
-        <section id="section-outbound" class="section">
-      <div class="section-header" id="section-outbound-header">
-        <!-- header restored below by JS -->
-      </div>
-      <div id="section-outbound-wip" style="
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        min-height:420px;text-align:center;gap:20px;padding:40px">
-        <div style="
-          width:90px;height:90px;border-radius:50%;
-          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
-          display:flex;align-items:center;justify-content:center;font-size:36px">
-          🚧
-        </div>
-        <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Outbound — Expedição</div>
-          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
-            Esta seção está em construção.<br/>
-            Os dados reais serão integrados via Google Sheets.
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;
-          background:var(--surface);border:1px solid var(--border);
-          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
-          <i class="fas fa-database" style="color:var(--orange)"></i>
-          Aguardando conexão com a fonte de dados
-        </div>
-        <div style="display:flex;gap:10px">
-          <div class="pdf-menu-wrap">
-            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('outbound',event)">
-              <i class="fas fa-file-pdf"></i> PDF
-              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
-            </button>
-            <div class="pdf-dropdown" id="pdf-menu-outbound">
-              <div class="pdf-dropdown-label">Formato</div>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('outbound','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('outbound','dash')"><i class="fas fa-display"></i> Print Dash</button>
-            </div>
-          </div>
-          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('outbound')"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
       </div>
     </section>
@@ -3680,9 +3639,9 @@ const DataService = (() => {
   const CONFIG = {
     source: 'mock',
     refreshInterval: 60,
-    sheets: { gestao:'', performance:'', asm:'', conveyor:'', inbound:'', outbound:'', tratativas:'', clusterizacao:'' },
+    sheets: { gestao:'', performance:'', asm:'', conveyor:'', inbound:'', tratativas:'', clusterizacao:'' },
     api: { baseUrl:'', token:'', endpoints: { gestao:'/api/gestao', performance:'/api/performance',
-      asm:'/api/asm', conveyor:'/api/conveyor', inbound:'/api/inbound', outbound:'/api/outbound', tratativas:'/api/tratativas' } }
+      asm:'/api/asm', conveyor:'/api/conveyor', inbound:'/api/inbound', tratativas:'/api/tratativas' } }
   };
 
   function parseCSV(text){
@@ -3859,24 +3818,6 @@ const MOCK = {
     ],
     charts:{volumeHora:rnd(180,580,10)}
   },
-  outbound:{
-    kpis:[
-      {label:'Pedidos Separados',value:'2.841',delta:'76% da meta diária',trend:'up',type:'success',icon:'fa-dolly'},
-      {label:'Em Carregamento',value:'5 OCs',delta:'5 docas ativas',trend:'up',type:'',icon:'fa-truck-ramp-box'},
-      {label:'Aguardando Coleta',value:'14 OCs',delta:'+4 vs planejado',trend:'down',type:'warning',icon:'fa-clock'},
-      {label:'Atraso na Expedição',value:'3 OCs',delta:'acima do SLA',trend:'down',type:'danger',icon:'fa-circle-exclamation'},
-    ],
-    ocs:[
-      {oc:'OC-08421',cliente:'Magazine Center',vol:'248 cxs',prev:'13/06 14:00',status:'success',label:'Carregando'},
-      {oc:'OC-08422',cliente:'Grupo Varejo SP',vol:'183 cxs',prev:'13/06 14:30',status:'success',label:'Carregando'},
-      {oc:'OC-08423',cliente:'DistribuiRápido',vol:'312 cxs',prev:'13/06 15:00',status:'info',label:'Aguardando'},
-      {oc:'OC-08424',cliente:'Super Atacado Rio',vol:'95 cxs',prev:'13/06 13:30',status:'danger',label:'Atrasado'},
-      {oc:'OC-08425',cliente:'Comércio Norte',vol:'417 cxs',prev:'13/06 16:00',status:'info',label:'Separando'},
-      {oc:'OC-08426',cliente:'LogMais BH',vol:'128 cxs',prev:'13/06 15:30',status:'warning',label:'Em Conferência'},
-      {oc:'OC-08427',cliente:'Atacadão Sul',vol:'560 cxs',prev:'13/06 17:00',status:'info',label:'Separando'},
-    ],
-    charts:{ondas:{real:[320,480,610,530,490,400],meta:[400,400,500,500,450,400]}}
-  },
   tratativas:{
     kpis:[
       {label:'Total Abertas',value:'23',delta:'pendentes de ação',trend:'down',type:'danger',icon:'fa-list-check'},
@@ -4011,7 +3952,7 @@ const USERS = [
    Roles: Administrador | Analista | Lider | Demo
 ================================================================ */
 const ALL_SECTIONS = [
-  'gestao','performance','spr','asm','conveyor','inbound','outbound','clusterizacao',
+  'gestao','performance','spr','asm','conveyor','inbound','clusterizacao',
   'tratativas','laborplan','backlog','arvore','kpioverview','scorecard',
   'absenteismo','forecast','auditoria','organograma','configuracoes',
   'matriz','mapadados','jornal'
@@ -4219,7 +4160,6 @@ const sectionMeta = {
   asm:         {title:'ASM',         sub:'Gestão de Ativos · ASM'},
   conveyor:    {title:'Conveyor',    sub:'Monitoramento de Esteiras · Conveyor'},
   inbound:     {title:'Inbound',     sub:'Recebimento · Inbound'},
-  outbound:    {title:'Outbound',    sub:'Expedição · Outbound'},
   clusterizacao: {title:'Clusterização', sub:'Mapeamento de Expedição · Operações'},
   tratativas:  {title:'Tratativas',  sub:'Ocorrências · Tratativas'},
   laborplan:   {title:'Labor Plan',   sub:'Planejamento de Mão de Obra · Labor Plan'},
@@ -4267,7 +4207,7 @@ async function renderSection(section){
     setBadge(section,'ok',source);
     const fn = {gestao:renderGestao, performance:renderPerformance, asm:renderAsm,
       backlog:renderBacklog, spr:()=>pulsoRender('spr'),
-      conveyor:renderConveyor, inbound:renderInbound, outbound:renderOutbound, tratativas:renderTratativas,
+      conveyor:renderConveyor, inbound:renderInbound, tratativas:renderTratativas,
       laborplan:renderLaborplan, arvore:renderArvore, kpioverview:renderKpioverview,
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
       configuracoes:renderConfiguracoes, forecast:renderForecast,
@@ -4640,6 +4580,7 @@ function pulsoFmtCell(v, type){
     return isNaN(d) ? pulsoEscHtml(v) : d.toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
   }
   if(type === 'number') return (v||0).toLocaleString('pt-BR');
+  if(type === 'bool') return v ? '<i class="fas fa-check" style="color:var(--orange)"></i>' : '—';
   return pulsoEscHtml(v || '—');
 }
 
@@ -4768,8 +4709,10 @@ function pulsoClosePipboy(){
    sub-página feita em cima, sem passar por navigateTo/renderSection. ── */
 let PULSO_ACTIVE_SUBPAGE = 'spr';
 const PULSO_SUBPAGE_META = {
-  spr:      { title:'SPR',      subtitle:'Solicitação de Programação de Rota · Viagens' },
-  leftover: { title:'Leftover', subtitle:'Pacotes remanescentes por hub · Causas' },
+  spr:                { title:'SPR',      subtitle:'Solicitação de Programação de Rota · Viagens' },
+  leftover:           { title:'Leftover', subtitle:'Pacotes remanescentes por hub · Causas' },
+  'outbound-ontime':    { title:'Outbound · On-time',   subtitle:'Acompanhamento de CPT ao vivo · Turno atual' },
+  'outbound-historico': { title:'Outbound · Histórico', subtitle:'Acompanhamento de CPT · Análise por período' },
 };
 
 function pulsoSwitchSubpage(key, el){
@@ -4777,10 +4720,12 @@ function pulsoSwitchSubpage(key, el){
   document.querySelectorAll('#pulso-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
 
-  document.getElementById('pulso-root-spr').style.display = key==='spr' ? '' : 'none';
-  document.getElementById('pulso-root-leftover').style.display = key==='leftover' ? '' : 'none';
-  document.getElementById('ds-badge-spr').style.display = key==='spr' ? '' : 'none';
-  document.getElementById('ds-badge-leftover').style.display = key==='leftover' ? '' : 'none';
+  Object.keys(PULSO_SUBPAGE_META).forEach(k => {
+    const root = document.getElementById('pulso-root-'+k);
+    const badge = document.getElementById('ds-badge-'+k);
+    if(root) root.style.display = k===key ? '' : 'none';
+    if(badge) badge.style.display = k===key ? '' : 'none';
+  });
 
   const meta = PULSO_SUBPAGE_META[key];
   document.getElementById('pulso-page-title').textContent = meta.title;
@@ -4947,6 +4892,89 @@ pulsoRegister({
     }
     return out;
   },
+});
+
+/* ── Outbound On-time/Histórico — config compartilhada entre as 2 páginas.
+   "Compartilhado": um carro cujo ETA de origem cai num turno diferente do
+   turno_shipped (turno do CPT) — ver api/_outbound.js. Ele aparece na visão
+   de QUALQUER um dos dois turnos, então o filtro de Turno já resolve isso
+   no backend; aqui só exibimos a coluna/indicador. ── */
+const OUTBOUND_KPIS = [
+  { key:'carrosPrevistos',  label:'Carros Previstos',   icon:'fa-truck' },
+  { key:'carrosRealizados', label:'Carros Realizados',  icon:'fa-truck-fast' },
+  { key:'pctCptOnTime',     label:'% CPT On Time',      icon:'fa-gauge-high', isPercent:true, countKey:'cptComparaveis', countSuffix:'carros' },
+  { key:'abertas',          label:'Em Aberto',          icon:'fa-clock' },
+  { key:'canceladas',       label:'Canceladas',         icon:'fa-ban' },
+  { key:'infrutiferas',     label:'Infrutíferas',       icon:'fa-triangle-exclamation' },
+  { key:'noShow',           label:'No Show',            icon:'fa-user-slash' },
+  { key:'naoConsumida',     label:'Não Consumida',      icon:'fa-circle-xmark' },
+];
+const OUTBOUND_MULTISELECTS = [
+  { key:'destino', label:'Destino', field:'destino', searchable:true },
+  { key:'agencia', label:'Agência', field:'agencia', searchable:true },
+  { key:'veiculo', label:'Veículo', field:'veiculo' },
+];
+function outboundInsights(data){
+  const out = [];
+  if(!data || !data.atual) return out;
+  const atual = data.atual;
+  out.push({ icon:'fa-gauge-high', html: `<strong>${atual.pctCptOnTime}%</strong> dos carros fechados saíram dentro do CPT (${atual.cptComparaveis.toLocaleString('pt-BR')} carros comparáveis).` });
+  if(atual.canceladas) out.push({ icon:'fa-ban', html: `${atual.canceladas.toLocaleString('pt-BR')} carro${atual.canceladas===1?'':'s'} cancelado${atual.canceladas===1?'':'s'}.` });
+  if(atual.infrutiferas) out.push({ icon:'fa-triangle-exclamation', html: `${atual.infrutiferas.toLocaleString('pt-BR')} carro${atual.infrutiferas===1?'':'s'} infrutífero${atual.infrutiferas===1?'':'s'}.` });
+  if(atual.noShow) out.push({ icon:'fa-user-slash', html: `${atual.noShow.toLocaleString('pt-BR')} No Show.` });
+  return out;
+}
+const OUTBOUND_TABLE_COLUMNS = [
+  { key:'lh_trips',          label:'LT',           type:'text' },
+  { key:'status_agrupado',   label:'Status',       type:'text' },
+  { key:'turno_shipped',     label:'Turno (CPT)',  type:'text' },
+  { key:'compartilhado',     label:'Compartilhado',type:'bool' },
+  { key:'destino',           label:'Destino',      type:'text' },
+  { key:'used_vehicle',      label:'Veículo',      type:'text' },
+  { key:'used_agency_name',  label:'Agência',      type:'text' },
+  { key:'cpt_planejado',     label:'CPT Planejado',type:'date' },
+  { key:'cpt_realizado',     label:'CPT Realizado',type:'date' },
+];
+
+pulsoRegister({
+  key: 'outbound-ontime',
+  label: 'Outbound On-time',
+  apiPath: '/api/outbound-ontime',
+  // Sem período/comparação vs período anterior — sempre o cutoff mais
+  // recente da base (equivalente a "hoje", decidido com o Roberto em
+  // 2026-07-30), foco em gerenciar o turno corrente.
+  hidePeriod: true,
+  hideDelta: true,
+  toggleGroups: [ { key:'turno', static:['T1','T2','T3'] } ],
+  multiselects: OUTBOUND_MULTISELECTS,
+  kpis: OUTBOUND_KPIS,
+  table: {
+    title: 'Carros previstos pro turno selecionado',
+    rowsField: 'carros', totalField: 'carrosTotal',
+    searchFields: ['lh_trips','destino'],
+    searchPlaceholder: 'Buscar LT ou destino…',
+    itemNameSingular: 'carro', itemNamePlural: 'carros',
+    columns: OUTBOUND_TABLE_COLUMNS,
+  },
+  insights: outboundInsights,
+});
+
+pulsoRegister({
+  key: 'outbound-historico',
+  label: 'Outbound Histórico',
+  apiPath: '/api/outbound-historico',
+  toggleGroups: [ { key:'turno', static:['T1','T2','T3'] } ],
+  multiselects: OUTBOUND_MULTISELECTS,
+  kpis: OUTBOUND_KPIS,
+  table: {
+    title: 'Carros do período selecionado',
+    rowsField: 'carros', totalField: 'carrosTotal',
+    searchFields: ['lh_trips','destino'],
+    searchPlaceholder: 'Buscar LT ou destino…',
+    itemNameSingular: 'carro', itemNamePlural: 'carros',
+    columns: [ { key:'cutoff', label:'Cutoff', type:'text' }, ...OUTBOUND_TABLE_COLUMNS ],
+  },
+  insights: outboundInsights,
 });
 
 /* ================================================================
@@ -5136,7 +5164,7 @@ function renderConveyor(){
 }
 
 
-const SUBVIEW_STATE = { inbound:'firstmile', outbound:'intersoc' };
+const SUBVIEW_STATE = { inbound:'firstmile' };
 
 const INBOUND_SUBVIEWS = {
   firstmile:{
@@ -5179,62 +5207,16 @@ INBOUND_SUBVIEWS.overall={
   veiculos:[...INBOUND_SUBVIEWS.firstmile.veiculos,...INBOUND_SUBVIEWS.linehaul.veiculos]
 };
 
-const OUTBOUND_SUBVIEWS = {
-  intersoc:{
-    kpis:[
-      {label:'Pedidos Separados',value:'1.620',delta:'74% da meta diária',trend:'up',type:'success',icon:'fa-dolly'},
-      {label:'Em Carregamento',value:'3 OCs',delta:'3 docas ativas',trend:'up',type:'',icon:'fa-truck-ramp-box'},
-      {label:'Aguardando Coleta',value:'8 OCs',delta:'+2 vs planejado',trend:'down',type:'warning',icon:'fa-clock'},
-      {label:'Atraso na Expedição',value:'2 OCs',delta:'acima do SLA',trend:'down',type:'danger',icon:'fa-circle-exclamation'},
-    ],
-    ondas:{real:[180,260,340,300,270,220],meta:[220,220,280,280,250,220]},
-    ocs:[
-      {oc:'OC-08421',cliente:'Magazine Center',vol:'248 cxs',prev:'13/06 14:00',status:'success',label:'Carregando'},
-      {oc:'OC-08423',cliente:'DistribuiRápido',vol:'312 cxs',prev:'13/06 15:00',status:'info',label:'Aguardando'},
-      {oc:'OC-08426',cliente:'LogMais BH',vol:'128 cxs',prev:'13/06 15:30',status:'warning',label:'Em Conferência'},
-    ]
-  },
-  hub:{
-    kpis:[
-      {label:'Pedidos Separados',value:'1.221',delta:'78% da meta diária',trend:'up',type:'success',icon:'fa-dolly'},
-      {label:'Em Carregamento',value:'2 OCs',delta:'2 docas ativas',trend:'up',type:'',icon:'fa-truck-ramp-box'},
-      {label:'Aguardando Coleta',value:'6 OCs',delta:'+2 vs planejado',trend:'down',type:'warning',icon:'fa-clock'},
-      {label:'Atraso na Expedição',value:'1 OC',delta:'acima do SLA',trend:'down',type:'danger',icon:'fa-circle-exclamation'},
-    ],
-    ondas:{real:[140,220,270,230,220,180],meta:[180,180,220,220,200,180]},
-    ocs:[
-      {oc:'OC-08422',cliente:'Grupo Varejo SP',vol:'183 cxs',prev:'13/06 14:30',status:'success',label:'Carregando'},
-      {oc:'OC-08424',cliente:'Super Atacado Rio',vol:'95 cxs',prev:'13/06 13:30',status:'danger',label:'Atrasado'},
-      {oc:'OC-08425',cliente:'Comércio Norte',vol:'417 cxs',prev:'13/06 16:00',status:'info',label:'Separando'},
-    ]
-  }
-};
-OUTBOUND_SUBVIEWS.overall={
-  kpis:[
-    {label:'Pedidos Separados',value:'2.841',delta:'76% da meta diária',trend:'up',type:'success',icon:'fa-dolly'},
-    {label:'Em Carregamento',value:'5 OCs',delta:'5 docas ativas',trend:'up',type:'',icon:'fa-truck-ramp-box'},
-    {label:'Aguardando Coleta',value:'14 OCs',delta:'+4 vs planejado',trend:'down',type:'warning',icon:'fa-clock'},
-    {label:'Atraso na Expedição',value:'3 OCs',delta:'acima do SLA',trend:'down',type:'danger',icon:'fa-circle-exclamation'},
-  ],
-  ondas:{real:[320,480,610,530,490,400],meta:[400,400,500,500,450,400]},
-  ocs:[...OUTBOUND_SUBVIEWS.intersoc.ocs,...OUTBOUND_SUBVIEWS.hub.ocs]
-};
-
 function subViewTab(section,view,el){
   document.querySelectorAll(`#section-${section} .audit-tab`).forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   SUBVIEW_STATE[section]=view;
   destroyCharts();
   if(section==='inbound') renderInbound();
-  if(section==='outbound') renderOutbound();
 }
 
 function renderInbound(){
   setBadge('inbound','ok','Em Construção');
-}
-
-function renderOutbound(){
-  setBadge('outbound','ok','Em Construção');
 }
 
 /* ================================================================
