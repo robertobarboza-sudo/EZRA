@@ -12,6 +12,7 @@
  * Query params:
  *   de, ate                  YYYY-MM-DD (opcionais — presença de qualquer um ativa o modo histórico)
  *   turno                    lista separada por vírgula (T1,T2,T3) — ver api/_outbound.js pra a regra de compartilhado
+ *   status, solicitante      listas separadas por vírgula (status_agrupado, solicitation_by)
  *   destino, agencia, veiculo   listas separadas por vírgula
  *   q                        busca livre em lh_trips
  */
@@ -51,6 +52,8 @@ module.exports = async (req, res) => {
   const doIntervalo = enriquecidas.filter(r => r.cutoff >= inicio && r.cutoff <= fim);
 
   const turnos = parseCSV(req.query.turno);
+  const status = parseCSV(req.query.status);
+  const solicitantes = parseCSV(req.query.solicitante);
   const destinos = parseCSV(req.query.destino);
   const agencias = parseCSV(req.query.agencia);
   const veiculos = parseCSV(req.query.veiculo);
@@ -58,6 +61,8 @@ module.exports = async (req, res) => {
 
   const passaFiltros = r =>
     (!turnos.length || turnos.some(t => pertenceAoTurno(r, t))) &&
+    (!status.length || status.includes(r.status_agrupado)) &&
+    (!solicitantes.length || solicitantes.includes(r.solicitation_by)) &&
     (!destinos.length || destinos.includes(r.destination_station_code)) &&
     (!agencias.length || agencias.includes(r.used_agency_name)) &&
     (!veiculos.length || veiculos.includes(r.used_vehicle)) &&
@@ -85,6 +90,8 @@ module.exports = async (req, res) => {
     carros, carrosTotal: filtradas.length,
     opcoesFiltro: {
       turno: ['T1', 'T2', 'T3'],
+      status: uniq('status_agrupado'),
+      solicitante: uniq('solicitation_by'),
       destino: uniq('destination_station_code'),
       agencia: uniq('used_agency_name'),
       veiculo: uniq('used_vehicle'),

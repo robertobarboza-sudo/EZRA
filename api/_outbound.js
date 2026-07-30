@@ -1,6 +1,6 @@
 /**
- * Helpers compartilhados entre api/outbound-ontime.js e api/outbound-historico.js
- * (aba rawdata_out_pulso — viagens LH de SOC, acompanhamento de CPT/SLA).
+ * Helpers compartilhados entre as rotas de Outbound (aba rawdata_out_pulso —
+ * viagens LH de SOC, acompanhamento de CPT/SLA).
  *
  * Turnos (confirmado com o Roberto em 2026-07-30): T1 06h–13h59, T2 14h–21h59,
  * T3 22h–05h59 (vira o dia), sem lacunas — cobrem as 24h em blocos de 8h.
@@ -8,12 +8,22 @@
  * "Carregamento compartilhado": a aba não tem coluna própria pra isso.
  * Confirmado com o Roberto: um carro é compartilhado quando o ETA de origem
  * (início do carregamento, `eta_scheduled_origin_edited`/`eta_origin_scheduled`)
- * cai num turno diferente do turno do CPT (`turno_shipped`, já vem pronto na
- * planilha). Nesse caso o carro continua "pertencendo" ao turno_shipped, mas
- * também precisa aparecer na visão do turno do ETA (o turno anterior, que
- * começou a carregar o veículo) — ver `pertenceAoTurno`.
+ * começa num turno e o CPT (`turno_shipped`) termina no turno IMEDIATAMENTE
+ * seguinte (T1→T2, T2→T3, T3→T1) — corrigido em 2026-07-30: a versão
+ * anterior marcava como compartilhado qualquer turno diferente, inclusive
+ * combinações não-adjacentes (ex: ETA no T1 e CPT no T3, pulando o T2
+ * inteiro), o que não representa uma passagem real de turno. Só turnos
+ * consecutivos contam. Nesse caso o carro continua "pertencendo" ao
+ * turno_shipped, mas também aparece na visão do turno do ETA (o turno
+ * anterior, que começou a carregar o veículo) — ver `pertenceAoTurno`.
  */
 const { toNum } = require('./_period');
+
+const TURNO_ORDEM = ['T1', 'T2', 'T3'];
+function turnoSeguinte(t) {
+  const i = TURNO_ORDEM.indexOf(t);
+  return i === -1 ? null : TURNO_ORDEM[(i + 1) % TURNO_ORDEM.length];
+}
 
 function turnoDeHora(hora) {
   if (hora >= 6 && hora <= 13) return 'T1';
@@ -33,7 +43,7 @@ function enrich(r) {
   const etaRef = r.eta_scheduled_origin_edited || r.eta_origin_scheduled;
   const turnoEta = turnoDeDataHora(etaRef);
   const turnoCpt = r.turno_shipped || null;
-  const compartilhado = !!(turnoEta && turnoCpt && turnoEta !== turnoCpt);
+  const compartilhado = !!(turnoEta && turnoCpt && turnoCpt !== turnoEta && turnoCpt === turnoSeguinte(turnoEta));
   return { ...r, __turnoEta: turnoEta, __compartilhado: compartilhado };
 }
 
@@ -53,8 +63,9 @@ function aggregate(rows) {
   // SLA de CPT calculado por conta própria (não confia no status_cpt da
   // planilha — decidido com o Roberto em 2026-07-30): entre as viagens
   // FECHADAS com CPT planejado e realizado preenchidos, quantas saíram
-  // dentro do prazo (cpt_realizado <= cpt_scheduled_origin_edited).
-  let cptOnTime = 0, cptComparaveis = 0;
+  // dentro do prazo (cpt_realizado <= cpt_scheduled_origin_edited). O atraso
+  // médio usa o mesmo conjunto, em minutos (positivo = atrasado).
+  let cptOnTime = 0, cptComparaveis = 0, atrasoSomaMin = 0;
   rows.forEach(r => {
     if (r.status_agrupado !== STATUS_REALIZADO) return;
     const ref = r.cpt_scheduled_origin_edited || r.cpt_origin_scheduled;
@@ -65,11 +76,25 @@ function aggregate(rows) {
     if (isNaN(dRef) || isNaN(dReal)) return;
     cptComparaveis++;
     if (dReal <= dRef) cptOnTime++;
+    atrasoSomaMin += (dReal - dRef) / 60000;
+  });
+
+  const carrosRealizados = porStatus[STATUS_REALIZADO] || 0;
+
+  // Volume carregado (pacotes = orders_*, qty = to_* — quantidade de
+  // sacas/scuttles unitizados) — pedido do Roberto em 2026-07-30, mesmo
+  // padrão "valor + (qty)" dos outros cards de pacotes do PULSO.
+  let pacotesSaca = 0, qtySaca = 0, pacotesScuttle = 0, qtyScuttle = 0;
+  rows.forEach(r => {
+    pacotesSaca += toNum(r.orders_saca);
+    qtySaca += toNum(r.to_saca);
+    pacotesScuttle += toNum(r.orders_scuttle);
+    qtyScuttle += toNum(r.to_scuttle);
   });
 
   return {
     carrosPrevistos,
-    carrosRealizados: porStatus[STATUS_REALIZADO] || 0,
+    carrosRealizados,
     canceladas: porStatus['CANCELADO'] || 0,
     infrutiferas: porStatus['INFRUTÍFERA'] || 0,
     naoConsumida: porStatus['NÃO CONSUMIDA'] || 0,
@@ -77,6 +102,10 @@ function aggregate(rows) {
     abertas: porStatus['ABERTA'] || 0,
     pctCptOnTime: cptComparaveis ? +(cptOnTime / cptComparaveis * 100).toFixed(1) : 0,
     cptComparaveis,
+    taxaConclusao: carrosPrevistos ? +(carrosRealizados / carrosPrevistos * 100).toFixed(1) : 0,
+    atrasoMedioMin: cptComparaveis ? Math.round(atrasoSomaMin / cptComparaveis) : 0,
+    pacotesSaca, qtySaca,
+    pacotesScuttle, qtyScuttle,
   };
 }
 
@@ -85,6 +114,7 @@ function toCarroRow(r) {
     lh_trips: r.lh_trips,
     cutoff: r.cutoff,
     status_agrupado: r.status_agrupado,
+    solicitation_by: r.solicitation_by,
     turno_shipped: r.turno_shipped,
     compartilhado: r.__compartilhado,
     origin: r.origin_station_code,

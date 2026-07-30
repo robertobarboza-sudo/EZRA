@@ -4944,31 +4944,38 @@ pulsoRegister({
 
 /* ── Outbound — uma página só, modo "hoje" (padrão, fixo no cutoff mais
    recente) ou "histórico" (De/Até escolhidos no calendário) — decidido com
-   o Roberto em 2026-07-30. "Compartilhado": um carro cujo ETA de origem cai
-   num turno diferente do turno_shipped (turno do CPT) — ver
-   api/_outbound.js. Ele aparece na visão de QUALQUER um dos dois turnos, o
-   filtro de Turno já resolve isso no backend; aqui só exibimos a
-   coluna/indicador. ── */
+   o Roberto em 2026-07-30. "Compartilhado": um carro cujo ETA de origem
+   começa num turno e o CPT (turno_shipped) termina no turno IMEDIATAMENTE
+   seguinte — ver api/_outbound.js. Ele aparece na visão de QUALQUER um dos
+   dois turnos, o filtro de Turno já resolve isso no backend; aqui só
+   exibimos a coluna/indicador. ── */
 const OUTBOUND_KPIS = [
   { key:'carrosPrevistos',  label:'Carros Previstos',   icon:'fa-truck' },
   { key:'carrosRealizados', label:'Carros Realizados',  icon:'fa-truck-fast' },
+  { key:'taxaConclusao',    label:'Taxa de Conclusão',  icon:'fa-flag-checkered', isPercent:true },
   { key:'pctCptOnTime',     label:'% CPT On Time',      icon:'fa-gauge-high', isPercent:true, countKey:'cptComparaveis', countSuffix:'carros' },
+  { key:'atrasoMedioMin',   label:'Atraso Médio (min)', icon:'fa-stopwatch' },
   { key:'abertas',          label:'Em Aberto',          icon:'fa-clock' },
   { key:'canceladas',       label:'Canceladas',         icon:'fa-ban' },
   { key:'infrutiferas',     label:'Infrutíferas',       icon:'fa-triangle-exclamation' },
   { key:'noShow',           label:'No Show',            icon:'fa-user-slash' },
   { key:'naoConsumida',     label:'Não Consumida',      icon:'fa-circle-xmark' },
+  { key:'pacotesSaca',      label:'Sacas Carregadas',    icon:'fa-sack-xmark', countKey:'qtySaca',    countSuffix:'qty' },
+  { key:'pacotesScuttle',   label:'Scuttles Carregados', icon:'fa-dolly',      countKey:'qtyScuttle', countSuffix:'qty' },
 ];
 const OUTBOUND_MULTISELECTS = [
-  { key:'destino', label:'Destino', field:'destino', searchable:true },
-  { key:'agencia', label:'Agência', field:'agencia', searchable:true },
-  { key:'veiculo', label:'Veículo', field:'veiculo' },
+  { key:'status',      label:'Status',      field:'status' },
+  { key:'solicitante', label:'Solicitante', field:'solicitante' },
+  { key:'destino',     label:'Destino',     field:'destino', searchable:true },
+  { key:'agencia',     label:'Agência',     field:'agencia', searchable:true },
+  { key:'veiculo',     label:'Veículo',     field:'veiculo' },
 ];
 function outboundInsights(data){
   const out = [];
   if(!data || !data.atual) return out;
   const atual = data.atual;
-  out.push({ icon:'fa-gauge-high', html: `<strong>${atual.pctCptOnTime}%</strong> dos carros fechados saíram dentro do CPT (${atual.cptComparaveis.toLocaleString('pt-BR')} carros comparáveis).` });
+  out.push({ icon:'fa-flag-checkered', html: `<strong>${atual.taxaConclusao}%</strong> dos carros previstos já foram concluídos (${atual.carrosRealizados.toLocaleString('pt-BR')} de ${atual.carrosPrevistos.toLocaleString('pt-BR')}).` });
+  out.push({ icon:'fa-gauge-high', html: `<strong>${atual.pctCptOnTime}%</strong> dos carros fechados saíram dentro do CPT (${atual.cptComparaveis.toLocaleString('pt-BR')} carros comparáveis), atraso médio de ${atual.atrasoMedioMin} min.` });
   if(atual.canceladas) out.push({ icon:'fa-ban', html: `${atual.canceladas.toLocaleString('pt-BR')} carro${atual.canceladas===1?'':'s'} cancelado${atual.canceladas===1?'':'s'}.` });
   if(atual.infrutiferas) out.push({ icon:'fa-triangle-exclamation', html: `${atual.infrutiferas.toLocaleString('pt-BR')} carro${atual.infrutiferas===1?'':'s'} infrutífero${atual.infrutiferas===1?'':'s'}.` });
   if(atual.noShow) out.push({ icon:'fa-user-slash', html: `${atual.noShow.toLocaleString('pt-BR')} No Show.` });
@@ -4978,6 +4985,7 @@ const OUTBOUND_TABLE_COLUMNS = [
   { key:'lh_trips',          label:'LT',           type:'text' },
   { key:'cutoff',            label:'Cutoff',       type:'text' },
   { key:'status_agrupado',   label:'Status',       type:'text' },
+  { key:'solicitation_by',   label:'Solicitante',  type:'text' },
   { key:'turno_shipped',     label:'Turno (CPT)',  type:'text' },
   { key:'compartilhado',     label:'Compartilhado',type:'bool' },
   { key:'destino',           label:'Destino',      type:'text' },
