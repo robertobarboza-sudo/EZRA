@@ -119,6 +119,8 @@ function toCarroRow(r) {
     used_agency_name: r.used_agency_name,
     cpt_planejado: r.cpt_scheduled_origin_edited,
     cpt_realizado: r.cpt_realizado,
+    orders_saca: toNum(r.orders_saca),
+    orders_scuttle: toNum(r.orders_scuttle),
   };
 }
 

@@ -454,6 +454,18 @@
       transition: background var(--transition);
     }
     .kpi-strip-item:hover { background: var(--surface-2); }
+    /* Cards clicáveis (com rowFilter no motor PULSO) filtram a tabela abaixo
+       ao clicar — ver pulsoCardClick. */
+    .kpi-strip-item.kpi-clickable { cursor: pointer; }
+    .kpi-strip-item.kpi-clickable:hover { background: rgba(238,77,45,.08); }
+    .kpi-strip-item.kpi-active { background: rgba(238,77,45,.12); }
+    .kpi-strip-item.kpi-active .kpi-strip-value { color: var(--orange); }
+    .pulso-card-filter {
+      font-size: 12px; color: var(--text-muted);
+      display: flex; align-items: center; gap: 8px;
+      margin: -4px 0 12px;
+    }
+    .pulso-card-filter:empty { display: none; }
     .kpi-strip-label {
       font-size: 11px; font-weight: 500; color: var(--text-muted);
       text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px;
@@ -4239,10 +4251,13 @@ function setBadge(s, state, label=''){
 /* ================================================================
    KPI STRIP BUILDER
 ================================================================ */
+// k.onclickAttr/k.clickable/k.active são opcionais — só o motor PULSO (via
+// pulsoRenderKpis) os preenche, pra virar cards clicáveis que filtram a
+// tabela. Páginas antigas que chamam buildKPIs direto continuam iguais.
 function buildKPIs(id, kpis){
   const c=document.getElementById(id); if(!c) return;
   c.innerHTML=`<div class="kpi-strip">${kpis.map(k=>`
-    <div class="kpi-strip-item ${k.type}">
+    <div class="kpi-strip-item ${k.type} ${k.clickable?'kpi-clickable':''} ${k.active?'kpi-active':''}" ${k.onclickAttr?`onclick="${k.onclickAttr}"`:''}>
       <div class="kpi-strip-label">${k.label}</div>
       <div class="kpi-strip-value">${k.value}</div>
       ${k.sub ? `<div class="kpi-strip-sub">${k.sub}</div>` : ''}
@@ -4271,6 +4286,7 @@ const PULSO_ROWS = {};         // key -> { rows, total }
 const PULSO_DATA = {};         // key -> última resposta completa da API (pro Pipboy)
 const PULSO_LOADING = {};      // key -> bool
 const PULSO_RELOAD_PENDING = {}; // key -> bool (mudança de filtro chegou durante um load em voo)
+const PULSO_ACTIVE_CARD = {};  // key -> cardKey ativo como filtro da tabela, ou null
 let PULSO_PIPBOY_TIMER = null;
 
 function pulsoEscHtml(s){
@@ -4361,6 +4377,7 @@ function pulsoBuildHTML(cfg){
           <input type="text" id="pulso-search-${cfg.key}" placeholder="${cfg.table.searchPlaceholder||'Buscar…'}" oninput="pulsoRenderTable('${cfg.key}')"/>
         </div>
       </div>
+      <div class="pulso-card-filter" id="pulso-card-filter-${cfg.key}"></div>
       <div style="overflow-x:auto">
         <table class="resp-table" style="min-width:900px">
           <thead><tr id="pulso-thead-${cfg.key}">${theadHtml}</tr></thead>
@@ -4615,9 +4632,23 @@ function pulsoRenderKpis(key, atual, delta){
       delta: cfg.hideDelta ? '' : fmtDelta(delta[k.key]||0),
       trend: trend(delta[k.key]||0),
       type: '', icon: k.icon,
+      // rowFilter: cards com um predicado próprio viram clicáveis — clicar
+      // filtra a tabela pros registros que batem com o card (clicar de novo
+      // limpa). Cards sem rowFilter (médias, %, totais gerais) não têm um
+      // subconjunto de linhas óbvio pra filtrar, então ficam normais.
+      clickable: !!k.rowFilter,
+      active: PULSO_ACTIVE_CARD[key] === k.key,
+      onclickAttr: k.rowFilter ? `pulsoCardClick('${key}','${k.key}')` : '',
     };
   });
   buildKPIs('pulso-kpis-'+key, kpis);
+}
+
+function pulsoCardClick(key, cardKey){
+  PULSO_ACTIVE_CARD[key] = (PULSO_ACTIVE_CARD[key] === cardKey) ? null : cardKey;
+  const data = PULSO_DATA[key];
+  if(data) pulsoRenderKpis(key, data.atual, data.delta || {});
+  pulsoRenderTable(key);
 }
 
 function pulsoFmtCell(v, type){
@@ -4655,9 +4686,16 @@ function pulsoRenderTable(key){
   if(!tbody) return;
   const { rows, total } = PULSO_ROWS[key];
 
+  // Card ativo (clicado) filtra a tabela pro subconjunto que ele representa,
+  // além da busca por texto — ver pulsoCardClick/pulsoRenderKpis.
+  const activeCardKey = PULSO_ACTIVE_CARD[key];
+  const activeCard = activeCardKey ? cfg.kpis.find(k => k.key === activeCardKey) : null;
+  pulsoRenderCardFilterBadge(key, activeCard);
+  let base = (activeCard && activeCard.rowFilter) ? rows.filter(activeCard.rowFilter) : rows;
+
   const termo = (document.getElementById('pulso-search-'+key)?.value || '').trim().toLowerCase();
   const searchFields = cfg.table.searchFields || [];
-  let linhas = !termo ? rows : rows.filter(r => searchFields.some(f => String(r[f]||'').toLowerCase().includes(termo)));
+  let linhas = !termo ? base : base.filter(r => searchFields.some(f => String(r[f]||'').toLowerCase().includes(termo)));
 
   const sort = PULSO_SORT[key];
   if(sort.key){
@@ -4685,8 +4723,17 @@ function pulsoRenderTable(key){
   if(footer){
     footer.textContent = total > rows.length
       ? `Mostrando ${linhas.length} de ${total.toLocaleString('pt-BR')} ${plural} ${quando} — refine os filtros pra ver todas.`
-      : `${linhas.length.toLocaleString('pt-BR')} ${linhas.length===1?singular:plural}${termo||sort.key ? ' (de '+total+' '+quando+')' : ' '+quando}.`;
+      : `${linhas.length.toLocaleString('pt-BR')} ${linhas.length===1?singular:plural}${termo||sort.key||activeCard ? ' (de '+total+' '+quando+')' : ' '+quando}.`;
   }
+}
+
+// Card ativo como filtro: pequeno aviso acima da tabela com botão pra limpar.
+function pulsoRenderCardFilterBadge(key, activeCard){
+  const el = document.getElementById('pulso-card-filter-'+key);
+  if(!el) return;
+  el.innerHTML = activeCard
+    ? `<i class="fas fa-filter"></i> Filtrando por <strong style="color:var(--text)">${pulsoEscHtml(activeCard.label)}</strong> <button type="button" class="spr-ms-action-btn" onclick="pulsoCardClick('${key}','${activeCard.key}')">Limpar</button>`
+    : '';
 }
 
 /* ── PIPBOY — insights automáticos, compartilhado por todas as páginas ──
@@ -4885,9 +4932,11 @@ pulsoRegister({
     { key:'destinos',           label:'Destinos Diferentes',      icon:'fa-location-dot' },
     { key:'pacotesLeftover',    label:'Pacotes Leftover',         icon:'fa-box-open' },
     { key:'pctOperacional',     label:'% Impacto Operacional', icon:'fa-gears',          isPercent:true },
-    { key:'pacotesOperacional', label:'Pacotes (Operacional)', icon:'fa-gears',          countKey:'registrosOperacional', countSuffix:'occ' },
+    { key:'pacotesOperacional', label:'Pacotes (Operacional)', icon:'fa-gears',          countKey:'registrosOperacional', countSuffix:'occ',
+      rowFilter: r => String(r.leftover_until_cap_causa_l1||'').startsWith('[SOC]') },
     { key:'pctExterno',         label:'% Impacto Externo',     icon:'fa-truck-ramp-box', isPercent:true },
-    { key:'pacotesExterno',     label:'Pacotes (Externo)',     icon:'fa-truck-ramp-box', countKey:'registrosExterno', countSuffix:'occ' },
+    { key:'pacotesExterno',     label:'Pacotes (Externo)',     icon:'fa-truck-ramp-box', countKey:'registrosExterno', countSuffix:'occ',
+      rowFilter: r => { const c = String(r.leftover_until_cap_causa_l1||''); return !c.startsWith('[SOC]') && !c.startsWith('[GOV]'); } },
   ],
   table: {
     title: 'Registros de Leftover do período selecionado',
@@ -4949,19 +4998,24 @@ pulsoRegister({
    seguinte — ver api/_outbound.js. Ele aparece na visão de QUALQUER um dos
    dois turnos, o filtro de Turno já resolve isso no backend; aqui só
    exibimos a coluna/indicador. ── */
+function outboundCptOnTime(r){
+  if(!r.cpt_realizado || !r.cpt_planejado) return false;
+  const dReal = new Date(String(r.cpt_realizado).replace(' ','T')+'Z');
+  const dRef = new Date(String(r.cpt_planejado).replace(' ','T')+'Z');
+  return !isNaN(dReal) && !isNaN(dRef) && dReal <= dRef;
+}
 const OUTBOUND_KPIS = [
   { key:'carrosPrevistos',  label:'Carros Previstos',   icon:'fa-truck' },
-  { key:'carrosRealizados', label:'Carros Realizados',  icon:'fa-truck-fast' },
-  { key:'taxaConclusao',    label:'Taxa de Conclusão',  icon:'fa-flag-checkered', isPercent:true },
-  { key:'pctCptOnTime',     label:'% CPT On Time',      icon:'fa-gauge-high', isPercent:true, countKey:'cptComparaveis', countSuffix:'carros' },
-  { key:'atrasoMedioMin',   label:'Atraso Médio (min)', icon:'fa-stopwatch' },
-  { key:'abertas',          label:'Em Aberto',          icon:'fa-clock' },
-  { key:'canceladas',       label:'Canceladas',         icon:'fa-ban' },
-  { key:'infrutiferas',     label:'Infrutíferas',       icon:'fa-triangle-exclamation' },
-  { key:'noShow',           label:'No Show',            icon:'fa-user-slash' },
-  { key:'naoConsumida',     label:'Não Consumida',      icon:'fa-circle-xmark' },
-  { key:'pacotesSaca',      label:'Sacas Carregadas',    icon:'fa-sack-xmark', countKey:'qtySaca',    countSuffix:'qty' },
-  { key:'pacotesScuttle',   label:'Scuttles Carregados', icon:'fa-dolly',      countKey:'qtyScuttle', countSuffix:'qty' },
+  { key:'carrosRealizados', label:'Carros Realizados',  icon:'fa-truck-fast', rowFilter: r => !!r.cpt_realizado },
+  { key:'taxaConclusao',    label:'Taxa de Conclusão',  icon:'fa-flag-checkered', isPercent:true, rowFilter: r => !!r.cpt_realizado },
+  { key:'pctCptOnTime',     label:'% CPT On Time',      icon:'fa-gauge-high', isPercent:true, countKey:'cptComparaveis', countSuffix:'carros', rowFilter: outboundCptOnTime },
+  { key:'abertas',          label:'Em Aberto',          icon:'fa-clock', rowFilter: r => r.status_agrupado === 'ABERTA' },
+  { key:'canceladas',       label:'Canceladas',         icon:'fa-ban', rowFilter: r => r.status_agrupado === 'CANCELADO' },
+  { key:'infrutiferas',     label:'Infrutíferas',       icon:'fa-triangle-exclamation', rowFilter: r => r.status_agrupado === 'INFRUTÍFERA' },
+  { key:'noShow',           label:'No Show',            icon:'fa-user-slash', rowFilter: r => r.status_agrupado === 'NO SHOW' },
+  { key:'naoConsumida',     label:'Não Consumida',      icon:'fa-circle-xmark', rowFilter: r => r.status_agrupado === 'NÃO CONSUMIDA' },
+  { key:'pacotesSaca',      label:'Sacas Carregadas',    icon:'fa-sack-xmark', countKey:'qtySaca',    countSuffix:'qty', rowFilter: r => (r.orders_saca||0) > 0 },
+  { key:'pacotesScuttle',   label:'Scuttles Carregados', icon:'fa-dolly',      countKey:'qtyScuttle', countSuffix:'qty', rowFilter: r => (r.orders_scuttle||0) > 0 },
 ];
 const OUTBOUND_MULTISELECTS = [
   { key:'status',      label:'Status',      field:'status' },
@@ -5359,6 +5413,19 @@ function clusterRuaCurta(rua){
   return rua.replace('RUA ','').replace('RESERVA ','R.');
 }
 
+// Mesma classificação de api/cluster.js, pro clique nos cards (rowFilter)
+// filtrar a tabela de TOs pelo mesmo critério usado nos números dos cards.
+const CLST_SACA_TIPOS = new Set(['Saca Sorter', 'Saca']);
+function clstIsSaca(r){ return CLST_SACA_TIPOS.has(r.to_pack); }
+function clstIsScuttle(r){ return r.to_pack === 'Scuttle'; }
+function clstCategoria(destino){
+  const d = String(destino || '');
+  if(/^SoC_/i.test(d)) return 'SoC';
+  if(/^XPT_/i.test(d)) return 'XPT';
+  if(/^LM Hub_/i.test(d)) return 'LM Hub';
+  return '3PL';
+}
+
 function renderClusterGrid(data){
   const wrap = document.getElementById('cluster-map-wrap');
   if(!wrap) return;
@@ -5441,22 +5508,23 @@ pulsoRegister({
   // informação com menos cards no bloco.
   kpis: [
     { key:'pacotesTotal',      label:'Total de Pacotes',   icon:'fa-boxes-stacked', countKey:'totalRegistros',    countSuffix:"TO's" },
-    { key:'pacotesSaca',       label:'Total de Sacas',     icon:'fa-sack-xmark',    countKey:'pacotesSacaTOs',    countSuffix:"TO's" },
-    { key:'pacotesScuttle',    label:'Total de Scuttles',  icon:'fa-dolly',         countKey:'pacotesScuttleTOs', countSuffix:"TO's" },
+    { key:'pacotesSaca',       label:'Total de Sacas',     icon:'fa-sack-xmark',    countKey:'pacotesSacaTOs',    countSuffix:"TO's", rowFilter: r => clstIsSaca(r) },
+    { key:'pacotesScuttle',    label:'Total de Scuttles',  icon:'fa-dolly',         countKey:'pacotesScuttleTOs', countSuffix:"TO's", rowFilter: r => clstIsScuttle(r) },
     { key:'agingMedio',        label:'Aging Médio (h)',    icon:'fa-clock' },
-    { key:'ocupacaoTotalPct',  label:'Ocupação Total',     icon:'fa-warehouse',        isPercent:true },
-    { key:'pctAtendimento',    label:'% Att. da Cluster', icon:'fa-map-location-dot', isPercent:true },
+    { key:'ocupacaoTotalPct',  label:'Ocupação Total',     icon:'fa-warehouse',        isPercent:true, rowFilter: r => r.stage === 'ENDEREÇADO' },
+    { key:'pctAtendimento',    label:'% Att. da Cluster', icon:'fa-map-location-dot', isPercent:true, rowFilter: r => r.stage === 'ENDEREÇADO' },
     // Pendentes = Saca/Scuttle ainda sem rua, exceto 3PL (3PL nunca é
     // endereçado — ver classificação em api/cluster.js).
-    { key:'pendentesPacotes',  label:'Pendentes',    icon:'fa-hourglass-half', countKey:'pendentesTOs',  countSuffix:"TO's" },
-    { key:'socSacas',          label:'SoC Sacas',      icon:'fa-sack-xmark', countKey:'socSacaTOs',    countSuffix:"TO's" },
-    { key:'socScuttle',        label:'SoC Scuttle',    icon:'fa-dolly',      countKey:'socScuttleTOs', countSuffix:"TO's" },
-    { key:'xptSacas',          label:'XPT Sacas',      icon:'fa-sack-xmark', countKey:'xptSacaTOs',    countSuffix:"TO's" },
-    { key:'xptScuttle',        label:'XPT Scuttle',    icon:'fa-dolly',      countKey:'xptScuttleTOs', countSuffix:"TO's" },
-    { key:'lmHubSacas',        label:'LM Hub Sacas',   icon:'fa-building',   countKey:'lmHubSacaTOs',    countSuffix:"TO's" },
-    { key:'lmHubScuttle',      label:'LM Hub Scuttle', icon:'fa-dolly',      countKey:'lmHubScuttleTOs', countSuffix:"TO's" },
-    { key:'pl3Sacas',          label:'3PL Sacas',      icon:'fa-sack-xmark', countKey:'pl3SacaTOs',    countSuffix:"TO's" },
-    { key:'pl3Scuttle',        label:'3PL Scuttle',    icon:'fa-dolly',      countKey:'pl3ScuttleTOs', countSuffix:"TO's" },
+    { key:'pendentesPacotes',  label:'Pendentes',    icon:'fa-hourglass-half', countKey:'pendentesTOs',  countSuffix:"TO's",
+      rowFilter: r => r.stage === 'PENDENTE' && (clstIsSaca(r)||clstIsScuttle(r)) && clstCategoria(r.destino) !== '3PL' },
+    { key:'socSacas',          label:'SoC Sacas',      icon:'fa-sack-xmark', countKey:'socSacaTOs',    countSuffix:"TO's", rowFilter: r => clstCategoria(r.destino)==='SoC' && clstIsSaca(r) },
+    { key:'socScuttle',        label:'SoC Scuttle',    icon:'fa-dolly',      countKey:'socScuttleTOs', countSuffix:"TO's", rowFilter: r => clstCategoria(r.destino)==='SoC' && clstIsScuttle(r) },
+    { key:'xptSacas',          label:'XPT Sacas',      icon:'fa-sack-xmark', countKey:'xptSacaTOs',    countSuffix:"TO's", rowFilter: r => clstCategoria(r.destino)==='XPT' && clstIsSaca(r) },
+    { key:'xptScuttle',        label:'XPT Scuttle',    icon:'fa-dolly',      countKey:'xptScuttleTOs', countSuffix:"TO's", rowFilter: r => clstCategoria(r.destino)==='XPT' && clstIsScuttle(r) },
+    { key:'lmHubSacas',        label:'LM Hub Sacas',   icon:'fa-building',   countKey:'lmHubSacaTOs',    countSuffix:"TO's", rowFilter: r => clstCategoria(r.destino)==='LM Hub' && clstIsSaca(r) },
+    { key:'lmHubScuttle',      label:'LM Hub Scuttle', icon:'fa-dolly',      countKey:'lmHubScuttleTOs', countSuffix:"TO's", rowFilter: r => clstCategoria(r.destino)==='LM Hub' && clstIsScuttle(r) },
+    { key:'pl3Sacas',          label:'3PL Sacas',      icon:'fa-sack-xmark', countKey:'pl3SacaTOs',    countSuffix:"TO's", rowFilter: r => clstCategoria(r.destino)==='3PL' && clstIsSaca(r) },
+    { key:'pl3Scuttle',        label:'3PL Scuttle',    icon:'fa-dolly',      countKey:'pl3ScuttleTOs', countSuffix:"TO's", rowFilter: r => clstCategoria(r.destino)==='3PL' && clstIsScuttle(r) },
   ],
   table: {
     title: 'TOs no piso agora',
