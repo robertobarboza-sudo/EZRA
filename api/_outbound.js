@@ -53,33 +53,29 @@ function pertenceAoTurno(r, turno) {
   return r.turno_shipped === turno || (r.__compartilhado && r.__turnoEta === turno);
 }
 
-const STATUS_REALIZADO = 'FECHADA';
-
 function aggregate(rows) {
   const carrosPrevistos = rows.length;
   const porStatus = {};
   rows.forEach(r => { const s = r.status_agrupado || '—'; porStatus[s] = (porStatus[s] || 0) + 1; });
 
-  // SLA de CPT calculado por conta própria (não confia no status_cpt da
-  // planilha — decidido com o Roberto em 2026-07-30): entre as viagens
-  // FECHADAS com CPT planejado e realizado preenchidos, quantas saíram
-  // dentro do prazo (cpt_realizado <= cpt_scheduled_origin_edited). O atraso
-  // médio usa o mesmo conjunto, em minutos (positivo = atrasado).
-  let cptOnTime = 0, cptComparaveis = 0, atrasoSomaMin = 0;
+  // "Realizado" = tem cpt_realizado preenchido (decidido com o Roberto em
+  // 2026-07-30) — não depende do texto de status_agrupado. Atraso médio em
+  // minutos, positivo = atrasado, negativo = adiantado; "Atraso Médio (min)"
+  // é a diferença média entre cpt_realizado e o CPT planejado
+  // (cpt_scheduled_origin_edited), só entre os carros com os dois horários.
+  let carrosRealizados = 0, cptOnTime = 0, cptComparaveis = 0, atrasoSomaMin = 0;
   rows.forEach(r => {
-    if (r.status_agrupado !== STATUS_REALIZADO) return;
+    if (!r.cpt_realizado) return;
+    carrosRealizados++;
     const ref = r.cpt_scheduled_origin_edited || r.cpt_origin_scheduled;
-    const real = r.cpt_realizado;
-    if (!ref || !real) return;
+    if (!ref) return;
     const dRef = new Date(String(ref).replace(' ', 'T') + 'Z');
-    const dReal = new Date(String(real).replace(' ', 'T') + 'Z');
+    const dReal = new Date(String(r.cpt_realizado).replace(' ', 'T') + 'Z');
     if (isNaN(dRef) || isNaN(dReal)) return;
     cptComparaveis++;
     if (dReal <= dRef) cptOnTime++;
     atrasoSomaMin += (dReal - dRef) / 60000;
   });
-
-  const carrosRealizados = porStatus[STATUS_REALIZADO] || 0;
 
   // Volume carregado (pacotes = orders_*, qty = to_* — quantidade de
   // sacas/scuttles unitizados) — pedido do Roberto em 2026-07-30, mesmo
@@ -126,4 +122,4 @@ function toCarroRow(r) {
   };
 }
 
-module.exports = { turnoDeHora, turnoDeDataHora, enrich, pertenceAoTurno, aggregate, toCarroRow, STATUS_REALIZADO };
+module.exports = { turnoDeHora, turnoDeDataHora, enrich, pertenceAoTurno, aggregate, toCarroRow };

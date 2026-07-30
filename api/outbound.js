@@ -2,8 +2,10 @@
  * PULSO — Outbound: acompanhamento de CPT/SLA (aba rawdata_out_pulso).
  *
  * Uma página só, dois modos (decidido com o Roberto em 2026-07-30):
- *   - "hoje" (padrão, sem `de`/`ate` na query): filtro fixo no cutoff mais
- *     recente da base (equivalente a "hoje") — visão ao vivo pro turno atual.
+ *   - "hoje" (padrão, sem `de`/`ate` na query): filtro fixo na data atual de
+ *     verdade (relógio do servidor, não o cutoff mais recente da planilha —
+ *     corrigido em 2026-07-30: a planilha pode ter cutoffs futuros
+ *     pré-planejados, então "o cutoff mais recente" não é "hoje").
  *   - "historico" (quando `de` e/ou `ate` vêm preenchidos): filtra cutoff
  *     dentro do intervalo informado (lado que faltar usa o limite da base).
  * Sem comparação vs período anterior — é um retrato do intervalo escolhido,
@@ -43,7 +45,7 @@ module.exports = async (req, res) => {
 
   let inicio, fim;
   if (modo === 'hoje') {
-    inicio = fim = dataMaxima;
+    inicio = fim = new Date().toISOString().slice(0, 10);
   } else {
     inicio = deQuery || dataMinima;
     fim = ateQuery || dataMaxima;
