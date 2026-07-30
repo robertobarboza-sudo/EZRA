@@ -5444,6 +5444,20 @@ function clusterRuaCurta(rua){
   return rua.replace('RUA ','').replace('RESERVA ','R.');
 }
 
+// Botão "Agrupar" no topo do card Clusterização Outbound — minimiza/expande a
+// grade de ruas. O estado sobrevive aos reloads de dados (onData só troca o
+// innerHTML do wrap, não o display do próprio wrap).
+let CLUSTER_GRID_COLLAPSED = false;
+function clusterToggleGrid(){
+  CLUSTER_GRID_COLLAPSED = !CLUSTER_GRID_COLLAPSED;
+  const wrap = document.getElementById('cluster-map-wrap');
+  const btn = document.getElementById('cluster-grid-toggle');
+  if(wrap) wrap.style.display = CLUSTER_GRID_COLLAPSED ? 'none' : '';
+  if(btn) btn.innerHTML = CLUSTER_GRID_COLLAPSED
+    ? 'Expandir <i class="fas fa-chevron-right"></i>'
+    : 'Agrupar <i class="fas fa-chevron-down"></i>';
+}
+
 // Mesma classificação de api/cluster.js, pro clique nos cards (rowFilter)
 // filtrar a tabela de TOs pelo mesmo critério usado nos números dos cards.
 const CLST_SACA_TIPOS = new Set(['Saca Sorter', 'Saca']);
@@ -5530,7 +5544,8 @@ pulsoRegister({
   extraHtml: `
     <div class="table-card" style="margin-top:16px">
       <div class="table-toolbar">
-        <div class="table-toolbar-title">Grade de Ruas — 142 ruas + reservas · piso atual (live)</div>
+        <div class="table-toolbar-title">Clusterização Outbound</div>
+        <button type="button" class="spr-ms-action-btn" id="cluster-grid-toggle" onclick="clusterToggleGrid()">Agrupar <i class="fas fa-chevron-down"></i></button>
       </div>
       <div id="cluster-map-wrap" style="padding:16px"></div>
     </div>`,
