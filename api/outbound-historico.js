@@ -27,8 +27,11 @@ module.exports = async (req, res) => {
     return;
   }
 
+  // `status` (CONSIDERAR/DESCONSIDERAR) é só um espelho derivado do
+  // status_agrupado — DESCONSIDERAR = CANCELADO+INFRUTÍFERA+NO SHOW+NÃO
+  // CONSUMIDA somados, nada mais. NÃO filtrar por ele: são exatamente os
+  // status que o Roberto pediu pra evidenciar em cards próprios.
   const withDate = rows
-    .filter(r => r.status !== 'DESCONSIDERAR')
     .map(r => enrich({ ...r, __date: r.cutoff ? new Date(r.cutoff + 'T00:00:00Z') : null }))
     .filter(r => r.__date && !isNaN(r.__date));
 

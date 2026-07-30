@@ -26,12 +26,14 @@ module.exports = async (req, res) => {
     return;
   }
 
-  // status=DESCONSIDERAR são registros administrativamente excluídos —
-  // fora de qualquer visão (On-time ou Histórico).
-  const consideradas = rows.filter(r => r.status !== 'DESCONSIDERAR').map(enrich);
+  // `status` (CONSIDERAR/DESCONSIDERAR) é só um espelho derivado do
+  // status_agrupado — DESCONSIDERAR = CANCELADO+INFRUTÍFERA+NO SHOW+NÃO
+  // CONSUMIDA somados, nada mais. NÃO filtrar por ele: são exatamente os
+  // status que o Roberto pediu pra evidenciar em cards próprios.
+  const enriquecidas = rows.map(enrich);
 
-  const refCutoff = consideradas.reduce((max, r) => (r.cutoff && (!max || r.cutoff > max)) ? r.cutoff : max, null);
-  const doDia = consideradas.filter(r => r.cutoff === refCutoff);
+  const refCutoff = enriquecidas.reduce((max, r) => (r.cutoff && (!max || r.cutoff > max)) ? r.cutoff : max, null);
+  const doDia = enriquecidas.filter(r => r.cutoff === refCutoff);
 
   const turnos = parseCSV(req.query.turno);
   const destinos = parseCSV(req.query.destino);
