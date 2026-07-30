@@ -3,10 +3,9 @@
  *
  * Diferente do SPR/Leftover, essa página é "ao vivo": não tem filtro de
  * dia/semana/mês nem comparação vs período anterior (decidido com o Roberto
- * em 2026-07-30) — os cards, a grade de ruas e os insights sempre refletem
- * 100% do que está na aba `cluster_pulso` agora, ou seja, o piso atual. Os
- * filtros (To Pack, Destino, Rua) só afetam a tabela de TOs, não os cards
- * nem a grade — pra ver "o piso inteiro" sempre visível nos KPIs/grade.
+ * em 2026-07-30). Os filtros (To Pack, Destino, Rua) afetam TUDO — cards,
+ * grade de ruas e a tabela de TOs (decidido com o Roberto em 2026-07-30,
+ * revertendo o design anterior onde só a tabela era filtrada).
  *
  * `stage`=ENDEREÇADO = TO já ocupa 1 posição física na `rua` indicada;
  * `stage`=PENDENTE (`rua`="Pendente") = TO ainda sem rua física.
@@ -18,21 +17,32 @@
  * TO ocupa 1 posição, EXCETO sacos (Saca Sorter/Saca): 10 sacos = 1 posição
  * (confirmado com o Roberto em 2026-07-30).
  *
- * `atual.att`: data/hora máxima de `complete time` na base — "última
- * atualização" real do piso (a tabela de TOs também ordena por essa coluna,
- * não mais por create time).
+ * `atual.att`: data/hora máxima de `complete time` no conjunto filtrado —
+ * "última atualização" real do piso (a tabela de TOs também ordena por essa
+ * coluna, não mais por create time).
  *
  * "to pack": para fins de filtro, "Saca Sorter" e "Saca" são tratados como
  * um único unitizador ("Saca") — ver `toPackGrupo()`. Nos cards, a mesma
  * junção vale pro card "Total de Sacas"; "Scuttle" tem card próprio;
  * "Volumoso"/"Pallet"/"-" entram só no total geral de pacotes.
  *
+ * Classificação por transportadora (`destinoCategoria`, a partir do prefixo
+ * de `destino`): SoC_ / XPT_ / "LM Hub_" / o resto = 3PL. Confirmado com o
+ * Roberto em 2026-07-30: só SoC/XPT/LM Hub são efetivamente endereçados
+ * (recebem rua); 3PL vai pra uma área própria que não é endereçada — por
+ * isso o card "Pendentes" (pacotes de Saca/Scuttle ainda sem rua) EXCLUI
+ * 3PL, senão infla o indicador com volume que nunca ia ganhar endereço.
+ *   - "SoC/XPT/LM Hub TOs": contagem de TOs da categoria (qualquer to pack).
+ *   - "SoC/XPT/LM Hub Sacas": soma de quantity dos TOs tipo Saca da categoria.
+ *   - "3PL (Saca+Scuttle)": soma de quantity dos TOs tipo Saca OU Scuttle da
+ *     categoria 3PL, num card só (não separa Saca de Scuttle pro 3PL).
+ *
  * `grade`: 1 item por rua do roster fixo (142 + reservas). Campos que o
  * modelo visual antigo tinha mas não existem em cluster_pulso (SPP posição,
  * doca, próx. CPT, timer CPT, cluster ideal) ficam de fora — decidido com o
  * Roberto em 2026-07-30, adicionar depois se a coluna surgir.
  *
- * Query params (só afetam a tabela `tos`, não os cards/grade):
+ * Query params (afetam cards, grade e tabela):
  *   to_pack              lista separada por vírgula, valores agrupados (Saca/Scuttle/Volumoso/Pallet/-)
  *   destino, rua          listas separadas por vírgula
  *   q                     busca livre em "to number" + destino
@@ -51,6 +61,17 @@ function toPackGrupo(tp) {
   if (SACA_TIPOS.has(tp)) return 'Saca';
   if (SCUTTLE_TIPOS.has(tp)) return 'Scuttle';
   return tp || '-';
+}
+
+// SoC_ / XPT_ / "LM Hub_" identificam quem efetivamente recebe endereço de
+// rua; qualquer outro prefixo (3PL, ex: "J&TNewLM") vai pra uma área que não
+// é endereçada.
+function destinoCategoria(destino) {
+  const d = String(destino || '');
+  if (/^SoC_/i.test(d)) return 'SoC';
+  if (/^XPT_/i.test(d)) return 'XPT';
+  if (/^LM Hub_/i.test(d)) return 'LM Hub';
+  return '3PL';
 }
 
 // Roster fixo das 142 ruas físicas (confirmado com o Roberto em 2026-07-30 —
@@ -77,11 +98,32 @@ function aggregate(rows) {
   const pacotesTotal = rows.reduce((s, r) => s + toNum(r.quantity), 0);
 
   let pacotesSaca = 0, pacotesScuttle = 0;
+  const porCategoria = { SoC: { tos: 0, saca: 0 }, XPT: { tos: 0, saca: 0 }, 'LM Hub': { tos: 0, saca: 0 } };
+  let pl3SacaScuttle = 0;
+  let pendentesPacotes = 0, pendentesTOs = 0;
+
   rows.forEach(r => {
     const tp = r['to pack'];
     const q = toNum(r.quantity);
-    if (SACA_TIPOS.has(tp)) pacotesSaca += q;
-    else if (SCUTTLE_TIPOS.has(tp)) pacotesScuttle += q;
+    const isSaca = SACA_TIPOS.has(tp);
+    const isScuttle = SCUTTLE_TIPOS.has(tp);
+    if (isSaca) pacotesSaca += q;
+    else if (isScuttle) pacotesScuttle += q;
+
+    const cat = destinoCategoria(r.destino);
+    if (cat === '3PL') {
+      if (isSaca || isScuttle) pl3SacaScuttle += q;
+    } else {
+      porCategoria[cat].tos++;
+      if (isSaca) porCategoria[cat].saca += q;
+    }
+
+    // Pendentes = Saca/Scuttle ainda sem rua, EXCETO 3PL (3PL nunca recebe
+    // endereço — não faz sentido contar como "pendente de endereçar").
+    if (r.stage === 'PENDENTE' && (isSaca || isScuttle) && cat !== '3PL') {
+      pendentesPacotes += q;
+      pendentesTOs++;
+    }
   });
 
   const enderecados = rows.filter(r => r.stage === 'ENDEREÇADO').length;
@@ -98,6 +140,15 @@ function aggregate(rows) {
     enderecados,
     agingMedio,
     pctAtendimento,
+    pendentesPacotes,
+    pendentesTOs,
+    socTOs: porCategoria.SoC.tos,
+    socSacas: porCategoria.SoC.saca,
+    xptTOs: porCategoria.XPT.tos,
+    xptSacas: porCategoria.XPT.saca,
+    lmHubTOs: porCategoria['LM Hub'].tos,
+    lmHubSacas: porCategoria['LM Hub'].saca,
+    pl3SacaScuttle,
   };
 }
 
@@ -114,9 +165,25 @@ module.exports = async (req, res) => {
   // não create time — é o timestamp que representa o piso mais fielmente.
   const comData = rows.map(r => ({ ...r, __date: r['complete time'] ? new Date(String(r['complete time']).replace(' ', 'T') + 'Z') : null }));
 
-  // Cards, grade e insights sempre olham pra 100% do piso atual (sem filtro
-  // de data/turno — a aba já É o piso agora). Só a tabela de TOs é filtrada.
-  const atual = aggregate(comData);
+  // Opções de filtro sempre vêm da base inteira (não da já filtrada), senão
+  // as opções somem conforme o usuário seleciona — padrão igual SPR/Leftover.
+  const uniqDe = (base, key) => [...new Set(base.map(r => r[key]).filter(Boolean))].sort();
+
+  // Filtros — agora afetam cards, grade e tabela (não só a tabela).
+  const toPacks = parseCSV(req.query.to_pack);
+  const destinos = parseCSV(req.query.destino);
+  const ruas = parseCSV(req.query.rua);
+  const busca = (req.query.q || '').trim().toLowerCase();
+
+  const passaFiltros = r =>
+    (!toPacks.length || toPacks.includes(toPackGrupo(r['to pack']))) &&
+    (!destinos.length || destinos.includes(r.destino)) &&
+    (!ruas.length || ruas.includes(r.rua)) &&
+    (!busca || String(r['to number'] || '').toLowerCase().includes(busca) || String(r.destino || '').toLowerCase().includes(busca));
+
+  const filtradas = comData.filter(passaFiltros);
+
+  const atual = aggregate(filtradas);
 
   // Cada posição do quadrado representa 1 slot físico. Sacos (Saca Sorter +
   // Saca) são pequenos e cabem vários por posição — 10 sacos = 1 posição
@@ -124,7 +191,7 @@ module.exports = async (req, res) => {
   // (Scuttle/Volumoso/Pallet/-) ocupam 1 posição cada.
   const SACOS_POR_POSICAO = 10;
   const porRua = new Map();
-  comData.forEach(r => {
+  filtradas.forEach(r => {
     if (r.stage !== 'ENDEREÇADO' || !r.rua || r.rua === 'Pendente') return;
     if (!porRua.has(r.rua)) porRua.set(r.rua, { sacaTOs: 0, outrosTOs: 0, saca: 0, scuttle: 0, pacotes: 0, agingSoma: 0, agingCount: 0, destinos: new Map() });
     const acc = porRua.get(r.rua);
@@ -163,17 +230,17 @@ module.exports = async (req, res) => {
   atual.posicoesOcupadas = posicoesOcupadasTotal;
   atual.ocupacaoTotalPct = +(posicoesOcupadasTotal / CAPACIDADE_TOTAL_CD * 100).toFixed(1);
 
-  const pendentesAtual = comData.filter(r => r.stage === 'PENDENTE').length;
+  const pendentesAtual = filtradas.filter(r => r.stage === 'PENDENTE').length;
 
-  const maxCompleteTime = comData.reduce((max, r) => (r.__date && (!max || r.__date > max)) ? r.__date : max, null);
+  const maxCompleteTime = filtradas.reduce((max, r) => (r.__date && (!max || r.__date > max)) ? r.__date : max, null);
   atual.att = maxCompleteTime
     ? `${String(maxCompleteTime.getUTCDate()).padStart(2,'0')}/${String(maxCompleteTime.getUTCMonth()+1).padStart(2,'0')} ${String(maxCompleteTime.getUTCHours()).padStart(2,'0')}:${String(maxCompleteTime.getUTCMinutes()).padStart(2,'0')}`
     : '—';
 
-  // Top destinos por volume no piso inteiro agora — pro Pipboy ("destino com
+  // Top destinos por volume no conjunto filtrado — pro Pipboy ("destino com
   // maior quantidade de volumes").
   const porDestino = new Map();
-  comData.forEach(r => {
+  filtradas.forEach(r => {
     if (!r.destino) return;
     porDestino.set(r.destino, (porDestino.get(r.destino) || 0) + toNum(r.quantity));
   });
@@ -182,19 +249,6 @@ module.exports = async (req, res) => {
     .slice(0, 5)
     .map(([destino, pacotes]) => ({ destino, pacotes }));
 
-  // Filtros — só afetam a tabela de TOs abaixo.
-  const toPacks = parseCSV(req.query.to_pack);
-  const destinos = parseCSV(req.query.destino);
-  const ruas = parseCSV(req.query.rua);
-  const busca = (req.query.q || '').trim().toLowerCase();
-
-  const passaFiltros = r =>
-    (!toPacks.length || toPacks.includes(toPackGrupo(r['to pack']))) &&
-    (!destinos.length || destinos.includes(r.destino)) &&
-    (!ruas.length || ruas.includes(r.rua)) &&
-    (!busca || String(r['to number'] || '').toLowerCase().includes(busca) || String(r.destino || '').toLowerCase().includes(busca));
-
-  const filtradas = comData.filter(passaFiltros);
   const ordenadas = [...filtradas].sort((a, b) => (b.__date || 0) - (a.__date || 0));
   const LIMITE = 500;
   const tos = ordenadas.slice(0, LIMITE).map(r => ({
@@ -209,8 +263,6 @@ module.exports = async (req, res) => {
     complete_time: r['complete time'],
   }));
 
-  const uniq = key => [...new Set(comData.map(r => r[key]).filter(Boolean))].sort();
-
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
     ok: true,
@@ -220,8 +272,8 @@ module.exports = async (req, res) => {
     tos, tosTotal: filtradas.length,
     opcoesFiltro: {
       to_pack: [...new Set(comData.map(r => toPackGrupo(r['to pack'])).filter(Boolean))].sort(),
-      destino: uniq('destino'),
-      rua: uniq('rua').filter(r => r !== 'Pendente'),
+      destino: uniqDe(comData, 'destino'),
+      rua: uniqDe(comData, 'rua').filter(r => r !== 'Pendente'),
     },
   });
 };

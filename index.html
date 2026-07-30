@@ -5369,8 +5369,8 @@ pulsoRegister({
   label: 'Clusterização',
   apiPath: '/api/cluster',
   // Página "ao vivo": sem período/comparação vs período anterior (decidido
-  // com o Roberto em 2026-07-30) — cards, grade e Pipboy sempre olham pra
-  // 100% do piso agora. Os filtros abaixo só afetam a tabela de TOs.
+  // com o Roberto em 2026-07-30). Os filtros abaixo afetam cards, grade E
+  // tabela de TOs (todos reagem juntos).
   hidePeriod: true,
   hideDelta: true,
   toggleGroups: [
@@ -5395,6 +5395,16 @@ pulsoRegister({
     { key:'ocupacaoTotalPct',  label:'Ocupação Total',     icon:'fa-warehouse',        isPercent:true },
     { key:'pctAtendimento',    label:'% Atendimento da Clusterização', icon:'fa-map-location-dot', isPercent:true },
     { key:'att',               label:'Att.',                icon:'fa-clock-rotate-left', isText:true },
+    // Pendentes = Saca/Scuttle ainda sem rua, exceto 3PL (3PL nunca é
+    // endereçado — ver classificação em api/cluster.js).
+    { key:'pendentesPacotes',  label:'Pendentes',    icon:'fa-hourglass-half', countKey:'pendentesTOs', countSuffix:'TOs' },
+    { key:'socTOs',            label:'SoC TOs',      icon:'fa-clipboard-list' },
+    { key:'socSacas',          label:'SoC Sacas',    icon:'fa-sack-xmark' },
+    { key:'xptTOs',            label:'XPT TOs',      icon:'fa-route' },
+    { key:'xptSacas',          label:'XPT Sacas',    icon:'fa-sack-xmark' },
+    { key:'lmHubTOs',          label:'LM Hub TOs',   icon:'fa-building' },
+    { key:'lmHubSacas',        label:'LM Hub Sacas', icon:'fa-sack-xmark' },
+    { key:'pl3SacaScuttle',    label:'3PL (Saca + Scuttle)', icon:'fa-truck-ramp-box' },
   ],
   table: {
     title: 'TOs no piso agora',
