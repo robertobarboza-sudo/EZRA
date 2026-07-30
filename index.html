@@ -4270,6 +4270,7 @@ const PULSO_SORT = {};         // key -> { key, dir }
 const PULSO_ROWS = {};         // key -> { rows, total }
 const PULSO_DATA = {};         // key -> última resposta completa da API (pro Pipboy)
 const PULSO_LOADING = {};      // key -> bool
+const PULSO_RELOAD_PENDING = {}; // key -> bool (mudança de filtro chegou durante um load em voo)
 let PULSO_PIPBOY_TIMER = null;
 
 function pulsoEscHtml(s){
@@ -4509,8 +4510,13 @@ function pulsoQueryString(key){
 }
 
 async function pulsoLoad(key){
-  if(PULSO_LOADING[key]) return;
+  // Se já tem um load em voo, não larga essa chamada no chão — marca "tem
+  // mudança pendente" e o load em andamento refaz sozinho ao terminar.
+  // Sem isso, 2 filtros trocados em sequência rápida (ex: De e Até de um
+  // date-range) podiam fazer o 2º pedido ser silenciosamente descartado.
+  if(PULSO_LOADING[key]){ PULSO_RELOAD_PENDING[key] = true; return; }
   PULSO_LOADING[key] = true;
+  PULSO_RELOAD_PENDING[key] = false;
   const cfg = PULSO_DASHBOARDS[key];
   setBadge(key, 'loading');
   try {
@@ -4538,6 +4544,7 @@ async function pulsoLoad(key){
     console.error('['+key+']', err);
   } finally {
     PULSO_LOADING[key] = false;
+    if(PULSO_RELOAD_PENDING[key]){ PULSO_RELOAD_PENDING[key] = false; pulsoLoad(key); }
   }
 }
 
