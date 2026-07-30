@@ -61,9 +61,16 @@ module.exports = async (req, res) => {
   const veiculos = parseCSV(req.query.veiculo);
   const busca = (req.query.q || '').trim().toLowerCase();
 
+  // FECHADA no filtro de Status = tem cpt_realizado preenchido (confirmado
+  // com o Roberto em 2026-07-30) — mesma definição de "realizado" dos cards,
+  // não o texto de status_agrupado, que pode ainda estar como ABERTA na
+  // planilha mesmo com o carro já expedido. Os demais status seguem
+  // batendo direto com status_agrupado.
+  const bateStatus = (r, s) => s === 'FECHADA' ? !!r.cpt_realizado : r.status_agrupado === s;
+
   const passaFiltros = r =>
     (!turnos.length || turnos.some(t => pertenceAoTurno(r, t))) &&
-    (!status.length || status.includes(r.status_agrupado)) &&
+    (!status.length || status.some(s => bateStatus(r, s))) &&
     (!solicitantes.length || solicitantes.includes(r.solicitation_by)) &&
     (!destinos.length || destinos.includes(r.destination_station_code)) &&
     (!agencias.length || agencias.includes(r.used_agency_name)) &&
