@@ -1,45 +1,51 @@
 /**
  * PULSO — agregação da base Clusterização (endereçamento de TOs em ruas do CD).
  *
- * A aba cluster_pulso é uma tabela de TOs individuais (uma linha por TO),
- * não uma grade pronta de ocupação por doca/rua (ver docs/integracao-planilha.md,
- * seção "Clusterização — modelo pausado" pro histórico da tentativa anterior
- * que assumiu colunas erradas). Este endpoint deriva a ocupação por rua a
- * partir de `stage`/`rua`: cada TO com stage=ENDEREÇADO ocupa 1 posição na
- * rua indicada; `rua`="Pendente" (stage=PENDENTE) significa que o TO ainda
- * não foi endereçado a nenhuma rua física.
+ * Diferente do SPR/Leftover, essa página é "ao vivo": não tem filtro de
+ * dia/semana/mês nem comparação vs período anterior (decidido com o Roberto
+ * em 2026-07-30) — os cards, a grade de ruas e os insights sempre refletem
+ * 100% do que está na aba `cluster_pulso` agora, ou seja, o piso atual. Os
+ * filtros (To Pack, Destino, Rua) só afetam a tabela de TOs, não os cards
+ * nem a grade — pra ver "o piso inteiro" sempre visível nos KPIs/grade.
+ *
+ * `stage`=ENDEREÇADO = TO já ocupa 1 posição física na `rua` indicada;
+ * `stage`=PENDENTE (`rua`="Pendente") = TO ainda sem rua física.
  *
  * Capacidade por rua: fixa em 20 posições (confirmado com o Roberto em
- * 2026-07-30 — não existe coluna de capacidade na planilha ainda; ele vai
- * adicionar depois). Ocupação total % = TOs endereçados / (142 ruas do
- * roster fixo + reservas conhecidas) × 20 — não é derivado do histórico de
- * dados, que só mostra as ruas já usadas nos últimos dias (~90 de 142).
+ * 2026-07-30 — não existe coluna de capacidade na planilha ainda). Ocupação
+ * total % = TOs endereçados / (142 ruas do roster fixo + reservas
+ * conhecidas) × 20 — roster fixo, não derivado do histórico de dados.
  *
- * Classificação de "to pack": "Saca Sorter" e "Saca" contam como sacas;
- * "Scuttle" conta como scuttle; "Volumoso"/"Pallet"/"-" entram no total de
- * pacotes mas não em nenhum dos dois cards específicos.
+ * "to pack": para fins de filtro, "Saca Sorter" e "Saca" são tratados como
+ * um único unitizador ("Saca") — ver `toPackGrupo()`. Nos cards, a mesma
+ * junção vale pro card "Total de Sacas"; "Scuttle" tem card próprio;
+ * "Volumoso"/"Pallet"/"-" entram só no total geral de pacotes.
  *
- * `grade`: 1 item por rua do roster fixo (142 + reservas), com estatísticas
- * do período filtrado (ocupadas/saca/scuttle/pacotes/agingMedio/fanout).
- * Campos que o modelo visual antigo tinha mas não existem em cluster_pulso
- * (SPP posição, doca, próx. CPT, timer CPT, cluster ideal) ficam de fora —
- * decidido com o Roberto em 2026-07-30, adicionar depois se a coluna surgir.
+ * `grade`: 1 item por rua do roster fixo (142 + reservas). Campos que o
+ * modelo visual antigo tinha mas não existem em cluster_pulso (SPP posição,
+ * doca, próx. CPT, timer CPT, cluster ideal) ficam de fora — decidido com o
+ * Roberto em 2026-07-30, adicionar depois se a coluna surgir.
  *
- * Query params:
- *   dim, date                    iguais ao /api/spr (baseado em "create time")
- *   direction                    lista separada por vírgula
- *   to_pack                      lista separada por vírgula
- *   destino, estacao, rua        listas separadas por vírgula
- *   q                            busca livre em "to number" + destino
+ * Query params (só afetam a tabela `tos`, não os cards/grade):
+ *   to_pack              lista separada por vírgula, valores agrupados (Saca/Scuttle/Volumoso/Pallet/-)
+ *   destino, rua          listas separadas por vírgula
+ *   q                     busca livre em "to number" + destino
  */
 const { fetchTabByGid } = require('./_google');
-const { periodStart, periodEnd, periodBefore, fmtDate, toNum, parseCSV, pctDelta } = require('./_period');
+const { toNum, parseCSV } = require('./_period');
 
 const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
 const CAPACIDADE_POR_RUA = 20;
 
 const SACA_TIPOS = new Set(['Saca Sorter', 'Saca']);
 const SCUTTLE_TIPOS = new Set(['Scuttle']);
+
+// Agrupa "Saca Sorter"+"Saca" num único unitizador pra filtro/exibição.
+function toPackGrupo(tp) {
+  if (SACA_TIPOS.has(tp)) return 'Saca';
+  if (SCUTTLE_TIPOS.has(tp)) return 'Scuttle';
+  return tp || '-';
+}
 
 // Roster fixo das 142 ruas físicas (confirmado com o Roberto em 2026-07-30 —
 // não é derivado do histórico de dados, que só tem TOs pras ruas já usadas
@@ -90,49 +96,14 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const withDate = rows
-    .map(r => ({ ...r, __date: r['create time'] ? new Date(String(r['create time']).replace(' ', 'T') + 'Z') : null }))
-    .filter(r => r.__date && !isNaN(r.__date));
+  const comData = rows.map(r => ({ ...r, __date: r['create time'] ? new Date(String(r['create time']).replace(' ', 'T') + 'Z') : null }));
 
-  const dim = ['day', 'week', 'month'].includes(req.query.dim) ? req.query.dim : 'day';
-  const maisRecente = withDate.reduce((max, r) => (r.__date > max ? r.__date : max), withDate[0]?.__date || new Date());
-  const refDate = req.query.date ? new Date(req.query.date + 'T00:00:00Z') : maisRecente;
+  // Cards, grade e insights sempre olham pra 100% do piso atual (sem filtro
+  // de data/turno — a aba já É o piso agora). Só a tabela de TOs é filtrada.
+  const atual = aggregate(comData);
 
-  const direcoes = parseCSV(req.query.direction);
-  const toPacks = parseCSV(req.query.to_pack);
-  const destinos = parseCSV(req.query.destino);
-  const estacoes = parseCSV(req.query.estacao);
-  const ruas = parseCSV(req.query.rua);
-  const busca = (req.query.q || '').trim().toLowerCase();
-
-  const passaFiltros = r =>
-    (!direcoes.length || direcoes.includes(r.direction)) &&
-    (!toPacks.length || toPacks.includes(r['to pack'])) &&
-    (!destinos.length || destinos.includes(r.destino)) &&
-    (!estacoes.length || estacoes.includes(r['current station'])) &&
-    (!ruas.length || ruas.includes(r.rua)) &&
-    (!busca || String(r['to number'] || '').toLowerCase().includes(busca) || String(r.destino || '').toLowerCase().includes(busca));
-
-  const filtradas = withDate.filter(passaFiltros);
-
-  const inicio = periodStart(refDate, dim);
-  const fim = periodEnd(inicio, dim);
-  const inicioAnt = periodBefore(inicio, dim);
-  const fimAnt = inicio;
-
-  const doPeriodo = filtradas.filter(r => r.__date >= inicio && r.__date < fim);
-  const doPeriodoAnterior = filtradas.filter(r => r.__date >= inicioAnt && r.__date < fimAnt);
-
-  const atual = aggregate(doPeriodo);
-  const anterior = aggregate(doPeriodoAnterior);
-  const delta = {};
-  Object.keys(atual).forEach(k => { delta[k] = pctDelta(atual[k], anterior[k]); });
-
-  // Grade por rua no período selecionado — só TOs com stage=ENDEREÇADO contam
-  // como posição ocupada. "Pendente" (sem rua) não entra em nenhuma coluna;
-  // aparece só como aviso separado (pendentesNoPeriodo).
   const porRua = new Map();
-  doPeriodo.forEach(r => {
+  comData.forEach(r => {
     if (r.stage !== 'ENDEREÇADO' || !r.rua || r.rua === 'Pendente') return;
     if (!porRua.has(r.rua)) porRua.set(r.rua, { ocupadas: 0, saca: 0, scuttle: 0, pacotes: 0, agingSoma: 0, destinos: new Map() });
     const acc = porRua.get(r.rua);
@@ -164,15 +135,35 @@ module.exports = async (req, res) => {
       fanout,
     };
   });
-  const pendentesNoPeriodo = doPeriodo.filter(r => r.stage === 'PENDENTE').length;
+  const pendentesAtual = comData.filter(r => r.stage === 'PENDENTE').length;
 
-  const uniq = key => [...new Set(withDate.map(r => r[key]).filter(Boolean))].sort();
+  // Top destinos por volume no piso inteiro agora — pro Pipboy ("destino com
+  // maior quantidade de volumes").
+  const porDestino = new Map();
+  comData.forEach(r => {
+    if (!r.destino) return;
+    porDestino.set(r.destino, (porDestino.get(r.destino) || 0) + toNum(r.quantity));
+  });
+  const topDestinos = [...porDestino.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([destino, pacotes]) => ({ destino, pacotes }));
 
-  const dataMinima = withDate.reduce((min, r) => (r.__date < min ? r.__date : min), withDate[0]?.__date || refDate);
-  const dataMaxima = maisRecente;
+  // Filtros — só afetam a tabela de TOs abaixo.
+  const toPacks = parseCSV(req.query.to_pack);
+  const destinos = parseCSV(req.query.destino);
+  const ruas = parseCSV(req.query.rua);
+  const busca = (req.query.q || '').trim().toLowerCase();
 
+  const passaFiltros = r =>
+    (!toPacks.length || toPacks.includes(toPackGrupo(r['to pack']))) &&
+    (!destinos.length || destinos.includes(r.destino)) &&
+    (!ruas.length || ruas.includes(r.rua)) &&
+    (!busca || String(r['to number'] || '').toLowerCase().includes(busca) || String(r.destino || '').toLowerCase().includes(busca));
+
+  const filtradas = comData.filter(passaFiltros);
+  const ordenadas = [...filtradas].sort((a, b) => (b.__date || 0) - (a.__date || 0));
   const LIMITE = 500;
-  const ordenadas = [...doPeriodo].sort((a, b) => b.__date - a.__date);
   const tos = ordenadas.slice(0, LIMITE).map(r => ({
     to_number: r['to number'],
     destino: r.destino,
@@ -185,20 +176,18 @@ module.exports = async (req, res) => {
     create_time: r['create time'],
   }));
 
-  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
+  const uniq = key => [...new Set(comData.map(r => r[key]).filter(Boolean))].sort();
+
+  res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
     ok: true,
     atualizadoEm: new Date().toISOString(),
-    periodo: { dim, inicio: fmtDate(inicio), fim: fmtDate(new Date(fim - 86400000)), inicioAnterior: fmtDate(inicioAnt), fimAnterior: fmtDate(new Date(fimAnt - 86400000)) },
-    cobertura: { inicio: fmtDate(dataMinima), fim: fmtDate(dataMaxima) },
-    atual, anterior, delta,
-    grade, capacidadeTotal: CAPACIDADE_TOTAL_CD, totalRuas: RUA_ROSTER.length, pendentesNoPeriodo,
-    tos, tosTotal: doPeriodo.length,
+    atual,
+    grade, capacidadeTotal: CAPACIDADE_TOTAL_CD, totalRuas: RUA_ROSTER.length, pendentesAtual, topDestinos,
+    tos, tosTotal: filtradas.length,
     opcoesFiltro: {
-      direction: uniq('direction'),
-      to_pack: uniq('to pack'),
+      to_pack: [...new Set(comData.map(r => toPackGrupo(r['to pack'])).filter(Boolean))].sort(),
       destino: uniq('destino'),
-      estacao: uniq('current station'),
       rua: uniq('rua').filter(r => r !== 'Pendente'),
     },
   });

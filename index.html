@@ -1161,18 +1161,19 @@
     .clst-legend-swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
 
     /* Grade de posições dentro de cada rua — 1 quadradinho = 1 posição (ver
-       OCUPAÇÃO STAGE POR RUA no .clst-table), empilhados de cima pra baixo. */
+       OCUPAÇÃO STAGE POR RUA no .clst-table), empilhados de cima pra baixo
+       numa coluna só, proporção parecida com o relatório de referência. */
     .clst-pos-grid {
       display: grid;
-      grid-template-columns: repeat(4, 8px);
-      gap: 1.5px;
+      grid-template-columns: 16px;
+      gap: 2px;
       justify-content: center;
     }
-    .clst-pos-sq { width: 8px; height: 8px; border-radius: 1.5px; }
+    .clst-pos-sq { width: 16px; height: 16px; border-radius: 2px; }
     .clst-pos-sq.free { background: rgba(16,185,129,.35); }
     .clst-pos-sq.occ  { background: #ef4444; }
     [data-theme="dark"] .clst-pos-sq.free { background: rgba(16,185,129,.28); }
-    .clst-pos-overflow { font-size: 8px; font-weight: 800; color: var(--red); text-align: center; margin-top: 2px; }
+    .clst-pos-overflow { font-size: 9px; font-weight: 800; color: var(--red); text-align: center; margin-top: 3px; }
 
     @media(max-width:768px){
       .clst-summary-bar { grid-template-columns: repeat(2,1fr); }
@@ -4286,9 +4287,9 @@ function buildKPIs(id, kpis){
     <div class="kpi-strip-item ${k.type}">
       <div class="kpi-strip-label">${k.label}</div>
       <div class="kpi-strip-value">${k.value}</div>
-      <div class="kpi-strip-delta ${k.trend}">
+      ${k.delta ? `<div class="kpi-strip-delta ${k.trend}">
         <i class="fas fa-arrow-trend-${k.trend}"></i> ${k.delta}
-      </div>
+      </div>` : ''}
       <i class="fas ${k.icon} kpi-strip-icon"></i>
     </div>`).join('')}</div>`;
 }
@@ -4368,18 +4369,21 @@ function pulsoBuildHTML(cfg){
   const theadHtml = cfg.table.columns.map(c => `
     <th class="spr-sortable" onclick="pulsoSortBy('${cfg.key}','${c.key}')" id="pulso-th-${cfg.key}-${c.key}">${c.label} <i class="fas fa-sort"></i></th>`).join('');
 
-  return `
-    <div class="spr-filters">
+  const periodHtml = cfg.hidePeriod ? '' : `
       <div class="spr-filter-group">
         <div class="bkl-tabs" id="pulso-dim-${cfg.key}">${dimTabs}</div>
         <input type="date" class="filter-select pulso-date-input" id="pulso-date-${cfg.key}" onchange="pulsoSetDate('${cfg.key}', this.value)" style="color-scheme:dark"/>
-      </div>
+      </div>`;
+
+  return `
+    <div class="spr-filters">
+      ${periodHtml}
       ${toggleGroupsHtml}
       <div class="spr-filter-group">${msHtml}</div>
     </div>
-    <div class="spr-period-label" id="pulso-period-${cfg.key}"></div>
+    ${cfg.hidePeriod ? '' : `<div class="spr-period-label" id="pulso-period-${cfg.key}"></div>`}
     <div id="pulso-kpis-${cfg.key}"></div>
-    <div class="pulso-coverage" id="pulso-coverage-${cfg.key}"></div>
+    ${cfg.hidePeriod ? '' : `<div class="pulso-coverage" id="pulso-coverage-${cfg.key}"></div>`}
     ${cfg.extraHtml || ''}
     <div class="table-card" style="margin-top:16px">
       <div class="table-toolbar">
@@ -4507,8 +4511,10 @@ function pulsoSetDate(key, value){
 function pulsoQueryString(key){
   const cfg = PULSO_DASHBOARDS[key], st = PULSO_STATE[key];
   const p = new URLSearchParams();
-  p.set('dim', st.dim);
-  if(st.date) p.set('date', st.date);
+  if(!cfg.hidePeriod){
+    p.set('dim', st.dim);
+    if(st.date) p.set('date', st.date);
+  }
   // encodeURIComponent por valor antes de juntar com vírgula — alguns valores
   // de filtro (ex: causas do Leftover) têm vírgula dentro do próprio texto,
   // o que corrompia a lista se só desse join(',') puro.
@@ -4528,9 +4534,11 @@ async function pulsoLoad(key){
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge(key, 'ok', 'Planilha · '+new Date(j.atualizadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
     pulsoPopulateOptions(key, j.opcoesFiltro || {});
-    pulsoRenderPeriodo(key, j.periodo);
-    pulsoRenderKpis(key, j.atual, j.delta);
-    pulsoRenderCoverage(key, j.cobertura);
+    if(!cfg.hidePeriod){
+      pulsoRenderPeriodo(key, j.periodo);
+      pulsoRenderCoverage(key, j.cobertura);
+    }
+    pulsoRenderKpis(key, j.atual, j.delta || {});
     PULSO_ROWS[key] = { rows: j[cfg.table.rowsField] || [], total: j[cfg.table.totalField] || 0 };
     const search = document.getElementById('pulso-search-'+key);
     if(search) search.value = '';
@@ -4590,7 +4598,7 @@ function pulsoRenderKpis(key, atual, delta){
     return {
       label: k.label,
       value,
-      delta: fmtDelta(delta[k.key]||0),
+      delta: cfg.hideDelta ? '' : fmtDelta(delta[k.key]||0),
       trend: trend(delta[k.key]||0),
       type: '', icon: k.icon,
     };
@@ -4700,7 +4708,7 @@ function pulsoOpenPipboy(key){
   const cfg = PULSO_DASHBOARDS[key];
   const data = PULSO_DATA[key];
   const rows = PULSO_ROWS[key].rows;
-  let insights = pulsoGenericInsights(key, data);
+  let insights = cfg.hideDelta ? [] : pulsoGenericInsights(key, data);
   if(cfg.insights) insights = insights.concat(cfg.insights(data, rows) || []);
   if(!insights.length) insights = [{ icon:'fa-circle-info', html:'Sem dados suficientes no período/filtros atuais pra gerar insights.' }];
 
@@ -5323,7 +5331,7 @@ function renderClusterGrid(data){
   tbody += emptyRow('Timer CPT');
   tbody += `<tr><td class="clst-rowlabel">OCUPAÇÃO</td>${grade.map(g => `<td class="${clusterOcupClasse(g.pct)}">${g.pct}%</td>`).join('')}</tr>`;
 
-  tbody += sectionRow('OCUPAÇÃO STAGE POR RUA — cada quadrado = 1 posição');
+  tbody += sectionRow('OCUPAÇÃO STAGE POR RUA — Live');
   tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom">Posições</td>${grade.map(g => {
     const ocupInSquares = Math.min(g.ocupadas, g.capacidade);
     const overflow = Math.max(g.ocupadas - g.capacidade, 0);
@@ -5346,7 +5354,7 @@ function renderClusterGrid(data){
       <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-free"></span> Livre (&lt;40%)</div>
       <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-mid"></span> Média (40–69%)</div>
       <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-busy"></span> Cheia (≥70%)</div>
-      ${data.pendentesNoPeriodo ? `<div class="clst-legend-item"><i class="fas fa-triangle-exclamation" style="color:var(--orange)"></i> ${data.pendentesNoPeriodo.toLocaleString('pt-BR')} TO(s) ainda sem rua (Pendente) no período</div>` : ''}
+      ${data.pendentesAtual ? `<div class="clst-legend-item"><i class="fas fa-triangle-exclamation" style="color:var(--orange)"></i> ${data.pendentesAtual.toLocaleString('pt-BR')} TO(s) ainda sem rua (Pendente) agora</div>` : ''}
     </div>
     <div class="clst-table-wrap"><table class="clst-table">${thead}${tbody}</table></div>`;
 }
@@ -5355,19 +5363,22 @@ pulsoRegister({
   key: 'clusterizacao',
   label: 'Clusterização',
   apiPath: '/api/cluster',
+  // Página "ao vivo": sem período/comparação vs período anterior (decidido
+  // com o Roberto em 2026-07-30) — cards, grade e Pipboy sempre olham pra
+  // 100% do piso agora. Os filtros abaixo só afetam a tabela de TOs.
+  hidePeriod: true,
+  hideDelta: true,
   toggleGroups: [
-    { key:'direction', static:['Forward','General','Return'] },
-    { key:'to_pack', dynamic:'to_pack' },
+    { key:'to_pack', dynamic:'to_pack' }, // valores já agrupados (Saca Sorter+Saca = "Saca") — ver toPackGrupo() em api/cluster.js
   ],
   multiselects: [
     { key:'destino', label:'Destino',  field:'destino', searchable:true },
-    { key:'estacao', label:'Estação',  field:'estacao', searchable:true },
     { key:'rua',     label:'Rua',      field:'rua',     searchable:true },
   ],
   extraHtml: `
     <div class="table-card" style="margin-top:16px">
       <div class="table-toolbar">
-        <div class="table-toolbar-title">Grade de Ruas — 142 ruas + reservas · ocupação no período selecionado</div>
+        <div class="table-toolbar-title">Grade de Ruas — 142 ruas + reservas · piso atual (live)</div>
       </div>
       <div id="cluster-map-wrap" style="padding:16px"></div>
     </div>`,
@@ -5380,7 +5391,7 @@ pulsoRegister({
     { key:'pctAtendimento',    label:'% Atendimento da Clusterização', icon:'fa-map-location-dot', isPercent:true },
   ],
   table: {
-    title: 'TOs do período selecionado',
+    title: 'TOs no piso agora',
     rowsField: 'tos', totalField: 'tosTotal',
     searchFields: ['to_number','destino'],
     searchPlaceholder: 'Buscar TO ou destino…',
@@ -5398,32 +5409,30 @@ pulsoRegister({
     ],
   },
   onData(data){ renderClusterGrid(data); },
-  insights(data, rows){
+  // Insights com viés "on time": como o piso está agora, não uma comparação
+  // com período anterior (esta página não tem esse conceito).
+  insights(data){
     const out = [];
-    if(!rows || !rows.length) return out;
+    if(!data || !data.atual) return out;
+    const atual = data.atual;
 
-    const mapa = (data.grade || []).filter(r => r.ocupadas > 0).sort((a,b)=>b.pct-a.pct);
-    if(mapa.length){
-      const top = mapa[0];
-      out.push({ icon:'fa-warehouse', html: `<strong>${pulsoEscHtml(top.rua)}</strong> é a rua mais ocupada do período: ${top.ocupadas}/${top.capacidade} posições (${top.pct}%).` });
+    out.push({ icon:'fa-warehouse', html: `Ocupação atual do piso: <strong>${atual.ocupacaoTotalPct}%</strong> (${atual.enderecados.toLocaleString('pt-BR')} de ${(data.capacidadeTotal||0).toLocaleString('pt-BR')} posições, em ${data.totalRuas} ruas).` });
+
+    const grade = (data.grade || []).filter(r => r.ocupadas > 0).sort((a,b)=>b.pct-a.pct);
+    if(grade.length){
+      const top = grade[0];
+      out.push({ icon:'fa-road', html: `<strong>${pulsoEscHtml(top.rua)}</strong> é a rua mais cheia agora: ${top.ocupadas}/${top.capacidade} posições (${top.pct}%).` });
     }
 
-    const porDestino = pulsoTopGroup(rows, 'destino', 'quantity');
-    const totalQtd = porDestino.reduce((s,[,v])=>s+v,0);
-    if(porDestino.length && totalQtd){
-      const [destino, qtd] = porDestino[0];
-      const pct = ((qtd/totalQtd)*100).toFixed(0);
-      out.push({ icon:'fa-location-dot', html: `<strong>${pulsoEscHtml(destino)}</strong> concentra ${pct}% dos pacotes do período (${qtd.toLocaleString('pt-BR')} de ${totalQtd.toLocaleString('pt-BR')}).` });
+    const tops = data.topDestinos || [];
+    if(tops.length){
+      out.push({ icon:'fa-location-dot', html: `<strong>${pulsoEscHtml(tops[0].destino)}</strong> é o destino com mais volume no piso agora: ${tops[0].pacotes.toLocaleString('pt-BR')} pacotes.` });
     }
 
-    const agingAlto = rows.filter(r => (r.aging||0) >= 20);
-    if(agingAlto.length){
-      const pct = ((agingAlto.length/rows.length)*100).toFixed(0);
-      out.push({ icon:'fa-triangle-exclamation', html: `${agingAlto.length} TO(s) com aging ≥ 20h (${pct}% do período) — risco de atraso.` });
-    }
+    out.push({ icon:'fa-map-location-dot', html: `% Atendimento da Clusterização agora: <strong>${atual.pctAtendimento}%</strong> dos TOs no piso já têm rua endereçada.` });
 
-    if(data.pendentesNoPeriodo){
-      out.push({ icon:'fa-clipboard-question', html: `${data.pendentesNoPeriodo.toLocaleString('pt-BR')} TO(s) do período ainda sem rua endereçada (Pendente).` });
+    if(data.pendentesAtual){
+      out.push({ icon:'fa-clipboard-question', html: `${data.pendentesAtual.toLocaleString('pt-BR')} TO(s) no piso ainda sem rua endereçada agora.` });
     }
     return out;
   },
