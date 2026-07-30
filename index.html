@@ -4666,10 +4666,11 @@ function pulsoRenderTable(key){
   tbody.innerHTML = linhas.map(r => `<tr>${cfg.table.columns.map(c => `<td>${pulsoFmtCell(r[c.key], c.type)}</td>`).join('')}</tr>`).join('');
 
   const singular = cfg.table.itemNameSingular || 'registro', plural = cfg.table.itemNamePlural || 'registros';
+  const quando = cfg.hidePeriod ? 'agora' : 'no período';
   if(footer){
     footer.textContent = total > rows.length
-      ? `Mostrando ${linhas.length} de ${total.toLocaleString('pt-BR')} ${plural} no período — refine os filtros pra ver todas.`
-      : `${linhas.length.toLocaleString('pt-BR')} ${linhas.length===1?singular:plural}${termo||sort.key ? ' (de '+total+' no período)' : ' no período'}.`;
+      ? `Mostrando ${linhas.length} de ${total.toLocaleString('pt-BR')} ${plural} ${quando} — refine os filtros pra ver todas.`
+      : `${linhas.length.toLocaleString('pt-BR')} ${linhas.length===1?singular:plural}${termo||sort.key ? ' (de '+total+' '+quando+')' : ' '+quando}.`;
   }
 }
 
