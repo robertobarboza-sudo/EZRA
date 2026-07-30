@@ -55,13 +55,21 @@ function toPackGrupo(tp) {
 
 // Roster fixo das 142 ruas físicas (confirmado com o Roberto em 2026-07-30 —
 // não é derivado do histórico de dados, que só tem TOs pras ruas já usadas
-// nos últimos dias) + ruas de reserva conhecidas (vistas na base real; se
-// surgir outra reserva nova, adicionar aqui).
-const RUA_RESERVAS_CONHECIDAS = ['RESERVA 37A'];
-const RUA_ROSTER = [
-  ...Array.from({ length: 142 }, (_, i) => 'RUA ' + String(i + 1).padStart(3, '0')),
-  ...RUA_RESERVAS_CONHECIDAS,
+// nos últimos dias) + ruas de reserva conhecidas, inseridas fisicamente ao
+// lado da rua numerada correspondente (ex: RESERVA 37A fica ao lado da RUA
+// 037 — não no fim da lista). Se surgir outra reserva nova, adicionar aqui.
+const RUA_RESERVAS_CONHECIDAS = [
+  { rua: 'RESERVA 37A', apos: 37 },
 ];
+function buildRuaRoster() {
+  const roster = [];
+  for (let i = 1; i <= 142; i++) {
+    roster.push('RUA ' + String(i).padStart(3, '0'));
+    RUA_RESERVAS_CONHECIDAS.filter(r => r.apos === i).forEach(r => roster.push(r.rua));
+  }
+  return roster;
+}
+const RUA_ROSTER = buildRuaRoster();
 const CAPACIDADE_TOTAL_CD = RUA_ROSTER.length * CAPACIDADE_POR_RUA;
 
 function aggregate(rows) {
