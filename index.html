@@ -2234,8 +2234,8 @@
 
     <div class="nav-group">
       <div class="nav-group-label">Operações</div>
-      <div class="nav-item" data-section="spr" data-label="SPR / Leftover / Outbound" onclick="navigateTo('spr',this)">
-        <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">SPR / Leftover / Outbound</span>
+      <div class="nav-item" data-section="spr" data-label="Outbound" onclick="navigateTo('spr',this)">
+        <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">Outbound</span>
       </div>
       <div class="nav-item" data-section="asm" data-label="ASM" onclick="navigateTo('asm',this)">
         <i class="fas fa-feather nav-icon"></i><span class="nav-label">ASM</span>
@@ -2452,13 +2452,12 @@
       <div class="section-header" id="section-spr-header">
         <div class="section-header-left">
           <div class="section-title">
-            <span id="pulso-page-title">SPR</span>
-            <span class="ds-badge ok" id="ds-badge-spr" style="margin-left:8px"></span>
+            <span id="pulso-page-title">Outbound</span>
+            <span class="ds-badge ok" id="ds-badge-outbound" style="margin-left:8px"></span>
+            <span class="ds-badge ok" id="ds-badge-spr" style="margin-left:8px;display:none"></span>
             <span class="ds-badge ok" id="ds-badge-leftover" style="margin-left:8px;display:none"></span>
-            <span class="ds-badge ok" id="ds-badge-outbound-ontime" style="margin-left:8px;display:none"></span>
-            <span class="ds-badge ok" id="ds-badge-outbound-historico" style="margin-left:8px;display:none"></span>
           </div>
-          <div class="section-subtitle" id="pulso-page-subtitle">Solicitação de Programação de Rota · Viagens</div>
+          <div class="section-subtitle" id="pulso-page-subtitle">Acompanhamento de CPT ao vivo · Turno atual</div>
         </div>
         <div class="section-dl-group">
           <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy(PULSO_ACTIVE_SUBPAGE)"><i class="fas fa-satellite-dish"></i> Pipboy</button>
@@ -2467,16 +2466,14 @@
       </div>
 
       <div class="bkl-tabs" id="pulso-subpage-tabs" style="margin-bottom:16px">
-        <div class="bkl-tab active" onclick="pulsoSwitchSubpage('spr',this)">SPR</div>
+        <div class="bkl-tab active" onclick="pulsoSwitchSubpage('outbound',this)">Outbound</div>
+        <div class="bkl-tab" onclick="pulsoSwitchSubpage('spr',this)">SPR</div>
         <div class="bkl-tab" onclick="pulsoSwitchSubpage('leftover',this)">Leftover</div>
-        <div class="bkl-tab" onclick="pulsoSwitchSubpage('outbound-ontime',this)">Outbound · On-time</div>
-        <div class="bkl-tab" onclick="pulsoSwitchSubpage('outbound-historico',this)">Outbound · Histórico</div>
       </div>
 
-      <div id="pulso-root-spr"></div>
+      <div id="pulso-root-outbound"></div>
+      <div id="pulso-root-spr" style="display:none"></div>
       <div id="pulso-root-leftover" style="display:none"></div>
-      <div id="pulso-root-outbound-ontime" style="display:none"></div>
-      <div id="pulso-root-outbound-historico" style="display:none"></div>
     </section>
 
     <!-- Pipboy — painel de insights compartilhado por todas as páginas do pacote padrão -->
@@ -4154,7 +4151,7 @@ function closeMobileSidebar(){
 let currentSection = 'gestao';
 const sectionMeta = {
   gestao:      {title:'Overview',      sub:'Dashboard Principal · Overview'},
-  spr:         {title:'SPR',           sub:'Solicitação de Programação de Rota · Viagens'},
+  spr:         {title:'Outbound',      sub:'Acompanhamento de CPT ao vivo · Turno atual'},
   backlog:     {title:'Backlog',       sub:'Monitoramento de Fila · Principal'},
   performance: {title:'Performance', sub:'KPIs Operacionais · Performance'},
   asm:         {title:'ASM',         sub:'Gestão de Ativos · ASM'},
@@ -4206,7 +4203,7 @@ async function renderSection(section){
     const {data,source} = await DataService.load(section);
     setBadge(section,'ok',source);
     const fn = {gestao:renderGestao, performance:renderPerformance, asm:renderAsm,
-      backlog:renderBacklog, spr:()=>pulsoRender('spr'),
+      backlog:renderBacklog, spr:()=>pulsoRender(PULSO_ACTIVE_SUBPAGE),
       conveyor:renderConveyor, inbound:renderInbound, tratativas:renderTratativas,
       laborplan:renderLaborplan, arvore:renderArvore, kpioverview:renderKpioverview,
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
@@ -4285,6 +4282,7 @@ function pulsoRegister(cfg){
   PULSO_STATE[cfg.key] = {
     dim: (cfg.dims && cfg.dims[0]) || 'day',
     date: null, // YYYY-MM-DD; null = usa a data mais recente disponível na base
+    dateDe: null, dateAte: null, // cfg.dateRange: null+null = modo "hoje"
     toggles: Object.fromEntries(cfg.toggleGroups.map(g => [g.key, []])),
     ms: Object.fromEntries(cfg.multiselects.map(m => [m.key, []])),
   };
@@ -4331,11 +4329,18 @@ function pulsoBuildHTML(cfg){
   const theadHtml = cfg.table.columns.map(c => `
     <th class="spr-sortable" onclick="pulsoSortBy('${cfg.key}','${c.key}')" id="pulso-th-${cfg.key}-${c.key}">${c.label} <i class="fas fa-sort"></i></th>`).join('');
 
-  const periodHtml = cfg.hidePeriod ? '' : `
+  const periodHtml = cfg.dateRange ? `
+      <div class="spr-filter-group">
+        <span style="font-size:11px;color:var(--text-muted);align-self:center">De</span>
+        <input type="date" class="filter-select pulso-date-input" id="pulso-date-de-${cfg.key}" onchange="pulsoSetDateRange('${cfg.key}','De', this.value)" style="color-scheme:dark"/>
+        <span style="font-size:11px;color:var(--text-muted);align-self:center">Até</span>
+        <input type="date" class="filter-select pulso-date-input" id="pulso-date-ate-${cfg.key}" onchange="pulsoSetDateRange('${cfg.key}','Ate', this.value)" style="color-scheme:dark"/>
+        <button type="button" class="spr-ms-action-btn" onclick="pulsoClearDateRange('${cfg.key}')">Hoje</button>
+      </div>` : (cfg.hidePeriod ? '' : `
       <div class="spr-filter-group">
         <div class="bkl-tabs" id="pulso-dim-${cfg.key}">${dimTabs}</div>
         <input type="date" class="filter-select pulso-date-input" id="pulso-date-${cfg.key}" onchange="pulsoSetDate('${cfg.key}', this.value)" style="color-scheme:dark"/>
-      </div>`;
+      </div>`);
 
   return `
     <div class="spr-filters">
@@ -4343,9 +4348,9 @@ function pulsoBuildHTML(cfg){
       ${toggleGroupsHtml}
       <div class="spr-filter-group">${msHtml}</div>
     </div>
-    ${cfg.hidePeriod ? '' : `<div class="spr-period-label" id="pulso-period-${cfg.key}"></div>`}
+    ${(cfg.hidePeriod && !cfg.dateRange) ? '' : `<div class="spr-period-label" id="pulso-period-${cfg.key}"></div>`}
     <div id="pulso-kpis-${cfg.key}"></div>
-    ${cfg.hidePeriod ? '' : `<div class="pulso-coverage" id="pulso-coverage-${cfg.key}"></div>`}
+    ${(cfg.hidePeriod && !cfg.dateRange) ? '' : `<div class="pulso-coverage" id="pulso-coverage-${cfg.key}"></div>`}
     ${cfg.extraHtml || ''}
     <div class="table-card" style="margin-top:16px">
       <div class="table-toolbar">
@@ -4470,10 +4475,28 @@ function pulsoSetDate(key, value){
   pulsoLoad(key);
 }
 
+// cfg.dateRange: campo é 'De' ou 'Ate'. Os dois vazios = modo "hoje" no backend.
+function pulsoSetDateRange(key, campo, value){
+  PULSO_STATE[key]['date'+campo] = value || null;
+  pulsoLoad(key);
+}
+
+function pulsoClearDateRange(key){
+  PULSO_STATE[key].dateDe = null;
+  PULSO_STATE[key].dateAte = null;
+  const de = document.getElementById('pulso-date-de-'+key), ate = document.getElementById('pulso-date-ate-'+key);
+  if(de) de.value = '';
+  if(ate) ate.value = '';
+  pulsoLoad(key);
+}
+
 function pulsoQueryString(key){
   const cfg = PULSO_DASHBOARDS[key], st = PULSO_STATE[key];
   const p = new URLSearchParams();
-  if(!cfg.hidePeriod){
+  if(cfg.dateRange){
+    if(st.dateDe) p.set('de', st.dateDe);
+    if(st.dateAte) p.set('ate', st.dateAte);
+  } else if(!cfg.hidePeriod){
     p.set('dim', st.dim);
     if(st.date) p.set('date', st.date);
   }
@@ -4496,7 +4519,10 @@ async function pulsoLoad(key){
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge(key, 'ok', 'Planilha · '+new Date(j.atualizadoEm).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
     pulsoPopulateOptions(key, j.opcoesFiltro || {});
-    if(!cfg.hidePeriod){
+    if(cfg.dateRange){
+      pulsoRenderIntervalo(key, j);
+      pulsoRenderCoverage(key, j.cobertura);
+    } else if(!cfg.hidePeriod){
       pulsoRenderPeriodo(key, j.periodo);
       pulsoRenderCoverage(key, j.cobertura);
     }
@@ -4524,6 +4550,20 @@ function pulsoRenderPeriodo(key, p){
   // Reflete a data de referência real no calendário (útil no 1º load, sem data escolhida)
   const dateInput = document.getElementById('pulso-date-'+key);
   if(dateInput && !PULSO_STATE[key].date) dateInput.value = p.inicio;
+}
+
+// cfg.dateRange: mostra se está no modo "hoje" (fixo) ou histórico (De/Até
+// escolhidos), e reflete a data real usada nos inputs quando "hoje".
+function pulsoRenderIntervalo(key, data){
+  const el = document.getElementById('pulso-period-'+key);
+  if(el){
+    el.textContent = data.modo === 'hoje'
+      ? `Hoje (${pulsoFmtDataBr(data.intervalo.inicio)}) · turno atual`
+      : `Histórico: ${pulsoFmtDataBr(data.intervalo.inicio)} até ${pulsoFmtDataBr(data.intervalo.fim)}`;
+  }
+  const deInput = document.getElementById('pulso-date-de-'+key), ateInput = document.getElementById('pulso-date-ate-'+key);
+  if(deInput && !PULSO_STATE[key].dateDe) deInput.value = '';
+  if(ateInput && !PULSO_STATE[key].dateAte) ateInput.value = '';
 }
 
 function pulsoFmtDataBr(iso){
@@ -4707,12 +4747,13 @@ function pulsoClosePipboy(){
 
 /* ── SPR / Leftover compartilham um único item de menu — troca de
    sub-página feita em cima, sem passar por navigateTo/renderSection. ── */
-let PULSO_ACTIVE_SUBPAGE = 'spr';
+// Outbound é a aba padrão (decidido com o Roberto em 2026-07-30) — abre
+// direto no modo "hoje" do CPT, SPR/Leftover ficam disponíveis ao lado.
+let PULSO_ACTIVE_SUBPAGE = 'outbound';
 const PULSO_SUBPAGE_META = {
-  spr:                { title:'SPR',      subtitle:'Solicitação de Programação de Rota · Viagens' },
-  leftover:           { title:'Leftover', subtitle:'Pacotes remanescentes por hub · Causas' },
-  'outbound-ontime':    { title:'Outbound · On-time',   subtitle:'Acompanhamento de CPT ao vivo · Turno atual' },
-  'outbound-historico': { title:'Outbound · Histórico', subtitle:'Acompanhamento de CPT · Análise por período' },
+  outbound: { title:'Outbound', subtitle:'Acompanhamento de CPT ao vivo · Turno atual' },
+  spr:      { title:'SPR',      subtitle:'Solicitação de Programação de Rota · Viagens' },
+  leftover: { title:'Leftover', subtitle:'Pacotes remanescentes por hub · Causas' },
 };
 
 function pulsoSwitchSubpage(key, el){
@@ -4894,11 +4935,13 @@ pulsoRegister({
   },
 });
 
-/* ── Outbound On-time/Histórico — config compartilhada entre as 2 páginas.
-   "Compartilhado": um carro cujo ETA de origem cai num turno diferente do
-   turno_shipped (turno do CPT) — ver api/_outbound.js. Ele aparece na visão
-   de QUALQUER um dos dois turnos, então o filtro de Turno já resolve isso
-   no backend; aqui só exibimos a coluna/indicador. ── */
+/* ── Outbound — uma página só, modo "hoje" (padrão, fixo no cutoff mais
+   recente) ou "histórico" (De/Até escolhidos no calendário) — decidido com
+   o Roberto em 2026-07-30. "Compartilhado": um carro cujo ETA de origem cai
+   num turno diferente do turno_shipped (turno do CPT) — ver
+   api/_outbound.js. Ele aparece na visão de QUALQUER um dos dois turnos, o
+   filtro de Turno já resolve isso no backend; aqui só exibimos a
+   coluna/indicador. ── */
 const OUTBOUND_KPIS = [
   { key:'carrosPrevistos',  label:'Carros Previstos',   icon:'fa-truck' },
   { key:'carrosRealizados', label:'Carros Realizados',  icon:'fa-truck-fast' },
@@ -4926,6 +4969,7 @@ function outboundInsights(data){
 }
 const OUTBOUND_TABLE_COLUMNS = [
   { key:'lh_trips',          label:'LT',           type:'text' },
+  { key:'cutoff',            label:'Cutoff',       type:'text' },
   { key:'status_agrupado',   label:'Status',       type:'text' },
   { key:'turno_shipped',     label:'Turno (CPT)',  type:'text' },
   { key:'compartilhado',     label:'Compartilhado',type:'bool' },
@@ -4937,42 +4981,27 @@ const OUTBOUND_TABLE_COLUMNS = [
 ];
 
 pulsoRegister({
-  key: 'outbound-ontime',
-  label: 'Outbound On-time',
-  apiPath: '/api/outbound-ontime',
-  // Sem período/comparação vs período anterior — sempre o cutoff mais
-  // recente da base (equivalente a "hoje", decidido com o Roberto em
-  // 2026-07-30), foco em gerenciar o turno corrente.
-  hidePeriod: true,
+  key: 'outbound',
+  label: 'Outbound',
+  apiPath: '/api/outbound',
+  // Sem comparação vs período anterior — é um retrato do intervalo
+  // escolhido (hoje ou De/Até), não um dashboard tipo SPR.
+  dateRange: true,
   hideDelta: true,
   toggleGroups: [ { key:'turno', static:['T1','T2','T3'] } ],
   multiselects: OUTBOUND_MULTISELECTS,
   kpis: OUTBOUND_KPIS,
   table: {
-    title: 'Carros previstos pro turno selecionado',
+    title: 'Carros previstos',
     rowsField: 'carros', totalField: 'carrosTotal',
     searchFields: ['lh_trips','destino'],
     searchPlaceholder: 'Buscar LT ou destino…',
     itemNameSingular: 'carro', itemNamePlural: 'carros',
     columns: OUTBOUND_TABLE_COLUMNS,
   },
-  insights: outboundInsights,
-});
-
-pulsoRegister({
-  key: 'outbound-historico',
-  label: 'Outbound Histórico',
-  apiPath: '/api/outbound-historico',
-  toggleGroups: [ { key:'turno', static:['T1','T2','T3'] } ],
-  multiselects: OUTBOUND_MULTISELECTS,
-  kpis: OUTBOUND_KPIS,
-  table: {
-    title: 'Carros do período selecionado',
-    rowsField: 'carros', totalField: 'carrosTotal',
-    searchFields: ['lh_trips','destino'],
-    searchPlaceholder: 'Buscar LT ou destino…',
-    itemNameSingular: 'carro', itemNamePlural: 'carros',
-    columns: [ { key:'cutoff', label:'Cutoff', type:'text' }, ...OUTBOUND_TABLE_COLUMNS ],
+  onData(data){
+    const title = document.querySelector('#pulso-root-outbound .table-toolbar-title');
+    if(title) title.textContent = data.modo === 'hoje' ? 'Carros previstos — hoje' : 'Carros previstos — histórico';
   },
   insights: outboundInsights,
 });
