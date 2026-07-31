@@ -2688,7 +2688,11 @@
 
       <div class="table-card full" style="margin-top:16px">
         <div class="table-toolbar">
-          <div class="table-toolbar-title">Acumulado por colaborador <span id="asm-table-hora-label" style="font-weight:400;color:var(--text-muted)"></span></div>
+          <div class="table-toolbar-title">Detalhamento por colaborador <span id="asm-table-hora-label" style="font-weight:400;color:var(--text-muted)"></span></div>
+          <div class="bkl-tabs">
+            <div class="bkl-tab active" id="asm-mode-acumulado" onclick="asmSetTableMode('acumulado')">Acumulado</div>
+            <div class="bkl-tab" id="asm-mode-hora" onclick="asmSetTableMode('hora')">Hora vigente</div>
+          </div>
         </div>
         <div style="overflow-x:auto">
           <table>
@@ -2699,7 +2703,7 @@
               <th class="spr-sortable" onclick="asmSortBy('mesa')" id="asm-th-mesa">Mesa <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="asmSortBy('turno')" id="asm-th-turno">Turno <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="asmSortBy('lider')" id="asm-th-lider">Líder <i class="fas fa-sort"></i></th>
-              <th class="spr-sortable" onclick="asmSortBy('scanNumbers')" id="asm-th-scanNumbers">Induções (Acumulado) <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="asmSortBy('scanNumbers')" id="asm-th-scanNumbers">Induções <i class="fas fa-sort"></i></th>
             </tr></thead>
             <tbody id="asm-tbody"></tbody>
           </table>
@@ -2745,7 +2749,11 @@
 
       <div class="table-card full" style="margin-top:16px">
         <div class="table-toolbar">
-          <div class="table-toolbar-title">Acumulado por colaborador <span id="cnv-table-hora-label" style="font-weight:400;color:var(--text-muted)"></span></div>
+          <div class="table-toolbar-title">Detalhamento por colaborador <span id="cnv-table-hora-label" style="font-weight:400;color:var(--text-muted)"></span></div>
+          <div class="bkl-tabs">
+            <div class="bkl-tab active" id="cnv-mode-acumulado" onclick="cnvSetTableMode('acumulado')">Acumulado</div>
+            <div class="bkl-tab" id="cnv-mode-hora" onclick="cnvSetTableMode('hora')">Hora vigente</div>
+          </div>
         </div>
         <div style="overflow-x:auto">
           <table>
@@ -2753,9 +2761,9 @@
               <th class="spr-sortable" onclick="cnvSortBy('opsId')" id="cnv-th-opsId">OPS Id <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="cnvSortBy('grupo')" id="cnv-th-grupo">Grupo <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="cnvSortBy('estacao')" id="cnv-th-estacao">Estação <i class="fas fa-sort"></i></th>
-              <th class="spr-sortable" onclick="cnvSortBy('horasTrabalho')" id="cnv-th-horasTrabalho">Horas Trab. (Acum.) <i class="fas fa-sort"></i></th>
-              <th class="spr-sortable" onclick="cnvSortBy('produtividade')" id="cnv-th-produtividade">Produtividade (Acum.) <i class="fas fa-sort"></i></th>
-              <th class="spr-sortable" onclick="cnvSortBy('totalProcessamento')" id="cnv-th-totalProcessamento">Processado (Acumulado) <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="cnvSortBy('horasTrabalho')" id="cnv-th-horasTrabalho">Horas Trab. <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="cnvSortBy('produtividade')" id="cnv-th-produtividade">Produtividade <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="cnvSortBy('totalProcessamento')" id="cnv-th-totalProcessamento">Processado <i class="fas fa-sort"></i></th>
             </tr></thead>
             <tbody id="cnv-tbody"></tbody>
           </table>
@@ -7152,7 +7160,7 @@ async function switchToggle(id, ligado){
 /* ================================================================
    ASM — performance de induções por zona, hora a hora (aba asm_pulso)
 ================================================================ */
-const ASM_STATE = { date: null, hora: null, turno: '', zona: '', nivel: '', mesa: '' };
+const ASM_STATE = { date: null, hora: null, turno: '', zona: '', nivel: '', mesa: '', tableMode: 'acumulado' };
 const ASM_ZONE_COLORS = { 'ZONA A': '#ee4d2d', 'ZONA B': '#5d8dff', 'ZONA C': '#10b981', 'System Default': '#75809b' };
 const ASM_SORT_COLS = ['colaborador','zona','nivel','mesa','turno','lider','scanNumbers'];
 const ASM_SORT = { key: 'scanNumbers', dir: -1 }; // default: maior pro menor
@@ -7220,31 +7228,40 @@ function asmSetFilter(campo, valor){
   asmRenderAll();
 }
 
+function asmSetTableMode(mode){
+  ASM_STATE.tableMode = mode;
+  const btnAcumulado = document.getElementById('asm-mode-acumulado');
+  const btnHora = document.getElementById('asm-mode-hora');
+  if(btnAcumulado) btnAcumulado.classList.toggle('active', mode === 'acumulado');
+  if(btnHora) btnHora.classList.toggle('active', mode === 'hora');
+  ASM_PAGE = 0;
+  asmRenderTable();
+}
+
 function asmRenderAll(){
   asmRenderZoneCards();
   asmRenderChart();
   asmRenderTable();
 }
 
-// Cards e tabela: "snapshot acumulado até a hora selecionada" — respeita
-// turno/nível/mesa, mas os cards ignoram o próprio filtro de zona (cada
-// zona sempre aparece, clicável) enquanto a tabela respeita todos.
+// Base pros cards: todas as horas do dia (o card fatia por hora sozinho, pra
+// poder comparar hora vigente vs hora anterior) — respeita turno/nível/mesa,
+// mas ignora o próprio filtro de zona (cada zona sempre aparece, clicável).
 function asmRowsForZoneCards(){
   if(!ASM_DATA) return [];
-  const h = asmEffectiveHora();
   return ASM_DATA.rows.filter(r =>
-    r.hora <= h &&
     (!ASM_STATE.turno || r.turno === ASM_STATE.turno) &&
     (!ASM_STATE.nivel || r.nivel === ASM_STATE.nivel) &&
     (!ASM_STATE.mesa || r.mesa === ASM_STATE.mesa)
   );
 }
 
+// Tabela: modo "acumulado" soma hora <= h; modo "hora" pega só a hora h.
 function asmFilteredRows(){
   if(!ASM_DATA) return [];
   const h = asmEffectiveHora();
   return ASM_DATA.rows.filter(r =>
-    r.hora <= h &&
+    (ASM_STATE.tableMode === 'hora' ? r.hora === h : r.hora <= h) &&
     (!ASM_STATE.turno || r.turno === ASM_STATE.turno) &&
     (!ASM_STATE.zona || r.zona === ASM_STATE.zona) &&
     (!ASM_STATE.nivel || r.nivel === ASM_STATE.nivel) &&
@@ -7267,21 +7284,37 @@ function asmRowsForChart(){
 function asmRenderZoneCards(){
   const wrap = document.getElementById('asm-zone-cards');
   if(!wrap || !ASM_DATA) return;
+  const h = asmEffectiveHora();
   const rows = asmRowsForZoneCards();
   const zonasTodas = [...ASM_DATA.zonas, 'System Default'];
   wrap.innerHTML = zonasTodas.map(zona => {
     const rowsZona = rows.filter(r => r.zona === zona);
-    const total = rowsZona.reduce((s, r) => s + r.scanNumbers, 0);
-    const mesas = new Set(rowsZona.filter(r => r.mesa).map(r => r.mesa)).size;
-    const operadores = new Set(rowsZona.map(r => r.colaborador)).size;
+    const valorHora = rowsZona.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0);
+    const valorHoraAnterior = h > 0 ? rowsZona.filter(r => r.hora === h-1).reduce((s, r) => s + r.scanNumbers, 0) : null;
+    const acumuladoDia = rowsZona.filter(r => r.hora <= h).reduce((s, r) => s + r.scanNumbers, 0);
+    const mesas = new Set(rowsZona.filter(r => r.hora === h && r.mesa).map(r => r.mesa)).size;
+    const operadores = new Set(rowsZona.filter(r => r.hora === h).map(r => r.colaborador)).size;
     const ativo = ASM_STATE.zona === zona;
     const isSD = zona === 'System Default';
+
+    let deltaHtml = '';
+    if(valorHoraAnterior !== null && valorHoraAnterior > 0){
+      const pct = (valorHora - valorHoraAnterior) / valorHoraAnterior * 100;
+      const trend = pct >= 0 ? 'green' : 'red';
+      deltaHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(h-1).padStart(2,'0')}h</span>`;
+    } else if(valorHoraAnterior === 0 && valorHora > 0){
+      deltaHtml = ` · <span style="color:var(--green)">novo vs ${String(h-1).padStart(2,'0')}h</span>`;
+    }
+
     return `<div class="switch-card" style="cursor:pointer;${ativo?'border-color:var(--orange)':''}" onclick="asmZonaClick('${zona.replace(/'/g,"\\'")}')">
       <div class="switch-card-top">
         <div class="switch-card-name"><i class="fas ${isSD?'fa-robot':'fa-location-dot'}" style="color:${isSD?'var(--text-muted)':'var(--orange)'};margin-right:8px"></i>${zona}</div>
       </div>
-      <div style="font-size:26px;font-weight:800;color:var(--text)">${total.toLocaleString('pt-BR')}</div>
-      <div class="switch-card-desc">induções acum. até ${String(asmEffectiveHora()).padStart(2,'0')}h ${isSD ? '(fora do fluxo de mesa/zona real)' : `· ${mesas} mesa(s) · ${operadores} operador(es)`}</div>
+      <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHora.toLocaleString('pt-BR')}</div>
+      <div class="switch-card-desc">induções às ${String(h).padStart(2,'0')}h ${isSD ? '(fora do fluxo de mesa/zona real)' : `· ${mesas} mesa(s) · ${operadores} operador(es)`}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
+        Acumulado do dia: <strong style="color:var(--text)">${acumuladoDia.toLocaleString('pt-BR')}</strong>${deltaHtml}
+      </div>
     </div>`;
   }).join('');
 }
@@ -7314,10 +7347,11 @@ function asmRenderChart(){
   ]);
 }
 
-// Uma linha por colaborador, somando induções de todas as horas <= hora
-// selecionada. Zona/nível/mesa/turno/líder exibidos são os da última hora
-// vista (podem mudar entre horas, já que ninguém trava numa mesa o dia todo).
-function asmAccumulatedByColaborador(){
+// Uma linha por colaborador, somando induções das linhas retornadas por
+// asmFilteredRows() (acumulado até a hora, ou só a hora vigente, conforme
+// ASM_STATE.tableMode). Zona/nível/mesa/turno/líder exibidos são os da
+// última hora vista (podem mudar entre horas).
+function asmGroupByColaborador(){
   const rows = asmFilteredRows();
   const porColaborador = new Map();
   rows.forEach(r => {
@@ -7356,9 +7390,11 @@ function asmRenderTable(){
   const label = document.getElementById('asm-table-hora-label');
   if(!tbody) return;
   const h = asmEffectiveHora();
-  if(label) label.textContent = `(acumulado até ${String(h).padStart(2,'0')}h)`;
+  if(label) label.textContent = ASM_STATE.tableMode === 'hora'
+    ? `(hora ${String(h).padStart(2,'0')}h)`
+    : `(acumulado até ${String(h).padStart(2,'0')}h)`;
 
-  let linhas = asmAccumulatedByColaborador();
+  let linhas = asmGroupByColaborador();
   if(ASM_SORT.key){
     linhas = [...linhas].sort((a, b) => {
       let va = a[ASM_SORT.key], vb = b[ASM_SORT.key];
@@ -7435,7 +7471,7 @@ function asmOpenPipboy(){
 /* ================================================================
    CONVEYOR — performance por grupo de estação, hora a hora (aba conveyor_pulso)
 ================================================================ */
-const CONVEYOR_STATE = { date: null, hora: null, grupo: '', estacao: '' };
+const CONVEYOR_STATE = { date: null, hora: null, grupo: '', estacao: '', tableMode: 'acumulado' };
 const CNV_GROUP_COLORS = { 'OBA/OBB': '#ee4d2d', 'OBC/OBD': '#f5a623', 'Termoplástica': '#5d8dff', 'Esteira A': '#10b981', 'Esteira B': '#06b6d4', 'Non-TO': '#a855f7' };
 const CNV_SORT_COLS = ['opsId','grupo','estacao','horasTrabalho','produtividade','totalProcessamento'];
 const CNV_SORT = { key: 'totalProcessamento', dir: -1 }; // default: maior pro menor
@@ -7509,25 +7545,36 @@ function cnvSetFilter(campo, valor){
   cnvRenderAll();
 }
 
+function cnvSetTableMode(mode){
+  CONVEYOR_STATE.tableMode = mode;
+  const btnAcumulado = document.getElementById('cnv-mode-acumulado');
+  const btnHora = document.getElementById('cnv-mode-hora');
+  if(btnAcumulado) btnAcumulado.classList.toggle('active', mode === 'acumulado');
+  if(btnHora) btnHora.classList.toggle('active', mode === 'hora');
+  CNV_PAGE = 0;
+  cnvRenderTable();
+}
+
 function cnvRenderAll(){
   cnvRenderGroupCards();
   cnvRenderChart();
   cnvRenderTable();
 }
 
-// Cards: acumulado até a hora selecionada, respeitando o posto (estação) mas
+// Base pros cards: todas as horas do dia (o card fatia por hora sozinho, pra
+// comparar hora vigente vs hora anterior) — respeita o posto (estação) mas
 // não o próprio filtro de grupo (cada grupo sempre aparece, clicável).
 function cnvRowsForGroupCards(){
   if(!CONVEYOR_DATA) return [];
-  const h = cnvEffectiveHora();
-  return CONVEYOR_DATA.rows.filter(r => r.hora <= h && (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao));
+  return CONVEYOR_DATA.rows.filter(r => !CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao);
 }
 
+// Tabela: modo "acumulado" soma hora <= h; modo "hora" pega só a hora h.
 function cnvFilteredRows(){
   if(!CONVEYOR_DATA) return [];
   const h = cnvEffectiveHora();
   return CONVEYOR_DATA.rows.filter(r =>
-    r.hora <= h &&
+    (CONVEYOR_STATE.tableMode === 'hora' ? r.hora === h : r.hora <= h) &&
     (!CONVEYOR_STATE.grupo || r.grupo === CONVEYOR_STATE.grupo) &&
     (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao)
   );
@@ -7545,20 +7592,41 @@ function cnvRowsForChart(){
 function cnvRenderGroupCards(){
   const wrap = document.getElementById('cnv-group-cards');
   if(!wrap || !CONVEYOR_DATA) return;
+  const h = cnvEffectiveHora();
   const rows = cnvRowsForGroupCards();
   wrap.innerHTML = CONVEYOR_DATA.grupos.map(grupo => {
     const rowsGrupo = rows.filter(r => r.grupo === grupo);
-    const totalProcessado = rowsGrupo.reduce((s, r) => s + r.totalProcessamento, 0);
-    const horasTrabalho = rowsGrupo.reduce((s, r) => s + r.horasTrabalho, 0);
-    const produtividade = horasTrabalho > 0 ? Math.round(totalProcessado / horasTrabalho) : 0;
-    const estacoes = new Set(rowsGrupo.map(r => r.estacao)).size;
+    const rowsHora = rowsGrupo.filter(r => r.hora === h);
+    const valorHora = rowsHora.reduce((s, r) => s + r.totalProcessamento, 0);
+    const horasTrabalhoHora = rowsHora.reduce((s, r) => s + r.horasTrabalho, 0);
+    const produtividadeHora = horasTrabalhoHora > 0 ? Math.round(valorHora / horasTrabalhoHora) : 0;
+    const estacoes = new Set(rowsHora.map(r => r.estacao)).size;
+
+    const rowsHoraAnterior = h > 0 ? rowsGrupo.filter(r => r.hora === h-1) : [];
+    const valorHoraAnterior = h > 0 ? rowsHoraAnterior.reduce((s, r) => s + r.totalProcessamento, 0) : null;
+
+    const acumuladoDia = rowsGrupo.filter(r => r.hora <= h).reduce((s, r) => s + r.totalProcessamento, 0);
+
     const ativo = CONVEYOR_STATE.grupo === grupo;
+
+    let deltaHtml = '';
+    if(valorHoraAnterior !== null && valorHoraAnterior > 0){
+      const pct = (valorHora - valorHoraAnterior) / valorHoraAnterior * 100;
+      const trend = pct >= 0 ? 'green' : 'red';
+      deltaHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(h-1).padStart(2,'0')}h</span>`;
+    } else if(valorHoraAnterior === 0 && valorHora > 0){
+      deltaHtml = ` · <span style="color:var(--green)">novo vs ${String(h-1).padStart(2,'0')}h</span>`;
+    }
+
     return `<div class="switch-card" style="cursor:pointer;${ativo?'border-color:var(--orange)':''}" onclick="cnvGrupoClick('${grupo.replace(/'/g,"\\'")}')">
       <div class="switch-card-top">
         <div class="switch-card-name"><i class="fas fa-gears" style="color:var(--orange);margin-right:8px"></i>${grupo}</div>
       </div>
-      <div style="font-size:26px;font-weight:800;color:var(--text)">${totalProcessado.toLocaleString('pt-BR')}</div>
-      <div class="switch-card-desc">processado acum. até ${String(cnvEffectiveHora()).padStart(2,'0')}h · ${estacoes} estação(ões) · produtividade ${produtividade.toLocaleString('pt-BR')} ped/mnhr</div>
+      <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHora.toLocaleString('pt-BR')}</div>
+      <div class="switch-card-desc">processado às ${String(h).padStart(2,'0')}h · ${estacoes} estação(ões) · produtividade ${produtividadeHora.toLocaleString('pt-BR')} ped/mnhr</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
+        Acumulado do dia: <strong style="color:var(--text)">${acumuladoDia.toLocaleString('pt-BR')}</strong>${deltaHtml}
+      </div>
     </div>`;
   }).join('');
 }
@@ -7592,10 +7660,11 @@ function cnvRenderChart(){
   ]);
 }
 
-// Uma linha por OPS Id, somando processamento/horas de todas as horas <=
-// hora selecionada; produtividade recalculada sobre o acumulado (não é a
-// média das produtividades horárias, que seria matematicamente errado).
-function cnvAccumulatedByOps(){
+// Uma linha por OPS Id, somando processamento/horas das linhas retornadas
+// por cnvFilteredRows() (acumulado até a hora, ou só a hora vigente,
+// conforme CONVEYOR_STATE.tableMode); produtividade recalculada sobre a
+// soma (não é a média das produtividades horárias, que seria errado).
+function cnvGroupByOps(){
   const rows = cnvFilteredRows();
   const porOps = new Map();
   rows.forEach(r => {
@@ -7635,9 +7704,11 @@ function cnvRenderTable(){
   const label = document.getElementById('cnv-table-hora-label');
   if(!tbody) return;
   const h = cnvEffectiveHora();
-  if(label) label.textContent = `(acumulado até ${String(h).padStart(2,'0')}h)`;
+  if(label) label.textContent = CONVEYOR_STATE.tableMode === 'hora'
+    ? `(hora ${String(h).padStart(2,'0')}h)`
+    : `(acumulado até ${String(h).padStart(2,'0')}h)`;
 
-  let linhas = cnvAccumulatedByOps();
+  let linhas = cnvGroupByOps();
   if(CNV_SORT.key){
     linhas = [...linhas].sort((a, b) => {
       let va = a[CNV_SORT.key], vb = b[CNV_SORT.key];
