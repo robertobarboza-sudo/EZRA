@@ -8,12 +8,14 @@
  * 2026-07-31) — "hora de entrada"/"hora de saída" só têm data, sem horário.
  *
  * Classificação por prefixo do nome da estação (confirmado com o Roberto em
- * 2026-07-31), extraído de `id/nome da estação de trabalho`
+ * 2026-07-31, quebra de Quedas em OBA/OBB e OBC/OBD ajustada em 2026-07-31),
+ * extraído de `id/nome da estação de trabalho`
  * (ex: "[WS8300000019]P2_AU06" -> prefixo "P2_AU06"):
- *   POBA/POBB/POBC/POBD -> Quedas
- *   P4                  -> Termoplástica
- *   P1                  -> Esteira A
- *   P2                  -> Esteira B
+ *   POBA/POBB -> OBA/OBB
+ *   POBC/POBD -> OBC/OBD
+ *   P4        -> Termoplástica
+ *   P1        -> Esteira A
+ *   P2        -> Esteira B
  *   qualquer outro (ex: "P_NON-TO 88") -> Non-TO (processo próprio, com card)
  *
  * Query params:
@@ -31,10 +33,10 @@ function brToIso(v) {
 
 function classificarEstacao(nomeEstacao) {
   const semPrefixoWs = String(nomeEstacao || '').replace(/^\[.*?\]/, '');
-  if (/^POBA/.test(semPrefixoWs)) return 'Quedas';
-  if (/^POBB/.test(semPrefixoWs)) return 'Quedas';
-  if (/^POBC/.test(semPrefixoWs)) return 'Quedas';
-  if (/^POBD/.test(semPrefixoWs)) return 'Quedas';
+  if (/^POBA/.test(semPrefixoWs)) return 'OBA/OBB';
+  if (/^POBB/.test(semPrefixoWs)) return 'OBA/OBB';
+  if (/^POBC/.test(semPrefixoWs)) return 'OBC/OBD';
+  if (/^POBD/.test(semPrefixoWs)) return 'OBC/OBD';
   if (/^P4/.test(semPrefixoWs)) return 'Termoplástica';
   if (/^P1/.test(semPrefixoWs)) return 'Esteira A';
   if (/^P2/.test(semPrefixoWs)) return 'Esteira B';
@@ -85,7 +87,7 @@ module.exports = async (req, res) => {
     };
   });
 
-  const grupos = ['Quedas', 'Termoplástica', 'Esteira A', 'Esteira B', 'Non-TO'];
+  const grupos = ['OBA/OBB', 'OBC/OBD', 'Termoplástica', 'Esteira A', 'Esteira B', 'Non-TO'];
 
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
   res.status(200).json({

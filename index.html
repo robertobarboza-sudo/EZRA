@@ -2657,6 +2657,7 @@
           <div class="section-subtitle">Performance de induções por zona, hora a hora</div>
         </div>
         <div class="section-dl-group">
+          <button class="spr-pipboy-btn" onclick="asmOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadAsm()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -2669,6 +2670,7 @@
       <div class="spr-filters">
         <div class="spr-filter-group">
           <input type="date" class="filter-select pulso-date-input" id="asm-date-input" onchange="asmSetFilter('date',this.value)" style="color-scheme:dark"/>
+          <select class="filter-select" id="asm-hora-input" onchange="asmSetFilter('hora',this.value)" style="height:34px"></select>
           <select class="filter-select" id="asm-turno-input" onchange="asmSetFilter('turno',this.value)" style="height:34px"><option value="">Todos os turnos</option></select>
           <select class="filter-select" id="asm-zona-input" onchange="asmSetFilter('zona',this.value)" style="height:34px"><option value="">Todas as zonas</option></select>
           <select class="filter-select" id="asm-nivel-input" onchange="asmSetFilter('nivel',this.value)" style="height:34px"><option value="">Todos os níveis</option></select>
@@ -2680,18 +2682,24 @@
       <div class="switch-grid" id="asm-zone-cards" style="margin-top:12px"></div>
 
       <div class="chart-card full" style="margin-top:16px">
-        <div class="chart-title">Induções por hora — por zona</div>
+        <div class="chart-title">Acumulado do dia — Realizado <span style="opacity:.6;font-weight:400">vs Capacidade (em breve)</span></div>
         <div style="height:320px;margin-top:12px"><canvas id="chart-asm-hora"></canvas></div>
       </div>
 
       <div class="table-card full" style="margin-top:16px">
         <div class="table-toolbar">
-          <div class="table-toolbar-title">Detalhamento por mesa/operador</div>
+          <div class="table-toolbar-title">Acumulado por colaborador <span id="asm-table-hora-label" style="font-weight:400;color:var(--text-muted)"></span></div>
         </div>
         <div style="overflow-x:auto">
           <table>
             <thead><tr>
-              <th>Hora</th><th>Zona</th><th>Nível</th><th>Mesa</th><th>Colaborador</th><th>Turno</th><th>Líder</th><th>Induções</th>
+              <th class="spr-sortable" onclick="asmSortBy('colaborador')" id="asm-th-colaborador">Colaborador <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="asmSortBy('zona')" id="asm-th-zona">Zona <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="asmSortBy('nivel')" id="asm-th-nivel">Nível <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="asmSortBy('mesa')" id="asm-th-mesa">Mesa <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="asmSortBy('turno')" id="asm-th-turno">Turno <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="asmSortBy('lider')" id="asm-th-lider">Líder <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="asmSortBy('scanNumbers')" id="asm-th-scanNumbers">Induções (Acumulado) <i class="fas fa-sort"></i></th>
             </tr></thead>
             <tbody id="asm-tbody"></tbody>
           </table>
@@ -2708,6 +2716,7 @@
           <div class="section-subtitle">Performance por grupo de estação, hora a hora</div>
         </div>
         <div class="section-dl-group">
+          <button class="spr-pipboy-btn" onclick="cnvOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadConveyor()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -2720,7 +2729,9 @@
       <div class="spr-filters">
         <div class="spr-filter-group">
           <input type="date" class="filter-select pulso-date-input" id="cnv-date-input" onchange="cnvSetFilter('date',this.value)" style="color-scheme:dark"/>
+          <select class="filter-select" id="cnv-hora-input" onchange="cnvSetFilter('hora',this.value)" style="height:34px"></select>
           <select class="filter-select" id="cnv-grupo-input" onchange="cnvSetFilter('grupo',this.value)" style="height:34px"><option value="">Todos os grupos</option></select>
+          <select class="filter-select" id="cnv-estacao-input" onchange="cnvSetFilter('estacao',this.value)" style="height:34px"><option value="">Todos os postos</option></select>
         </div>
       </div>
 
@@ -2728,18 +2739,23 @@
       <div class="switch-grid" id="cnv-group-cards" style="margin-top:12px"></div>
 
       <div class="chart-card full" style="margin-top:16px">
-        <div class="chart-title">Pedidos processados por hora — por grupo</div>
+        <div class="chart-title">Acumulado do dia — Realizado <span style="opacity:.6;font-weight:400">vs Capacidade (em breve)</span></div>
         <div style="height:320px;margin-top:12px"><canvas id="chart-cnv-hora"></canvas></div>
       </div>
 
       <div class="table-card full" style="margin-top:16px">
         <div class="table-toolbar">
-          <div class="table-toolbar-title">Detalhamento por estação/colaborador</div>
+          <div class="table-toolbar-title">Acumulado por colaborador <span id="cnv-table-hora-label" style="font-weight:400;color:var(--text-muted)"></span></div>
         </div>
         <div style="overflow-x:auto">
           <table>
             <thead><tr>
-              <th>Hora</th><th>Grupo</th><th>Estação</th><th>OPS Id</th><th>Horas Trab.</th><th>Produtividade</th><th>Processado</th>
+              <th class="spr-sortable" onclick="cnvSortBy('opsId')" id="cnv-th-opsId">OPS Id <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="cnvSortBy('grupo')" id="cnv-th-grupo">Grupo <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="cnvSortBy('estacao')" id="cnv-th-estacao">Estação <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="cnvSortBy('horasTrabalho')" id="cnv-th-horasTrabalho">Horas Trab. (Acum.) <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="cnvSortBy('produtividade')" id="cnv-th-produtividade">Produtividade (Acum.) <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="cnvSortBy('totalProcessamento')" id="cnv-th-totalProcessamento">Processado (Acumulado) <i class="fas fa-sort"></i></th>
             </tr></thead>
             <tbody id="cnv-tbody"></tbody>
           </table>
@@ -2819,6 +2835,7 @@
           <div class="section-subtitle">Backlog por hora · Total e &gt;24h</div>
         </div>
         <div class="section-dl-group">
+          <button class="spr-pipboy-btn" onclick="bklOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadBacklog()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -3213,6 +3230,7 @@
           <div class="section-subtitle">Pacotes previstos por canal, clusterizados</div>
         </div>
         <div class="section-dl-group">
+          <button class="spr-pipboy-btn" onclick="fctOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadForecast()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -4974,6 +4992,31 @@ function pulsoClosePipboy(){
   document.getElementById('pulso-pipboy-overlay').classList.remove('open');
 }
 
+// Mesmo painel/modal do Pipboy acima, mas pra páginas que não passam pelo
+// motor pulsoRegister (Backlog, Forecast, ASM, Conveyor) — recebe o título e
+// os insights já prontos em vez de puxar de PULSO_DASHBOARDS/PULSO_DATA.
+function pulsoOpenPipboyGeneric(title, insights){
+  if(!insights || !insights.length) insights = [{ icon:'fa-circle-info', html:'Sem dados suficientes no período/filtros atuais pra gerar insights.' }];
+
+  document.getElementById('pulso-pipboy-title').textContent = title;
+  const loading = document.getElementById('pulso-pipboy-loading');
+  const body = document.getElementById('pulso-pipboy-body');
+  loading.style.display = '';
+  body.style.display = 'none';
+  document.getElementById('pulso-pipboy-overlay').classList.add('open');
+
+  clearTimeout(PULSO_PIPBOY_TIMER);
+  PULSO_PIPBOY_TIMER = setTimeout(() => {
+    body.innerHTML = insights.map(it => `
+      <div class="spr-pipboy-insight">
+        <i class="fas ${it.icon}"></i>
+        <div class="spr-pipboy-insight-text">${it.html}</div>
+      </div>`).join('');
+    loading.style.display = 'none';
+    body.style.display = '';
+  }, 2000);
+}
+
 /* ── SPR / Leftover compartilham um único item de menu — troca de
    sub-página feita em cima, sem passar por navigateTo/renderSection. ── */
 // Outbound é a aba padrão (decidido com o Roberto em 2026-07-30) — abre
@@ -5877,6 +5920,7 @@ function renderPlaceholder(section){
    BACKLOG — por hora, total e >24h (forecast_backlog_pulso, colunas A-E)
 ================================================================ */
 const BACKLOG_STATE = { date: null, hour: null };
+let BACKLOG_DATA = null;
 
 async function loadBacklog(){
   setBadge('backlog', 'loading');
@@ -5892,6 +5936,7 @@ async function loadBacklog(){
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('backlog', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    BACKLOG_DATA = j;
 
     const dateInput = document.getElementById('bkl-date-input');
     if(dateInput && j.cutoff) dateInput.value = j.cutoff;
@@ -5941,6 +5986,25 @@ async function bklOnTime(){
   } catch(err){
     console.error('[backlog on-time]', err);
   }
+}
+
+function bklGenerateInsights(){
+  if(!BACKLOG_DATA) return [];
+  const insights = [];
+  const j = BACKLOG_DATA;
+  insights.push({ icon:'fa-layer-group', html:`Backlog atual (${String(j.hora).padStart(2,'0')}h): <strong>${j.atual.backlogAtual.toLocaleString('pt-BR')}</strong>, média do dia de ${j.atual.backlogMedio.toLocaleString('pt-BR')}.` });
+  const horaPico = j.curva.reduce((best,c) => c.pacotes>best.pacotes ? c : best, {hora:0,pacotes:0});
+  if(horaPico.pacotes>0) insights.push({ icon:'fa-clock', html:`Pico de backlog às <strong>${String(horaPico.hora).padStart(2,'0')}h</strong>: ${horaPico.pacotes.toLocaleString('pt-BR')} pacotes.` });
+  if(j.atual.backlogMedio24h>0) insights.push({ icon:'fa-triangle-exclamation', html:`Backlog médio &gt;24h no dia: <strong>${j.atual.backlogMedio24h.toLocaleString('pt-BR')}</strong> pacotes.` });
+  const bsVar = j.backlogStart.variacao;
+  if(bsVar !== null && bsVar !== undefined && isFinite(bsVar)){
+    insights.push({ icon: bsVar>=0?'fa-arrow-trend-up':'fa-arrow-trend-down', html:`Backlog Start (6h) ${bsVar>=0?'subiu':'caiu'} <strong>${Math.abs(bsVar).toFixed(1)}%</strong> vs o dia anterior.` });
+  }
+  return insights;
+}
+
+function bklOpenPipboy(){
+  pulsoOpenPipboyGeneric('Backlog', bklGenerateInsights());
 }
 
 function renderLaborplan(){
@@ -6135,6 +6199,7 @@ const FCT_ROWS = [
   { label:'Transhipment', key:'transhipment', cls:'fct-row-transhipment' },
 ];
 const FCT_MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+let FORECAST_DATA = null;
 
 async function loadForecast(){
   setBadge('forecast', 'loading');
@@ -6145,6 +6210,7 @@ async function loadForecast(){
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('forecast', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    FORECAST_DATA = j;
 
     const dateInput = document.getElementById('fct-date-input');
     if(dateInput && !FORECAST_STATE.date && j.data) dateInput.value = j.data;
@@ -6275,6 +6341,33 @@ function buildForecastMonthBlocks(mesTotal, quartilMensal, adoQuartil, mesRef){
 }
 
 function fctSetDate(v){ FORECAST_STATE.date = v || null; loadForecast(); }
+
+function fctGenerateInsights(){
+  if(!FORECAST_DATA) return [];
+  const insights = [];
+  const j = FORECAST_DATA;
+  const canais = [
+    { label:'LH', v:j.atual.lh }, { label:'FM', v:j.atual.fm },
+    { label:'CB', v:j.atual.cb }, { label:'FULL', v:j.atual.full },
+  ].sort((a,b) => b.v-a.v);
+  if(canais.length && canais[0].v>0){
+    const pct = j.atual.total>0 ? (canais[0].v/j.atual.total*100).toFixed(1) : '0';
+    insights.push({ icon:'fa-trophy', html:`<strong>${canais[0].label}</strong> é o canal com maior forecast do dia: ${canais[0].v.toLocaleString('pt-BR')} (${pct}% do total).` });
+  }
+  const semanaAtual = (j.semanas||[]).find(s => s.isCurrent);
+  if(semanaAtual){
+    insights.push({ icon:'fa-calendar-week', html:`Semana vigente: <strong>${semanaAtual.semana.total.toLocaleString('pt-BR')}</strong> pacotes previstos.` });
+  }
+  const cp = j.cardsPeriodo;
+  if(cp && cp.mes && cp.mes.forecastVar !== null && cp.mes.forecastVar !== undefined && isFinite(cp.mes.forecastVar)){
+    insights.push({ icon: cp.mes.forecastVar>=0?'fa-arrow-trend-up':'fa-arrow-trend-down', html:`Forecast do mês ${cp.mes.forecastVar>=0?'subiu':'caiu'} <strong>${Math.abs(cp.mes.forecastVar).toFixed(1)}%</strong> vs o mês anterior.` });
+  }
+  return insights;
+}
+
+function fctOpenPipboy(){
+  pulsoOpenPipboyGeneric('Forecast', fctGenerateInsights());
+}
 
 /* ================================================================
    AUDITORIA
@@ -7059,9 +7152,12 @@ async function switchToggle(id, ligado){
 /* ================================================================
    ASM — performance de induções por zona, hora a hora (aba asm_pulso)
 ================================================================ */
-const ASM_STATE = { date: null, turno: '', zona: '', nivel: '', mesa: '' };
+const ASM_STATE = { date: null, hora: null, turno: '', zona: '', nivel: '', mesa: '' };
 const ASM_ZONE_COLORS = { 'ZONA A': '#ee4d2d', 'ZONA B': '#5d8dff', 'ZONA C': '#10b981', 'System Default': '#75809b' };
+const ASM_SORT_COLS = ['colaborador','zona','nivel','mesa','turno','lider','scanNumbers'];
+const ASM_SORT = { key: 'scanNumbers', dir: -1 }; // default: maior pro menor
 let ASM_DATA = null;
+let ASM_ULTIMA_HORA = 23;
 let ASM_PAGE = 0;
 
 async function loadAsm(){
@@ -7079,7 +7175,16 @@ async function loadAsm(){
     const dateInput = document.getElementById('asm-date-input');
     if(dateInput && j.cutoff) dateInput.value = j.cutoff;
 
+    const horasComDado = [...new Set(j.rows.map(row => row.hora))].filter(h => h >= 0 && h <= 23).sort((a,b) => a-b);
+    ASM_ULTIMA_HORA = horasComDado.length ? horasComDado[horasComDado.length-1] : 23;
+    const horaEl = document.getElementById('asm-hora-input');
+    if(horaEl){
+      horaEl.innerHTML = Array.from({length:24}, (_, h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
+      horaEl.value = String(asmEffectiveHora());
+    }
+
     asmPopulateFilterOptions(j);
+    asmUpdateSortHeaders();
 
     const cov = document.getElementById('asm-coverage');
     if(cov) cov.innerHTML = j.cobertura.inicio
@@ -7093,6 +7198,10 @@ async function loadAsm(){
   }
 }
 
+function asmEffectiveHora(){
+  return (ASM_STATE.hora !== null && ASM_STATE.hora !== undefined) ? ASM_STATE.hora : ASM_ULTIMA_HORA;
+}
+
 function asmPopulateFilterOptions(j){
   const buildOptions = (values, placeholder, labelFn) => `<option value="">${placeholder}</option>` +
     values.map(v => `<option value="${pulsoEscHtml(v)}">${pulsoEscHtml(labelFn ? labelFn(v) : v)}</option>`).join('');
@@ -7104,8 +7213,9 @@ function asmPopulateFilterOptions(j){
 }
 
 function asmSetFilter(campo, valor){
+  if(campo === 'date'){ ASM_STATE.date = valor; ASM_STATE.hora = null; loadAsm(); return; }
+  if(campo === 'hora'){ ASM_STATE.hora = valor === '' ? null : Number(valor); ASM_PAGE = 0; asmRenderAll(); return; }
   ASM_STATE[campo] = valor;
-  if(campo === 'date'){ loadAsm(); return; }
   ASM_PAGE = 0;
   asmRenderAll();
 }
@@ -7116,11 +7226,14 @@ function asmRenderAll(){
   asmRenderTable();
 }
 
-// Linhas respeitando turno/nível/mesa mas NÃO o filtro de zona — usado pelos
-// cards (cada zona sempre aparece) e pelo gráfico (comparação entre zonas).
+// Cards e tabela: "snapshot acumulado até a hora selecionada" — respeita
+// turno/nível/mesa, mas os cards ignoram o próprio filtro de zona (cada
+// zona sempre aparece, clicável) enquanto a tabela respeita todos.
 function asmRowsForZoneCards(){
   if(!ASM_DATA) return [];
+  const h = asmEffectiveHora();
   return ASM_DATA.rows.filter(r =>
+    r.hora <= h &&
     (!ASM_STATE.turno || r.turno === ASM_STATE.turno) &&
     (!ASM_STATE.nivel || r.nivel === ASM_STATE.nivel) &&
     (!ASM_STATE.mesa || r.mesa === ASM_STATE.mesa)
@@ -7128,6 +7241,20 @@ function asmRowsForZoneCards(){
 }
 
 function asmFilteredRows(){
+  if(!ASM_DATA) return [];
+  const h = asmEffectiveHora();
+  return ASM_DATA.rows.filter(r =>
+    r.hora <= h &&
+    (!ASM_STATE.turno || r.turno === ASM_STATE.turno) &&
+    (!ASM_STATE.zona || r.zona === ASM_STATE.zona) &&
+    (!ASM_STATE.nivel || r.nivel === ASM_STATE.nivel) &&
+    (!ASM_STATE.mesa || r.mesa === ASM_STATE.mesa)
+  );
+}
+
+// Gráfico: sempre o dia inteiro (0-23h), independente da hora selecionada —
+// mostra a curva de acumulação do dia. Respeita zona só se uma estiver ativa.
+function asmRowsForChart(){
   if(!ASM_DATA) return [];
   return ASM_DATA.rows.filter(r =>
     (!ASM_STATE.turno || r.turno === ASM_STATE.turno) &&
@@ -7154,7 +7281,7 @@ function asmRenderZoneCards(){
         <div class="switch-card-name"><i class="fas ${isSD?'fa-robot':'fa-location-dot'}" style="color:${isSD?'var(--text-muted)':'var(--orange)'};margin-right:8px"></i>${zona}</div>
       </div>
       <div style="font-size:26px;font-weight:800;color:var(--text)">${total.toLocaleString('pt-BR')}</div>
-      <div class="switch-card-desc">induções ${isSD ? '(fora do fluxo de mesa/zona real)' : `· ${mesas} mesa(s) · ${operadores} operador(es)`}</div>
+      <div class="switch-card-desc">induções acum. até ${String(asmEffectiveHora()).padStart(2,'0')}h ${isSD ? '(fora do fluxo de mesa/zona real)' : `· ${mesas} mesa(s) · ${operadores} operador(es)`}</div>
     </div>`;
   }).join('');
 }
@@ -7169,44 +7296,93 @@ function asmZonaClick(zona){
 
 function asmRenderChart(){
   if(!ASM_DATA) return;
-  const rows = asmRowsForZoneCards();
-  const zonasTodas = [...ASM_DATA.zonas, 'System Default'];
-  const porZonaHora = {};
-  zonasTodas.forEach(z => { porZonaHora[z] = Array(24).fill(0); });
-  rows.forEach(r => {
-    if(r.hora >= 0 && r.hora <= 23 && porZonaHora[r.zona]) porZonaHora[r.zona][r.hora] += r.scanNumbers;
-  });
+  const rows = asmRowsForChart();
+  const porHora = Array(24).fill(0);
+  rows.forEach(r => { if(r.hora >= 0 && r.hora <= 23) porHora[r.hora] += r.scanNumbers; });
+  let acc = 0;
+  const realizadoAcumulado = porHora.map(v => { acc += v; return acc; });
+  const capacidadeAcumulada = Array(24).fill(0); // placeholder até termos a meta real
+
   if(chartInstances['chart-asm-hora']){ chartInstances['chart-asm-hora'].destroy(); delete chartInstances['chart-asm-hora']; }
   const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
-  const cores = ['#ee4d2d','#5d8dff','#10b981','#f5a623','#a855f7','#75809b'];
-  const datasets = zonasTodas.map((z, i) => ({
-    label: z, data: porZonaHora[z],
-    borderColor: ASM_ZONE_COLORS[z] || cores[i % cores.length],
-    backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 2,
-  }));
-  mkLine('chart-asm-hora', labels, datasets);
+  const rotulo = ASM_STATE.zona || 'Total';
+  mkLine('chart-asm-hora', labels, [
+    { label: 'Realizado — '+rotulo, data: realizadoAcumulado,
+      borderColor: '#ee4d2d', backgroundColor: 'rgba(238,77,45,.16)', fill: true, tension: .4, pointRadius: 0, borderWidth: 2.5 },
+    { label: 'Capacidade (em breve)', data: capacidadeAcumulada,
+      borderColor: '#75809b', backgroundColor: 'transparent', borderDash: [6,4], fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5 },
+  ]);
+}
+
+// Uma linha por colaborador, somando induções de todas as horas <= hora
+// selecionada. Zona/nível/mesa/turno/líder exibidos são os da última hora
+// vista (podem mudar entre horas, já que ninguém trava numa mesa o dia todo).
+function asmAccumulatedByColaborador(){
+  const rows = asmFilteredRows();
+  const porColaborador = new Map();
+  rows.forEach(r => {
+    const chave = r.colaborador || '(sem nome)';
+    if(!porColaborador.has(chave)) porColaborador.set(chave, { colaborador: chave, zona:r.zona, nivel:r.nivel, mesa:r.mesa, turno:r.turno, lider:r.lider, scanNumbers:0, _ultimaHora:-1 });
+    const acc = porColaborador.get(chave);
+    acc.scanNumbers += r.scanNumbers;
+    if(r.hora >= acc._ultimaHora){ acc.zona=r.zona; acc.nivel=r.nivel; acc.mesa=r.mesa; acc.turno=r.turno; acc.lider=r.lider; acc._ultimaHora=r.hora; }
+  });
+  return [...porColaborador.values()];
+}
+
+function asmSortBy(colKey){
+  if(ASM_SORT.key !== colKey){ ASM_SORT.key = colKey; ASM_SORT.dir = 1; }
+  else if(ASM_SORT.dir === 1) ASM_SORT.dir = -1;
+  else { ASM_SORT.key = null; ASM_SORT.dir = 0; }
+  ASM_PAGE = 0;
+  asmUpdateSortHeaders();
+  asmRenderTable();
+}
+
+function asmUpdateSortHeaders(){
+  ASM_SORT_COLS.forEach(c => {
+    const th = document.getElementById('asm-th-'+c);
+    if(!th) return;
+    const icon = th.querySelector('i');
+    const active = ASM_SORT.key === c;
+    th.classList.toggle('active', active);
+    if(icon) icon.className = 'fas ' + (active ? (ASM_SORT.dir===1 ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort');
+  });
 }
 
 function asmRenderTable(){
   const tbody = document.getElementById('asm-tbody');
   const footer = document.getElementById('asm-footer');
+  const label = document.getElementById('asm-table-hora-label');
   if(!tbody) return;
-  const rows = asmFilteredRows().slice().sort((a, b) => a.hora - b.hora);
-  if(!rows.length){
-    tbody.innerHTML = emptyRow(8);
+  const h = asmEffectiveHora();
+  if(label) label.textContent = `(acumulado até ${String(h).padStart(2,'0')}h)`;
+
+  let linhas = asmAccumulatedByColaborador();
+  if(ASM_SORT.key){
+    linhas = [...linhas].sort((a, b) => {
+      let va = a[ASM_SORT.key], vb = b[ASM_SORT.key];
+      if(ASM_SORT.key === 'scanNumbers'){ va = va||0; vb = vb||0; }
+      else { va = String(va||''); vb = String(vb||''); }
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      return cmp * ASM_SORT.dir;
+    });
+  }
+
+  if(!linhas.length){
+    tbody.innerHTML = emptyRow(7);
     if(footer) footer.textContent = '';
     return;
   }
   const PAGE_SIZE = 100;
-  const totalPaginas = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const totalPaginas = Math.max(1, Math.ceil(linhas.length / PAGE_SIZE));
   ASM_PAGE = Math.min(ASM_PAGE, totalPaginas - 1);
-  const pageRows = rows.slice(ASM_PAGE * PAGE_SIZE, (ASM_PAGE + 1) * PAGE_SIZE);
+  const pageRows = linhas.slice(ASM_PAGE * PAGE_SIZE, (ASM_PAGE + 1) * PAGE_SIZE);
   tbody.innerHTML = pageRows.map(r => `<tr>
-    <td>${String(r.hora).padStart(2,'0')}h</td>
-    <td>${pulsoEscHtml(r.zona)}</td>
+    <td>${pulsoEscHtml(r.colaborador)}</td>
+    <td>${pulsoEscHtml(r.zona||'—')}</td>
     <td>${pulsoEscHtml(r.nivel||'—')}</td>
     <td>${pulsoEscHtml(r.mesa||'—')}</td>
-    <td>${pulsoEscHtml(r.colaborador||'—')}</td>
     <td>${pulsoEscHtml(r.turno||'—')}</td>
     <td>${pulsoEscHtml(r.lider||'—')}</td>
     <td>${r.scanNumbers.toLocaleString('pt-BR')}</td>
@@ -7216,7 +7392,7 @@ function asmRenderTable(){
     <span>Página ${ASM_PAGE+1} de ${totalPaginas}</span>
     <button type="button" class="spr-ms-action-btn" ${ASM_PAGE>=totalPaginas-1?'disabled':''} onclick="asmSetPage(${ASM_PAGE+1})">Próxima <i class="fas fa-chevron-right"></i></button>
   </span>` : '';
-  if(footer) footer.innerHTML = `<span>${rows.length.toLocaleString('pt-BR')} registro(s).</span>${pager}`;
+  if(footer) footer.innerHTML = `<span>${linhas.length.toLocaleString('pt-BR')} colaborador(es).</span>${pager}`;
 }
 
 function asmSetPage(pg){
@@ -7224,12 +7400,47 @@ function asmSetPage(pg){
   asmRenderTable();
 }
 
+function asmGenerateInsights(){
+  if(!ASM_DATA) return [];
+  const insights = [];
+  const rows = asmRowsForChart();
+  const porZona = {};
+  ASM_DATA.zonas.forEach(z => { porZona[z] = 0; });
+  let sdTotal = 0;
+  rows.forEach(r => {
+    if(r.isSystemDefault) sdTotal += r.scanNumbers;
+    else porZona[r.zona] = (porZona[r.zona]||0) + r.scanNumbers;
+  });
+  const zonaEntries = Object.entries(porZona);
+  if(zonaEntries.length){
+    const [topZona, topVal] = zonaEntries.sort((a,b) => b[1]-a[1])[0];
+    insights.push({ icon:'fa-trophy', html:`<strong>${topZona}</strong> é a zona com mais induções no dia: ${topVal.toLocaleString('pt-BR')}.` });
+  }
+  const porHora = Array(24).fill(0);
+  rows.forEach(r => { if(r.hora>=0 && r.hora<=23) porHora[r.hora] += r.scanNumbers; });
+  const horaPico = porHora.reduce((best, v, h) => v>best.v ? {h,v} : best, {h:0,v:0});
+  if(horaPico.v>0) insights.push({ icon:'fa-clock', html:`Horário de pico: <strong>${String(horaPico.h).padStart(2,'0')}h</strong>, com ${horaPico.v.toLocaleString('pt-BR')} induções.` });
+  const totalGeral = zonaEntries.reduce((s,[,v]) => s+v, 0) + sdTotal;
+  if(sdTotal>0 && totalGeral>0){
+    const pct = (sdTotal/totalGeral*100).toFixed(1);
+    insights.push({ icon:'fa-robot', html:`<strong>System Default</strong> representa ${pct}% das induções do dia (${sdTotal.toLocaleString('pt-BR')}) — fora do fluxo real de mesa/zona.` });
+  }
+  return insights;
+}
+
+function asmOpenPipboy(){
+  pulsoOpenPipboyGeneric('ASM', asmGenerateInsights());
+}
+
 /* ================================================================
    CONVEYOR — performance por grupo de estação, hora a hora (aba conveyor_pulso)
 ================================================================ */
-const CONVEYOR_STATE = { date: null, grupo: '' };
-const CNV_GROUP_COLORS = { 'Quedas': '#ee4d2d', 'Termoplástica': '#5d8dff', 'Esteira A': '#10b981', 'Esteira B': '#f5a623', 'Non-TO': '#a855f7' };
+const CONVEYOR_STATE = { date: null, hora: null, grupo: '', estacao: '' };
+const CNV_GROUP_COLORS = { 'OBA/OBB': '#ee4d2d', 'OBC/OBD': '#f5a623', 'Termoplástica': '#5d8dff', 'Esteira A': '#10b981', 'Esteira B': '#06b6d4', 'Non-TO': '#a855f7' };
+const CNV_SORT_COLS = ['opsId','grupo','estacao','horasTrabalho','produtividade','totalProcessamento'];
+const CNV_SORT = { key: 'totalProcessamento', dir: -1 }; // default: maior pro menor
 let CONVEYOR_DATA = null;
+let CNV_ULTIMA_HORA = 23;
 let CNV_PAGE = 0;
 
 async function loadConveyor(){
@@ -7247,11 +7458,21 @@ async function loadConveyor(){
     const dateInput = document.getElementById('cnv-date-input');
     if(dateInput && j.data) dateInput.value = j.data;
 
+    const horasComDado = [...new Set(j.rows.map(row => row.hora))].filter(h => h >= 0 && h <= 23).sort((a,b) => a-b);
+    CNV_ULTIMA_HORA = horasComDado.length ? horasComDado[horasComDado.length-1] : 23;
+    const horaEl = document.getElementById('cnv-hora-input');
+    if(horaEl){
+      horaEl.innerHTML = Array.from({length:24}, (_, h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
+      horaEl.value = String(cnvEffectiveHora());
+    }
+
     const grupoEl = document.getElementById('cnv-grupo-input');
     if(grupoEl){
       grupoEl.innerHTML = `<option value="">Todos os grupos</option>` + j.grupos.map(g => `<option value="${g}">${g}</option>`).join('');
       grupoEl.value = CONVEYOR_STATE.grupo;
     }
+    cnvPopulateEstacaoOptions();
+    cnvUpdateSortHeaders();
 
     const cov = document.getElementById('cnv-coverage');
     if(cov) cov.innerHTML = j.cobertura.inicio
@@ -7265,9 +7486,25 @@ async function loadConveyor(){
   }
 }
 
+function cnvEffectiveHora(){
+  return (CONVEYOR_STATE.hora !== null && CONVEYOR_STATE.hora !== undefined) ? CONVEYOR_STATE.hora : CNV_ULTIMA_HORA;
+}
+
+function cnvPopulateEstacaoOptions(){
+  const el = document.getElementById('cnv-estacao-input');
+  if(!el || !CONVEYOR_DATA) return;
+  const pool = CONVEYOR_STATE.grupo ? CONVEYOR_DATA.rows.filter(r => r.grupo === CONVEYOR_STATE.grupo) : CONVEYOR_DATA.rows;
+  const estacoes = [...new Set(pool.map(r => r.estacao))].sort();
+  if(CONVEYOR_STATE.estacao && !estacoes.includes(CONVEYOR_STATE.estacao)) CONVEYOR_STATE.estacao = '';
+  el.innerHTML = `<option value="">Todos os postos</option>` + estacoes.map(e => `<option value="${pulsoEscHtml(e)}">${pulsoEscHtml(e)}</option>`).join('');
+  el.value = CONVEYOR_STATE.estacao;
+}
+
 function cnvSetFilter(campo, valor){
+  if(campo === 'date'){ CONVEYOR_STATE.date = valor; CONVEYOR_STATE.hora = null; loadConveyor(); return; }
+  if(campo === 'hora'){ CONVEYOR_STATE.hora = valor === '' ? null : Number(valor); CNV_PAGE = 0; cnvRenderAll(); return; }
   CONVEYOR_STATE[campo] = valor;
-  if(campo === 'date'){ loadConveyor(); return; }
+  if(campo === 'grupo') cnvPopulateEstacaoOptions();
   CNV_PAGE = 0;
   cnvRenderAll();
 }
@@ -7278,14 +7515,42 @@ function cnvRenderAll(){
   cnvRenderTable();
 }
 
+// Cards: acumulado até a hora selecionada, respeitando o posto (estação) mas
+// não o próprio filtro de grupo (cada grupo sempre aparece, clicável).
+function cnvRowsForGroupCards(){
+  if(!CONVEYOR_DATA) return [];
+  const h = cnvEffectiveHora();
+  return CONVEYOR_DATA.rows.filter(r => r.hora <= h && (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao));
+}
+
+function cnvFilteredRows(){
+  if(!CONVEYOR_DATA) return [];
+  const h = cnvEffectiveHora();
+  return CONVEYOR_DATA.rows.filter(r =>
+    r.hora <= h &&
+    (!CONVEYOR_STATE.grupo || r.grupo === CONVEYOR_STATE.grupo) &&
+    (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao)
+  );
+}
+
+// Gráfico: dia inteiro (0-23h) — curva de acumulação, respeitando grupo/posto se ativos.
+function cnvRowsForChart(){
+  if(!CONVEYOR_DATA) return [];
+  return CONVEYOR_DATA.rows.filter(r =>
+    (!CONVEYOR_STATE.grupo || r.grupo === CONVEYOR_STATE.grupo) &&
+    (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao)
+  );
+}
+
 function cnvRenderGroupCards(){
   const wrap = document.getElementById('cnv-group-cards');
   if(!wrap || !CONVEYOR_DATA) return;
-  const rows = CONVEYOR_DATA.rows;
+  const rows = cnvRowsForGroupCards();
   wrap.innerHTML = CONVEYOR_DATA.grupos.map(grupo => {
     const rowsGrupo = rows.filter(r => r.grupo === grupo);
     const totalProcessado = rowsGrupo.reduce((s, r) => s + r.totalProcessamento, 0);
-    const produtividadeMedia = rowsGrupo.length ? Math.round(rowsGrupo.reduce((s, r) => s + r.produtividade, 0) / rowsGrupo.length) : 0;
+    const horasTrabalho = rowsGrupo.reduce((s, r) => s + r.horasTrabalho, 0);
+    const produtividade = horasTrabalho > 0 ? Math.round(totalProcessado / horasTrabalho) : 0;
     const estacoes = new Set(rowsGrupo.map(r => r.estacao)).size;
     const ativo = CONVEYOR_STATE.grupo === grupo;
     return `<div class="switch-card" style="cursor:pointer;${ativo?'border-color:var(--orange)':''}" onclick="cnvGrupoClick('${grupo.replace(/'/g,"\\'")}')">
@@ -7293,7 +7558,7 @@ function cnvRenderGroupCards(){
         <div class="switch-card-name"><i class="fas fa-gears" style="color:var(--orange);margin-right:8px"></i>${grupo}</div>
       </div>
       <div style="font-size:26px;font-weight:800;color:var(--text)">${totalProcessado.toLocaleString('pt-BR')}</div>
-      <div class="switch-card-desc">pedidos processados · ${estacoes} estação(ões) · produtividade média ${produtividadeMedia.toLocaleString('pt-BR')} ped/mnhr</div>
+      <div class="switch-card-desc">processado acum. até ${String(cnvEffectiveHora()).padStart(2,'0')}h · ${estacoes} estação(ões) · produtividade ${produtividade.toLocaleString('pt-BR')} ped/mnhr</div>
     </div>`;
   }).join('');
 }
@@ -7302,53 +7567,100 @@ function cnvGrupoClick(grupo){
   CONVEYOR_STATE.grupo = (CONVEYOR_STATE.grupo === grupo) ? '' : grupo;
   const grupoEl = document.getElementById('cnv-grupo-input');
   if(grupoEl) grupoEl.value = CONVEYOR_STATE.grupo;
+  cnvPopulateEstacaoOptions();
   CNV_PAGE = 0;
   cnvRenderAll();
 }
 
 function cnvRenderChart(){
   if(!CONVEYOR_DATA) return;
-  const rows = CONVEYOR_DATA.rows;
-  const porGrupoHora = {};
-  CONVEYOR_DATA.grupos.forEach(g => { porGrupoHora[g] = Array(24).fill(0); });
-  rows.forEach(r => {
-    if(r.hora >= 0 && r.hora <= 23 && porGrupoHora[r.grupo]) porGrupoHora[r.grupo][r.hora] += r.totalProcessamento;
-  });
+  const rows = cnvRowsForChart();
+  const porHora = Array(24).fill(0);
+  rows.forEach(r => { if(r.hora >= 0 && r.hora <= 23) porHora[r.hora] += r.totalProcessamento; });
+  let acc = 0;
+  const realizadoAcumulado = porHora.map(v => { acc += v; return acc; });
+  const capacidadeAcumulada = Array(24).fill(0); // placeholder até termos a meta real
+
   if(chartInstances['chart-cnv-hora']){ chartInstances['chart-cnv-hora'].destroy(); delete chartInstances['chart-cnv-hora']; }
   const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
-  const cores = ['#ee4d2d','#5d8dff','#10b981','#f5a623','#a855f7'];
-  const datasets = CONVEYOR_DATA.grupos.map((g, i) => ({
-    label: g, data: porGrupoHora[g],
-    borderColor: CNV_GROUP_COLORS[g] || cores[i % cores.length],
-    backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 2,
-  }));
-  mkLine('chart-cnv-hora', labels, datasets);
+  const rotulo = CONVEYOR_STATE.estacao || CONVEYOR_STATE.grupo || 'Total';
+  mkLine('chart-cnv-hora', labels, [
+    { label: 'Realizado — '+rotulo, data: realizadoAcumulado,
+      borderColor: '#ee4d2d', backgroundColor: 'rgba(238,77,45,.16)', fill: true, tension: .4, pointRadius: 0, borderWidth: 2.5 },
+    { label: 'Capacidade (em breve)', data: capacidadeAcumulada,
+      borderColor: '#75809b', backgroundColor: 'transparent', borderDash: [6,4], fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5 },
+  ]);
 }
 
-function cnvFilteredRows(){
-  if(!CONVEYOR_DATA) return [];
-  return CONVEYOR_DATA.rows.filter(r => !CONVEYOR_STATE.grupo || r.grupo === CONVEYOR_STATE.grupo);
+// Uma linha por OPS Id, somando processamento/horas de todas as horas <=
+// hora selecionada; produtividade recalculada sobre o acumulado (não é a
+// média das produtividades horárias, que seria matematicamente errado).
+function cnvAccumulatedByOps(){
+  const rows = cnvFilteredRows();
+  const porOps = new Map();
+  rows.forEach(r => {
+    const chave = r.opsId || '(sem id)';
+    if(!porOps.has(chave)) porOps.set(chave, { opsId:chave, grupo:r.grupo, estacao:r.estacao, horasTrabalho:0, totalProcessamento:0, _ultimaHora:-1 });
+    const acc = porOps.get(chave);
+    acc.horasTrabalho += r.horasTrabalho;
+    acc.totalProcessamento += r.totalProcessamento;
+    if(r.hora >= acc._ultimaHora){ acc.grupo=r.grupo; acc.estacao=r.estacao; acc._ultimaHora=r.hora; }
+  });
+  return [...porOps.values()].map(a => ({ ...a, produtividade: a.horasTrabalho>0 ? Math.round(a.totalProcessamento/a.horasTrabalho) : 0 }));
+}
+
+function cnvSortBy(colKey){
+  if(CNV_SORT.key !== colKey){ CNV_SORT.key = colKey; CNV_SORT.dir = 1; }
+  else if(CNV_SORT.dir === 1) CNV_SORT.dir = -1;
+  else { CNV_SORT.key = null; CNV_SORT.dir = 0; }
+  CNV_PAGE = 0;
+  cnvUpdateSortHeaders();
+  cnvRenderTable();
+}
+
+function cnvUpdateSortHeaders(){
+  CNV_SORT_COLS.forEach(c => {
+    const th = document.getElementById('cnv-th-'+c);
+    if(!th) return;
+    const icon = th.querySelector('i');
+    const active = CNV_SORT.key === c;
+    th.classList.toggle('active', active);
+    if(icon) icon.className = 'fas ' + (active ? (CNV_SORT.dir===1 ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort');
+  });
 }
 
 function cnvRenderTable(){
   const tbody = document.getElementById('cnv-tbody');
   const footer = document.getElementById('cnv-footer');
+  const label = document.getElementById('cnv-table-hora-label');
   if(!tbody) return;
-  const rows = cnvFilteredRows().slice().sort((a, b) => a.hora - b.hora);
-  if(!rows.length){
-    tbody.innerHTML = emptyRow(7);
+  const h = cnvEffectiveHora();
+  if(label) label.textContent = `(acumulado até ${String(h).padStart(2,'0')}h)`;
+
+  let linhas = cnvAccumulatedByOps();
+  if(CNV_SORT.key){
+    linhas = [...linhas].sort((a, b) => {
+      let va = a[CNV_SORT.key], vb = b[CNV_SORT.key];
+      if(['horasTrabalho','produtividade','totalProcessamento'].includes(CNV_SORT.key)){ va = va||0; vb = vb||0; }
+      else { va = String(va||''); vb = String(vb||''); }
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      return cmp * CNV_SORT.dir;
+    });
+  }
+
+  if(!linhas.length){
+    tbody.innerHTML = emptyRow(6);
     if(footer) footer.textContent = '';
     return;
   }
   const PAGE_SIZE = 100;
-  const totalPaginas = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const totalPaginas = Math.max(1, Math.ceil(linhas.length / PAGE_SIZE));
   CNV_PAGE = Math.min(CNV_PAGE, totalPaginas - 1);
-  const pageRows = rows.slice(CNV_PAGE * PAGE_SIZE, (CNV_PAGE + 1) * PAGE_SIZE);
+  const pageRows = linhas.slice(CNV_PAGE * PAGE_SIZE, (CNV_PAGE + 1) * PAGE_SIZE);
   tbody.innerHTML = pageRows.map(r => `<tr>
-    <td>${String(r.hora).padStart(2,'0')}h</td>
+    <td>${pulsoEscHtml(r.opsId)}</td>
     <td>${pulsoEscHtml(r.grupo)}</td>
     <td>${pulsoEscHtml(r.estacao)}</td>
-    <td>${pulsoEscHtml(r.opsId)}</td>
     <td>${r.horasTrabalho.toLocaleString('pt-BR')}</td>
     <td>${r.produtividade.toLocaleString('pt-BR')}</td>
     <td>${r.totalProcessamento.toLocaleString('pt-BR')}</td>
@@ -7358,12 +7670,41 @@ function cnvRenderTable(){
     <span>Página ${CNV_PAGE+1} de ${totalPaginas}</span>
     <button type="button" class="spr-ms-action-btn" ${CNV_PAGE>=totalPaginas-1?'disabled':''} onclick="cnvSetPage(${CNV_PAGE+1})">Próxima <i class="fas fa-chevron-right"></i></button>
   </span>` : '';
-  if(footer) footer.innerHTML = `<span>${rows.length.toLocaleString('pt-BR')} registro(s).</span>${pager}`;
+  if(footer) footer.innerHTML = `<span>${linhas.length.toLocaleString('pt-BR')} colaborador(es).</span>${pager}`;
 }
 
 function cnvSetPage(pg){
   CNV_PAGE = Math.max(0, pg);
   cnvRenderTable();
+}
+
+function cnvGenerateInsights(){
+  if(!CONVEYOR_DATA) return [];
+  const insights = [];
+  const rows = cnvRowsForChart();
+  const porGrupo = {};
+  CONVEYOR_DATA.grupos.forEach(g => { porGrupo[g] = 0; });
+  rows.forEach(r => { porGrupo[r.grupo] = (porGrupo[r.grupo]||0) + r.totalProcessamento; });
+  const entries = Object.entries(porGrupo);
+  if(entries.length){
+    const [topGrupo, topVal] = entries.sort((a,b) => b[1]-a[1])[0];
+    insights.push({ icon:'fa-trophy', html:`<strong>${topGrupo}</strong> é o grupo com mais pedidos processados no dia: ${topVal.toLocaleString('pt-BR')}.` });
+  }
+  const porHora = Array(24).fill(0);
+  rows.forEach(r => { if(r.hora>=0 && r.hora<=23) porHora[r.hora] += r.totalProcessamento; });
+  const horaPico = porHora.reduce((best, v, h) => v>best.v ? {h,v} : best, {h:0,v:0});
+  if(horaPico.v>0) insights.push({ icon:'fa-clock', html:`Horário de pico: <strong>${String(horaPico.h).padStart(2,'0')}h</strong>, com ${horaPico.v.toLocaleString('pt-BR')} pedidos processados.` });
+  const nonTo = porGrupo['Non-TO']||0;
+  const totalGeral = Object.values(porGrupo).reduce((s,v) => s+v, 0);
+  if(nonTo>0 && totalGeral>0){
+    const pct = (nonTo/totalGeral*100).toFixed(1);
+    insights.push({ icon:'fa-diagram-project', html:`<strong>Non-TO</strong> representa ${pct}% do processamento do dia (${nonTo.toLocaleString('pt-BR')}).` });
+  }
+  return insights;
+}
+
+function cnvOpenPipboy(){
+  pulsoOpenPipboyGeneric('Conveyor', cnvGenerateInsights());
 }
 
 function jornalTab(id, el){
