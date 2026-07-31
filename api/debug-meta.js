@@ -42,6 +42,15 @@ module.exports = async (req, res) => {
       res.status(200).json({ ok: true, title, totalRows: values.length, sample: values.slice(0, 15) });
       return;
     }
+    // filterCol=coluna&filterVal=valor -> até 30 linhas (objeto) que batem, pra
+    // investigar padrões sem baixar a aba inteira.
+    if (req.query.gid !== undefined && req.query.filterCol !== undefined) {
+      const { rows } = await fetchTabByGid(id, req.query.gid);
+      const col = req.query.filterCol, val = req.query.filterVal;
+      const filtradas = rows.filter(r => String(r[col] ?? '') === String(val ?? ''));
+      res.status(200).json({ ok: true, column: col, value: val, matchCount: filtradas.length, sample: filtradas.slice(0, 30) });
+      return;
+    }
     if (req.query.gid !== undefined) {
       const { title, rows } = await fetchTabByGid(id, req.query.gid);
       res.status(200).json({
