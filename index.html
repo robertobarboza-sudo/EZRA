@@ -554,7 +554,7 @@
     }
     .fct-table th:first-child, .fct-table td:first-child {
       position: sticky; left: 0; background: var(--surface-2-solid, var(--surface-2));
-      min-width: 90px; z-index: 1;
+      min-width: 100px; z-index: 1;
     }
     .fct-table thead th { text-align: center; background: var(--surface-2-solid, var(--surface-2)); }
     .fct-table thead th:first-child { text-align: left; }
@@ -563,6 +563,39 @@
     .fct-table .fct-row-total { font-weight: 800; color: var(--text); background: var(--surface-solid, var(--surface)); }
     .fct-table .fct-row-total td { border-bottom: 1px solid var(--border); }
     .fct-table .fct-row-sub { font-style: italic; color: var(--text-muted); }
+    .fct-table .fct-row-transhipment { font-style: italic; color: var(--text-muted); opacity: .8; }
+    .fct-table td.fct-col-quartil, .fct-table th.fct-col-quartil { border-left: 1px dashed var(--border); background: rgba(238,77,45,.05); }
+    .fct-table td.fct-col-week, .fct-table th.fct-col-week { border-left: 1px solid var(--border); font-weight: 700; background: rgba(238,77,45,.08); }
+
+    .fct-week-block {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); margin-bottom: 14px; overflow: hidden;
+      box-shadow: var(--shadow);
+    }
+    .fct-week-header {
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+      padding: 14px 18px; cursor: pointer; user-select: none;
+    }
+    .fct-week-header:hover { background: var(--surface-2); }
+    .fct-week-header .fct-week-caret { color: var(--text-muted); transition: transform var(--transition); font-size: 12px; }
+    .fct-week-block.open .fct-week-caret { transform: rotate(180deg); }
+    .fct-week-title { font-weight: 700; color: var(--text); font-size: 13px; }
+    .fct-week-badge {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+      background: rgba(238,77,45,.12); color: var(--orange); border-radius: 999px; padding: 3px 10px;
+    }
+    .fct-week-summary { display: flex; gap: 14px; flex-wrap: wrap; margin-left: auto; font-size: 12px; color: var(--text-muted); }
+    .fct-week-summary strong { color: var(--text); }
+    .fct-week-block:not(.open) .fct-week-body { display: none; }
+    .fct-week-body { padding: 0 18px 18px; overflow-x: auto; }
+
+    .fct-month-blocks { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 18px; }
+    .fct-month-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 16px 18px; box-shadow: var(--shadow); }
+    .fct-month-card-title { font-size: 12px; font-weight: 700; color: var(--text); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 10px; }
+    .fct-month-card-rows { display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; }
+    .fct-month-card-rows div { display: flex; justify-content: space-between; color: var(--text-muted); }
+    .fct-month-card-rows div span:last-child { color: var(--text); font-weight: 600; }
+    .fct-month-card-rows .fct-mc-total span:last-child { color: var(--orange); font-weight: 800; }
     .table-toolbar {
       display: flex; align-items: center;
       justify-content: space-between;
@@ -3121,12 +3154,8 @@
       </div>
       <div id="fct-kpis"></div>
       <div class="pulso-coverage" id="fct-coverage"></div>
-      <div class="table-card full" style="margin-top:16px">
-        <div class="chart-title">Forecast semanal por canal</div>
-        <div class="fct-table-wrap" style="margin-top:12px;overflow-x:auto">
-          <table class="fct-table" id="fct-table"></table>
-        </div>
-      </div>
+      <div id="fct-weeks" style="margin-top:16px"></div>
+      <div class="fct-month-blocks" id="fct-month-blocks"></div>
     </section>
 
 
@@ -5996,6 +6025,15 @@ function clearNewUserForm(){
    FORECAST — pacotes previstos por canal (forecast_backlog_pulso, colunas H-M)
 ================================================================ */
 const FORECAST_STATE = { date: null };
+const FCT_ROWS = [
+  { label:'FORECAST',     key:'total',        cls:'fct-row-total' },
+  { label:'LH',           key:'lh',           cls:'fct-row-sub' },
+  { label:'FM',           key:'fm',           cls:'fct-row-sub' },
+  { label:'CB',           key:'cb',           cls:'fct-row-sub' },
+  { label:'FULL',         key:'full',         cls:'fct-row-sub' },
+  { label:'Transhipment', key:'transhipment', cls:'fct-row-transhipment' },
+];
+const FCT_MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 async function loadForecast(){
   setBadge('forecast', 'loading');
@@ -6023,37 +6061,85 @@ async function loadForecast(){
       ? `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>`
       : '';
 
-    buildForecastTable(j.tabela);
+    buildForecastWeeks(j.semanas);
+    buildForecastMonthBlocks(j.mesTotal, j.quartilMensal, j.adoQuartil, j.mes);
   } catch(err){
     setBadge('forecast', 'error', 'Erro: '+err.message);
     console.error('[forecast]', err);
   }
 }
 
-function buildForecastTable(tabela){
-  const table = document.getElementById('fct-table');
-  if(!table) return;
-  if(!tabela || !tabela.length){ table.innerHTML = ''; return; }
+function buildForecastWeeks(semanas){
+  const wrap = document.getElementById('fct-weeks');
+  if(!wrap) return;
+  if(!semanas || !semanas.length){ wrap.innerHTML = ''; return; }
 
-  const head = `<thead><tr>
-    <th>Canal</th>
-    ${tabela.map(d => `<th>${d.diaSemana}<br><span style="font-weight:400;opacity:.65">${pulsoFmtDataBr(d.data)}</span></th>`).join('')}
-  </tr></thead>`;
+  wrap.innerHTML = semanas.map(s => {
+    const summary = FCT_ROWS.filter(r => r.key !== 'transhipment').map(r =>
+      `<span>${r.label === 'FORECAST' ? 'Total' : r.label}: <strong>${(s.semana[r.key]||0).toLocaleString('pt-BR')}</strong></span>`
+    ).join('');
 
-  const rows = [
-    { label:'FORECAST', key:'total', cls:'fct-row-total' },
-    { label:'LH',   key:'lh',   cls:'fct-row-sub' },
-    { label:'FM',   key:'fm',   cls:'fct-row-sub' },
-    { label:'CB',   key:'cb',   cls:'fct-row-sub' },
-    { label:'FULL', key:'full', cls:'fct-row-sub' },
-  ];
+    const head = `<thead><tr>
+      <th>Canal</th>
+      ${s.dias.map(d => `<th>${d.diaSemana}<br><span style="font-weight:400;opacity:.65">${pulsoFmtDataBr(d.data)}</span></th>`).join('')}
+      <th class="fct-col-quartil">Quartil</th>
+      <th class="fct-col-week">Week</th>
+    </tr></thead>`;
 
-  const body = rows.map(row => `<tr class="${row.cls}">
-    <td>${row.label}</td>
-    ${tabela.map(d => `<td>${(d[row.key]||0).toLocaleString('pt-BR')}</td>`).join('')}
-  </tr>`).join('');
+    const body = FCT_ROWS.map(row => `<tr class="${row.cls}">
+      <td>${row.label}</td>
+      ${s.dias.map(d => `<td>${(d[row.key]||0).toLocaleString('pt-BR')}</td>`).join('')}
+      <td class="fct-col-quartil">${Math.round(s.quartil[row.key]||0).toLocaleString('pt-BR')}</td>
+      <td class="fct-col-week">${(s.semana[row.key]||0).toLocaleString('pt-BR')}</td>
+    </tr>`).join('');
 
-  table.innerHTML = head + '<tbody>' + body + '</tbody>';
+    return `<div class="fct-week-block ${s.isCurrent ? 'open' : ''}">
+      <div class="fct-week-header" onclick="fctToggleWeek(this)">
+        <i class="fas fa-chevron-down fct-week-caret"></i>
+        <span class="fct-week-title">Semana ${pulsoFmtDataBr(s.inicio)} – ${pulsoFmtDataBr(s.fim)}</span>
+        ${s.isCurrent ? '<span class="fct-week-badge">Vigente</span>' : ''}
+        <div class="fct-week-summary">${summary}</div>
+      </div>
+      <div class="fct-week-body">
+        <table class="fct-table">${head}<tbody>${body}</tbody></table>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:6px;font-style:italic">
+          Transhipment é informativo (já contabilizado dentro de Total/LH/FM/CB/FULL) — não é somado novamente ao Forecast Total.
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fctToggleWeek(headerEl){
+  const block = headerEl.closest('.fct-week-block');
+  if(block) block.classList.toggle('open');
+}
+
+function buildForecastMonthBlocks(mesTotal, quartilMensal, adoQuartil, mesRef){
+  const wrap = document.getElementById('fct-month-blocks');
+  if(!wrap) return;
+  const cardRows = agg => FCT_ROWS.map(r => `<div class="${r.key==='total' ? 'fct-mc-total' : ''}">
+    <span>${r.label === 'FORECAST' ? 'Total' : r.label}</span>
+    <span>${Math.round(agg[r.key]||0).toLocaleString('pt-BR')}</span>
+  </div>`).join('');
+
+  const [ano, mesNum] = (mesRef||'').split('-').map(Number);
+  const mesLabel = mesRef ? `${FCT_MESES_PT[mesNum-1]}/${ano}` : '';
+
+  wrap.innerHTML = `
+    <div class="fct-month-card">
+      <div class="fct-month-card-title">Quartil <span style="font-weight:400;text-transform:none;opacity:.7">(Q3 dos Q3 semanais do mês)</span></div>
+      <div class="fct-month-card-rows">${cardRows(quartilMensal)}</div>
+    </div>
+    <div class="fct-month-card">
+      <div class="fct-month-card-title">ADO Quartil <span style="font-weight:400;text-transform:none;opacity:.7">(Quartil ÷ 6)</span></div>
+      <div class="fct-month-card-rows">${cardRows(adoQuartil)}</div>
+    </div>
+    <div class="fct-month-card">
+      <div class="fct-month-card-title">Total do Mês${mesLabel ? ' — '+mesLabel : ''}</div>
+      <div class="fct-month-card-rows">${cardRows(mesTotal)}</div>
+    </div>
+  `;
 }
 
 function fctSetDate(v){ FORECAST_STATE.date = v || null; loadForecast(); }
