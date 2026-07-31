@@ -7168,6 +7168,16 @@ let ASM_DATA = null;
 let ASM_ULTIMA_HORA = 23;
 let ASM_PAGE = 0;
 
+// O turno do ASM roda das 6h às 5h59 do dia seguinte, sob o MESMO cutoff
+// (confirmado batendo actual_sort_time: cutoff=X + hora 6-23 -> actual_sort_time=X;
+// cutoff=X + hora 0-5 -> X+1, ou seja 0-5h são o FIM do turno, não o início).
+// asmHourOrder() reindexa a hora bruta (0-23) pra ordem cronológica real
+// dentro do cutoff, usada em toda comparação/acumulação/ordenação de hora.
+function asmHourOrder(hora){
+  return hora >= 6 ? hora - 6 : hora + 18;
+}
+const ASM_HORAS_ORDENADAS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5];
+
 async function loadAsm(){
   setBadge('asm', 'loading');
   try {
@@ -7183,11 +7193,12 @@ async function loadAsm(){
     const dateInput = document.getElementById('asm-date-input');
     if(dateInput && j.cutoff) dateInput.value = j.cutoff;
 
-    const horasComDado = [...new Set(j.rows.map(row => row.hora))].filter(h => h >= 0 && h <= 23).sort((a,b) => a-b);
+    const horasComDado = [...new Set(j.rows.map(row => row.hora))].filter(h => h >= 0 && h <= 23);
+    horasComDado.sort((a,b) => asmHourOrder(a) - asmHourOrder(b));
     ASM_ULTIMA_HORA = horasComDado.length ? horasComDado[horasComDado.length-1] : 23;
     const horaEl = document.getElementById('asm-hora-input');
     if(horaEl){
-      horaEl.innerHTML = Array.from({length:24}, (_, h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
+      horaEl.innerHTML = ASM_HORAS_ORDENADAS.map(h => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
       horaEl.value = String(asmEffectiveHora());
     }
 
@@ -7260,8 +7271,9 @@ function asmRowsForZoneCards(){
 function asmFilteredRows(){
   if(!ASM_DATA) return [];
   const h = asmEffectiveHora();
+  const ordemH = asmHourOrder(h);
   return ASM_DATA.rows.filter(r =>
-    (ASM_STATE.tableMode === 'hora' ? r.hora === h : r.hora <= h) &&
+    (ASM_STATE.tableMode === 'hora' ? r.hora === h : asmHourOrder(r.hora) <= ordemH) &&
     (!ASM_STATE.turno || r.turno === ASM_STATE.turno) &&
     (!ASM_STATE.zona || r.zona === ASM_STATE.zona) &&
     (!ASM_STATE.nivel || r.nivel === ASM_STATE.nivel) &&
@@ -7285,13 +7297,15 @@ function asmRenderZoneCards(){
   const wrap = document.getElementById('asm-zone-cards');
   if(!wrap || !ASM_DATA) return;
   const h = asmEffectiveHora();
+  const ordemH = asmHourOrder(h);
+  const horaAnterior = ordemH > 0 ? ASM_HORAS_ORDENADAS[ordemH - 1] : null;
   const rows = asmRowsForZoneCards();
   const zonasTodas = [...ASM_DATA.zonas, 'System Default'];
   wrap.innerHTML = zonasTodas.map(zona => {
     const rowsZona = rows.filter(r => r.zona === zona);
     const valorHora = rowsZona.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0);
-    const valorHoraAnterior = h > 0 ? rowsZona.filter(r => r.hora === h-1).reduce((s, r) => s + r.scanNumbers, 0) : null;
-    const acumuladoDia = rowsZona.filter(r => r.hora <= h).reduce((s, r) => s + r.scanNumbers, 0);
+    const valorHoraAnterior = horaAnterior !== null ? rowsZona.filter(r => r.hora === horaAnterior).reduce((s, r) => s + r.scanNumbers, 0) : null;
+    const acumuladoDia = rowsZona.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
     const mesas = new Set(rowsZona.filter(r => r.hora === h && r.mesa).map(r => r.mesa)).size;
     const operadores = new Set(rowsZona.filter(r => r.hora === h).map(r => r.colaborador)).size;
     const ativo = ASM_STATE.zona === zona;
@@ -7301,9 +7315,9 @@ function asmRenderZoneCards(){
     if(valorHoraAnterior !== null && valorHoraAnterior > 0){
       const pct = (valorHora - valorHoraAnterior) / valorHoraAnterior * 100;
       const trend = pct >= 0 ? 'green' : 'red';
-      deltaHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(h-1).padStart(2,'0')}h</span>`;
+      deltaHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
     } else if(valorHoraAnterior === 0 && valorHora > 0){
-      deltaHtml = ` · <span style="color:var(--green)">novo vs ${String(h-1).padStart(2,'0')}h</span>`;
+      deltaHtml = ` · <span style="color:var(--green)">novo vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
     }
 
     return `<div class="switch-card" style="cursor:pointer;${ativo?'border-color:var(--orange)':''}" onclick="asmZonaClick('${zona.replace(/'/g,"\\'")}')">
@@ -7330,14 +7344,15 @@ function asmZonaClick(zona){
 function asmRenderChart(){
   if(!ASM_DATA) return;
   const rows = asmRowsForChart();
-  const porHora = Array(24).fill(0);
-  rows.forEach(r => { if(r.hora >= 0 && r.hora <= 23) porHora[r.hora] += r.scanNumbers; });
+  // Soma por hora, na ORDEM cronológica real do turno (6h...23h,0h...5h) —
+  // não na ordem numérica crua, senão a curva de acumulação fica errada.
+  const porHoraOrdenada = ASM_HORAS_ORDENADAS.map(h => rows.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0));
   let acc = 0;
-  const realizadoAcumulado = porHora.map(v => { acc += v; return acc; });
+  const realizadoAcumulado = porHoraOrdenada.map(v => { acc += v; return acc; });
   const capacidadeAcumulada = Array(24).fill(0); // placeholder até termos a meta real
 
   if(chartInstances['chart-asm-hora']){ chartInstances['chart-asm-hora'].destroy(); delete chartInstances['chart-asm-hora']; }
-  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
+  const labels = ASM_HORAS_ORDENADAS.map(h => String(h).padStart(2,'0')+'h');
   const rotulo = ASM_STATE.zona || 'Total';
   mkLine('chart-asm-hora', labels, [
     { label: 'Realizado — '+rotulo, data: realizadoAcumulado,
@@ -7356,10 +7371,11 @@ function asmGroupByColaborador(){
   const porColaborador = new Map();
   rows.forEach(r => {
     const chave = r.colaborador || '(sem nome)';
-    if(!porColaborador.has(chave)) porColaborador.set(chave, { colaborador: chave, zona:r.zona, nivel:r.nivel, mesa:r.mesa, turno:r.turno, lider:r.lider, scanNumbers:0, _ultimaHora:-1 });
+    if(!porColaborador.has(chave)) porColaborador.set(chave, { colaborador: chave, zona:r.zona, nivel:r.nivel, mesa:r.mesa, turno:r.turno, lider:r.lider, scanNumbers:0, _ultimaOrdemHora:-1 });
     const acc = porColaborador.get(chave);
     acc.scanNumbers += r.scanNumbers;
-    if(r.hora >= acc._ultimaHora){ acc.zona=r.zona; acc.nivel=r.nivel; acc.mesa=r.mesa; acc.turno=r.turno; acc.lider=r.lider; acc._ultimaHora=r.hora; }
+    const ordemR = asmHourOrder(r.hora);
+    if(ordemR >= acc._ultimaOrdemHora){ acc.zona=r.zona; acc.nivel=r.nivel; acc.mesa=r.mesa; acc.turno=r.turno; acc.lider=r.lider; acc._ultimaOrdemHora=ordemR; }
   });
   return [...porColaborador.values()];
 }
