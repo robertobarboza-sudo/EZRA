@@ -6055,6 +6055,7 @@ async function loadForecast(){
       { label:'FM',             value:j.atual.fm.toLocaleString('pt-BR'),    delta:'', trend:'up', type:'', icon:'fa-route' },
       { label:'CB',             value:j.atual.cb.toLocaleString('pt-BR'),    delta:'', trend:'up', type:'', icon:'fa-globe' },
       { label:'FULL',           value:j.atual.full.toLocaleString('pt-BR'),  delta:'', trend:'up', type:'', icon:'fa-warehouse' },
+      { label:'Transhipment',   value:j.atual.transhipment.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-shuffle', sub:'já incluso no Total — não somado de novo' },
     ]);
 
     const cov = document.getElementById('fct-coverage');
