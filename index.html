@@ -552,6 +552,17 @@
       padding: 20px; margin-bottom: 20px;
       box-shadow: var(--shadow);
     }
+    .fct-table th:first-child, .fct-table td:first-child {
+      position: sticky; left: 0; background: var(--surface-2-solid, var(--surface-2));
+      min-width: 90px; z-index: 1;
+    }
+    .fct-table thead th { text-align: center; background: var(--surface-2-solid, var(--surface-2)); }
+    .fct-table thead th:first-child { text-align: left; }
+    .fct-table tbody td { text-align: center; }
+    .fct-table tbody td:first-child { text-align: left; }
+    .fct-table .fct-row-total { font-weight: 800; color: var(--text); background: var(--surface-solid, var(--surface)); }
+    .fct-table .fct-row-total td { border-bottom: 1px solid var(--border); }
+    .fct-table .fct-row-sub { font-style: italic; color: var(--text-muted); }
     .table-toolbar {
       display: flex; align-items: center;
       justify-content: space-between;
@@ -2703,73 +2714,24 @@
       <div class="section-header" id="section-backlog-header">
         <div class="section-header-left">
           <div class="section-title">Backlog <span class="ds-badge ok" id="ds-badge-backlog" style="margin-left:8px"></span></div>
-          <div class="section-subtitle">Monitoramento de fila · Received / Packed / EHA</div>
+          <div class="section-subtitle">Backlog por hora · Total e &gt;24h</div>
         </div>
         <div class="section-dl-group">
-          <div class="pdf-menu-wrap">
-            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('backlog',event)">
-              <i class="fas fa-file-pdf"></i> PDF
-              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
-            </button>
-            <div class="pdf-dropdown" id="pdf-menu-backlog">
-              <div class="pdf-dropdown-label">Formato</div>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('backlog','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('backlog','dash')"><i class="fas fa-display"></i> Print Dash</button>
-            </div>
-          </div>
-          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('backlog')"><i class="fas fa-file-csv"></i> CSV</button>
+          <button class="dl-btn dl-btn-csv" onclick="loadBacklog()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
 
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap">
-        <div class="bkl-tabs">
-          <div class="bkl-tab active" onclick="bklTab('received',this)">Received</div>
-          <div class="bkl-tab" onclick="bklTab('packed',this)">Packed</div>
-          <div class="bkl-tab" onclick="bklTab('eha',this)">EHA</div>
-        </div>
-        <div style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="bkl-pf-btn active" onclick="bklProfileFilter('all',this)">Todos</button>
-          <button class="bkl-pf-btn" onclick="bklProfileFilter('p',this)">P</button>
-          <button class="bkl-pf-btn" onclick="bklProfileFilter('m',this)">M</button>
-          <button class="bkl-pf-btn" onclick="bklProfileFilter('g',this)">G</button>
-          <button class="bkl-pf-btn" onclick="bklProfileFilter('bk',this)">Bulky</button>
+      <div class="spr-filters">
+        <div class="spr-filter-group">
+          <input type="date" class="filter-select pulso-date-input" id="bkl-date-input" onchange="bklSetDate(this.value)" style="color-scheme:dark"/>
+          <select class="filter-select" id="bkl-hour-input" onchange="bklSetHour(this.value)" style="height:34px"></select>
         </div>
       </div>
-
-      <div class="bkl-panel active" id="bkl-panel-received">
-        <div class="bkl-profiles" id="bkl-cards-received"></div>
-        <div class="chart-card full">
-          <div class="chart-title">Backlog por perfil — por hora</div>
-          <div style="height:300px;margin-top:12px"><canvas id="chart-bkl-received"></canvas></div>
-        </div>
-        <div class="chart-card full accent-orange" style="margin-top:16px">
-          <div class="chart-title">Backlog total — por hora</div>
-          <div style="height:280px;margin-top:12px"><canvas id="chart-bkl-received-total"></canvas></div>
-        </div>
-      </div>
-
-      <div class="bkl-panel" id="bkl-panel-packed">
-        <div class="bkl-profiles" id="bkl-cards-packed"></div>
-        <div class="chart-card full">
-          <div class="chart-title">Backlog por perfil — por hora</div>
-          <div style="height:300px;margin-top:12px"><canvas id="chart-bkl-packed"></canvas></div>
-        </div>
-        <div class="chart-card full accent-orange" style="margin-top:16px">
-          <div class="chart-title">Backlog total — por hora</div>
-          <div style="height:280px;margin-top:12px"><canvas id="chart-bkl-packed-total"></canvas></div>
-        </div>
-      </div>
-
-      <div class="bkl-panel" id="bkl-panel-eha">
-        <div class="bkl-profiles" id="bkl-cards-eha"></div>
-        <div class="chart-card full">
-          <div class="chart-title">Backlog por perfil — por hora</div>
-          <div style="height:300px;margin-top:12px"><canvas id="chart-bkl-eha"></canvas></div>
-        </div>
-        <div class="chart-card full accent-orange" style="margin-top:16px">
-          <div class="chart-title">Backlog total — por hora</div>
-          <div style="height:280px;margin-top:12px"><canvas id="chart-bkl-eha-total"></canvas></div>
-        </div>
+      <div id="bkl-kpis"></div>
+      <div class="pulso-coverage" id="bkl-coverage"></div>
+      <div class="chart-card full" style="margin-top:16px">
+        <div class="chart-title">Backlog por hora — total e &gt;24h</div>
+        <div style="height:320px;margin-top:12px"><canvas id="chart-backlog-hora"></canvas></div>
       </div>
     </section>
 
@@ -3143,43 +3105,26 @@
     <!-- FORECAST -->
         <section id="section-forecast" class="section">
       <div class="section-header" id="section-forecast-header">
-        <!-- header restored below by JS -->
+        <div class="section-header-left">
+          <div class="section-title">Forecast <span class="ds-badge ok" id="ds-badge-forecast" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Pacotes previstos por canal, clusterizados</div>
+        </div>
+        <div class="section-dl-group">
+          <button class="dl-btn dl-btn-csv" onclick="loadForecast()"><i class="fas fa-rotate-right"></i> Atualizar</button>
+        </div>
       </div>
-      <div id="section-forecast-wip" style="
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        min-height:420px;text-align:center;gap:20px;padding:40px">
-        <div style="
-          width:90px;height:90px;border-radius:50%;
-          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
-          display:flex;align-items:center;justify-content:center;font-size:36px">
-          🚧
+
+      <div class="spr-filters">
+        <div class="spr-filter-group">
+          <input type="date" class="filter-select pulso-date-input" id="fct-date-input" onchange="fctSetDate(this.value)" style="color-scheme:dark"/>
         </div>
-        <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Forecast</div>
-          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
-            Esta seção está em construção.<br/>
-            Os dados reais serão integrados via Google Sheets.
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;
-          background:var(--surface);border:1px solid var(--border);
-          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
-          <i class="fas fa-database" style="color:var(--orange)"></i>
-          Aguardando conexão com a fonte de dados
-        </div>
-        <div style="display:flex;gap:10px">
-          <div class="pdf-menu-wrap">
-            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('forecast',event)">
-              <i class="fas fa-file-pdf"></i> PDF
-              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
-            </button>
-            <div class="pdf-dropdown" id="pdf-menu-forecast">
-              <div class="pdf-dropdown-label">Formato</div>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('forecast','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('forecast','dash')"><i class="fas fa-display"></i> Print Dash</button>
-            </div>
-          </div>
-          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('forecast')"><i class="fas fa-file-csv"></i> CSV</button>
+      </div>
+      <div id="fct-kpis"></div>
+      <div class="pulso-coverage" id="fct-coverage"></div>
+      <div class="table-card full" style="margin-top:16px">
+        <div class="chart-title">Forecast semanal por canal</div>
+        <div class="fct-table-wrap" style="margin-top:12px;overflow-x:auto">
+          <table class="fct-table" id="fct-table"></table>
         </div>
       </div>
     </section>
@@ -3756,10 +3701,10 @@ const DataService = (() => {
     return new Promise(res=>setTimeout(()=>res(MOCK[s]||{}), 500+Math.random()*400));
   }
 
-  // Seções ligadas à planilha (Google Sheets → Apps Script → /api/dados)
-  // 'clusterizacao' fica de fora por ora: o modelo doca/rua já construído
-  // não bate com os dados reais da aba outbound_ontime (ver docs/integracao-planilha.md).
-  const LIVE_SECTIONS = ['backlog'];
+  // Seções ligadas à planilha via /api/dados (padrão antigo). Backlog e as
+  // demais páginas novas (SPR, Leftover, Clusterização, Outbound, Forecast)
+  // usam endpoints dedicados e fazem seu próprio fetch, fora desse mecanismo.
+  const LIVE_SECTIONS = [];
 
   async function fetchLive(s){
     const r = await fetch('/api/dados?tabs='+encodeURIComponent(s), {cache:'no-store'});
@@ -4304,11 +4249,11 @@ async function renderSection(section){
     const {data,source} = await DataService.load(section);
     setBadge(section,'ok',source);
     const fn = {gestao:renderGestao, performance:renderPerformance, asm:renderAsm,
-      backlog:renderBacklog, spr:()=>pulsoRender(PULSO_ACTIVE_SUBPAGE),
+      backlog:()=>loadBacklog(), spr:()=>pulsoRender(PULSO_ACTIVE_SUBPAGE),
       conveyor:renderConveyor, inbound:renderInbound, tratativas:renderTratativas,
       laborplan:renderLaborplan, arvore:renderArvore, kpioverview:renderKpioverview,
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
-      configuracoes:renderConfiguracoes, forecast:renderForecast,
+      configuracoes:renderConfiguracoes, forecast:()=>loadForecast(),
       auditoria:renderAuditoria, clusterizacao:()=>pulsoRender('clusterizacao'),
       matriz:renderMatriz, mapadados:renderMapaDados, jornal:renderJornal};
     if(fn[section]) fn[section](data);
@@ -5819,258 +5764,54 @@ function renderPlaceholder(section){
 }
 
 /* ================================================================
-   BACKLOG — Received / Packed / EHA
+   BACKLOG — por hora, total e >24h (forecast_backlog_pulso, colunas A-E)
 ================================================================ */
+const BACKLOG_STATE = { date: null, hour: null };
 
-// 24-hour labels from 06:00 to 05:00 (next day)
-const BKL_HOURS = Array.from({length:24},(_,i)=>{
-  const h=(6+i)%24; return String(h).padStart(2,'0')+':00';
-});
+async function loadBacklog(){
+  setBadge('backlog', 'loading');
+  const hourInput = document.getElementById('bkl-hour-input');
+  if(hourInput && !hourInput.options.length){
+    hourInput.innerHTML = Array.from({length:24}, (_,h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
+  }
+  try {
+    const p = new URLSearchParams();
+    if(BACKLOG_STATE.date) p.set('date', BACKLOG_STATE.date);
+    if(BACKLOG_STATE.hour !== null) p.set('hour', BACKLOG_STATE.hour);
+    const r = await fetch('/api/backlog?'+p.toString(), { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    setBadge('backlog', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
 
-const PROFILES = [
-  { key:'p',  label:'P',     name:'Pequeno',  icon:'fa-envelope',       cls:'p'  },
-  { key:'m',  label:'M',     name:'Médio',    icon:'fa-box',            cls:'m'  },
-  { key:'g',  label:'G',     name:'Grande',   icon:'fa-cubes',          cls:'g'  },
-  { key:'bk', label:'Bulky', name:'Bulky',    icon:'fa-pallet',         cls:'bk' },
-];
+    const dateInput = document.getElementById('bkl-date-input');
+    if(dateInput && !BACKLOG_STATE.date && j.cutoff) dateInput.value = j.cutoff;
+    if(hourInput) hourInput.value = String(j.hora);
 
-const PROFILE_COLORS = { p:'#ee4d2d', m:'#06b6d4', g:'#10b981', bk:'#a78bfa' };
+    buildKPIs('bkl-kpis', [
+      { label:'Backlog Médio',      value:j.atual.backlogMedio.toLocaleString('pt-BR'),    delta:'', trend:'up', type:'', icon:'fa-layer-group' },
+      { label:'Backlog Atual',      value:j.atual.backlogAtual.toLocaleString('pt-BR'),     delta:'', trend:'up', type:'', icon:'fa-clock' },
+      { label:'Backlog Médio >24h', value:j.atual.backlogMedio24h.toLocaleString('pt-BR'),  delta:'', trend:'up', type:'', icon:'fa-triangle-exclamation' },
+    ]);
 
-// Generate mock backlog data for a given type
-function genBklData(type){
-  const multi = type==='received'?1.4 : type==='packed'?1.0 : 0.6;
-  return {
-    p:  { total: Math.round(rnd(2000,5000,1)[0]*multi), meta:4000, hourly: rnd(80,320,24).map(v=>Math.round(v*multi)) },
-    m:  { total: Math.round(rnd(1500,3500,1)[0]*multi), meta:3000, hourly: rnd(60,240,24).map(v=>Math.round(v*multi)) },
-    g:  { total: Math.round(rnd(800,2000,1)[0]*multi),  meta:1500, hourly: rnd(30,160,24).map(v=>Math.round(v*multi)) },
-    bk: { total: Math.round(rnd(300,900,1)[0]*multi),   meta:700,  hourly: rnd(10,80,24).map(v=>Math.round(v*multi))  },
-  };
+    const cov = document.getElementById('bkl-coverage');
+    if(cov) cov.innerHTML = j.cobertura.inicio
+      ? `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>`
+      : '';
+
+    if(chartInstances['chart-backlog-hora']){ chartInstances['chart-backlog-hora'].destroy(); delete chartInstances['chart-backlog-hora']; }
+    const labels = j.curva.map(c => String(c.hora).padStart(2,'0')+'h');
+    mkLine('chart-backlog-hora', labels, [
+      { label:'Backlog',      data:j.curva.map(c=>c.pacotes),  borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.12)',  fill:true, tension:.35, pointRadius:3 },
+      { label:'Backlog >24h', data:j.curva.map(c=>c.maior24h), borderColor:'#5d8dff', backgroundColor:'rgba(93,141,255,.12)', fill:true, tension:.35, pointRadius:3 },
+    ]);
+  } catch(err){
+    setBadge('backlog', 'error', 'Erro: '+err.message);
+    console.error('[backlog]', err);
+  }
 }
 
-const BKL_DATA = {
-  received: genBklData('received'),
-  packed:   genBklData('packed'),
-  eha:      genBklData('eha'),
-};
-
-// Aplica as linhas da planilha (tipo, perfil, total, meta, h1..h24 opcionais) sobre BKL_DATA
-function aplicarBacklogPlanilha(rows){
-  rows.forEach(r => {
-    const tipo   = String(r.tipo||'').trim().toLowerCase();
-    const perfil = String(r.perfil||'').trim().toLowerCase();
-    const alvo = BKL_DATA[tipo] && BKL_DATA[tipo][perfil];
-    if(!alvo) return;
-    if(r.total !== '' && r.total != null && !isNaN(+r.total)) alvo.total = Math.round(+r.total);
-    if(r.meta  !== '' && r.meta  != null && !isNaN(+r.meta))  alvo.meta  = Math.round(+r.meta);
-    const hourly = [];
-    for(let h=1; h<=24; h++){
-      const v = r['h'+h];
-      if(v === undefined || v === '' || isNaN(+v)) break;
-      hourly.push(Math.round(+v));
-    }
-    if(hourly.length === 24) alvo.hourly = hourly;
-  });
-}
-
-function renderBacklog(data){
-  if(Array.isArray(data) && data.length) aplicarBacklogPlanilha(data);
-  const activePanel = document.querySelector('.bkl-panel.active');
-  const type = activePanel ? activePanel.id.replace('bkl-panel-','') : 'received';
-  buildBklPanel(type);
-}
-
-let BKL_ACTIVE_PROFILE = 'all';
-
-function bklProfileFilter(profile, el){
-  document.querySelectorAll('.bkl-pf-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  BKL_ACTIVE_PROFILE = profile;
-  // Rebuild active panel with new filter
-  const activePanel = document.querySelector('.bkl-panel.active');
-  if(!activePanel) return;
-  const type = activePanel.id.replace('bkl-panel-','');
-  // Destroy charts and rebuild
-  ['chart-bkl-'+type, 'chart-bkl-'+type+'-total'].forEach(cid => {
-    if(chartInstances[cid]){ chartInstances[cid].destroy(); delete chartInstances[cid]; }
-  });
-  buildBklPanel(type);
-}
-
-function bklTab(id, el){
-  document.querySelectorAll('.bkl-tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.bkl-panel').forEach(p=>p.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('bkl-panel-'+id).classList.add('active');
-  // Destroy all bkl charts then rebuild for active panel
-  ['received','packed','eha'].forEach(t => {
-    ['chart-bkl-'+t, 'chart-bkl-'+t+'-total'].forEach(cid => {
-      if(chartInstances[cid]){ chartInstances[cid].destroy(); delete chartInstances[cid]; }
-    });
-  });
-  buildBklPanel(id);
-}
-
-function buildBklPanel(type){
-  const data = BKL_DATA[type];
-  const container = document.getElementById('bkl-cards-'+type);
-  if(!container) return;
-
-  // Apply profile filter
-  const activeFilter = BKL_ACTIVE_PROFILE || 'all';
-  const filteredProfiles = activeFilter === 'all' ? PROFILES : PROFILES.filter(p => p.key === activeFilter);
-
-  const totalAll  = PROFILES.reduce((s,p)=>s+(data[p.key]?.total||0),0);
-  const totalMeta = PROFILES.reduce((s,p)=>s+(data[p.key]?.meta||0),0);
-  const totalPct  = Math.round((totalAll/Math.max(totalMeta,1))*100);
-  const totalDelta = rnd(-10,15,1)[0];
-
-  // ── Card de total (primeiro item do grid, mesma linha dos perfis) ──
-  const totalCard = `
-    <div class="bkl-card" style="background:linear-gradient(135deg,var(--surface) 0%,rgba(238,77,45,.06) 100%);border-color:rgba(238,77,45,.25)">
-      <div class="bkl-card-label">Total Geral</div>
-      <div class="bkl-card-name">Backlog ${type.charAt(0).toUpperCase()+type.slice(1)}</div>
-      <div class="bkl-card-value" style="color:var(--orange)">${totalAll.toLocaleString('pt-BR')}</div>
-      <div class="bkl-card-unit">todos os perfis</div>
-      <div class="bkl-card-delta ${totalDelta>=0?'up':'down'}">
-        <i class="fas fa-arrow-trend-${totalDelta>=0?'up':'down'}"></i>
-        ${totalDelta>0?'+':''}${totalDelta}% vs hora ant.
-      </div>
-      <div class="bkl-card-bar-bg" style="margin-top:4px">
-        <div class="bkl-card-bar-fill" style="width:${Math.min(totalPct,100)}%;background:var(--orange)"></div>
-      </div>
-      <div class="bkl-card-meta">
-        <span>Meta: ${totalMeta.toLocaleString('pt-BR')}</span>
-        <span>${totalPct}% meta</span>
-      </div>
-    </div>`;
-
-  // ── Cards por perfil ──
-  container.innerHTML = totalCard + filteredProfiles.map(p=>{
-    const d = data[p.key];
-    const pct = Math.round((d.total/Math.max(d.meta,1))*100);
-    const share = Math.round((d.total/Math.max(totalAll,1))*100);
-    const delta = rnd(-15,20,1)[0];
-    const trend = delta>=0?'up':'down';
-    return `
-    <div class="bkl-card ${p.cls}">
-      <div class="bkl-card-icon"><i class="fas ${p.icon}"></i></div>
-      <div class="bkl-card-label">Perfil</div>
-      <div class="bkl-card-name">${p.label} — ${p.name}</div>
-      <div class="bkl-card-value">${d.total.toLocaleString('pt-BR')}</div>
-      <div class="bkl-card-unit">pacotes em backlog</div>
-      <div class="bkl-card-delta ${trend}">
-        <i class="fas fa-arrow-trend-${trend}"></i>
-        ${delta>0?'+':''}${delta}% vs hora anterior
-      </div>
-      <div class="bkl-card-bar-bg">
-        <div class="bkl-card-bar-fill" style="width:${Math.min(pct,100)}%"></div>
-      </div>
-      <div class="bkl-card-meta">
-        <span>Meta: ${d.meta.toLocaleString('pt-BR')}</span>
-        <span>${share}% do total · ${pct}% da meta</span>
-      </div>
-    </div>`;
-  }).join('');
-
-  buildBklChart(type, filteredProfiles);
-}
-
-function buildBklChart(type, visibleProfiles){
-  const data = BKL_DATA[type];
-  const profs = visibleProfiles || PROFILES;
-  const d = cd();
-
-  // Shared datalabels config (inline numbers on points)
-  const lineOpts = (extra={}) => ({
-    responsive:true, maintainAspectRatio:false,
-    plugins:{
-      ...d.plugins,
-      datalabels: false, // Chart.js built-in won't handle this; use custom plugin below
-    },
-    scales: d.scales,
-    ...extra
-  });
-
-  // ── Chart 1: por perfil ──
-  const cid1 = 'chart-bkl-'+type;
-  if(chartInstances[cid1]){ chartInstances[cid1].destroy(); delete chartInstances[cid1]; }
-  const c1 = document.getElementById(cid1); if(!c1) return;
-
-  chartInstances[cid1] = new Chart(c1, {
-    type:'line',
-    data:{
-      labels: BKL_HOURS,
-      datasets: profs.map(p=>({
-        label: `${p.label} — ${p.name}`,
-        data: data[p.key].hourly,
-        borderColor: PROFILE_COLORS[p.key],
-        backgroundColor: PROFILE_COLORS[p.key]+'18',
-        fill: false,
-        tension: .4,
-        pointRadius: 4,
-        pointHoverRadius: 7,
-        pointBackgroundColor: PROFILE_COLORS[p.key],
-      }))
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{
-        ...d.plugins,
-        tooltip:{
-          ...d.plugins.tooltip,
-          callbacks:{
-            label: ctx => ` ${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString('pt-BR')} pkgs`
-          }
-        }
-      },
-      scales: d.scales,
-      // Inline numbers on each point via afterDraw plugin
-      animation:{ onComplete: () => drawLineLabels(chartInstances[cid1]) },
-    }
-  });
-
-  // ── Chart 2: total (soma de todos os perfis por hora) ──
-  const cid2 = 'chart-bkl-'+type+'-total';
-  if(chartInstances[cid2]){ chartInstances[cid2].destroy(); delete chartInstances[cid2]; }
-  const c2 = document.getElementById(cid2); if(!c2) return;
-
-  const totalHourly = BKL_HOURS.map((_,i) => profs.reduce((s,p)=> s+(data[p.key].hourly[i]||0), 0));
-
-  chartInstances[cid2] = new Chart(c2, {
-    type:'line',
-    data:{
-      labels: BKL_HOURS,
-      datasets:[{
-        label:'Total Backlog',
-        data: totalHourly,
-        borderColor: var_orange(),
-        backgroundColor: var_orange()+'22',
-        fill: true,
-        tension: .4,
-        pointRadius: 4,
-        pointHoverRadius: 7,
-        pointBackgroundColor: var_orange(),
-        borderWidth: 2.5,
-      }]
-    },
-    options:{
-      responsive:true, maintainAspectRatio:false,
-      plugins:{
-        ...d.plugins,
-        tooltip:{
-          ...d.plugins.tooltip,
-          callbacks:{
-            label: ctx => ` Total: ${ctx.parsed.y.toLocaleString('pt-BR')} pkgs`
-          }
-        }
-      },
-      scales: d.scales,
-      animation:{ onComplete: () => drawLineLabels(chartInstances[cid2]) },
-    }
-  });
-}
-
-function var_orange(){ return '#ee4d2d'; }
+function bklSetDate(v){ BACKLOG_STATE.date = v || null; loadBacklog(); }
+function bklSetHour(v){ BACKLOG_STATE.hour = v; loadBacklog(); }
 
 function renderLaborplan(){
   setBadge('laborplan','ok','Em Construção');
@@ -6251,9 +5992,71 @@ function clearNewUserForm(){
   });
 }
 
-function renderForecast(){
-  setBadge('forecast','ok','Em Construção');
+/* ================================================================
+   FORECAST — pacotes previstos por canal (forecast_backlog_pulso, colunas H-M)
+================================================================ */
+const FORECAST_STATE = { date: null };
+
+async function loadForecast(){
+  setBadge('forecast', 'loading');
+  try {
+    const p = new URLSearchParams();
+    if(FORECAST_STATE.date) p.set('date', FORECAST_STATE.date);
+    const r = await fetch('/api/forecast?'+p.toString(), { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    setBadge('forecast', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+
+    const dateInput = document.getElementById('fct-date-input');
+    if(dateInput && !FORECAST_STATE.date && j.data) dateInput.value = j.data;
+
+    buildKPIs('fct-kpis', [
+      { label:'Forecast Total', value:j.atual.total.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
+      { label:'LH',             value:j.atual.lh.toLocaleString('pt-BR'),    delta:'', trend:'up', type:'', icon:'fa-truck' },
+      { label:'FM',             value:j.atual.fm.toLocaleString('pt-BR'),    delta:'', trend:'up', type:'', icon:'fa-route' },
+      { label:'CB',             value:j.atual.cb.toLocaleString('pt-BR'),    delta:'', trend:'up', type:'', icon:'fa-globe' },
+      { label:'FULL',           value:j.atual.full.toLocaleString('pt-BR'),  delta:'', trend:'up', type:'', icon:'fa-warehouse' },
+    ]);
+
+    const cov = document.getElementById('fct-coverage');
+    if(cov) cov.innerHTML = j.cobertura.inicio
+      ? `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>`
+      : '';
+
+    buildForecastTable(j.tabela);
+  } catch(err){
+    setBadge('forecast', 'error', 'Erro: '+err.message);
+    console.error('[forecast]', err);
+  }
 }
+
+function buildForecastTable(tabela){
+  const table = document.getElementById('fct-table');
+  if(!table) return;
+  if(!tabela || !tabela.length){ table.innerHTML = ''; return; }
+
+  const head = `<thead><tr>
+    <th>Canal</th>
+    ${tabela.map(d => `<th>${d.diaSemana}<br><span style="font-weight:400;opacity:.65">${pulsoFmtDataBr(d.data)}</span></th>`).join('')}
+  </tr></thead>`;
+
+  const rows = [
+    { label:'FORECAST', key:'total', cls:'fct-row-total' },
+    { label:'LH',   key:'lh',   cls:'fct-row-sub' },
+    { label:'FM',   key:'fm',   cls:'fct-row-sub' },
+    { label:'CB',   key:'cb',   cls:'fct-row-sub' },
+    { label:'FULL', key:'full', cls:'fct-row-sub' },
+  ];
+
+  const body = rows.map(row => `<tr class="${row.cls}">
+    <td>${row.label}</td>
+    ${tabela.map(d => `<td>${(d[row.key]||0).toLocaleString('pt-BR')}</td>`).join('')}
+  </tr>`).join('');
+
+  table.innerHTML = head + '<tbody>' + body + '</tbody>';
+}
+
+function fctSetDate(v){ FORECAST_STATE.date = v || null; loadForecast(); }
 
 /* ================================================================
    AUDITORIA
