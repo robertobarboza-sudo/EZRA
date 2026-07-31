@@ -2651,89 +2651,100 @@
 
     <!-- ASM -->
         <section id="section-asm" class="section">
-      <div class="section-header" id="section-asm-header">
-        <!-- header restored below by JS -->
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">ASM <span class="ds-badge ok" id="ds-badge-asm" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Performance de induções por zona, hora a hora</div>
+        </div>
+        <div class="section-dl-group">
+          <button class="dl-btn dl-btn-csv" onclick="loadAsm()"><i class="fas fa-rotate-right"></i> Atualizar</button>
+        </div>
       </div>
-      <div id="section-asm-wip" style="
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        min-height:420px;text-align:center;gap:20px;padding:40px">
-        <div style="
-          width:90px;height:90px;border-radius:50%;
-          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
-          display:flex;align-items:center;justify-content:center;font-size:36px">
-          🚧
+
+      <div class="switch-hint">
+        <i class="fas fa-circle-info"></i>
+        Capacidade esperada (meta) por zona ainda não está disponível — será adicionada aqui futuramente.
+      </div>
+
+      <div class="spr-filters">
+        <div class="spr-filter-group">
+          <input type="date" class="filter-select pulso-date-input" id="asm-date-input" onchange="asmSetFilter('date',this.value)" style="color-scheme:dark"/>
+          <select class="filter-select" id="asm-turno-input" onchange="asmSetFilter('turno',this.value)" style="height:34px"><option value="">Todos os turnos</option></select>
+          <select class="filter-select" id="asm-zona-input" onchange="asmSetFilter('zona',this.value)" style="height:34px"><option value="">Todas as zonas</option></select>
+          <select class="filter-select" id="asm-nivel-input" onchange="asmSetFilter('nivel',this.value)" style="height:34px"><option value="">Todos os níveis</option></select>
+          <select class="filter-select" id="asm-mesa-input" onchange="asmSetFilter('mesa',this.value)" style="height:34px"><option value="">Todas as mesas</option></select>
         </div>
-        <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">ASM — Gestão de Ativos</div>
-          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
-            Esta seção está em construção.<br/>
-            Os dados reais serão integrados via Google Sheets.
-          </div>
+      </div>
+
+      <div class="pulso-coverage" id="asm-coverage"></div>
+      <div class="switch-grid" id="asm-zone-cards" style="margin-top:12px"></div>
+
+      <div class="chart-card full" style="margin-top:16px">
+        <div class="chart-title">Induções por hora — por zona</div>
+        <div style="height:320px;margin-top:12px"><canvas id="chart-asm-hora"></canvas></div>
+      </div>
+
+      <div class="table-card full" style="margin-top:16px">
+        <div class="table-toolbar">
+          <div class="table-toolbar-title">Detalhamento por mesa/operador</div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;
-          background:var(--surface);border:1px solid var(--border);
-          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
-          <i class="fas fa-database" style="color:var(--orange)"></i>
-          Aguardando conexão com a fonte de dados
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr>
+              <th>Hora</th><th>Zona</th><th>Nível</th><th>Mesa</th><th>Colaborador</th><th>Turno</th><th>Líder</th><th>Induções</th>
+            </tr></thead>
+            <tbody id="asm-tbody"></tbody>
+          </table>
         </div>
-        <div style="display:flex;gap:10px">
-          <div class="pdf-menu-wrap">
-            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('asm',event)">
-              <i class="fas fa-file-pdf"></i> PDF
-              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
-            </button>
-            <div class="pdf-dropdown" id="pdf-menu-asm">
-              <div class="pdf-dropdown-label">Formato</div>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('asm','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('asm','dash')"><i class="fas fa-display"></i> Print Dash</button>
-            </div>
-          </div>
-          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('asm')"><i class="fas fa-file-csv"></i> CSV</button>
-        </div>
+        <div class="pulso-footer" id="asm-footer" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--text-muted)"></div>
       </div>
     </section>
 
     <!-- CONVEYOR -->
         <section id="section-conveyor" class="section">
-      <div class="section-header" id="section-conveyor-header">
-        <!-- header restored below by JS -->
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">Conveyor <span class="ds-badge ok" id="ds-badge-conveyor" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Performance por grupo de estação, hora a hora</div>
+        </div>
+        <div class="section-dl-group">
+          <button class="dl-btn dl-btn-csv" onclick="loadConveyor()"><i class="fas fa-rotate-right"></i> Atualizar</button>
+        </div>
       </div>
-      <div id="section-conveyor-wip" style="
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        min-height:420px;text-align:center;gap:20px;padding:40px">
-        <div style="
-          width:90px;height:90px;border-radius:50%;
-          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
-          display:flex;align-items:center;justify-content:center;font-size:36px">
-          🚧
+
+      <div class="switch-hint">
+        <i class="fas fa-circle-info"></i>
+        Capacidade esperada (meta) por grupo de estação ainda não está disponível — será adicionada aqui futuramente.
+      </div>
+
+      <div class="spr-filters">
+        <div class="spr-filter-group">
+          <input type="date" class="filter-select pulso-date-input" id="cnv-date-input" onchange="cnvSetFilter('date',this.value)" style="color-scheme:dark"/>
+          <select class="filter-select" id="cnv-grupo-input" onchange="cnvSetFilter('grupo',this.value)" style="height:34px"><option value="">Todos os grupos</option></select>
         </div>
-        <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Conveyor</div>
-          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
-            Esta seção está em construção.<br/>
-            Os dados reais serão integrados via Google Sheets.
-          </div>
+      </div>
+
+      <div class="pulso-coverage" id="cnv-coverage"></div>
+      <div class="switch-grid" id="cnv-group-cards" style="margin-top:12px"></div>
+
+      <div class="chart-card full" style="margin-top:16px">
+        <div class="chart-title">Pedidos processados por hora — por grupo</div>
+        <div style="height:320px;margin-top:12px"><canvas id="chart-cnv-hora"></canvas></div>
+      </div>
+
+      <div class="table-card full" style="margin-top:16px">
+        <div class="table-toolbar">
+          <div class="table-toolbar-title">Detalhamento por estação/colaborador</div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;
-          background:var(--surface);border:1px solid var(--border);
-          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
-          <i class="fas fa-database" style="color:var(--orange)"></i>
-          Aguardando conexão com a fonte de dados
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr>
+              <th>Hora</th><th>Grupo</th><th>Estação</th><th>OPS Id</th><th>Horas Trab.</th><th>Produtividade</th><th>Processado</th>
+            </tr></thead>
+            <tbody id="cnv-tbody"></tbody>
+          </table>
         </div>
-        <div style="display:flex;gap:10px">
-          <div class="pdf-menu-wrap">
-            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('conveyor',event)">
-              <i class="fas fa-file-pdf"></i> PDF
-              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
-            </button>
-            <div class="pdf-dropdown" id="pdf-menu-conveyor">
-              <div class="pdf-dropdown-label">Formato</div>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('conveyor','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('conveyor','dash')"><i class="fas fa-display"></i> Print Dash</button>
-            </div>
-          </div>
-          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('conveyor')"><i class="fas fa-file-csv"></i> CSV</button>
-        </div>
+        <div class="pulso-footer" id="cnv-footer" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--text-muted)"></div>
       </div>
     </section>
 
@@ -4293,8 +4304,8 @@ const sectionMeta = {
   spr:         {title:'Outbound',      sub:'Acompanhamento de CPT ao vivo · Turno atual'},
   backlog:     {title:'Backlog',       sub:'Monitoramento de Fila · Principal'},
   performance: {title:'Performance', sub:'KPIs Operacionais · Performance'},
-  asm:         {title:'ASM',         sub:'Gestão de Ativos · ASM'},
-  conveyor:    {title:'Conveyor',    sub:'Monitoramento de Esteiras · Conveyor'},
+  asm:         {title:'ASM',         sub:'Performance de Induções por Zona · ASM'},
+  conveyor:    {title:'Conveyor',    sub:'Performance por Grupo de Estação · Conveyor'},
   inbound:     {title:'Inbound',     sub:'Recebimento · Inbound'},
   clusterizacao: {title:'Clusterização', sub:'Mapeamento de Expedição · Operações'},
   tratativas:  {title:'Tratativas',  sub:'Ocorrências · Tratativas'},
@@ -4353,9 +4364,9 @@ async function renderSection(section){
   try {
     const {data,source} = await DataService.load(section);
     setBadge(section,'ok',source);
-    const fn = {gestao:renderGestao, performance:renderPerformance, asm:renderAsm,
+    const fn = {gestao:renderGestao, performance:renderPerformance, asm:()=>loadAsm(),
       backlog:()=>loadBacklog(), spr:()=>pulsoRender(PULSO_ACTIVE_SUBPAGE),
-      conveyor:renderConveyor, inbound:renderInbound, tratativas:renderTratativas,
+      conveyor:()=>loadConveyor(), inbound:renderInbound, tratativas:renderTratativas,
       laborplan:renderLaborplan, arvore:renderArvore, kpioverview:renderKpioverview,
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
       configuracoes:renderConfiguracoes, forecast:()=>loadForecast(),
@@ -5417,13 +5428,6 @@ function renderPerformance(){
   setBadge('performance','ok','Em Construção');
 }
 
-function renderAsm(){
-  setBadge('asm','ok','Em Construção');
-}
-
-function renderConveyor(){
-  setBadge('conveyor','ok','Em Construção');
-}
 
 
 const SUBVIEW_STATE = { inbound:'firstmile' };
@@ -7050,6 +7054,316 @@ async function switchToggle(id, ligado){
     }
   }
   renderSwitch();
+}
+
+/* ================================================================
+   ASM — performance de induções por zona, hora a hora (aba asm_pulso)
+================================================================ */
+const ASM_STATE = { date: null, turno: '', zona: '', nivel: '', mesa: '' };
+const ASM_ZONE_COLORS = { 'ZONA A': '#ee4d2d', 'ZONA B': '#5d8dff', 'ZONA C': '#10b981', 'System Default': '#75809b' };
+let ASM_DATA = null;
+let ASM_PAGE = 0;
+
+async function loadAsm(){
+  setBadge('asm', 'loading');
+  try {
+    const p = new URLSearchParams();
+    if(ASM_STATE.date) p.set('date', ASM_STATE.date);
+    const r = await fetch('/api/asm?'+p.toString(), { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    setBadge('asm', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    ASM_DATA = j;
+    ASM_PAGE = 0;
+
+    const dateInput = document.getElementById('asm-date-input');
+    if(dateInput && j.cutoff) dateInput.value = j.cutoff;
+
+    asmPopulateFilterOptions(j);
+
+    const cov = document.getElementById('asm-coverage');
+    if(cov) cov.innerHTML = j.cobertura.inicio
+      ? `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>`
+      : '';
+
+    asmRenderAll();
+  } catch(err){
+    setBadge('asm', 'error', 'Erro: '+err.message);
+    console.error('[asm]', err);
+  }
+}
+
+function asmPopulateFilterOptions(j){
+  const buildOptions = (values, placeholder, labelFn) => `<option value="">${placeholder}</option>` +
+    values.map(v => `<option value="${pulsoEscHtml(v)}">${pulsoEscHtml(labelFn ? labelFn(v) : v)}</option>`).join('');
+  const set = (id, html, val) => { const el = document.getElementById(id); if(el){ el.innerHTML = html; el.value = val; } };
+  set('asm-turno-input', buildOptions(j.opcoes.turnos, 'Todos os turnos'), ASM_STATE.turno);
+  set('asm-zona-input', buildOptions([...j.zonas, 'System Default'], 'Todas as zonas'), ASM_STATE.zona);
+  set('asm-nivel-input', buildOptions(j.opcoes.niveis, 'Todos os níveis'), ASM_STATE.nivel);
+  set('asm-mesa-input', buildOptions(j.opcoes.mesas, 'Todas as mesas', m => 'Mesa ' + m), ASM_STATE.mesa);
+}
+
+function asmSetFilter(campo, valor){
+  ASM_STATE[campo] = valor;
+  if(campo === 'date'){ loadAsm(); return; }
+  ASM_PAGE = 0;
+  asmRenderAll();
+}
+
+function asmRenderAll(){
+  asmRenderZoneCards();
+  asmRenderChart();
+  asmRenderTable();
+}
+
+// Linhas respeitando turno/nível/mesa mas NÃO o filtro de zona — usado pelos
+// cards (cada zona sempre aparece) e pelo gráfico (comparação entre zonas).
+function asmRowsForZoneCards(){
+  if(!ASM_DATA) return [];
+  return ASM_DATA.rows.filter(r =>
+    (!ASM_STATE.turno || r.turno === ASM_STATE.turno) &&
+    (!ASM_STATE.nivel || r.nivel === ASM_STATE.nivel) &&
+    (!ASM_STATE.mesa || r.mesa === ASM_STATE.mesa)
+  );
+}
+
+function asmFilteredRows(){
+  if(!ASM_DATA) return [];
+  return ASM_DATA.rows.filter(r =>
+    (!ASM_STATE.turno || r.turno === ASM_STATE.turno) &&
+    (!ASM_STATE.zona || r.zona === ASM_STATE.zona) &&
+    (!ASM_STATE.nivel || r.nivel === ASM_STATE.nivel) &&
+    (!ASM_STATE.mesa || r.mesa === ASM_STATE.mesa)
+  );
+}
+
+function asmRenderZoneCards(){
+  const wrap = document.getElementById('asm-zone-cards');
+  if(!wrap || !ASM_DATA) return;
+  const rows = asmRowsForZoneCards();
+  const zonasTodas = [...ASM_DATA.zonas, 'System Default'];
+  wrap.innerHTML = zonasTodas.map(zona => {
+    const rowsZona = rows.filter(r => r.zona === zona);
+    const total = rowsZona.reduce((s, r) => s + r.scanNumbers, 0);
+    const mesas = new Set(rowsZona.filter(r => r.mesa).map(r => r.mesa)).size;
+    const operadores = new Set(rowsZona.map(r => r.colaborador)).size;
+    const ativo = ASM_STATE.zona === zona;
+    const isSD = zona === 'System Default';
+    return `<div class="switch-card" style="cursor:pointer;${ativo?'border-color:var(--orange)':''}" onclick="asmZonaClick('${zona.replace(/'/g,"\\'")}')">
+      <div class="switch-card-top">
+        <div class="switch-card-name"><i class="fas ${isSD?'fa-robot':'fa-location-dot'}" style="color:${isSD?'var(--text-muted)':'var(--orange)'};margin-right:8px"></i>${zona}</div>
+      </div>
+      <div style="font-size:26px;font-weight:800;color:var(--text)">${total.toLocaleString('pt-BR')}</div>
+      <div class="switch-card-desc">induções ${isSD ? '(fora do fluxo de mesa/zona real)' : `· ${mesas} mesa(s) · ${operadores} operador(es)`}</div>
+    </div>`;
+  }).join('');
+}
+
+function asmZonaClick(zona){
+  ASM_STATE.zona = (ASM_STATE.zona === zona) ? '' : zona;
+  const zonaEl = document.getElementById('asm-zona-input');
+  if(zonaEl) zonaEl.value = ASM_STATE.zona;
+  ASM_PAGE = 0;
+  asmRenderAll();
+}
+
+function asmRenderChart(){
+  if(!ASM_DATA) return;
+  const rows = asmRowsForZoneCards();
+  const zonasTodas = [...ASM_DATA.zonas, 'System Default'];
+  const porZonaHora = {};
+  zonasTodas.forEach(z => { porZonaHora[z] = Array(24).fill(0); });
+  rows.forEach(r => {
+    if(r.hora >= 0 && r.hora <= 23 && porZonaHora[r.zona]) porZonaHora[r.zona][r.hora] += r.scanNumbers;
+  });
+  if(chartInstances['chart-asm-hora']){ chartInstances['chart-asm-hora'].destroy(); delete chartInstances['chart-asm-hora']; }
+  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
+  const cores = ['#ee4d2d','#5d8dff','#10b981','#f5a623','#a855f7','#75809b'];
+  const datasets = zonasTodas.map((z, i) => ({
+    label: z, data: porZonaHora[z],
+    borderColor: ASM_ZONE_COLORS[z] || cores[i % cores.length],
+    backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 2,
+  }));
+  mkLine('chart-asm-hora', labels, datasets);
+}
+
+function asmRenderTable(){
+  const tbody = document.getElementById('asm-tbody');
+  const footer = document.getElementById('asm-footer');
+  if(!tbody) return;
+  const rows = asmFilteredRows().slice().sort((a, b) => a.hora - b.hora);
+  if(!rows.length){
+    tbody.innerHTML = emptyRow(8);
+    if(footer) footer.textContent = '';
+    return;
+  }
+  const PAGE_SIZE = 100;
+  const totalPaginas = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  ASM_PAGE = Math.min(ASM_PAGE, totalPaginas - 1);
+  const pageRows = rows.slice(ASM_PAGE * PAGE_SIZE, (ASM_PAGE + 1) * PAGE_SIZE);
+  tbody.innerHTML = pageRows.map(r => `<tr>
+    <td>${String(r.hora).padStart(2,'0')}h</td>
+    <td>${pulsoEscHtml(r.zona)}</td>
+    <td>${pulsoEscHtml(r.nivel||'—')}</td>
+    <td>${pulsoEscHtml(r.mesa||'—')}</td>
+    <td>${pulsoEscHtml(r.colaborador||'—')}</td>
+    <td>${pulsoEscHtml(r.turno||'—')}</td>
+    <td>${pulsoEscHtml(r.lider||'—')}</td>
+    <td>${r.scanNumbers.toLocaleString('pt-BR')}</td>
+  </tr>`).join('');
+  const pager = totalPaginas > 1 ? `<span class="pulso-pager">
+    <button type="button" class="spr-ms-action-btn" ${ASM_PAGE===0?'disabled':''} onclick="asmSetPage(${ASM_PAGE-1})"><i class="fas fa-chevron-left"></i> Anterior</button>
+    <span>Página ${ASM_PAGE+1} de ${totalPaginas}</span>
+    <button type="button" class="spr-ms-action-btn" ${ASM_PAGE>=totalPaginas-1?'disabled':''} onclick="asmSetPage(${ASM_PAGE+1})">Próxima <i class="fas fa-chevron-right"></i></button>
+  </span>` : '';
+  if(footer) footer.innerHTML = `<span>${rows.length.toLocaleString('pt-BR')} registro(s).</span>${pager}`;
+}
+
+function asmSetPage(pg){
+  ASM_PAGE = Math.max(0, pg);
+  asmRenderTable();
+}
+
+/* ================================================================
+   CONVEYOR — performance por grupo de estação, hora a hora (aba conveyor_pulso)
+================================================================ */
+const CONVEYOR_STATE = { date: null, grupo: '' };
+const CNV_GROUP_COLORS = { 'Quedas': '#ee4d2d', 'Termoplástica': '#5d8dff', 'Esteira A': '#10b981', 'Esteira B': '#f5a623', 'Non-TO': '#a855f7' };
+let CONVEYOR_DATA = null;
+let CNV_PAGE = 0;
+
+async function loadConveyor(){
+  setBadge('conveyor', 'loading');
+  try {
+    const p = new URLSearchParams();
+    if(CONVEYOR_STATE.date) p.set('date', CONVEYOR_STATE.date);
+    const r = await fetch('/api/conveyor?'+p.toString(), { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    setBadge('conveyor', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    CONVEYOR_DATA = j;
+    CNV_PAGE = 0;
+
+    const dateInput = document.getElementById('cnv-date-input');
+    if(dateInput && j.data) dateInput.value = j.data;
+
+    const grupoEl = document.getElementById('cnv-grupo-input');
+    if(grupoEl){
+      grupoEl.innerHTML = `<option value="">Todos os grupos</option>` + j.grupos.map(g => `<option value="${g}">${g}</option>`).join('');
+      grupoEl.value = CONVEYOR_STATE.grupo;
+    }
+
+    const cov = document.getElementById('cnv-coverage');
+    if(cov) cov.innerHTML = j.cobertura.inicio
+      ? `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>`
+      : '';
+
+    cnvRenderAll();
+  } catch(err){
+    setBadge('conveyor', 'error', 'Erro: '+err.message);
+    console.error('[conveyor]', err);
+  }
+}
+
+function cnvSetFilter(campo, valor){
+  CONVEYOR_STATE[campo] = valor;
+  if(campo === 'date'){ loadConveyor(); return; }
+  CNV_PAGE = 0;
+  cnvRenderAll();
+}
+
+function cnvRenderAll(){
+  cnvRenderGroupCards();
+  cnvRenderChart();
+  cnvRenderTable();
+}
+
+function cnvRenderGroupCards(){
+  const wrap = document.getElementById('cnv-group-cards');
+  if(!wrap || !CONVEYOR_DATA) return;
+  const rows = CONVEYOR_DATA.rows;
+  wrap.innerHTML = CONVEYOR_DATA.grupos.map(grupo => {
+    const rowsGrupo = rows.filter(r => r.grupo === grupo);
+    const totalProcessado = rowsGrupo.reduce((s, r) => s + r.totalProcessamento, 0);
+    const produtividadeMedia = rowsGrupo.length ? Math.round(rowsGrupo.reduce((s, r) => s + r.produtividade, 0) / rowsGrupo.length) : 0;
+    const estacoes = new Set(rowsGrupo.map(r => r.estacao)).size;
+    const ativo = CONVEYOR_STATE.grupo === grupo;
+    return `<div class="switch-card" style="cursor:pointer;${ativo?'border-color:var(--orange)':''}" onclick="cnvGrupoClick('${grupo.replace(/'/g,"\\'")}')">
+      <div class="switch-card-top">
+        <div class="switch-card-name"><i class="fas fa-gears" style="color:var(--orange);margin-right:8px"></i>${grupo}</div>
+      </div>
+      <div style="font-size:26px;font-weight:800;color:var(--text)">${totalProcessado.toLocaleString('pt-BR')}</div>
+      <div class="switch-card-desc">pedidos processados · ${estacoes} estação(ões) · produtividade média ${produtividadeMedia.toLocaleString('pt-BR')} ped/mnhr</div>
+    </div>`;
+  }).join('');
+}
+
+function cnvGrupoClick(grupo){
+  CONVEYOR_STATE.grupo = (CONVEYOR_STATE.grupo === grupo) ? '' : grupo;
+  const grupoEl = document.getElementById('cnv-grupo-input');
+  if(grupoEl) grupoEl.value = CONVEYOR_STATE.grupo;
+  CNV_PAGE = 0;
+  cnvRenderAll();
+}
+
+function cnvRenderChart(){
+  if(!CONVEYOR_DATA) return;
+  const rows = CONVEYOR_DATA.rows;
+  const porGrupoHora = {};
+  CONVEYOR_DATA.grupos.forEach(g => { porGrupoHora[g] = Array(24).fill(0); });
+  rows.forEach(r => {
+    if(r.hora >= 0 && r.hora <= 23 && porGrupoHora[r.grupo]) porGrupoHora[r.grupo][r.hora] += r.totalProcessamento;
+  });
+  if(chartInstances['chart-cnv-hora']){ chartInstances['chart-cnv-hora'].destroy(); delete chartInstances['chart-cnv-hora']; }
+  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
+  const cores = ['#ee4d2d','#5d8dff','#10b981','#f5a623','#a855f7'];
+  const datasets = CONVEYOR_DATA.grupos.map((g, i) => ({
+    label: g, data: porGrupoHora[g],
+    borderColor: CNV_GROUP_COLORS[g] || cores[i % cores.length],
+    backgroundColor: 'transparent', fill: false, tension: .35, pointRadius: 2,
+  }));
+  mkLine('chart-cnv-hora', labels, datasets);
+}
+
+function cnvFilteredRows(){
+  if(!CONVEYOR_DATA) return [];
+  return CONVEYOR_DATA.rows.filter(r => !CONVEYOR_STATE.grupo || r.grupo === CONVEYOR_STATE.grupo);
+}
+
+function cnvRenderTable(){
+  const tbody = document.getElementById('cnv-tbody');
+  const footer = document.getElementById('cnv-footer');
+  if(!tbody) return;
+  const rows = cnvFilteredRows().slice().sort((a, b) => a.hora - b.hora);
+  if(!rows.length){
+    tbody.innerHTML = emptyRow(7);
+    if(footer) footer.textContent = '';
+    return;
+  }
+  const PAGE_SIZE = 100;
+  const totalPaginas = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  CNV_PAGE = Math.min(CNV_PAGE, totalPaginas - 1);
+  const pageRows = rows.slice(CNV_PAGE * PAGE_SIZE, (CNV_PAGE + 1) * PAGE_SIZE);
+  tbody.innerHTML = pageRows.map(r => `<tr>
+    <td>${String(r.hora).padStart(2,'0')}h</td>
+    <td>${pulsoEscHtml(r.grupo)}</td>
+    <td>${pulsoEscHtml(r.estacao)}</td>
+    <td>${pulsoEscHtml(r.opsId)}</td>
+    <td>${r.horasTrabalho.toLocaleString('pt-BR')}</td>
+    <td>${r.produtividade.toLocaleString('pt-BR')}</td>
+    <td>${r.totalProcessamento.toLocaleString('pt-BR')}</td>
+  </tr>`).join('');
+  const pager = totalPaginas > 1 ? `<span class="pulso-pager">
+    <button type="button" class="spr-ms-action-btn" ${CNV_PAGE===0?'disabled':''} onclick="cnvSetPage(${CNV_PAGE-1})"><i class="fas fa-chevron-left"></i> Anterior</button>
+    <span>Página ${CNV_PAGE+1} de ${totalPaginas}</span>
+    <button type="button" class="spr-ms-action-btn" ${CNV_PAGE>=totalPaginas-1?'disabled':''} onclick="cnvSetPage(${CNV_PAGE+1})">Próxima <i class="fas fa-chevron-right"></i></button>
+  </span>` : '';
+  if(footer) footer.innerHTML = `<span>${rows.length.toLocaleString('pt-BR')} registro(s).</span>${pager}`;
+}
+
+function cnvSetPage(pg){
+  CNV_PAGE = Math.max(0, pg);
+  cnvRenderTable();
 }
 
 function jornalTab(id, el){
