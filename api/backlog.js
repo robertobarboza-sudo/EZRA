@@ -54,7 +54,7 @@ module.exports = async (req, res) => {
 
   if (!backlog.length) {
     res.status(200).json({
-      ok: true, cutoff: null, hora: 6, atual: { backlogMedio: 0, backlogAtual: 0, backlogMedio24h: 0 }, curva: [],
+      ok: true, cutoff: null, hora: 6, atual: { backlogMedio: 0, backlogAtual: 0, backlogAtual24h: 0, backlogMedio24h: 0 }, curva: [],
       ultimaHoraComDado: null,
       backlogStart: { valor: 0, variacao: null, data: null },
       cobertura: { inicio: null, fim: null },
@@ -91,6 +91,7 @@ module.exports = async (req, res) => {
   const backlogMedio = horasComDado.length ? Math.round(horasComDado.reduce((s, c) => s + c.pacotes, 0) / horasComDado.length) : 0;
   const backlogMedio24h = horasComDado.length ? Math.round(horasComDado.reduce((s, c) => s + c.maior24h, 0) / horasComDado.length) : 0;
   const backlogAtual = (porHora.get(hora) || { pacotes: 0 }).pacotes;
+  const backlogAtual24h = (porHora.get(hora) || { maior24h: 0 }).maior24h;
   // Última hora com dado real (não zero-preenchido) pro cutoff pedido — usada pelo botão "On Time".
   const ultimaHoraComDado = horasComDado.length ? horasComDado[horasComDado.length - 1].hora : null;
 
@@ -112,7 +113,7 @@ module.exports = async (req, res) => {
   res.status(200).json({
     ok: true,
     cutoff, hora,
-    atual: { backlogMedio, backlogAtual, backlogMedio24h },
+    atual: { backlogMedio, backlogAtual, backlogAtual24h, backlogMedio24h },
     curva,
     ultimaHoraComDado,
     backlogStart: { valor: backlogStartValor, variacao: backlogStartVariacao, data: hojeIso },
