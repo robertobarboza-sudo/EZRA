@@ -231,6 +231,10 @@
       padding: 10px;
       border-top: 1px solid var(--border);
     }
+    .sidebar-footer-row { display: flex; align-items: center; gap: 4px; }
+    .nav-item-icon-only { flex: 0 0 auto; width: 36px; justify-content: center; padding: 9px 0; margin-bottom: 0; }
+    #sidebar.collapsed .sidebar-footer-row { flex-direction: column; }
+    #sidebar.collapsed .nav-item-icon-only { width: 100%; }
 
     /* ── MAIN LAYOUT ─────────────────────────────────────────── */
     #app {
@@ -2444,15 +2448,17 @@
       <div class="nav-item" data-section="jornal" data-label="Jornal" onclick="navigateTo('jornal',this)">
         <i class="fas fa-newspaper nav-icon"></i><span class="nav-label">Jornal</span>
       </div>
-      <div class="nav-item" data-section="switch" data-label="Switch" onclick="navigateTo('switch',this)">
-        <i class="fas fa-toggle-on nav-icon"></i><span class="nav-label">Switch</span>
-      </div>
     </div>
   </div>
 
   <div class="sidebar-footer">
-    <div class="nav-item" data-section="configuracoes" data-label="Configurações" onclick="navigateTo('configuracoes',this)">
-      <i class="fas fa-gear nav-icon"></i><span class="nav-label">Configurações</span>
+    <div class="sidebar-footer-row">
+      <div class="nav-item" data-section="configuracoes" data-label="Configurações" onclick="navigateTo('configuracoes',this)" style="flex:1">
+        <i class="fas fa-gear nav-icon"></i><span class="nav-label">Configurações</span>
+      </div>
+      <div class="nav-item nav-item-icon-only" data-section="switch" data-label="Switch" title="Switch" onclick="navigateTo('switch',this)">
+        <i class="fas fa-toggle-on nav-icon"></i>
+      </div>
     </div>
     <div class="theme-switch" onclick="toggleTheme()" title="Alternar tema claro/escuro">
       <i class="fas fa-circle-half-stroke nav-icon"></i>
@@ -4085,7 +4091,7 @@ const ALL_SECTIONS = [
   'gestao','performance','spr','asm','conveyor','inbound','clusterizacao',
   'tratativas','laborplan','backlog','arvore','kpioverview','scorecard',
   'absenteismo','forecast','auditoria','organograma','configuracoes',
-  'matriz','mapadados','jornal'
+  'matriz','mapadados','jornal','switch'
 ];
 
 const GOV_SECTIONS = ['matriz','mapadados','jornal'];
