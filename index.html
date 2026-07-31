@@ -1743,7 +1743,10 @@
        .jornal-article, só que o card inteiro é clicável e abre o PDF. */
     /* Mesma cor pra todas as edições da lista, não só a mais recente —
        o destaque de "mais recente" fica só no texto/badge, não na cor. */
-    .jrn-ed-row { cursor: pointer; border-color: var(--orange); background: rgba(238,77,45,.04); }
+    /* .jornal-article.jrn-ed-row (não só .jrn-ed-row): precisa da mesma
+       especificidade da regra base .jornal-article, que vem depois no
+       arquivo e senão vencia no empate. */
+    .jornal-article.jrn-ed-row { cursor: pointer; border-color: var(--orange); background: rgba(238,77,45,.04); }
     .jrn-ed-row .jornal-article-num { color: rgba(238,77,45,.3); }
 
     /* Visualizador de edição — tela cheia, só o PDF, sem cromo de modal */
