@@ -98,6 +98,46 @@ function segundaDaSemana(d) {
   return seg;
 }
 
+function addMonths(mesRefStr, delta) {
+  const [y, m] = mesRefStr.split('-').map(Number);
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+// Total do mês (só dias dentro do mês) + nº de semanas (segunda-domingo) que tocam o mês —
+// usado como divisor "dias produtivos" (6 por semana) do Ado Médio mensal.
+function totalDoMes(mesRefStr, aggDia) {
+  const [ano, mesNum] = mesRefStr.split('-').map(Number);
+  const primeiroDiaMes = new Date(Date.UTC(ano, mesNum - 1, 1));
+  const ultimoDiaMes = new Date(Date.UTC(ano, mesNum, 0));
+  const dias = [];
+  for (let d = new Date(primeiroDiaMes); d <= ultimoDiaMes; d.setUTCDate(d.getUTCDate() + 1)) {
+    dias.push(aggDia(d.toISOString().slice(0, 10)));
+  }
+  const inicioSemanas = segundaDaSemana(primeiroDiaMes);
+  const fimSemanas = segundaDaSemana(ultimoDiaMes);
+  fimSemanas.setUTCDate(fimSemanas.getUTCDate() + 6);
+  let numSemanas = 0;
+  for (let seg = new Date(inicioSemanas); seg <= fimSemanas; seg.setUTCDate(seg.getUTCDate() + 7)) numSemanas++;
+  return { total: somaAgg(dias), numSemanas };
+}
+
+function totalDaSemana(mondayIso, aggDia) {
+  const start = new Date(mondayIso + 'T00:00:00Z');
+  const dias = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(start);
+    d.setUTCDate(d.getUTCDate() + i);
+    return aggDia(d.toISOString().slice(0, 10));
+  });
+  return somaAgg(dias);
+}
+
+// Variação % vs período anterior; null quando o período anterior é 0 (evita Infinity).
+function pctDelta(atualV, anteriorV) {
+  if (!anteriorV) return null;
+  return ((atualV - anteriorV) / anteriorV) * 100;
+}
+
 module.exports = async (req, res) => {
   let rows;
   try {
@@ -113,9 +153,11 @@ module.exports = async (req, res) => {
     .filter(r => r.dataIso !== null);
 
   if (!forecast.length) {
+    const zeroCard = { forecast: 0, forecastVar: null, adoMedio: 0, adoMedioVar: null, transhipment: 0, transhipmentVar: null };
     res.status(200).json({
       ok: true, data: null, mes: null, atual: { ...ZERO_AGG },
       semanas: [], mesTotal: { ...ZERO_AGG }, quartilMensal: { ...ZERO_AGG }, adoQuartil: { ...ZERO_AGG },
+      cardsPeriodo: { mes: zeroCard, week: { ...zeroCard }, dia: { ...zeroCard } },
       cobertura: { inicio: null, fim: null },
     });
     return;
@@ -178,6 +220,44 @@ module.exports = async (req, res) => {
   const adoQuartil = {};
   CANAIS.forEach(c => { adoQuartil[c] = quartilMensal[c] / 6; });
 
+  // ── Cards por período (Mês/Week/Dia) + variação vs período anterior ──
+  const semanaRef = semanas.find(s => dataRef >= s.inicio && dataRef <= s.fim) || semanas[semanas.length - 1];
+
+  const mesAnteriorRef = addMonths(mesRef, -1);
+  const mesAnteriorCalc = totalDoMes(mesAnteriorRef, aggDia);
+  const numSemanasMesAtual = semanas.length;
+
+  const semanaAnteriorSeg = new Date(semanaRef.inicio + 'T00:00:00Z');
+  semanaAnteriorSeg.setUTCDate(semanaAnteriorSeg.getUTCDate() - 7);
+  const semanaAnterior = totalDaSemana(semanaAnteriorSeg.toISOString().slice(0, 10), aggDia);
+
+  const diaAnteriorDate = new Date(dataRef + 'T00:00:00Z');
+  diaAnteriorDate.setUTCDate(diaAnteriorDate.getUTCDate() - 1);
+  const diaAnterior = aggDia(diaAnteriorDate.toISOString().slice(0, 10));
+
+  const adoMedioMes = mesTotal.total / (6 * Math.max(numSemanasMesAtual, 1));
+  const adoMedioMesAnterior = mesAnteriorCalc.total.total / (6 * Math.max(mesAnteriorCalc.numSemanas, 1));
+  const adoMedioWeek = semanaRef.semana.total / 6;
+  const adoMedioWeekAnterior = semanaAnterior.total / 6;
+
+  const cardsPeriodo = {
+    mes: {
+      forecast: mesTotal.total, forecastVar: pctDelta(mesTotal.total, mesAnteriorCalc.total.total),
+      adoMedio: adoMedioMes, adoMedioVar: pctDelta(adoMedioMes, adoMedioMesAnterior),
+      transhipment: mesTotal.transhipment, transhipmentVar: pctDelta(mesTotal.transhipment, mesAnteriorCalc.total.transhipment),
+    },
+    week: {
+      forecast: semanaRef.semana.total, forecastVar: pctDelta(semanaRef.semana.total, semanaAnterior.total),
+      adoMedio: adoMedioWeek, adoMedioVar: pctDelta(adoMedioWeek, adoMedioWeekAnterior),
+      transhipment: semanaRef.semana.transhipment, transhipmentVar: pctDelta(semanaRef.semana.transhipment, semanaAnterior.transhipment),
+    },
+    dia: {
+      forecast: atual.total, forecastVar: pctDelta(atual.total, diaAnterior.total),
+      adoMedio: atual.total, adoMedioVar: pctDelta(atual.total, diaAnterior.total),
+      transhipment: atual.transhipment, transhipmentVar: pctDelta(atual.transhipment, diaAnterior.transhipment),
+    },
+  };
+
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
   res.status(200).json({
     ok: true,
@@ -188,6 +268,7 @@ module.exports = async (req, res) => {
     mesTotal,
     quartilMensal,
     adoQuartil,
+    cardsPeriodo,
     cobertura: { inicio: dataMinima, fim: dataMaxima },
   });
 };

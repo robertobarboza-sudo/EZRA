@@ -3153,6 +3153,7 @@
         </div>
       </div>
       <div id="fct-kpis"></div>
+      <div id="fct-period-kpis" style="margin-top:12px"></div>
       <div class="pulso-coverage" id="fct-coverage"></div>
       <div id="fct-weeks" style="margin-top:16px"></div>
       <div class="fct-month-blocks" id="fct-month-blocks"></div>
@@ -6061,12 +6062,39 @@ async function loadForecast(){
       ? `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>`
       : '';
 
+    buildForecastPeriodKpis(j.cardsPeriodo);
     buildForecastWeeks(j.semanas);
     buildForecastMonthBlocks(j.mesTotal, j.quartilMensal, j.adoQuartil, j.mes);
   } catch(err){
     setBadge('forecast', 'error', 'Erro: '+err.message);
     console.error('[forecast]', err);
   }
+}
+
+function fctDelta(pct){
+  if(pct === null || pct === undefined || !isFinite(pct)) return { delta:'', trend:'up' };
+  const trend = pct >= 0 ? 'up' : 'down';
+  return { delta: `${pct>=0?'+':''}${pct.toFixed(1)}% vs período anterior`, trend };
+}
+
+function buildForecastPeriodKpis(cardsPeriodo){
+  if(!cardsPeriodo) return;
+  const { mes, week, dia } = cardsPeriodo;
+  const card = (label, valor, varPct, icon) => {
+    const { delta, trend } = fctDelta(varPct);
+    return { label, value: Math.round(valor||0).toLocaleString('pt-BR'), delta, trend, type:'', icon };
+  };
+  buildKPIs('fct-period-kpis', [
+    card('Forecast - Mês',    mes.forecast,    mes.forecastVar,    'fa-calendar-days'),
+    card('Ado Méd. Mês',      mes.adoMedio,    mes.adoMedioVar,    'fa-chart-line'),
+    card('Transhipment Mês',  mes.transhipment, mes.transhipmentVar, 'fa-shuffle'),
+    card('Forecast - Week',   week.forecast,   week.forecastVar,   'fa-calendar-week'),
+    card('Ado Méd. Week',     week.adoMedio,   week.adoMedioVar,   'fa-chart-line'),
+    card('Transhipment Week', week.transhipment, week.transhipmentVar, 'fa-shuffle'),
+    card('Forecast - Dia',    dia.forecast,    dia.forecastVar,    'fa-calendar-day'),
+    card('Ado Méd. Dia',      dia.adoMedio,    dia.adoMedioVar,    'fa-chart-line'),
+    card('Transhipment Dia',  dia.transhipment, dia.transhipmentVar, 'fa-shuffle'),
+  ]);
 }
 
 function buildForecastWeeks(semanas){
