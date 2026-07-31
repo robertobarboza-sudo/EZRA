@@ -3575,31 +3575,6 @@
         <div class="jornal-articles" id="jrn-ed-grid"></div>
       </div>
 
-      <!-- Visualizador de edição — tela cheia, só o PDF -->
-      <div class="jrn-viewer-full" id="jrn-viewer-overlay">
-        <button class="jrn-viewer-close" onclick="jornalCloseViewer()" title="Fechar (Esc)"><i class="fas fa-xmark"></i></button>
-        <iframe id="jrn-viewer-frame"></iframe>
-      </div>
-
-      <!-- Adicionar/editar jornais (admin) -->
-      <div class="modal-overlay" id="jrn-admin-overlay" onclick="if(event.target===this) this.classList.remove('open')">
-        <div class="modal" style="max-width:520px">
-          <div class="modal-header">
-            <span class="modal-title"><i class="fas fa-newspaper" style="color:var(--orange);margin-right:8px"></i>Adicionar / Editar jornais</span>
-            <button class="modal-close" onclick="document.getElementById('jrn-admin-overlay').classList.remove('open')"><i class="fas fa-xmark"></i></button>
-          </div>
-          <div style="font-size:13px;color:var(--text-sub);line-height:1.7">
-            <p style="margin-bottom:10px">As edições ficam na pasta <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">jornais/</code> do site, uma por semana:</p>
-            <ol style="margin:0 0 12px 18px">
-              <li>Salve o PDF da edição como <strong style="color:var(--text)">ANO-WXX.pdf</strong> (ex: <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">2026-W31.pdf</code>) dentro de <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">jornais/</code>.</li>
-              <li>Adicione a edição em <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">jornais/manifest.json</code> (semana, ano e arquivo).</li>
-              <li>Publique — a nova edição aparece aqui automaticamente.</li>
-            </ol>
-            <p style="font-size:12px;color:var(--text-muted)">O envio direto por upload nesta tela vai ser habilitado junto com o controle de acesso admin.</p>
-          </div>
-        </div>
-      </div>
-
       <!-- ── ANIVERSARIANTES ── -->
       <div class="jornal-panel" id="jornal-panel-aniversariantes">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
@@ -3637,6 +3612,34 @@
       </div>
 
     </section>
+
+    <!-- Fora de .section de propósito: .section tem animation/transform, que
+         cria um containing block novo pra position:fixed e quebrava o
+         tela-cheia do visualizador (ficava preso ao tamanho da section). -->
+    <!-- Visualizador de edição do Jornal — tela cheia, só o PDF -->
+    <div class="jrn-viewer-full" id="jrn-viewer-overlay">
+      <button class="jrn-viewer-close" onclick="jornalCloseViewer()" title="Fechar (Esc)"><i class="fas fa-xmark"></i></button>
+      <iframe id="jrn-viewer-frame"></iframe>
+    </div>
+
+    <!-- Adicionar/editar jornais (admin) -->
+    <div class="modal-overlay" id="jrn-admin-overlay" onclick="if(event.target===this) this.classList.remove('open')">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-header">
+          <span class="modal-title"><i class="fas fa-newspaper" style="color:var(--orange);margin-right:8px"></i>Adicionar / Editar jornais</span>
+          <button class="modal-close" onclick="document.getElementById('jrn-admin-overlay').classList.remove('open')"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div style="font-size:13px;color:var(--text-sub);line-height:1.7">
+          <p style="margin-bottom:10px">As edições ficam na pasta <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">jornais/</code> do site, uma por semana:</p>
+          <ol style="margin:0 0 12px 18px">
+            <li>Salve o PDF da edição como <strong style="color:var(--text)">ANO-WXX.pdf</strong> (ex: <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">2026-W31.pdf</code>) dentro de <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">jornais/</code>.</li>
+            <li>Adicione a edição em <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">jornais/manifest.json</code> (semana, ano e arquivo).</li>
+            <li>Publique — a nova edição aparece aqui automaticamente.</li>
+          </ol>
+          <p style="font-size:12px;color:var(--text-muted)">O envio direto por upload nesta tela vai ser habilitado junto com o controle de acesso admin.</p>
+        </div>
+      </div>
+    </div>
 
   </main>
 </div>
