@@ -209,16 +209,10 @@
     .nav-item.active .nav-icon-composite .icon-badge { background: var(--orange-ll); }
     .nav-item:hover .nav-icon-composite .icon-badge { background: var(--orange-l); }
 
-    /* Escudo (logo do COP Academy) — mesmo padrão de tamanho/cor dos demais
-       ícones do nav, com a letra centralizada em vez de badge no canto. */
-    .nav-icon-shield { position: relative; width: 20px; height: 20px;
-      display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-    .nav-icon-shield i { font-size: 17px; color: var(--orange); }
-    .nav-icon-shield-letter {
-      position: absolute; top: 54%; left: 50%; transform: translate(-50%, -50%);
-      font-size: 8px; font-weight: 900; color: #fff; line-height: 1;
-      font-family: 'Inter', sans-serif;
-    }
+    /* Escudo (logo do COP Academy) — SVG próprio no mesmo gradiente/sombra
+       da .logo-mark principal do PULSO, tamanho igual aos demais ícones do nav. */
+    .nav-icon-shield { width: 20px; height: 22px; flex-shrink: 0;
+      filter: drop-shadow(0 2px 4px rgba(238,77,45,.35)); }
 
     /* Tooltip */
     #sidebar.collapsed .nav-item::after {
@@ -2325,7 +2319,17 @@
         <i class="fas fa-user-clock nav-icon"></i><span class="nav-label">Absenteísmo</span>
       </div>
       <div class="nav-item" data-label="COP Academy" onclick="pulsoNavExternal(LINK_COP_ACADEMY)">
-        <span class="nav-icon-shield"><i class="fas fa-shield"></i><span class="nav-icon-shield-letter">C</span></span><span class="nav-label">COP Academy</span>
+        <svg class="nav-icon-shield" viewBox="0 0 24 26" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="copAcademyGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stop-color="#ee4d2d"/>
+              <stop offset="100%" stop-color="#ff8c00"/>
+            </linearGradient>
+          </defs>
+          <path d="M12 1.2 L21.5 5 V12.2 C21.5 18 17.2 22.7 12 24.8 C6.8 22.7 2.5 18 2.5 12.2 V5 Z"
+            fill="url(#copAcademyGrad)" stroke="#20263e" stroke-width="1.1"/>
+          <text x="12" y="16.2" text-anchor="middle" font-family="Inter, sans-serif" font-size="10.5" font-weight="900" fill="#fff">C</text>
+        </svg><span class="nav-label">COP Academy</span>
       </div>
       <div class="nav-item" data-section="forecast" data-label="Forecast" onclick="navigateTo('forecast',this)">
         <span class="nav-icon-composite"><i class="fas fa-chart-column icon-base" style="font-size:13px"></i><span class="icon-badge" style="font-size:6.5px;padding:0 2px"><i class="fas fa-magnifying-glass" style="font-size:6px"></i></span></span><span class="nav-label">Forecast</span>
