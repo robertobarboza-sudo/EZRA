@@ -597,6 +597,44 @@
     .fct-month-card-rows div { display: flex; justify-content: space-between; color: var(--text-muted); }
     .fct-month-card-rows div span:last-child { color: var(--text); font-weight: 600; }
     .fct-month-card-rows .fct-mc-total span:last-child { color: var(--orange); font-weight: 800; }
+
+    .switch-hint {
+      display: flex; align-items: center; gap: 10px; font-size: 12.5px; color: var(--text-muted);
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 12px 16px; margin-bottom: 16px;
+    }
+    .switch-hint i { color: var(--orange); font-size: 13px; }
+    .switch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+    .switch-card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 18px 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px;
+    }
+    .switch-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    .switch-card-name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .switch-card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .switch-card-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+    .switch-status {
+      font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+      border-radius: 999px; padding: 3px 10px;
+    }
+    .switch-status.on      { background: rgba(16,185,129,.14); color: #10b981; }
+    .switch-status.off     { background: rgba(117,128,155,.14); color: var(--text-muted); }
+    .switch-status.pending { background: rgba(238,77,45,.12); color: var(--orange); }
+
+    .switch-toggle { position: relative; width: 42px; height: 24px; flex-shrink: 0; }
+    .switch-toggle input { opacity: 0; width: 0; height: 0; }
+    .switch-toggle-track {
+      position: absolute; inset: 0; background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: 999px; cursor: pointer; transition: all var(--transition);
+    }
+    .switch-toggle-track::before {
+      content: ''; position: absolute; width: 18px; height: 18px; left: 2px; top: 2px;
+      background: #fff; border-radius: 50%; transition: transform var(--transition);
+      box-shadow: 0 1px 3px rgba(0,0,0,.3);
+    }
+    .switch-toggle input:checked + .switch-toggle-track { background: var(--orange); border-color: var(--orange); }
+    .switch-toggle input:checked + .switch-toggle-track::before { transform: translateX(18px); }
+    .switch-toggle input:disabled + .switch-toggle-track { opacity: .4; cursor: not-allowed; }
     .table-toolbar {
       display: flex; align-items: center;
       justify-content: space-between;
@@ -2406,6 +2444,9 @@
       <div class="nav-item" data-section="jornal" data-label="Jornal" onclick="navigateTo('jornal',this)">
         <i class="fas fa-newspaper nav-icon"></i><span class="nav-label">Jornal</span>
       </div>
+      <div class="nav-item" data-section="switch" data-label="Switch" onclick="navigateTo('switch',this)">
+        <i class="fas fa-toggle-on nav-icon"></i><span class="nav-label">Switch</span>
+      </div>
     </div>
   </div>
 
@@ -3613,6 +3654,21 @@
 
     </section>
 
+    <!-- SWITCH -->
+    <section id="section-switch" class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">Switch <span class="ds-badge ok" id="ds-badge-switch" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Painel de controle de automações</div>
+        </div>
+      </div>
+      <div class="switch-hint">
+        <i class="fas fa-circle-info"></i>
+        Liga/desliga automações reais que rodam por fora do PULSO. Novas automações aparecem aqui assim que forem integradas.
+      </div>
+      <div class="switch-grid" id="switch-grid"></div>
+    </section>
+
     <!-- Fora de .section de propósito: .section tem animation/transform, que
          cria um containing block novo pra position:fixed e quebrava o
          tela-cheia do visualizador (ficava preso ao tamanho da section). -->
@@ -4247,6 +4303,7 @@ const sectionMeta = {
   matriz:      {title:'Matriz',        sub:'Governança Operacional · Governança'},
   mapadados:   {title:'Mapa de Dados', sub:'Queries · Scripts · Links · Governança'},
   jornal:      {title:'Jornal',        sub:'Informativo Operacional · Governança'},
+  switch:      {title:'Switch',        sub:'Painel de Controle de Automações · Governança'},
 };
 
 
@@ -4297,7 +4354,8 @@ async function renderSection(section){
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
       configuracoes:renderConfiguracoes, forecast:()=>loadForecast(),
       auditoria:renderAuditoria, clusterizacao:()=>pulsoRender('clusterizacao'),
-      matriz:renderMatriz, mapadados:renderMapaDados, jornal:renderJornal};
+      matriz:renderMatriz, mapadados:renderMapaDados, jornal:renderJornal,
+      switch:renderSwitch};
     if(fn[section]) fn[section](data);
     else renderPlaceholder(section);
   } catch(err){
@@ -6920,6 +6978,72 @@ function renderJornal(){
   buildAvisos();
   buildCampanhas();
   setJornalDates();
+}
+
+/* ================================================================
+   SWITCH — painel de controle de automações externas ao PULSO.
+   Estado (ligado/desligado) fica só no navegador (localStorage), por
+   automação (`SWITCH_LS_PREFIX + id`). Automações sem `endpoint` ainda não
+   têm integração real — o toggle fica desabilitado e o card mostra
+   "Aguardando integração" até a automação ser documentada/hospedada.
+================================================================ */
+const SWITCH_LS_PREFIX = 'pulso_switch_';
+const SWITCH_AUTOMATIONS = [
+  {
+    id: 'extracao-python',
+    nome: 'Extração Python',
+    descricao: 'Rotina de extração de dados em Python, a ser hospedada no Vercel. Aguardando documentação para habilitar o controle real de ligar/desligar.',
+    icon: 'fa-code',
+    endpoint: null, // preencher quando a automação for documentada/hospedada
+  },
+];
+
+function switchGetState(id){
+  return localStorage.getItem(SWITCH_LS_PREFIX + id) === 'on';
+}
+
+function switchCardHtml(a){
+  const ligado = switchGetState(a.id);
+  const pendente = !a.endpoint;
+  const statusCls = pendente ? 'pending' : (ligado ? 'on' : 'off');
+  const statusLabel = pendente ? 'Aguardando integração' : (ligado ? 'Ativo' : 'Pausado');
+  return `<div class="switch-card">
+    <div class="switch-card-top">
+      <div>
+        <div class="switch-card-name"><i class="fas ${a.icon}" style="color:var(--orange);margin-right:8px"></i>${a.nome}</div>
+      </div>
+      <label class="switch-toggle">
+        <input type="checkbox" ${ligado?'checked':''} ${pendente?'disabled':''} onchange="switchToggle('${a.id}', this.checked)"/>
+        <span class="switch-toggle-track"></span>
+      </label>
+    </div>
+    <div class="switch-card-desc">${a.descricao}</div>
+    <div class="switch-card-bottom">
+      <span class="switch-status ${statusCls}">${statusLabel}</span>
+    </div>
+  </div>`;
+}
+
+function renderSwitch(){
+  const grid = document.getElementById('switch-grid');
+  if(!grid) return;
+  grid.innerHTML = SWITCH_AUTOMATIONS.map(switchCardHtml).join('');
+  setBadge('switch', 'ok', 'Demo');
+}
+
+async function switchToggle(id, ligado){
+  const automation = SWITCH_AUTOMATIONS.find(a => a.id === id);
+  if(!automation) return;
+  localStorage.setItem(SWITCH_LS_PREFIX + id, ligado ? 'on' : 'off');
+  if(automation.endpoint){
+    try {
+      await fetch(automation.endpoint, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ ligado }) });
+    } catch(err){
+      console.error('[switch]', err);
+      showToast('Erro ao atualizar automação: '+err.message, true);
+    }
+  }
+  renderSwitch();
 }
 
 function jornalTab(id, el){
