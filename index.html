@@ -1371,6 +1371,16 @@
     /* Input nativo de data: sem display:flex (atrapalha o seletor de calendário do navegador) */
     .spr-filters .pulso-date-input { height: 34px; box-sizing: border-box; padding: 0 10px; }
 
+    .bkl-ontime-btn {
+      height: 34px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 6px;
+      padding: 0 12px; border-radius: var(--radius); border: 1px solid var(--orange);
+      background: rgba(238,77,45,.08); color: var(--orange);
+      font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit;
+      transition: all var(--transition);
+    }
+    .bkl-ontime-btn:hover { background: rgba(238,77,45,.16); }
+    .bkl-ontime-btn i { font-size: 11px; }
+
     .spr-ms-wrap { position: relative; display: inline-flex; }
     .spr-ms-btn {
       padding: 5px 12px; border-radius: var(--radius);
@@ -2326,6 +2336,9 @@
       <div class="nav-item" data-section="backlog" data-label="Backlog" onclick="navigateTo('backlog',this)">
         <i class="fas fa-layer-group nav-icon"></i><span class="nav-label">Backlog</span>
       </div>
+      <div class="nav-item" data-section="forecast" data-label="Forecast" onclick="navigateTo('forecast',this)">
+        <span class="nav-icon-composite"><i class="fas fa-chart-column icon-base" style="font-size:13px"></i><span class="icon-badge" style="font-size:6.5px;padding:0 2px"><i class="fas fa-magnifying-glass" style="font-size:6px"></i></span></span><span class="nav-label">Forecast</span>
+      </div>
     </div>
 
     <div class="nav-group">
@@ -2369,9 +2382,6 @@
           <circle cx="20" cy="20" r="7" fill="#E8501F"></circle>
           <line x1="20" y1="20" x2="34" y2="9" stroke="#E8501F" stroke-width="1.6" stroke-linecap="round"></line>
         </svg><span class="nav-label">COP Academy</span>
-      </div>
-      <div class="nav-item" data-section="forecast" data-label="Forecast" onclick="navigateTo('forecast',this)">
-        <span class="nav-icon-composite"><i class="fas fa-chart-column icon-base" style="font-size:13px"></i><span class="icon-badge" style="font-size:6.5px;padding:0 2px"><i class="fas fa-magnifying-glass" style="font-size:6px"></i></span></span><span class="nav-label">Forecast</span>
       </div>
     </div>
 
@@ -2759,6 +2769,7 @@
         <div class="spr-filter-group">
           <input type="date" class="filter-select pulso-date-input" id="bkl-date-input" onchange="bklSetDate(this.value)" style="color-scheme:dark"/>
           <select class="filter-select" id="bkl-hour-input" onchange="bklSetHour(this.value)" style="height:34px"></select>
+          <button type="button" class="bkl-ontime-btn" onclick="bklOnTime()"><i class="fas fa-bolt"></i> On Time</button>
         </div>
       </div>
       <div id="bkl-kpis"></div>
@@ -5815,7 +5826,7 @@ async function loadBacklog(){
     setBadge('backlog', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
 
     const dateInput = document.getElementById('bkl-date-input');
-    if(dateInput && !BACKLOG_STATE.date && j.cutoff) dateInput.value = j.cutoff;
+    if(dateInput && j.cutoff) dateInput.value = j.cutoff;
     if(hourInput) hourInput.value = String(j.hora);
 
     const bsVar = j.backlogStart.variacao;
@@ -5848,6 +5859,20 @@ async function loadBacklog(){
 
 function bklSetDate(v){ BACKLOG_STATE.date = v || null; loadBacklog(); }
 function bklSetHour(v){ BACKLOG_STATE.hour = v; loadBacklog(); }
+
+// "On Time" — joga o filtro pra data mais recente disponível + última hora com dado real dela.
+async function bklOnTime(){
+  try {
+    const r = await fetch('/api/backlog', { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok || !j.cutoff) return;
+    BACKLOG_STATE.date = j.cutoff;
+    BACKLOG_STATE.hour = (j.ultimaHoraComDado !== null && j.ultimaHoraComDado !== undefined) ? j.ultimaHoraComDado : 6;
+    loadBacklog();
+  } catch(err){
+    console.error('[backlog on-time]', err);
+  }
+}
 
 function renderLaborplan(){
   setBadge('laborplan','ok','Em Construção');

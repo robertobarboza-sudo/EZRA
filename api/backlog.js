@@ -22,6 +22,10 @@
  * "Backlog Start" — card fixo (não segue o filtro de data/hora): o backlog
  * às 6h da manhã do dia vigente (data real de hoje, não o cutoff selecionado),
  * com variação % vs a mesma leitura (6h) do dia anterior.
+ *
+ * "On Time" — botão no front que joga o filtro pro cutoff mais recente
+ * disponível (`cobertura.fim`) e pra última hora com dado real desse cutoff
+ * (`ultimaHoraComDado`, ignora horas zero-preenchidas sem linha na planilha).
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum } = require('./_period');
@@ -51,6 +55,7 @@ module.exports = async (req, res) => {
   if (!backlog.length) {
     res.status(200).json({
       ok: true, cutoff: null, hora: 6, atual: { backlogMedio: 0, backlogAtual: 0, backlogMedio24h: 0 }, curva: [],
+      ultimaHoraComDado: null,
       backlogStart: { valor: 0, variacao: null, data: null },
       cobertura: { inicio: null, fim: null },
     });
@@ -86,6 +91,8 @@ module.exports = async (req, res) => {
   const backlogMedio = horasComDado.length ? Math.round(horasComDado.reduce((s, c) => s + c.pacotes, 0) / horasComDado.length) : 0;
   const backlogMedio24h = horasComDado.length ? Math.round(horasComDado.reduce((s, c) => s + c.maior24h, 0) / horasComDado.length) : 0;
   const backlogAtual = (porHora.get(hora) || { pacotes: 0 }).pacotes;
+  // Última hora com dado real (não zero-preenchido) pro cutoff pedido — usada pelo botão "On Time".
+  const ultimaHoraComDado = horasComDado.length ? horasComDado[horasComDado.length - 1].hora : null;
 
   // Backlog Start — sempre o dia real de hoje às 6h, independente do filtro de data/hora.
   const pacotesEm = (diaIso, h) => {
@@ -107,6 +114,7 @@ module.exports = async (req, res) => {
     cutoff, hora,
     atual: { backlogMedio, backlogAtual, backlogMedio24h },
     curva,
+    ultimaHoraComDado,
     backlogStart: { valor: backlogStartValor, variacao: backlogStartVariacao, data: hojeIso },
     cobertura: { inicio: dataMinima, fim: dataMaxima },
   });
