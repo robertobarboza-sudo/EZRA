@@ -209,6 +209,17 @@
     .nav-item.active .nav-icon-composite .icon-badge { background: var(--orange-ll); }
     .nav-item:hover .nav-icon-composite .icon-badge { background: var(--orange-l); }
 
+    /* Escudo (logo do COP Academy) — mesmo padrão de tamanho/cor dos demais
+       ícones do nav, com a letra centralizada em vez de badge no canto. */
+    .nav-icon-shield { position: relative; width: 20px; height: 20px;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .nav-icon-shield i { font-size: 17px; color: var(--orange); }
+    .nav-icon-shield-letter {
+      position: absolute; top: 54%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 8px; font-weight: 900; color: #fff; line-height: 1;
+      font-family: 'Inter', sans-serif;
+    }
+
     /* Tooltip */
     #sidebar.collapsed .nav-item::after {
       content: attr(data-label);
@@ -2300,11 +2311,8 @@
 
     <div class="nav-group">
       <div class="nav-group-label">Qualidade</div>
-      <div class="nav-item" data-section="tratativas" data-label="Tratativas" onclick="navigateTo('tratativas',this)">
-        <i class="fas fa-bandage nav-icon"></i><span class="nav-label">Tratativas</span>
-      </div>
-      <div class="nav-item" data-section="auditoria" data-label="Auditoria" onclick="navigateTo('auditoria',this)">
-        <span class="nav-icon-composite"><i class="fas fa-user-check icon-base" style="font-size:13px"></i><span class="icon-badge" style="font-size:6px;padding:0 2px"><i class="fas fa-crosshairs" style="font-size:6px"></i></span></span><span class="nav-label">Auditoria</span>
+      <div class="nav-item" data-label="Tratativas e Aud." onclick="pulsoNavExternal(LINK_TRATATIVAS_AUD)">
+        <span class="nav-icon-composite"><i class="fas fa-user-check icon-base" style="font-size:13px"></i><span class="icon-badge" style="font-size:6px;padding:0 2px"><i class="fas fa-crosshairs" style="font-size:6px"></i></span></span><span class="nav-label">Tratativas e Aud. <i class="fas fa-arrow-up-right-from-square" style="font-size:9px;opacity:.6;margin-left:2px"></i></span>
       </div>
     </div>
 
@@ -2313,8 +2321,11 @@
       <div class="nav-item" data-section="scorecard" data-label="Score Card" onclick="navigateTo('scorecard',this)">
         <i class="fas fa-id-card nav-icon"></i><span class="nav-label">Score Card</span>
       </div>
-      <div class="nav-item" data-section="absenteismo" data-label="Absenteísmo" onclick="navigateTo('absenteismo',this)">
-        <i class="fas fa-user-clock nav-icon"></i><span class="nav-label">Absenteísmo</span>
+      <div class="nav-item" data-label="Absenteísmo" onclick="pulsoNavExternal(LINK_ABSENTEISMO)">
+        <i class="fas fa-user-clock nav-icon"></i><span class="nav-label">Absenteísmo <i class="fas fa-arrow-up-right-from-square" style="font-size:9px;opacity:.6;margin-left:2px"></i></span>
+      </div>
+      <div class="nav-item" data-label="COP Academy" onclick="pulsoNavExternal(LINK_COP_ACADEMY)">
+        <span class="nav-icon-shield"><i class="fas fa-shield"></i><span class="nav-icon-shield-letter">C</span></span><span class="nav-label">COP Academy <i class="fas fa-arrow-up-right-from-square" style="font-size:9px;opacity:.6;margin-left:2px"></i></span>
       </div>
       <div class="nav-item" data-section="forecast" data-label="Forecast" onclick="navigateTo('forecast',this)">
         <span class="nav-icon-composite"><i class="fas fa-chart-column icon-base" style="font-size:13px"></i><span class="icon-badge" style="font-size:6.5px;padding:0 2px"><i class="fas fa-magnifying-glass" style="font-size:6px"></i></span></span><span class="nav-label">Forecast</span>
@@ -4254,6 +4265,17 @@ const sectionMeta = {
 };
 
 
+
+/* ── Itens de nav que só abrem um link externo em nova aba, sem navegação
+   interna (não têm data-section/currentSection nem seção correspondente). ── */
+const LINK_ABSENTEISMO = 'https://presencaops-production.up.railway.app/';
+const LINK_TRATATIVAS_AUD = ''; // TODO: Roberto vai passar o link
+const LINK_COP_ACADEMY = 'https://cop-academy.vercel.app';
+
+function pulsoNavExternal(url){
+  if(!url){ showToast('Link ainda não configurado — será adicionado em breve.', true); return; }
+  window.open(url, '_blank', 'noopener,noreferrer');
+}
 
 /* ================================================================
    RENDER PIPELINE
