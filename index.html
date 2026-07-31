@@ -1738,29 +1738,31 @@
     .jornal-panel { display: none; }
     .jornal-panel.active { display: block; }
 
-    /* Acervo de edições do RJ2 News (PDFs em /jornais) */
-    .jrn-ed-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-      gap: 10px;
-    }
-    .jrn-ed-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-lg); padding: 16px 12px;
-      text-align: center; cursor: pointer; position: relative;
-      transition: transform .15s, border-color .15s;
-    }
-    .jrn-ed-card:hover { transform: translateY(-3px); border-color: var(--orange); }
-    .jrn-ed-card.latest { border-color: var(--orange); background: rgba(238,77,45,.06); }
-    .jrn-ed-week { font-size: 22px; font-weight: 800; color: var(--text); margin-top: 6px; }
-    .jrn-ed-year { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-    .jrn-ed-badge {
-      position: absolute; top: 6px; right: 8px;
-      font-size: 8px; font-weight: 800; letter-spacing: .06em;
-      text-transform: uppercase; color: var(--orange);
-    }
-
     /* ── Jornal Semanal ── */
+    /* Linha de edição real (PDFs em /jornais) — reaproveita o visual de
+       .jornal-article, só que o card inteiro é clicável e abre o PDF. */
+    .jrn-ed-row { cursor: pointer; }
+    .jrn-ed-row.latest { border-color: var(--orange); background: rgba(238,77,45,.04); }
+    .jrn-ed-row .jornal-article-num { color: rgba(238,77,45,.3); }
+
+    /* Visualizador de edição — tela cheia, só o PDF, sem cromo de modal */
+    .jrn-viewer-full {
+      display: none; position: fixed; inset: 0; z-index: 300;
+      background: #202124;
+    }
+    .jrn-viewer-full.open { display: block; }
+    .jrn-viewer-full iframe {
+      width: 100%; height: 100%; border: none; background: #525659;
+    }
+    .jrn-viewer-close {
+      position: fixed; top: 16px; right: 20px; z-index: 301;
+      width: 38px; height: 38px; border-radius: 50%;
+      background: rgba(0,0,0,.55); color: #fff; border: none;
+      font-size: 15px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    .jrn-viewer-close:hover { background: rgba(238,77,45,.85); }
     .jornal-header-card {
       background: linear-gradient(135deg, #1a1d2e 0%, rgba(238,77,45,.15) 100%);
       border: 1px solid rgba(238,77,45,.25);
@@ -3556,29 +3558,27 @@
 
       <!-- ── JORNAL SEMANAL (RJ2 News — edições reais em PDF, /jornais) ── -->
       <div class="jornal-panel active" id="jornal-panel-semanal">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
-          <div>
-            <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">📰 RJ2 News — Edições</div>
-            <div style="font-size:12px;color:var(--text-muted)" id="jrn-ed-sub">Clique numa edição pra ler no próprio site</div>
-          </div>
+        <div class="jornal-header-card" id="jrn-hero" onclick="jornalOpenEdicao(0)" style="cursor:pointer">
+          <div class="jornal-edition" id="jrn-hero-edition">RJ2 NEWS</div>
+          <div class="jornal-title-big" id="jrn-hero-title">Carregando edições…</div>
+          <div class="jornal-meta" id="jrn-hero-meta"></div>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:12px">
+          <div style="font-size:12px;color:var(--text-muted)" id="jrn-ed-sub">Clique numa edição pra ler no próprio site</div>
           <!-- Visível só pra admin (hoje o modo kiosk entra como Administrador;
                quando o controle de acesso real for criado, o gate passa a valer) -->
           <div id="jrn-ed-admin" style="display:none;gap:8px">
             <button class="btn btn-primary" onclick="jornalAdminModal()"><i class="fas fa-plus"></i> Adicionar / Editar jornais</button>
           </div>
         </div>
-        <div class="jrn-ed-grid" id="jrn-ed-grid"><div class="spr-ms-empty">Carregando edições…</div></div>
+        <div class="jornal-articles" id="jrn-ed-grid"></div>
       </div>
 
-      <!-- Visualizador de edição (PDF embutido) -->
-      <div class="modal-overlay" id="jrn-viewer-overlay" onclick="if(event.target===this) jornalCloseViewer()">
-        <div class="modal" style="max-width:920px;width:95vw">
-          <div class="modal-header">
-            <span class="modal-title"><i class="fas fa-newspaper" style="color:var(--orange);margin-right:8px"></i><span id="jrn-viewer-title"></span></span>
-            <button class="modal-close" onclick="jornalCloseViewer()"><i class="fas fa-xmark"></i></button>
-          </div>
-          <iframe id="jrn-viewer-frame" style="width:100%;height:78vh;border:none;border-radius:8px;background:#fff"></iframe>
-        </div>
+      <!-- Visualizador de edição — tela cheia, só o PDF -->
+      <div class="jrn-viewer-full" id="jrn-viewer-overlay">
+        <button class="jrn-viewer-close" onclick="jornalCloseViewer()" title="Fechar (Esc)"><i class="fas fa-xmark"></i></button>
+        <iframe id="jrn-viewer-frame"></iframe>
       </div>
 
       <!-- Adicionar/editar jornais (admin) -->
@@ -6996,28 +6996,41 @@ async function buildJornalSemanal(){
     }
   }
 
+  // Do maior número de semana pro menor (mais recente primeiro), levando o
+  // ano em conta pra não misturar a virada (W52/2025 continua antes de W3/2026).
   JORNAL_EDICOES_SORTED = [...JORNAL_EDICOES].sort((a,b) =>
     (b.ano - a.ano) || (parseInt(b.semana.slice(1)) - parseInt(a.semana.slice(1))));
 
+  if(!JORNAL_EDICOES_SORTED.length){
+    grid.innerHTML = '<div class="spr-ms-empty">Nenhuma edição publicada ainda.</div>';
+    return;
+  }
+
+  const atual = JORNAL_EDICOES_SORTED[0];
+  document.getElementById('jrn-hero-edition').textContent = `EDIÇÃO MAIS RECENTE`;
+  document.getElementById('jrn-hero-title').textContent = `RJ2 News — ${atual.semana} · ${atual.ano}`;
+  document.getElementById('jrn-hero-meta').textContent = 'Clique pra ler a edição completa em tela cheia';
+
   const sub = document.getElementById('jrn-ed-sub');
-  if(sub && JORNAL_EDICOES_SORTED.length){
-    const nova = JORNAL_EDICOES_SORTED[0], velha = JORNAL_EDICOES_SORTED[JORNAL_EDICOES_SORTED.length-1];
-    sub.textContent = `${JORNAL_EDICOES_SORTED.length} edições · ${velha.semana}/${velha.ano} até ${nova.semana}/${nova.ano} · clique pra ler no site`;
+  if(sub){
+    const velha = JORNAL_EDICOES_SORTED[JORNAL_EDICOES_SORTED.length-1];
+    sub.textContent = `${JORNAL_EDICOES_SORTED.length} edições · ${atual.semana}/${atual.ano} até ${velha.semana}/${velha.ano}`;
   }
 
   grid.innerHTML = JORNAL_EDICOES_SORTED.map((e, i) => `
-    <div class="jrn-ed-card ${i===0?'latest':''}" onclick="jornalOpenEdicao(${i})">
-      ${i===0 ? '<div class="jrn-ed-badge">Mais recente</div>' : ''}
-      <i class="fas fa-newspaper" style="font-size:16px;color:var(--orange);opacity:.65"></i>
-      <div class="jrn-ed-week">${pulsoEscHtml(e.semana)}</div>
-      <div class="jrn-ed-year">${e.ano}</div>
+    <div class="jornal-article jrn-ed-row ${i===0?'latest':''}" onclick="jornalOpenEdicao(${i})">
+      <div class="jornal-article-num">${e.semana.replace('W','')}</div>
+      <div class="jornal-article-body">
+        <div class="jornal-article-tag"><i class="fas fa-calendar-week"></i> ${pulsoEscHtml(e.semana)} · ${e.ano}${i===0?' · MAIS RECENTE':''}</div>
+        <div class="jornal-article-title">RJ2 News — Edição ${pulsoEscHtml(e.semana)}</div>
+        <div style="font-size:12px;color:var(--text-muted)"><i class="fas fa-file-pdf" style="margin-right:6px;color:var(--orange)"></i>Clique para ler a edição completa</div>
+      </div>
     </div>`).join('');
 }
 
 function jornalOpenEdicao(i){
   const e = JORNAL_EDICOES_SORTED[i];
   if(!e) return;
-  document.getElementById('jrn-viewer-title').textContent = `RJ2 News — ${e.semana} · ${e.ano}`;
   document.getElementById('jrn-viewer-frame').src = e.arquivo;
   document.getElementById('jrn-viewer-overlay').classList.add('open');
 }
@@ -7026,6 +7039,10 @@ function jornalCloseViewer(){
   document.getElementById('jrn-viewer-overlay').classList.remove('open');
   document.getElementById('jrn-viewer-frame').src = '';
 }
+
+document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && document.getElementById('jrn-viewer-overlay')?.classList.contains('open')) jornalCloseViewer();
+});
 
 function jornalAdminModal(){
   document.getElementById('jrn-admin-overlay').classList.add('open');
