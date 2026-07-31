@@ -1741,8 +1741,9 @@
     /* ── Jornal Semanal ── */
     /* Linha de edição real (PDFs em /jornais) — reaproveita o visual de
        .jornal-article, só que o card inteiro é clicável e abre o PDF. */
-    .jrn-ed-row { cursor: pointer; }
-    .jrn-ed-row.latest { border-color: var(--orange); background: rgba(238,77,45,.04); }
+    /* Mesma cor pra todas as edições da lista, não só a mais recente —
+       o destaque de "mais recente" fica só no texto/badge, não na cor. */
+    .jrn-ed-row { cursor: pointer; border-color: var(--orange); background: rgba(238,77,45,.04); }
     .jrn-ed-row .jornal-article-num { color: rgba(238,77,45,.3); }
 
     /* Visualizador de edição — tela cheia, só o PDF, sem cromo de modal */
@@ -1781,9 +1782,11 @@
       letter-spacing: .15em; color: var(--orange); margin-bottom: 8px;
     }
     .jornal-title-big {
-      font-size: 28px; font-weight: 800; color: var(--text); margin-bottom: 6px; line-height: 1.2;
+      /* Cor fixa (não var(--text)): o card tem fundo escuro sempre, nos dois
+         temas — var(--text) é escuro no tema claro e ficava ilegível aqui. */
+      font-size: 28px; font-weight: 800; color: #f4f5fa; margin-bottom: 6px; line-height: 1.2;
     }
-    .jornal-meta { font-size: 12px; color: var(--text-muted); }
+    .jornal-meta { font-size: 12px; color: rgba(244,245,250,.65); }
 
     .jornal-articles { display: flex; flex-direction: column; gap: 14px; }
     .jornal-article {
@@ -5098,7 +5101,7 @@ const OUTBOUND_KPIS = [
   { key:'carrosRealizados', label:'Carros Realizados',  icon:'fa-truck-fast', rowFilter: r => !!r.cpt_realizado },
   { key:'taxaConclusao',    label:'Taxa de Conclusão',  icon:'fa-flag-checkered', isPercent:true, rowFilter: r => !!r.cpt_realizado },
   { key:'pctCptOnTime',     label:'% CPT On Time',      icon:'fa-gauge-high', isPercent:true, countKey:'cptComparaveis', countSuffix:'carros', rowFilter: outboundCptOnTime },
-  { key:'abertas',          label:'Em Aberto',          icon:'fa-clock', rowFilter: r => r.status_agrupado === 'ABERTA' },
+  { key:'abertas',          label:'Em Aberto',          icon:'fa-clock', rowFilter: r => !r.cpt_realizado && r.status_agrupado !== 'CANCELADO' },
   { key:'canceladas',       label:'Canceladas',         icon:'fa-ban', rowFilter: r => r.status_agrupado === 'CANCELADO' },
   { key:'infrutiferas',     label:'Infrutíferas',       icon:'fa-triangle-exclamation', rowFilter: r => r.status_agrupado === 'INFRUTÍFERA' },
   { key:'noShow',           label:'No Show',            icon:'fa-user-slash', rowFilter: r => r.status_agrupado === 'NO SHOW' },
@@ -7021,7 +7024,7 @@ async function buildJornalSemanal(){
   }
 
   grid.innerHTML = JORNAL_EDICOES_SORTED.map((e, i) => `
-    <div class="jornal-article jrn-ed-row ${i===0?'latest':''}" onclick="jornalOpenEdicao(${i})">
+    <div class="jornal-article jrn-ed-row" onclick="jornalOpenEdicao(${i})">
       <div class="jornal-article-num">${e.semana.replace('W','')}</div>
       <div class="jornal-article-body">
         <div class="jornal-article-tag"><i class="fas fa-calendar-week"></i> ${pulsoEscHtml(e.semana)} · ${e.ano}${i===0?' · MAIS RECENTE':''}</div>

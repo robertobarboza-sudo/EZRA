@@ -63,9 +63,16 @@ function aggregate(rows) {
   // minutos, positivo = atrasado, negativo = adiantado; "Atraso Médio (min)"
   // é a diferença média entre cpt_realizado e o CPT planejado
   // (cpt_scheduled_origin_edited), só entre os carros com os dois horários.
-  let carrosRealizados = 0, cptOnTime = 0, cptComparaveis = 0, atrasoSomaMin = 0;
+  // "Em Aberto" = sem cpt_realizado E não cancelado (decidido com o Roberto
+  // em 2026-07-30) — mesmo espírito do "Realizado": não confia no texto de
+  // status_agrupado sozinho, só usa CANCELADO pra tirar quem não conta mais
+  // como em aberto.
+  let carrosRealizados = 0, abertas = 0, cptOnTime = 0, cptComparaveis = 0, atrasoSomaMin = 0;
   rows.forEach(r => {
-    if (!r.cpt_realizado) return;
+    if (!r.cpt_realizado) {
+      if (r.status_agrupado !== 'CANCELADO') abertas++;
+      return;
+    }
     carrosRealizados++;
     const ref = r.cpt_scheduled_origin_edited || r.cpt_origin_scheduled;
     if (!ref) return;
@@ -95,7 +102,7 @@ function aggregate(rows) {
     infrutiferas: porStatus['INFRUTÍFERA'] || 0,
     naoConsumida: porStatus['NÃO CONSUMIDA'] || 0,
     noShow: porStatus['NO SHOW'] || 0,
-    abertas: porStatus['ABERTA'] || 0,
+    abertas,
     pctCptOnTime: cptComparaveis ? +(cptOnTime / cptComparaveis * 100).toFixed(1) : 0,
     cptComparaveis,
     taxaConclusao: carrosPrevistos ? +(carrosRealizados / carrosPrevistos * 100).toFixed(1) : 0,
