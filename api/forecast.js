@@ -153,7 +153,7 @@ module.exports = async (req, res) => {
     .filter(r => r.dataIso !== null);
 
   if (!forecast.length) {
-    const zeroCard = { forecast: 0, forecastVar: null, adoMedio: 0, adoMedioVar: null, transhipment: 0, transhipmentVar: null };
+    const zeroCard = { forecast: 0, forecastVar: null, adoMedio: 0, adoMedioVar: null, transhipment: 0, transhipmentVar: null, adoTranshipment: 0, adoTranshipmentVar: null };
     res.status(200).json({
       ok: true, data: null, mes: null, atual: { ...ZERO_AGG },
       semanas: [], mesTotal: { ...ZERO_AGG }, quartilMensal: { ...ZERO_AGG }, adoQuartil: { ...ZERO_AGG },
@@ -240,21 +240,30 @@ module.exports = async (req, res) => {
   const adoMedioWeek = semanaRef.semana.total / 6;
   const adoMedioWeekAnterior = semanaAnterior.total / 6;
 
+  // Ado Transhipment = mesma lógica do Ado Médio (÷ 6 dias produtivos), aplicada ao Transhipment.
+  const adoTranshipmentMes = mesTotal.transhipment / (6 * Math.max(numSemanasMesAtual, 1));
+  const adoTranshipmentMesAnterior = mesAnteriorCalc.total.transhipment / (6 * Math.max(mesAnteriorCalc.numSemanas, 1));
+  const adoTranshipmentWeek = semanaRef.semana.transhipment / 6;
+  const adoTranshipmentWeekAnterior = semanaAnterior.transhipment / 6;
+
   const cardsPeriodo = {
     mes: {
       forecast: mesTotal.total, forecastVar: pctDelta(mesTotal.total, mesAnteriorCalc.total.total),
       adoMedio: adoMedioMes, adoMedioVar: pctDelta(adoMedioMes, adoMedioMesAnterior),
       transhipment: mesTotal.transhipment, transhipmentVar: pctDelta(mesTotal.transhipment, mesAnteriorCalc.total.transhipment),
+      adoTranshipment: adoTranshipmentMes, adoTranshipmentVar: pctDelta(adoTranshipmentMes, adoTranshipmentMesAnterior),
     },
     week: {
       forecast: semanaRef.semana.total, forecastVar: pctDelta(semanaRef.semana.total, semanaAnterior.total),
       adoMedio: adoMedioWeek, adoMedioVar: pctDelta(adoMedioWeek, adoMedioWeekAnterior),
       transhipment: semanaRef.semana.transhipment, transhipmentVar: pctDelta(semanaRef.semana.transhipment, semanaAnterior.transhipment),
+      adoTranshipment: adoTranshipmentWeek, adoTranshipmentVar: pctDelta(adoTranshipmentWeek, adoTranshipmentWeekAnterior),
     },
     dia: {
       forecast: atual.total, forecastVar: pctDelta(atual.total, diaAnterior.total),
       adoMedio: atual.total, adoMedioVar: pctDelta(atual.total, diaAnterior.total),
       transhipment: atual.transhipment, transhipmentVar: pctDelta(atual.transhipment, diaAnterior.transhipment),
+      adoTranshipment: atual.transhipment, adoTranshipmentVar: pctDelta(atual.transhipment, diaAnterior.transhipment),
     },
   };
 

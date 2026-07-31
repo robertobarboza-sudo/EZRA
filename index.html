@@ -6085,15 +6085,18 @@ function buildForecastPeriodKpis(cardsPeriodo){
     return { label, value: Math.round(valor||0).toLocaleString('pt-BR'), delta, trend, type:'', icon };
   };
   buildKPIs('fct-period-kpis', [
-    card('Forecast - Mês',    mes.forecast,    mes.forecastVar,    'fa-calendar-days'),
-    card('Ado Méd. Mês',      mes.adoMedio,    mes.adoMedioVar,    'fa-chart-line'),
-    card('Transhipment Mês',  mes.transhipment, mes.transhipmentVar, 'fa-shuffle'),
-    card('Forecast - Week',   week.forecast,   week.forecastVar,   'fa-calendar-week'),
-    card('Ado Méd. Week',     week.adoMedio,   week.adoMedioVar,   'fa-chart-line'),
-    card('Transhipment Week', week.transhipment, week.transhipmentVar, 'fa-shuffle'),
-    card('Forecast - Dia',    dia.forecast,    dia.forecastVar,    'fa-calendar-day'),
-    card('Ado Méd. Dia',      dia.adoMedio,    dia.adoMedioVar,    'fa-chart-line'),
-    card('Transhipment Dia',  dia.transhipment, dia.transhipmentVar, 'fa-shuffle'),
+    card('Forecast - Mês',      mes.forecast,        mes.forecastVar,        'fa-calendar-days'),
+    card('Ado Méd. Mês',        mes.adoMedio,        mes.adoMedioVar,        'fa-chart-line'),
+    card('Transhipment Mês',    mes.transhipment,     mes.transhipmentVar,    'fa-shuffle'),
+    card('Ado Transhipment Mês', mes.adoTranshipment, mes.adoTranshipmentVar, 'fa-chart-line'),
+    card('Forecast - Week',     week.forecast,       week.forecastVar,       'fa-calendar-week'),
+    card('Ado Méd. Week',       week.adoMedio,       week.adoMedioVar,       'fa-chart-line'),
+    card('Transhipment Week',   week.transhipment,    week.transhipmentVar,   'fa-shuffle'),
+    card('Ado Transhipment Week', week.adoTranshipment, week.adoTranshipmentVar, 'fa-chart-line'),
+    card('Forecast - Dia',      dia.forecast,        dia.forecastVar,        'fa-calendar-day'),
+    card('Ado Méd. Dia',        dia.adoMedio,        dia.adoMedioVar,        'fa-chart-line'),
+    card('Transhipment Dia',    dia.transhipment,     dia.transhipmentVar,    'fa-shuffle'),
+    card('Ado Transhipment Dia', dia.adoTranshipment, dia.adoTranshipmentVar, 'fa-chart-line'),
   ]);
 }
 
