@@ -1740,13 +1740,11 @@
 
     /* ── Jornal Semanal ── */
     /* Linha de edição real (PDFs em /jornais) — reaproveita o visual de
-       .jornal-article, só que o card inteiro é clicável e abre o PDF. */
-    /* Mesma cor pra todas as edições da lista, não só a mais recente —
-       o destaque de "mais recente" fica só no texto/badge, não na cor. */
-    /* .jornal-article.jrn-ed-row (não só .jrn-ed-row): precisa da mesma
-       especificidade da regra base .jornal-article, que vem depois no
-       arquivo e senão vencia no empate. */
-    .jornal-article.jrn-ed-row { cursor: pointer; border-color: var(--orange); background: rgba(238,77,45,.04); }
+       .jornal-article, só que o card inteiro é clicável e abre o PDF. Só a
+       mais recente ganha o destaque laranja; as demais ficam no visual
+       padrão de .jornal-article. */
+    .jrn-ed-row { cursor: pointer; }
+    .jornal-article.jrn-ed-row.latest { border-color: var(--orange); background: rgba(238,77,45,.04); }
     .jrn-ed-row .jornal-article-num { color: rgba(238,77,45,.3); }
 
     /* Visualizador de edição — tela cheia, só o PDF, sem cromo de modal */
@@ -7027,7 +7025,7 @@ async function buildJornalSemanal(){
   }
 
   grid.innerHTML = JORNAL_EDICOES_SORTED.map((e, i) => `
-    <div class="jornal-article jrn-ed-row" onclick="jornalOpenEdicao(${i})">
+    <div class="jornal-article jrn-ed-row ${i===0?'latest':''}" onclick="jornalOpenEdicao(${i})">
       <div class="jornal-article-num">${e.semana.replace('W','')}</div>
       <div class="jornal-article-body">
         <div class="jornal-article-tag"><i class="fas fa-calendar-week"></i> ${pulsoEscHtml(e.semana)} · ${e.ano}${i===0?' · MAIS RECENTE':''}</div>
