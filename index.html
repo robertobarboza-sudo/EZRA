@@ -5817,10 +5817,15 @@ async function loadBacklog(){
     if(dateInput && !BACKLOG_STATE.date && j.cutoff) dateInput.value = j.cutoff;
     if(hourInput) hourInput.value = String(j.hora);
 
+    const bsVar = j.backlogStart.variacao;
+    const bsDelta = (bsVar === null || bsVar === undefined || !isFinite(bsVar)) ? '' : `${bsVar>=0?'+':''}${bsVar.toFixed(1)}% vs dia anterior`;
+    const bsTrend = (bsVar !== null && bsVar !== undefined && bsVar < 0) ? 'down' : 'up';
+
     buildKPIs('bkl-kpis', [
       { label:'Backlog Médio',      value:j.atual.backlogMedio.toLocaleString('pt-BR'),    delta:'', trend:'up', type:'', icon:'fa-layer-group' },
       { label:'Backlog Atual',      value:j.atual.backlogAtual.toLocaleString('pt-BR'),     delta:'', trend:'up', type:'', icon:'fa-clock' },
       { label:'Backlog Médio >24h', value:j.atual.backlogMedio24h.toLocaleString('pt-BR'),  delta:'', trend:'up', type:'', icon:'fa-triangle-exclamation' },
+      { label:'Backlog Start',      value:j.backlogStart.valor.toLocaleString('pt-BR'),     delta:bsDelta, trend:bsTrend, type:'', icon:'fa-sun', sub:'6h da manhã · dia vigente' },
     ]);
 
     const cov = document.getElementById('bkl-coverage');

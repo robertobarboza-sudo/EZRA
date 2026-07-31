@@ -18,6 +18,10 @@
  *   date   YYYY-MM-DD (cutoff a visualizar; default = cutoff mais recente da base)
  *   hour   0-23 (hora de referência pro card "Backlog Atual"; default 6 — "fixo
  *          em 6h da manhã a menos que mudem no filtro", pedido do Roberto)
+ *
+ * "Backlog Start" — card fixo (não segue o filtro de data/hora): o backlog
+ * às 6h da manhã do dia vigente (data real de hoje, não o cutoff selecionado),
+ * com variação % vs a mesma leitura (6h) do dia anterior.
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum } = require('./_period');
@@ -45,7 +49,11 @@ module.exports = async (req, res) => {
     .filter(r => r.cutoffIso !== null);
 
   if (!backlog.length) {
-    res.status(200).json({ ok: true, cutoff: null, hora: 6, atual: { backlogMedio: 0, backlogAtual: 0, backlogMedio24h: 0 }, curva: [], cobertura: { inicio: null, fim: null } });
+    res.status(200).json({
+      ok: true, cutoff: null, hora: 6, atual: { backlogMedio: 0, backlogAtual: 0, backlogMedio24h: 0 }, curva: [],
+      backlogStart: { valor: 0, variacao: null, data: null },
+      cobertura: { inicio: null, fim: null },
+    });
     return;
   }
 
@@ -79,12 +87,27 @@ module.exports = async (req, res) => {
   const backlogMedio24h = horasComDado.length ? Math.round(horasComDado.reduce((s, c) => s + c.maior24h, 0) / horasComDado.length) : 0;
   const backlogAtual = (porHora.get(hora) || { pacotes: 0 }).pacotes;
 
+  // Backlog Start — sempre o dia real de hoje às 6h, independente do filtro de data/hora.
+  const pacotesEm = (diaIso, h) => {
+    const linhas = backlog.filter(r => r.cutoffIso === diaIso && r.hora === h);
+    return linhas.length ? Math.max(...linhas.map(r => r.pacotes)) : 0;
+  };
+  const hojeIso = new Date().toISOString().slice(0, 10);
+  const ontemDate = new Date(hojeIso + 'T00:00:00Z');
+  ontemDate.setUTCDate(ontemDate.getUTCDate() - 1);
+  const ontemIso = ontemDate.toISOString().slice(0, 10);
+
+  const backlogStartValor = pacotesEm(hojeIso, 6);
+  const backlogStartAnterior = pacotesEm(ontemIso, 6);
+  const backlogStartVariacao = backlogStartAnterior ? ((backlogStartValor - backlogStartAnterior) / backlogStartAnterior) * 100 : null;
+
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
   res.status(200).json({
     ok: true,
     cutoff, hora,
     atual: { backlogMedio, backlogAtual, backlogMedio24h },
     curva,
+    backlogStart: { valor: backlogStartValor, variacao: backlogStartVariacao, data: hojeIso },
     cobertura: { inicio: dataMinima, fim: dataMaxima },
   });
 };
