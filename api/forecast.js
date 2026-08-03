@@ -29,7 +29,8 @@
  *     MAIOR volume (Forecast Total) do mês — em meses com 5 semanas (parcial
  *     sobrando no início/fim) a de menor volume é descartada (confirmado
  *     com o Roberto em 2026-08-03).
- *   - "ADO Quartil" = Quartil mensal / 6, por canal.
+ *   - "ADO Quartil" = Quartil mensal / (nº de semanas usadas no Quartil,
+ *     sempre 4), por canal.
  *   - Total do mês = soma só dos dias cujo `date` cai dentro do mês (não
  *     conta os dias de semanas vizinhas que "vazam" pro mês anterior/seguinte).
  *
@@ -243,7 +244,10 @@ module.exports = async (req, res) => {
   const semanasPico = [...semanas].sort((a, b) => b.semana.total - a.semana.total).slice(0, 4);
   const quartilMensal = quartilAgg(semanasPico.map(s => s.quartil));
   const adoQuartil = {};
-  CANAIS.forEach(c => { adoQuartil[c] = quartilMensal[c] / 6; });
+  // Divisor = quantidade de semanas usadas no Quartil (semanasPico.length,
+  // sempre 4 — confirmado com o Roberto em 2026-08-03), não um número fixo.
+  const divisorAdoQuartil = Math.max(semanasPico.length, 1);
+  CANAIS.forEach(c => { adoQuartil[c] = quartilMensal[c] / divisorAdoQuartil; });
 
   // ── Cards por período (Mês/Week/Dia) + variação vs período anterior ──
   const semanaRef = semanas.find(s => dataRef >= s.inicio && dataRef <= s.fim) || semanas[semanas.length - 1];
