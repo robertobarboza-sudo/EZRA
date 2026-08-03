@@ -25,9 +25,11 @@
  *     por canal — no mesmo formato de linhas dos dias (Total/LH/FM/CB/FULL/
  *     Transhipment). Cada semana carrega `numero` (semana ISO-8601, pro
  *     rótulo "Semana (N) - dd/mm/aaaa à dd/mm/aaaa" pedido em 2026-08-03).
- *   - "Quartil" (mensal) = Q3 dos Q3 semanais do mês, por canal.
- *   - "ADO Quartil" = Quartil mensal / 5, por canal (divisor ajustado de 6
- *     pra 5 em 2026-08-03).
+ *   - "Quartil" (mensal) = Q3 dos Q3 semanais, sempre sobre as 4 semanas de
+ *     MAIOR volume (Forecast Total) do mês — em meses com 5 semanas (parcial
+ *     sobrando no início/fim) a de menor volume é descartada (confirmado
+ *     com o Roberto em 2026-08-03).
+ *   - "ADO Quartil" = Quartil mensal / 6, por canal.
  *   - Total do mês = soma só dos dias cujo `date` cai dentro do mês (não
  *     conta os dias de semanas vizinhas que "vazam" pro mês anterior/seguinte).
  *
@@ -235,9 +237,13 @@ module.exports = async (req, res) => {
   }
   const mesTotal = somaAgg(diasDoMes);
 
-  const quartilMensal = quartilAgg(semanas.map(s => s.quartil));
+  // Quartil mensal sempre sobre as 4 semanas de maior volume do mês (Forecast
+  // Total da semana) — meses com 5 semanas (parcial no início/fim) descartam
+  // a de menor volume, confirmado com o Roberto em 2026-08-03.
+  const semanasPico = [...semanas].sort((a, b) => b.semana.total - a.semana.total).slice(0, 4);
+  const quartilMensal = quartilAgg(semanasPico.map(s => s.quartil));
   const adoQuartil = {};
-  CANAIS.forEach(c => { adoQuartil[c] = quartilMensal[c] / 5; });
+  CANAIS.forEach(c => { adoQuartil[c] = quartilMensal[c] / 6; });
 
   // ── Cards por período (Mês/Week/Dia) + variação vs período anterior ──
   const semanaRef = semanas.find(s => dataRef >= s.inicio && dataRef <= s.fim) || semanas[semanas.length - 1];
