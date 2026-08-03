@@ -6302,7 +6302,7 @@ function buildForecastWeeks(semanas){
     return `<div class="fct-week-block ${s.isCurrent ? 'open' : ''}">
       <div class="fct-week-header" onclick="fctToggleWeek(this)">
         <i class="fas fa-chevron-down fct-week-caret"></i>
-        <span class="fct-week-title">Semana ${pulsoFmtDataBr(s.inicio)} – ${pulsoFmtDataBr(s.fim)}</span>
+        <span class="fct-week-title">Semana (${s.numero}) - ${pulsoFmtDataBr(s.inicio)} à ${pulsoFmtDataBr(s.fim)}</span>
         ${s.isCurrent ? '<span class="fct-week-badge">Vigente</span>' : ''}
         <div class="fct-week-summary">${summary}</div>
       </div>

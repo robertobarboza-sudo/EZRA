@@ -23,9 +23,11 @@
  *     `date`. Cada semana tem os 7 dias, o total da semana ("Week") e o
  *     terceiro quartil (Q3, interpolação linear = QUARTILE.INC) dos 7 dias,
  *     por canal — no mesmo formato de linhas dos dias (Total/LH/FM/CB/FULL/
- *     Transhipment).
+ *     Transhipment). Cada semana carrega `numero` (semana ISO-8601, pro
+ *     rótulo "Semana (N) - dd/mm/aaaa à dd/mm/aaaa" pedido em 2026-08-03).
  *   - "Quartil" (mensal) = Q3 dos Q3 semanais do mês, por canal.
- *   - "ADO Quartil" = Quartil mensal / 6 (dias úteis produtivos), por canal.
+ *   - "ADO Quartil" = Quartil mensal / 5, por canal (divisor ajustado de 6
+ *     pra 5 em 2026-08-03).
  *   - Total do mês = soma só dos dias cujo `date` cai dentro do mês (não
  *     conta os dias de semanas vizinhas que "vazam" pro mês anterior/seguinte).
  *
@@ -100,6 +102,18 @@ function segundaDaSemana(d) {
   const seg = new Date(d);
   seg.setUTCDate(seg.getUTCDate() - dia);
   return seg;
+}
+
+// Número da semana no padrão ISO-8601 (semana 1 = a que contém a 1ª
+// quinta-feira do ano; semanas começam na segunda).
+function semanaISO(d) {
+  const date = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
+  const diaSemana = (date.getUTCDay() + 6) % 7; // segunda = 0
+  date.setUTCDate(date.getUTCDate() - diaSemana + 3); // quinta-feira dessa semana
+  const primeiraQuinta = new Date(Date.UTC(date.getUTCFullYear(), 0, 4));
+  const diaSemanaPrimeira = (primeiraQuinta.getUTCDay() + 6) % 7;
+  primeiraQuinta.setUTCDate(primeiraQuinta.getUTCDate() - diaSemanaPrimeira + 3);
+  return 1 + Math.round((date - primeiraQuinta) / (7 * 24 * 3600 * 1000));
 }
 
 function addMonths(mesRefStr, delta) {
@@ -205,6 +219,7 @@ module.exports = async (req, res) => {
     });
     const inicioIso = dias[0].data, fimIso = dias[6].data;
     semanas.push({
+      numero: semanaISO(seg),
       inicio: inicioIso,
       fim: fimIso,
       isCurrent: hojeIso >= inicioIso && hojeIso <= fimIso,
@@ -222,7 +237,7 @@ module.exports = async (req, res) => {
 
   const quartilMensal = quartilAgg(semanas.map(s => s.quartil));
   const adoQuartil = {};
-  CANAIS.forEach(c => { adoQuartil[c] = quartilMensal[c] / 6; });
+  CANAIS.forEach(c => { adoQuartil[c] = quartilMensal[c] / 5; });
 
   // ── Cards por período (Mês/Week/Dia) + variação vs período anterior ──
   const semanaRef = semanas.find(s => dataRef >= s.inicio && dataRef <= s.fim) || semanas[semanas.length - 1];
