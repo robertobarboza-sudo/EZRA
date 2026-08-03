@@ -1282,7 +1282,7 @@
 
     /* Farol horizontal de clusterização — 1 quadrado cheio por rua,
        verde/vermelho/branco (ver clusterCorreto em api/cluster.js). */
-    .clst-farol-dot { width: 100%; height: 26px; border: 1px solid var(--border); box-sizing: border-box; }
+    .clst-farol-dot { width: 100%; height: 12px; border: 1px solid var(--border); box-sizing: border-box; }
     .clst-farol-correta   { background: #10b981; border-color: #10b981; }
     .clst-farol-incorreta { background: #ef4444; border-color: #ef4444; }
     .clst-farol-vazia     { background: #fff; }
@@ -5705,20 +5705,20 @@ function renderClusterGrid(data){
     return `<td style="padding:3px;vertical-align:top"><div class="clst-pos-grid">${squares}</div>${overflow?`<div class="clst-pos-overflow">+${overflow}</div>`:''}</td>`;
   }).join('')}</tr>`;
 
+  tbody += sectionRow('FANOUT ENDEREÇADO');
+  tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom">Destino</td>${grade.map(g => g.fanout
+    ? `<td style="writing-mode:vertical-rl;text-orientation:mixed;height:150px;font-size:9px;padding:6px 3px;white-space:nowrap;overflow:visible">${pulsoEscHtml(g.fanout)}</td>`
+    : '<td>—</td>').join('')}</tr>`;
+
   // Farol de clusterização: verde = rua correta (fanout bate o cluster
   // esperado), vermelho = incorreta, branco = vazia (ver clusterCorreto em
-  // api/cluster.js). Pedido pelo Roberto em 2026-08-04, entre as seções
-  // OCUPAÇÃO STAGE e FANOUT ENDEREÇADO.
+  // api/cluster.js). Entre FANOUT ENDEREÇADO e CLUSTERIZAÇÃO IDEAL (pedido
+  // pelo Roberto em 2026-08-04).
   tbody += `<tr><td class="clst-rowlabel" style="text-align:center">Status</td>${grade.map(g => {
     const cls = g.ocupadas === 0 ? 'clst-farol-vazia' : (g.clusterCorreto ? 'clst-farol-correta' : 'clst-farol-incorreta');
     const titulo = g.ocupadas === 0 ? 'Vazia' : (g.clusterCorreto ? 'Cluster correto' : 'Cluster incorreto');
     return `<td style="padding:0"><div class="clst-farol-dot ${cls}" title="${pulsoEscHtml(titulo)}"></div></td>`;
   }).join('')}</tr>`;
-
-  tbody += sectionRow('FANOUT ENDEREÇADO');
-  tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom">Destino</td>${grade.map(g => g.fanout
-    ? `<td style="writing-mode:vertical-rl;text-orientation:mixed;height:150px;font-size:9px;padding:6px 3px;white-space:nowrap;overflow:visible">${pulsoEscHtml(g.fanout)}</td>`
-    : '<td>—</td>').join('')}</tr>`;
 
   tbody += sectionRow('CLUSTERIZAÇÃO IDEAL');
   tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom">Sugestão de Cluster</td>${grade.map(g => g.clusterEsperado
