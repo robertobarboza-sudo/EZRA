@@ -227,6 +227,20 @@
     }
     #sidebar.collapsed .nav-item:hover::after { opacity: 1; }
 
+    /* Dropdown de subpáginas no sidebar (Outbound/SPR/Leftover, Line Haul/First Mile) */
+    .nav-expand-caret { margin-left: auto; font-size: 10px; padding: 4px; transition: transform var(--transition); }
+    .nav-expand-caret.rotated { transform: rotate(180deg); }
+    .nav-subgroup { max-height: 0; overflow: hidden; transition: max-height .25s ease; }
+    .nav-subgroup.open { max-height: 220px; }
+    .nav-subitem {
+      padding: 7px 10px 7px 38px; font-size: 12px; color: var(--text-sub);
+      cursor: pointer; border-radius: var(--radius); margin-bottom: 2px;
+      transition: background var(--transition), color var(--transition);
+    }
+    .nav-subitem:hover { background: var(--surface-2); color: var(--text); }
+    .nav-subitem.active { background: rgba(238,77,45,.12); color: var(--orange-ll); font-weight: 600; }
+    #sidebar.collapsed .nav-subgroup, #sidebar.collapsed .nav-expand-caret { display: none; }
+
     .sidebar-footer {
       padding: 10px;
       border-top: 1px solid var(--border);
@@ -2393,8 +2407,14 @@
 
     <div class="nav-group">
       <div class="nav-group-label">Operações</div>
-      <div class="nav-item" data-section="spr" data-label="Outbound" onclick="navigateTo('spr',this)">
+      <div class="nav-item" data-section="spr" data-label="Outbound" onclick="navigateToAndExpand('spr',this,'navsub-spr')">
         <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">Outbound</span>
+        <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-spr', this)"></i>
+      </div>
+      <div class="nav-subgroup" id="navsub-spr">
+        <div class="nav-subitem active" onclick="navSidebarSubpage(this,'spr','outbound',false)">Outbound</div>
+        <div class="nav-subitem" onclick="navSidebarSubpage(this,'spr','spr',false)">SPR</div>
+        <div class="nav-subitem" onclick="navSidebarSubpage(this,'spr','leftover',false)">Leftover</div>
       </div>
       <div class="nav-item" data-section="asm" data-label="ASM" onclick="navigateTo('asm',this)">
         <i class="fas fa-feather nav-icon"></i><span class="nav-label">ASM</span>
@@ -2402,8 +2422,13 @@
       <div class="nav-item" data-section="conveyor" data-label="Conveyor" onclick="navigateTo('conveyor',this)">
         <i class="fas fa-box nav-icon"></i><span class="nav-label">Conveyor</span>
       </div>
-      <div class="nav-item" data-section="inbound" data-label="Inbound" onclick="navigateTo('inbound',this)">
+      <div class="nav-item" data-section="inbound" data-label="Inbound" onclick="navigateToAndExpand('inbound',this,'navsub-inbound')">
         <span class="nav-icon-composite"><i class="fas fa-truck icon-base" style="font-size:14px"></i><span class="icon-badge">IN</span></span><span class="nav-label">Inbound</span>
+        <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-inbound', this)"></i>
+      </div>
+      <div class="nav-subgroup" id="navsub-inbound">
+        <div class="nav-subitem active" onclick="navSidebarSubpage(this,'inbound','lh',true)">Line Haul</div>
+        <div class="nav-subitem" onclick="navSidebarSubpage(this,'inbound','fm',true)">First Mile</div>
       </div>
       <div class="nav-item" data-section="clusterizacao" data-label="Clusterização" onclick="navigateTo('clusterizacao',this)">
         <i class="fas fa-circle-nodes nav-icon"></i><span class="nav-label">Clusterização</span>
@@ -2632,9 +2657,9 @@
       </div>
 
       <div class="bkl-tabs" id="pulso-subpage-tabs" style="margin-bottom:16px">
-        <div class="bkl-tab active" onclick="pulsoSwitchSubpage('outbound',this)">Outbound</div>
-        <div class="bkl-tab" onclick="pulsoSwitchSubpage('spr',this)">SPR</div>
-        <div class="bkl-tab" onclick="pulsoSwitchSubpage('leftover',this)">Leftover</div>
+        <div class="bkl-tab active" id="subtab-outbound" onclick="pulsoSwitchSubpage('outbound',this)">Outbound</div>
+        <div class="bkl-tab" id="subtab-spr" onclick="pulsoSwitchSubpage('spr',this)">SPR</div>
+        <div class="bkl-tab" id="subtab-leftover" onclick="pulsoSwitchSubpage('leftover',this)">Leftover</div>
       </div>
 
       <div id="pulso-root-outbound"></div>
@@ -2794,14 +2819,15 @@
       </div>
 
       <div class="bkl-tabs" id="inbound-subpage-tabs" style="margin-bottom:16px">
-        <div class="bkl-tab active" onclick="inboundSwitchSubpage('lh',this)">Line Haul</div>
-        <div class="bkl-tab" onclick="inboundSwitchSubpage('fm',this)">First Mile</div>
+        <div class="bkl-tab active" id="subtab-lh" onclick="inboundSwitchSubpage('lh',this)">Line Haul</div>
+        <div class="bkl-tab" id="subtab-fm" onclick="inboundSwitchSubpage('fm',this)">First Mile</div>
       </div>
 
       <div id="inbound-lh-panel">
         <div class="spr-filters">
           <div class="spr-filter-group">
-            <input type="date" class="filter-select pulso-date-input" id="lh-date-input" onchange="lhSetFilter('date',this.value)" style="color-scheme:dark"/>
+            <input type="date" class="filter-select pulso-date-input" id="lh-date-de-input" onchange="lhSetFilter('from',this.value)" style="color-scheme:dark" title="De"/>
+            <input type="date" class="filter-select pulso-date-input" id="lh-date-ate-input" onchange="lhSetFilter('to',this.value)" style="color-scheme:dark" title="Até"/>
             <select class="filter-select" id="lh-turno-input" onchange="lhSetFilter('turno',this.value)" style="height:34px"><option value="">Todos os turnos</option></select>
             <select class="filter-select" id="lh-status-input" onchange="lhSetFilter('status',this.value)" style="height:34px"><option value="">Todos os status</option></select>
             <select class="filter-select" id="lh-origem-input" onchange="lhSetFilter('origem',this.value)" style="height:34px"><option value="">Todas as origens</option></select>
@@ -2835,7 +2861,8 @@
       <div id="inbound-fm-panel" style="display:none">
         <div class="spr-filters">
           <div class="spr-filter-group">
-            <input type="date" class="filter-select pulso-date-input" id="fm-date-input" onchange="fmSetFilter('date',this.value)" style="color-scheme:dark"/>
+            <input type="date" class="filter-select pulso-date-input" id="fm-date-de-input" onchange="fmSetFilter('from',this.value)" style="color-scheme:dark" title="De"/>
+            <input type="date" class="filter-select pulso-date-input" id="fm-date-ate-input" onchange="fmSetFilter('to',this.value)" style="color-scheme:dark" title="Até"/>
             <select class="filter-select" id="fm-turno-input" onchange="fmSetFilter('turno',this.value)" style="height:34px"><option value="">Todos os turnos</option></select>
             <select class="filter-select" id="fm-agencia-input" onchange="fmSetFilter('agencia',this.value)" style="height:34px"><option value="">Todas as agências</option></select>
           </div>
@@ -4435,6 +4462,35 @@ function navigateTo(id, el){
   if(window.innerWidth<=768) closeMobileSidebar();
 }
 
+// Nav-items com subpáginas (Outbound/SPR/Leftover, Line Haul/First Mile):
+// clicar no item navega E abre o dropdown de subpáginas embaixo dele.
+function navigateToAndExpand(id, el, subgroupId){
+  navigateTo(id, el);
+  const sub = document.getElementById(subgroupId);
+  if(sub) sub.classList.add('open');
+  const caret = el.querySelector('.nav-expand-caret');
+  if(caret) caret.classList.add('rotated');
+}
+
+// Chevron isolado: só abre/fecha o dropdown, sem navegar (stopPropagation no onclick do caret).
+function toggleNavSubgroup(subgroupId, caretEl){
+  const sub = document.getElementById(subgroupId);
+  if(sub) sub.classList.toggle('open');
+  if(caretEl) caretEl.classList.toggle('rotated');
+}
+
+// Clique num item do dropdown: navega pro section pai e troca a subpágina
+// ativa, sincronizando tanto o item do sidebar quanto a aba correspondente
+// no topo da página (#subtab-<key>, já usada por pulsoSwitchSubpage/inboundSwitchSubpage).
+function navSidebarSubpage(el, section, key, isInbound){
+  navigateTo(section, document.querySelector(`.nav-item[data-section="${section}"]`));
+  el.parentElement.querySelectorAll('.nav-subitem').forEach(x=>x.classList.remove('active'));
+  el.classList.add('active');
+  const tabEl = document.getElementById('subtab-'+key);
+  if(isInbound) inboundSwitchSubpage(key, tabEl);
+  else pulsoSwitchSubpage(key, tabEl);
+}
+
 async function renderSection(section){
   setBadge(section,'loading');
   try {
@@ -5615,7 +5671,7 @@ function inboundOpenPipboy(){
 }
 
 // ── Line Haul ──
-const LH_STATE = { date: null, turno: '', status: '', origem: '' };
+const LH_STATE = { from: null, to: null, turno: '', status: '', origem: '' };
 const LH_SORT_COLS = ['viagem','origem','veiculo','turno','status','planejado','realizado','atrasoMin','pacotes'];
 const LH_SORT = { key: 'planejado', dir: 1 };
 let LH_DATA = null;
@@ -5625,7 +5681,8 @@ async function loadLh(){
   setBadge('inbound', 'loading');
   try {
     const p = new URLSearchParams();
-    if(LH_STATE.date) p.set('date', LH_STATE.date);
+    if(LH_STATE.from) p.set('from', LH_STATE.from);
+    if(LH_STATE.to) p.set('to', LH_STATE.to);
     const r = await fetch('/api/inbound-lh?'+p.toString(), { cache:'no-store' });
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
@@ -5633,8 +5690,10 @@ async function loadLh(){
     LH_DATA = j;
     LH_PAGE = 0;
 
-    const dateInput = document.getElementById('lh-date-input');
-    if(dateInput && j.data) dateInput.value = j.data;
+    const deInput = document.getElementById('lh-date-de-input');
+    const ateInput = document.getElementById('lh-date-ate-input');
+    if(deInput && j.de) deInput.value = j.de;
+    if(ateInput && j.ate) ateInput.value = j.ate;
 
     const buildOptions = (values, placeholder) => `<option value="">${placeholder}</option>` +
       values.map(v => `<option value="${pulsoEscHtml(v)}">${pulsoEscHtml(v)}</option>`).join('');
@@ -5657,8 +5716,23 @@ async function loadLh(){
 }
 
 function lhSetFilter(campo, valor){
-  if(campo === 'date'){ LH_STATE.date = valor; loadLh(); return; }
+  if(campo === 'from' || campo === 'to'){ LH_STATE[campo] = valor; loadLh(); return; }
   LH_STATE[campo] = valor;
+  LH_PAGE = 0;
+  lhRenderAll();
+}
+
+// Cards de status (Canceladas/No Show/Infrutífera) são clicáveis — clicar
+// filtra a tabela pro subconjunto do card (clicar de novo limpa), mesmo
+// padrão de click-to-filter usado no resto do PULSO.
+let LH_ACTIVE_CARD = null;
+const LH_CARD_FILTERS = {
+  canceladas: r => r.status === 'CANCELADO',
+  noshow: r => r.status === 'NO SHOW',
+  infrutifera: r => r.status === 'INFRUTÍFERA',
+};
+function lhCardClick(key){
+  LH_ACTIVE_CARD = (LH_ACTIVE_CARD === key) ? null : key;
   LH_PAGE = 0;
   lhRenderAll();
 }
@@ -5668,7 +5742,8 @@ function lhFilteredRows(){
   return LH_DATA.rows.filter(r =>
     (!LH_STATE.turno || r.turno === LH_STATE.turno) &&
     (!LH_STATE.status || r.status === LH_STATE.status) &&
-    (!LH_STATE.origem || r.origem === LH_STATE.origem)
+    (!LH_STATE.origem || r.origem === LH_STATE.origem) &&
+    (!LH_ACTIVE_CARD || LH_CARD_FILTERS[LH_ACTIVE_CARD](r))
   );
 }
 
@@ -5687,6 +5762,11 @@ function lhRenderKpis(){
   const pacotes = rows.reduce((s,r)=>s+r.pacotes,0);
   const tos = rows.reduce((s,r)=>s+r.tos,0);
   const porStatus = k => rows.filter(r=>r.status===k).length;
+  const cardStatus = (key, label, statusVal, icon) => ({
+    label, value: porStatus(statusVal).toLocaleString('pt-BR'), delta:'', trend:'up',
+    type: LH_ACTIVE_CARD===key?'danger':'', icon,
+    clickable: true, active: LH_ACTIVE_CARD===key, onclickAttr: `lhCardClick('${key}')`,
+  });
 
   buildKPIs('lh-kpis', [
     { label:'Viagens', value:rows.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck' },
@@ -5694,9 +5774,9 @@ function lhRenderKpis(){
     { label:'Atraso Médio (min)', value:atrasoMedio.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
     { label:'Pacotes Recebidos', value:pacotes.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
     { label:'TOs Recebidos', value:tos.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-clipboard-list' },
-    { label:'Canceladas', value:porStatus('CANCELADO').toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-ban' },
-    { label:'No Show', value:porStatus('NO SHOW').toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-user-slash' },
-    { label:'Infrutífera', value:porStatus('INFRUTÍFERA').toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-triangle-exclamation' },
+    cardStatus('canceladas', 'Canceladas', 'CANCELADO', 'fa-ban'),
+    cardStatus('noshow', 'No Show', 'NO SHOW', 'fa-user-slash'),
+    cardStatus('infrutifera', 'Infrutífera', 'INFRUTÍFERA', 'fa-triangle-exclamation'),
   ]);
 }
 
@@ -5795,7 +5875,7 @@ function lhGenerateInsights(){
 }
 
 // ── First Mile ──
-const FM_STATE = { date: null, turno: '', agencia: '' };
+const FM_STATE = { from: null, to: null, turno: '', agencia: '' };
 const FM_SORT_COLS = ['driver','estacao','turno','checkinDriver','atribuicaoDoca','finalizacaoJornada','tempoFilaMin','tempoDescargaMin','performanceDoca'];
 const FM_SORT = { key: 'finalizacaoJornada', dir: -1 };
 let FM_DATA = null;
@@ -5805,7 +5885,8 @@ async function loadFm(){
   setBadge('inbound', 'loading');
   try {
     const p = new URLSearchParams();
-    if(FM_STATE.date) p.set('date', FM_STATE.date);
+    if(FM_STATE.from) p.set('from', FM_STATE.from);
+    if(FM_STATE.to) p.set('to', FM_STATE.to);
     const r = await fetch('/api/inbound-fm?'+p.toString(), { cache:'no-store' });
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
@@ -5813,8 +5894,10 @@ async function loadFm(){
     FM_DATA = j;
     FM_PAGE = 0;
 
-    const dateInput = document.getElementById('fm-date-input');
-    if(dateInput && j.data) dateInput.value = j.data;
+    const deInput = document.getElementById('fm-date-de-input');
+    const ateInput = document.getElementById('fm-date-ate-input');
+    if(deInput && j.de) deInput.value = j.de;
+    if(ateInput && j.ate) ateInput.value = j.ate;
 
     const buildOptions = (values, placeholder) => `<option value="">${placeholder}</option>` +
       values.map(v => `<option value="${pulsoEscHtml(v)}">${pulsoEscHtml(v)}</option>`).join('');
@@ -5836,7 +5919,7 @@ async function loadFm(){
 }
 
 function fmSetFilter(campo, valor){
-  if(campo === 'date'){ FM_STATE.date = valor; loadFm(); return; }
+  if(campo === 'from' || campo === 'to'){ FM_STATE[campo] = valor; loadFm(); return; }
   FM_STATE[campo] = valor;
   FM_PAGE = 0;
   fmRenderAll();

@@ -9,9 +9,13 @@
  * já conta como atrasada.
  *
  * Data de referência da página = data_eta_ajustado (data do ETA planejado).
+ * Suporta intervalo (from/to) pra análise histórica — confirmado com o
+ * Roberto em 2026-08-04; sem params, default é from=to=hoje (1 dia, mesmo
+ * comportamento de antes).
  *
  * Query params:
- *   date   YYYY-MM-DD (default = data mais recente disponível)
+ *   from, to   YYYY-MM-DD (default = hoje, ou o dia mais recente disponível
+ *              se hoje não tiver dado ainda)
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum } = require('./_period');
@@ -35,7 +39,7 @@ module.exports = async (req, res) => {
 
   const lh = rows.filter(r => r.data_eta_ajustado);
   if (!lh.length) {
-    res.status(200).json({ ok: true, data: null, rows: [], opcoes: { turnos: [], status: [], origens: [] }, cobertura: { inicio: null, fim: null } });
+    res.status(200).json({ ok: true, de: null, ate: null, rows: [], opcoes: { turnos: [], status: [], origens: [] }, cobertura: { inicio: null, fim: null } });
     return;
   }
 
@@ -45,14 +49,13 @@ module.exports = async (req, res) => {
   // default tem que ser o dia real de hoje, não a data mais distante da
   // planilha (mesmo bug já corrigido no Outbound/Backlog).
   const hojeIso = new Date().toISOString().slice(0, 10);
-  const dataQuery = req.query.date;
-  const dataRef = (dataQuery && datasDisponiveis.includes(dataQuery))
-    ? dataQuery
-    : (datasDisponiveis.includes(hojeIso) ? hojeIso : dataMaxima);
+  const padrao = datasDisponiveis.includes(hojeIso) ? hojeIso : dataMaxima;
+  const de = (req.query.from && datasDisponiveis.includes(req.query.from)) ? req.query.from : padrao;
+  const ate = (req.query.to && datasDisponiveis.includes(req.query.to) && req.query.to >= de) ? req.query.to : de;
 
-  const doDia = lh.filter(r => r.data_eta_ajustado === dataRef);
+  const doIntervalo = lh.filter(r => r.data_eta_ajustado >= de && r.data_eta_ajustado <= ate);
 
-  const linhas = doDia.map(r => {
+  const linhas = doIntervalo.map(r => {
     const planejado = parseDT(r.eta_destino_planejado);
     const realizado = parseDT(r.eta_destino_realizado);
     const atrasoMin = (planejado && realizado) ? Math.round((realizado - planejado) / 60000) : null;
@@ -83,7 +86,7 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
     ok: true,
-    data: dataRef,
+    de, ate,
     rows: linhas,
     opcoes,
     cobertura: { inicio: dataMinima, fim: dataMaxima },

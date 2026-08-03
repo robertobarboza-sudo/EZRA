@@ -8,8 +8,12 @@
  * desvio_meta_minutos), não um horário agendado — por isso a página não tem
  * card de pontualidade planejado x realizado, só monitor histórico + meta.
  *
+ * Suporta intervalo (from/to) pra análise histórica — confirmado com o
+ * Roberto em 2026-08-04; sem params, default é from=to=hoje.
+ *
  * Query params:
- *   date   YYYY-MM-DD (data_operacional; default = data mais recente disponível)
+ *   from, to   YYYY-MM-DD (data_operacional; default = hoje, ou o dia mais
+ *              recente disponível se hoje não tiver dado ainda)
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum } = require('./_period');
@@ -27,21 +31,20 @@ module.exports = async (req, res) => {
 
   const fm = rows.filter(r => r.data_operacional);
   if (!fm.length) {
-    res.status(200).json({ ok: true, data: null, rows: [], opcoes: { turnos: [], agencias: [] }, cobertura: { inicio: null, fim: null } });
+    res.status(200).json({ ok: true, de: null, ate: null, rows: [], opcoes: { turnos: [], agencias: [] }, cobertura: { inicio: null, fim: null } });
     return;
   }
 
   const datasDisponiveis = [...new Set(fm.map(r => r.data_operacional))].sort();
   const dataMinima = datasDisponiveis[0], dataMaxima = datasDisponiveis[datasDisponiveis.length - 1];
   const hojeIso = new Date().toISOString().slice(0, 10);
-  const dataQuery = req.query.date;
-  const dataRef = (dataQuery && datasDisponiveis.includes(dataQuery))
-    ? dataQuery
-    : (datasDisponiveis.includes(hojeIso) ? hojeIso : dataMaxima);
+  const padrao = datasDisponiveis.includes(hojeIso) ? hojeIso : dataMaxima;
+  const de = (req.query.from && datasDisponiveis.includes(req.query.from)) ? req.query.from : padrao;
+  const ate = (req.query.to && datasDisponiveis.includes(req.query.to) && req.query.to >= de) ? req.query.to : de;
 
-  const doDia = fm.filter(r => r.data_operacional === dataRef);
+  const doIntervalo = fm.filter(r => r.data_operacional >= de && r.data_operacional <= ate);
 
-  const linhas = doDia.map(r => ({
+  const linhas = doIntervalo.map(r => ({
     driver: r.driver_id_spx || '',
     estacao: r.station_name || '',
     agencia: r.agency_name || '',
@@ -65,7 +68,7 @@ module.exports = async (req, res) => {
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
     ok: true,
-    data: dataRef,
+    de, ate,
     rows: linhas,
     opcoes,
     cobertura: { inicio: dataMinima, fim: dataMaxima },
