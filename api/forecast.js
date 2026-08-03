@@ -5,11 +5,14 @@
  * são uma tabela independente do bloco de Backlog (colunas A-E, ver
  * api/backlog.js) — não têm relação linha a linha, só coexistem na mesma aba.
  *
- * Clusterização de origin_type (confirmado com o Roberto em 2026-07-31):
- *   FMH, SOC, INTER-SOC   -> LH
- *   PUDO SVP, BIG SELLER  -> FM
- *   CB                    -> CB
- *   FULL                  -> critério próprio (card/linha separada), mas soma no Total
+ * Clusterização de origin_type (confirmado com o Roberto em 2026-07-31,
+ * ajustado em 2026-08-03 pra incluir FM como origin_type próprio — os 7
+ * valores reais na aba hoje são FMH/INTER-SOC/CB/BIG SELLER/PUDO SVP/SOC/FULL,
+ * FM ainda não apareceu mas o mapeamento já cobre se/quando aparecer):
+ *   FMH, SOC, INTER-SOC        -> LH
+ *   FM, PUDO SVP, BIG SELLER   -> FM
+ *   CB                         -> CB
+ *   FULL                       -> critério próprio (card/linha separada), mas soma no Total
  * `total` (= direct + transhipment) é o valor usado no forecast — cada canal
  * já vem com o transhipment embutido nesse campo. A linha "Transhipment" é só
  * informativa (quanto do total já é transhipment) e NUNCA é somada de novo.
@@ -37,7 +40,7 @@ const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', g
 
 const CLUSTER = {
   FMH: 'LH', SOC: 'LH', 'INTER-SOC': 'LH',
-  'PUDO SVP': 'FM', 'BIG SELLER': 'FM',
+  FM: 'FM', 'PUDO SVP': 'FM', 'BIG SELLER': 'FM',
   CB: 'CB',
   FULL: 'FULL',
 };
