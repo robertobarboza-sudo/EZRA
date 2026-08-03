@@ -1280,9 +1280,9 @@
     .clst-pos-sq.occ  { background: #ef4444; }
     .clst-pos-overflow { font-size: 9px; font-weight: 800; color: var(--red); text-align: center; margin-top: 3px; }
 
-    /* Farol horizontal de clusterização — 1 bolinha por rua, verde/vermelho/
-       branco (ver clusterCorreto em api/cluster.js). */
-    .clst-farol-dot { width: 16px; height: 16px; border-radius: 50%; margin: 0 auto; border: 1px solid var(--border); }
+    /* Farol horizontal de clusterização — 1 quadrado cheio por rua,
+       verde/vermelho/branco (ver clusterCorreto em api/cluster.js). */
+    .clst-farol-dot { width: 100%; height: 26px; border: 1px solid var(--border); box-sizing: border-box; }
     .clst-farol-correta   { background: #10b981; border-color: #10b981; }
     .clst-farol-incorreta { background: #ef4444; border-color: #ef4444; }
     .clst-farol-vazia     { background: #fff; }
@@ -4818,7 +4818,10 @@ function pulsoRenderKpis(key, atual, delta){
       sub,
       delta: cfg.hideDelta ? '' : fmtDelta(delta[k.key]||0),
       trend: trend(delta[k.key]||0),
-      type: '', icon: k.icon,
+      // colorByValue: pinta o card (success/warning/danger, ver .kpi-strip-item::after)
+      // conforme o valor bruto de atual[k.key] — genérico pra qualquer página do motor.
+      type: k.colorByValue ? (k.colorByValue(atual[k.key]) || '') : '',
+      icon: k.icon,
       // rowFilter: cards com um predicado próprio viram clicáveis — clicar
       // filtra a tabela pros registros que batem com o card (clicar de novo
       // limpa). Cards sem rowFilter (médias, %, totais gerais) não têm um
@@ -5709,7 +5712,7 @@ function renderClusterGrid(data){
   tbody += `<tr><td class="clst-rowlabel" style="text-align:center">Status</td>${grade.map(g => {
     const cls = g.ocupadas === 0 ? 'clst-farol-vazia' : (g.clusterCorreto ? 'clst-farol-correta' : 'clst-farol-incorreta');
     const titulo = g.ocupadas === 0 ? 'Vazia' : (g.clusterCorreto ? 'Cluster correto' : 'Cluster incorreto');
-    return `<td style="padding:4px"><div class="clst-farol-dot ${cls}" title="${pulsoEscHtml(titulo)}"></div></td>`;
+    return `<td style="padding:0"><div class="clst-farol-dot ${cls}" title="${pulsoEscHtml(titulo)}"></div></td>`;
   }).join('')}</tr>`;
 
   tbody += sectionRow('FANOUT ENDEREÇADO');
@@ -5724,15 +5727,7 @@ function renderClusterGrid(data){
   tbody += '</tbody>';
 
   wrap.innerHTML = `
-    <div class="clst-legend">
-      <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-free"></span> Livre (&lt;40%)</div>
-      <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-mid"></span> Média (40–69%)</div>
-      <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-busy"></span> Cheia (≥70%)</div>
-      <div class="clst-legend-item"><span class="clst-legend-swatch clst-farol-correta"></span> Cluster correto</div>
-      <div class="clst-legend-item"><span class="clst-legend-swatch clst-farol-incorreta"></span> Cluster incorreto</div>
-      <div class="clst-legend-item"><span class="clst-legend-swatch clst-farol-vazia" style="border:1px solid var(--border)"></span> Rua vazia</div>
-      ${data.pendentesAtual ? `<div class="clst-legend-item"><i class="fas fa-triangle-exclamation" style="color:var(--orange)"></i> ${data.pendentesAtual.toLocaleString('pt-BR')} TO(s) ainda sem rua (Pendente) agora</div>` : ''}
-    </div>
+    ${data.pendentesAtual ? `<div class="clst-legend"><div class="clst-legend-item"><i class="fas fa-triangle-exclamation" style="color:var(--orange)"></i> ${data.pendentesAtual.toLocaleString('pt-BR')} TO(s) ainda sem rua (Pendente) agora</div></div>` : ''}
     <div class="clst-table-wrap"><table class="clst-table">${thead}${tbody}</table></div>`;
 }
 
@@ -5764,15 +5759,17 @@ pulsoRegister({
   // (countKey/countSuffix) em vez de ter um card "TOs" separado — mantém a
   // informação com menos cards no bloco.
   kpis: [
+    // Acima de 89% = verde, 75-89% = amarelo, abaixo de 75% = vermelho
+    // (confirmado com o Roberto em 2026-08-04).
+    { key:'pctClusterizacao',  label:'% Clusterização',   icon:'fa-diagram-project', isPercent:true,
+      colorByValue: v => v > 89 ? 'success' : (v >= 75 ? 'warning' : 'danger') },
     { key:'pacotesTotal',      label:'Total de Pacotes',   icon:'fa-boxes-stacked', countKey:'totalRegistros',    countSuffix:"TO's" },
     { key:'pacotesSaca',       label:'Total de Sacas',     icon:'fa-sack-xmark',    countKey:'pacotesSacaTOs',    countSuffix:"TO's", rowFilter: r => clstIsSaca(r) },
     { key:'pacotesScuttle',    label:'Total de Scuttles',  icon:'fa-dolly',         countKey:'pacotesScuttleTOs', countSuffix:"TO's", rowFilter: r => clstIsScuttle(r) },
     { key:'agingMedio',        label:'Aging Médio (h)',    icon:'fa-clock' },
     { key:'ocupacaoTotalPct',  label:'Ocupação Total',     icon:'fa-warehouse',        isPercent:true, rowFilter: r => r.stage === 'ENDEREÇADO' },
-    { key:'pctAtendimento',    label:'% Att. da Cluster', icon:'fa-map-location-dot', isPercent:true, rowFilter: r => r.stage === 'ENDEREÇADO' },
     { key:'ruasCorretas',      label:'Ruas Corretas',     icon:'fa-circle-check' },
     { key:'ruasIncorretas',    label:'Ruas Incorretas',   icon:'fa-circle-xmark' },
-    { key:'pctClusterizacao',  label:'% Clusterização',   icon:'fa-diagram-project', isPercent:true },
     // Pendentes = Saca/Scuttle ainda sem rua, exceto 3PL (3PL nunca é
     // endereçado — ver classificação em api/cluster.js).
     { key:'pendentesPacotes',  label:'Pendentes',    icon:'fa-hourglass-half', countKey:'pendentesTOs',  countSuffix:"TO's",
