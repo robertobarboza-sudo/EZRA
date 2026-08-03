@@ -7,15 +7,25 @@
  * grade de ruas e a tabela de TOs (decidido com o Roberto em 2026-07-30,
  * revertendo o design anterior onde só a tabela era filtrada).
  *
+ * IMPORTANTE (corrigido em 2026-08-04): a aba cluster_pulso NÃO tem mais as
+ * colunas `rua`/`destino`/`stage`/`aging` que essa página assumia antes — o
+ * export do sistema de origem mudou. As colunas reais hoje são `receiver`
+ * (= destino) e `staging area` (código tipo "OBS-03CW", ou "-" quando o TO
+ * ainda não tem posição física). O Roberto adicionou uma aba `config` com o
+ * de-para código→rua (`staging area id`→`staging area name`) e a capacidade
+ * real de cada rua (`capacity`) nas colunas H-J. Cada linha do cluster_pulso
+ * é reconciliada nesse de-para pra reconstruir `destino`/`rua`/`stage`
+ * (ENDEREÇADO = código bate com uma rua do de-para; PENDENTE = "-" ou código
+ * não encontrado) antes de rodar a agregação de sempre. O roster de ruas
+ * (antes fixo em 142+reservas hardcoded) agora vem inteiro da aba `config`,
+ * na ordem em que aparece lá — inclui a RESERVA 37A automaticamente, sem
+ * precisar hardcodar onde ela fica. Capacidade por rua também vem de lá
+ * (antes era fixa em 20 pra todas).
+ * `aging` não existe mais como coluna — recalculado aqui como horas desde
+ * `create time` até agora (assunção; ajustar se o Roberto quiser outra base).
+ *
  * `stage`=ENDEREÇADO = TO já ocupa 1 posição física na `rua` indicada;
  * `stage`=PENDENTE (`rua`="Pendente") = TO ainda sem rua física.
- *
- * Capacidade por rua: fixa em 20 posições (confirmado com o Roberto em
- * 2026-07-30 — não existe coluna de capacidade na planilha ainda). Ocupação
- * total % = posições ocupadas / (142 ruas do roster fixo + reservas
- * conhecidas) × 20 — roster fixo, não derivado do histórico de dados. Cada
- * TO ocupa 1 posição, EXCETO sacos (Saca Sorter/Saca): 10 sacos = 1 posição
- * (confirmado com o Roberto em 2026-07-30).
  *
  * `atual.att`: data/hora máxima de `complete time` no conjunto filtrado —
  * "última atualização" real do piso (a tabela de TOs também ordena por essa
@@ -39,10 +49,10 @@
  * Todo card de pacotes (Total de Pacotes/Sacas/Scuttles, Pendentes, os por
  * categoria) segue o mesmo padrão: quantidade de pacotes + (N TOs).
  *
- * `grade`: 1 item por rua do roster fixo (142 + reservas). Campos que o
- * modelo visual antigo tinha mas não existem em cluster_pulso (SPP posição,
- * doca, próx. CPT, timer CPT, cluster ideal) ficam de fora — decidido com o
- * Roberto em 2026-07-30, adicionar depois se a coluna surgir.
+ * `grade`: 1 item por rua do roster (config). Campos que o modelo visual
+ * antigo tinha mas não existem em cluster_pulso (SPP posição, doca, próx.
+ * CPT, timer CPT, cluster ideal) ficam de fora — decidido com o Roberto em
+ * 2026-07-30, adicionar depois se a coluna surgir.
  *
  * Query params (afetam cards, grade e tabela):
  *   to_pack              lista separada por vírgula, valores agrupados (Saca/Scuttle/Volumoso/Pallet/-)
@@ -53,7 +63,7 @@ const { fetchTabByGid } = require('./_google');
 const { toNum, parseCSV } = require('./_period');
 
 const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
-const CAPACIDADE_POR_RUA = 20;
+const CONFIG_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1408724077' };
 
 const SACA_TIPOS = new Set(['Saca Sorter', 'Saca']);
 const SCUTTLE_TIPOS = new Set(['Scuttle']);
@@ -75,25 +85,6 @@ function destinoCategoria(destino) {
   if (/^LM Hub_/i.test(d)) return 'LM Hub';
   return '3PL';
 }
-
-// Roster fixo das 142 ruas físicas (confirmado com o Roberto em 2026-07-30 —
-// não é derivado do histórico de dados, que só tem TOs pras ruas já usadas
-// nos últimos dias) + ruas de reserva conhecidas, inseridas fisicamente ao
-// lado da rua numerada correspondente (ex: RESERVA 37A fica ao lado da RUA
-// 037 — não no fim da lista). Se surgir outra reserva nova, adicionar aqui.
-const RUA_RESERVAS_CONHECIDAS = [
-  { rua: 'RESERVA 37A', apos: 37 },
-];
-function buildRuaRoster() {
-  const roster = [];
-  for (let i = 1; i <= 142; i++) {
-    roster.push('RUA ' + String(i).padStart(3, '0'));
-    RUA_RESERVAS_CONHECIDAS.filter(r => r.apos === i).forEach(r => roster.push(r.rua));
-  }
-  return roster;
-}
-const RUA_ROSTER = buildRuaRoster();
-const CAPACIDADE_TOTAL_CD = RUA_ROSTER.length * CAPACIDADE_POR_RUA;
 
 function aggregate(rows) {
   const totalRegistros = rows.length;
@@ -162,17 +153,50 @@ function aggregate(rows) {
 }
 
 module.exports = async (req, res) => {
-  let rows;
+  let rows, configRows;
   try {
     ({ rows } = await fetchTabByGid(CLUSTER_SHEET.spreadsheetId, CLUSTER_SHEET.gid));
+    ({ rows: configRows } = await fetchTabByGid(CONFIG_SHEET.spreadsheetId, CONFIG_SHEET.gid));
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });
     return;
   }
 
-  // Ordenação/"Att." usam complete time (quando o TO foi de fato concluído),
-  // não create time — é o timestamp que representa o piso mais fielmente.
-  const comData = rows.map(r => ({ ...r, __date: r['complete time'] ? new Date(String(r['complete time']).replace(' ', 'T') + 'Z') : null }));
+  // De-para código→rua + capacidade real por rua, direto da aba `config`
+  // (colunas H-J: staging area id / staging area name / capacity). O roster
+  // de ruas segue a ORDEM DA PLANILHA — preserva onde a RESERVA 37A fica
+  // fisicamente sem precisar hardcodar.
+  const STAGING_DEPARA = new Map(); // staging area id -> { rua, capacidade }
+  const RUA_ROSTER = [];
+  const CAPACIDADE_POR_RUA = new Map(); // rua -> capacidade
+  configRows.forEach(r => {
+    const id = r['staging area id'];
+    const rua = r['staging area name'];
+    if (!id || !rua) return;
+    const capacidade = toNum(r.capacity);
+    STAGING_DEPARA.set(id, { rua, capacidade });
+    RUA_ROSTER.push(rua);
+    CAPACIDADE_POR_RUA.set(rua, capacidade);
+  });
+  const CAPACIDADE_TOTAL_CD = RUA_ROSTER.reduce((s, rua) => s + (CAPACIDADE_POR_RUA.get(rua) || 0), 0);
+
+  // Reconstrói destino/rua/stage/aging a partir das colunas reais de hoje
+  // (receiver, staging area, create time) + o de-para acima. Ordenação/"Att."
+  // usam complete time (quando o TO foi de fato concluído), não create time.
+  const agoraMs = Date.now();
+  const comData = rows.map(r => {
+    const codigo = r['staging area'];
+    const depara = (codigo && codigo !== '-') ? STAGING_DEPARA.get(codigo) : null;
+    const createMs = r['create time'] ? new Date(String(r['create time']).replace(' ', 'T') + 'Z').getTime() : null;
+    return {
+      ...r,
+      destino: r.receiver,
+      rua: depara ? depara.rua : 'Pendente',
+      stage: depara ? 'ENDEREÇADO' : 'PENDENTE',
+      aging: (createMs && !isNaN(createMs)) ? +((agoraMs - createMs) / 3600000).toFixed(1) : 0,
+      __date: r['complete time'] ? new Date(String(r['complete time']).replace(' ', 'T') + 'Z') : null,
+    };
+  });
 
   // Opções de filtro sempre vêm da base inteira (não da já filtrada), senão
   // as opções somem conforme o usuário seleciona — padrão igual SPR/Leftover.
@@ -216,9 +240,10 @@ module.exports = async (req, res) => {
   });
 
   const grade = RUA_ROSTER.map(rua => {
+    const capacidade = CAPACIDADE_POR_RUA.get(rua) || 0;
     const acc = porRua.get(rua);
     if (!acc || (!acc.sacaTOs && !acc.outrosTOs)) {
-      return { rua, ocupadas: 0, capacidade: CAPACIDADE_POR_RUA, pct: 0, saca: 0, scuttle: 0, pacotes: 0, agingMedio: null, fanout: null };
+      return { rua, ocupadas: 0, capacidade, pct: 0, saca: 0, scuttle: 0, pacotes: 0, agingMedio: null, fanout: null };
     }
     const posicoes = acc.outrosTOs + Math.ceil(acc.sacaTOs / SACOS_POR_POSICAO);
     let fanout = null, fanoutMax = 0;
@@ -226,8 +251,8 @@ module.exports = async (req, res) => {
     return {
       rua,
       ocupadas: posicoes,
-      capacidade: CAPACIDADE_POR_RUA,
-      pct: +(posicoes / CAPACIDADE_POR_RUA * 100).toFixed(1),
+      capacidade,
+      pct: capacidade ? +(posicoes / capacidade * 100).toFixed(1) : 0,
       saca: acc.saca,
       scuttle: acc.scuttle,
       pacotes: acc.pacotes,
@@ -237,7 +262,7 @@ module.exports = async (req, res) => {
   });
   const posicoesOcupadasTotal = grade.reduce((s, g) => s + g.ocupadas, 0);
   atual.posicoesOcupadas = posicoesOcupadasTotal;
-  atual.ocupacaoTotalPct = +(posicoesOcupadasTotal / CAPACIDADE_TOTAL_CD * 100).toFixed(1);
+  atual.ocupacaoTotalPct = CAPACIDADE_TOTAL_CD ? +(posicoesOcupadasTotal / CAPACIDADE_TOTAL_CD * 100).toFixed(1) : 0;
 
   const pendentesAtual = filtradas.filter(r => r.stage === 'PENDENTE').length;
 
