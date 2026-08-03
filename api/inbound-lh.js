@@ -39,7 +39,7 @@ module.exports = async (req, res) => {
 
   const lh = rows.filter(r => r.data_eta_ajustado);
   if (!lh.length) {
-    res.status(200).json({ ok: true, de: null, ate: null, rows: [], opcoes: { turnos: [], status: [], origens: [] }, cobertura: { inicio: null, fim: null } });
+    res.status(200).json({ ok: true, de: null, ate: null, rows: [], opcoes: { turnos: [], status: [], origens: [], veiculos: [], solicitacoes: [] }, cobertura: { inicio: null, fim: null } });
     return;
   }
 
@@ -74,6 +74,16 @@ module.exports = async (req, res) => {
       onTime: atrasoMin !== null ? atrasoMin <= 0 : null,
       pacotes: toNum(r.total_pacotes),
       tos: toNum(r.total_tos),
+      pacotesSaca: toNum(r.pacotes_saca),
+      tosSaca: toNum(r.tos_saca),
+      pacotesScuttle: toNum(r.pacotes_scuttle),
+      tosScuttle: toNum(r.tos_scuttle),
+      // G+Bulky e P+M somados (pedido do Roberto em 2026-08-04) — a aba não
+      // tem contagem de TOs por tamanho (só existe tos_saca/scuttle/pallet/
+      // outros/volumoso), por isso esses dois cards não têm TOs entre parênteses.
+      pacotesGBulk: toNum(r.pacotes_g) + toNum(r.pacotes_bulk),
+      pacotesPM: toNum(r.pacotes_p) + toNum(r.pacotes_m),
+      solicitacao: r.solicitation_agrupado || '',
     };
   });
 
@@ -81,6 +91,8 @@ module.exports = async (req, res) => {
     turnos: [...new Set(linhas.map(l => l.turno).filter(Boolean))].sort(),
     status: [...new Set(linhas.map(l => l.status).filter(Boolean))].sort(),
     origens: [...new Set(linhas.map(l => l.origem).filter(Boolean))].sort(),
+    veiculos: [...new Set(linhas.map(l => l.veiculo).filter(Boolean))].sort(),
+    solicitacoes: [...new Set(linhas.map(l => l.solicitacao).filter(Boolean))].sort(),
   };
 
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');

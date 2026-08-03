@@ -2831,12 +2831,16 @@
             <select class="filter-select" id="lh-turno-input" onchange="lhSetFilter('turno',this.value)" style="height:34px"><option value="">Todos os turnos</option></select>
             <select class="filter-select" id="lh-status-input" onchange="lhSetFilter('status',this.value)" style="height:34px"><option value="">Todos os status</option></select>
             <select class="filter-select" id="lh-origem-input" onchange="lhSetFilter('origem',this.value)" style="height:34px"><option value="">Todas as origens</option></select>
+            <select class="filter-select" id="lh-veiculo-input" onchange="lhSetFilter('veiculo',this.value)" style="height:34px"><option value="">Todos os veículos</option></select>
           </div>
         </div>
         <div class="pulso-coverage" id="lh-coverage"></div>
         <div id="lh-kpis" style="margin-top:12px"></div>
         <div class="chart-card full" style="margin-top:16px">
-          <div class="chart-title">Viagens por hora — Planejado vs Realizado</div>
+          <div class="table-toolbar" style="margin-bottom:0">
+            <div class="chart-title" id="lh-chart-title">Viagens por hora — Planejado vs Realizado</div>
+            <button type="button" class="spr-ms-action-btn" id="lh-chart-toggle" onclick="lhToggleChartView()" style="flex:0 0 auto">Ver Atraso Médio (h)</button>
+          </div>
           <div style="height:320px;margin-top:12px"><canvas id="chart-lh-hora"></canvas></div>
         </div>
         <div class="table-card full" style="margin-top:16px">
@@ -2870,7 +2874,10 @@
         <div class="pulso-coverage" id="fm-coverage"></div>
         <div id="fm-kpis" style="margin-top:12px"></div>
         <div class="chart-card full" style="margin-top:16px">
-          <div class="chart-title">Chegadas por hora</div>
+          <div class="table-toolbar" style="margin-bottom:0">
+            <div class="chart-title" id="fm-chart-title">Chegadas por hora</div>
+            <button type="button" class="spr-ms-action-btn" id="fm-chart-toggle" onclick="fmToggleChartView()" style="flex:0 0 auto">Ver Tempo Médio de Descarga (h)</button>
+          </div>
           <div style="height:320px;margin-top:12px"><canvas id="chart-fm-hora"></canvas></div>
         </div>
         <div class="table-card full" style="margin-top:16px">
@@ -5671,7 +5678,8 @@ function inboundOpenPipboy(){
 }
 
 // ── Line Haul ──
-const LH_STATE = { from: null, to: null, turno: '', status: '', origem: '' };
+const LH_STATE = { from: null, to: null, turno: '', status: '', origem: '', veiculo: '' };
+let LH_CHART_VIEW = 'viagens'; // 'viagens' | 'atraso'
 const LH_SORT_COLS = ['viagem','origem','veiculo','turno','status','planejado','realizado','atrasoMin','pacotes'];
 const LH_SORT = { key: 'planejado', dir: 1 };
 let LH_DATA = null;
@@ -5701,6 +5709,7 @@ async function loadLh(){
     set('lh-turno-input', buildOptions(j.opcoes.turnos, 'Todos os turnos'), LH_STATE.turno);
     set('lh-status-input', buildOptions(j.opcoes.status, 'Todos os status'), LH_STATE.status);
     set('lh-origem-input', buildOptions(j.opcoes.origens, 'Todas as origens'), LH_STATE.origem);
+    set('lh-veiculo-input', buildOptions(j.opcoes.veiculos, 'Todos os veículos'), LH_STATE.veiculo);
     lhUpdateSortHeaders();
 
     const cov = document.getElementById('lh-coverage');
@@ -5737,13 +5746,23 @@ function lhCardClick(key){
   lhRenderAll();
 }
 
+// Cards de Solicitação (1 por valor de solicitation_agrupado) usam a chave
+// 'solic:<valor>' — não dá pra saber os valores em tempo de registro (vêm
+// da planilha), por isso não entram no LH_CARD_FILTERS estático.
+function lhActiveCardFilter(r){
+  if(!LH_ACTIVE_CARD) return true;
+  if(LH_ACTIVE_CARD.startsWith('solic:')) return r.solicitacao === LH_ACTIVE_CARD.slice(6);
+  return LH_CARD_FILTERS[LH_ACTIVE_CARD](r);
+}
+
 function lhFilteredRows(){
   if(!LH_DATA) return [];
   return LH_DATA.rows.filter(r =>
     (!LH_STATE.turno || r.turno === LH_STATE.turno) &&
     (!LH_STATE.status || r.status === LH_STATE.status) &&
     (!LH_STATE.origem || r.origem === LH_STATE.origem) &&
-    (!LH_ACTIVE_CARD || LH_CARD_FILTERS[LH_ACTIVE_CARD](r))
+    (!LH_STATE.veiculo || r.veiculo === LH_STATE.veiculo) &&
+    lhActiveCardFilter(r)
   );
 }
 
@@ -5767,6 +5786,16 @@ function lhRenderKpis(){
     type: LH_ACTIVE_CARD===key?'danger':'', icon,
     clickable: true, active: LH_ACTIVE_CARD===key, onclickAttr: `lhCardClick('${key}')`,
   });
+  const somaCampo = campo => rows.reduce((s,r)=>s+r[campo],0);
+
+  const cardsSolicitacao = (LH_DATA?.opcoes.solicitacoes || []).map(valor => {
+    const key = 'solic:'+valor;
+    return {
+      label: valor, value: rows.filter(r=>r.solicitacao===valor).length.toLocaleString('pt-BR'), delta:'', trend:'up',
+      type: LH_ACTIVE_CARD===key?'info':'', icon:'fa-file-invoice',
+      clickable: true, active: LH_ACTIVE_CARD===key, onclickAttr: `lhCardClick('${key}')`,
+    };
+  });
 
   buildKPIs('lh-kpis', [
     { label:'Viagens', value:rows.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck' },
@@ -5777,19 +5806,49 @@ function lhRenderKpis(){
     cardStatus('canceladas', 'Canceladas', 'CANCELADO', 'fa-ban'),
     cardStatus('noshow', 'No Show', 'NO SHOW', 'fa-user-slash'),
     cardStatus('infrutifera', 'Infrutífera', 'INFRUTÍFERA', 'fa-triangle-exclamation'),
+    { label:'Sacas', value:somaCampo('pacotesSaca').toLocaleString('pt-BR'), sub:`(${somaCampo('tosSaca').toLocaleString('pt-BR')} TO's)`, delta:'', trend:'up', type:'', icon:'fa-sack-xmark' },
+    { label:'Scuttles', value:somaCampo('pacotesScuttle').toLocaleString('pt-BR'), sub:`(${somaCampo('tosScuttle').toLocaleString('pt-BR')} TO's)`, delta:'', trend:'up', type:'', icon:'fa-dolly' },
+    { label:'G + Bulky', value:somaCampo('pacotesGBulk').toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-box' },
+    { label:'P + M', value:somaCampo('pacotesPM').toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-box-open' },
+    ...cardsSolicitacao,
   ]);
+}
+
+// Botão no gráfico alterna entre contagem de viagens e atraso médio por
+// hora, em horas (formato "2,5" — vírgula, 1 casa decimal), pedido pelo
+// Roberto em 2026-08-04.
+function lhToggleChartView(){
+  LH_CHART_VIEW = LH_CHART_VIEW === 'viagens' ? 'atraso' : 'viagens';
+  const btn = document.getElementById('lh-chart-toggle');
+  const title = document.getElementById('lh-chart-title');
+  if(btn) btn.textContent = LH_CHART_VIEW === 'viagens' ? 'Ver Atraso Médio (h)' : 'Ver Viagens';
+  if(title) title.textContent = LH_CHART_VIEW === 'viagens' ? 'Viagens por hora — Planejado vs Realizado' : 'Atraso médio por hora (h)';
+  lhRenderChart();
 }
 
 function lhRenderChart(){
   if(!LH_DATA) return;
   const rows = lhFilteredRows();
+  if(chartInstances['chart-lh-hora']){ chartInstances['chart-lh-hora'].destroy(); delete chartInstances['chart-lh-hora']; }
+  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
+
+  if(LH_CHART_VIEW === 'atraso'){
+    const somaMin = Array(24).fill(0), qtd = Array(24).fill(0);
+    rows.forEach(r => {
+      if(r.atrasoMin!==null && r.horaPlanejada>=0 && r.horaPlanejada<=23){ somaMin[r.horaPlanejada]+=r.atrasoMin; qtd[r.horaPlanejada]++; }
+    });
+    const atrasoHoras = somaMin.map((s,h) => qtd[h] ? +(s/qtd[h]/60).toFixed(1) : 0);
+    mkLine('chart-lh-hora', labels, [
+      { label:'Atraso médio (h)', data:atrasoHoras, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:2 },
+    ], { plugins:{ legend:{labels:{color:'#5c5f7a',boxWidth:11,font:{size:11}}}, tooltip:{ callbacks:{ label: ctx => `Atraso médio: ${String(ctx.raw).replace('.',',')}h` } } } });
+    return;
+  }
+
   const porHoraPlanejado = Array(24).fill(0), porHoraRealizado = Array(24).fill(0);
   rows.forEach(r => {
     if(r.horaPlanejada>=0 && r.horaPlanejada<=23) porHoraPlanejado[r.horaPlanejada]++;
     if(r.horaRealizada!==null && r.horaRealizada>=0 && r.horaRealizada<=23) porHoraRealizado[r.horaRealizada]++;
   });
-  if(chartInstances['chart-lh-hora']){ chartInstances['chart-lh-hora'].destroy(); delete chartInstances['chart-lh-hora']; }
-  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
   mkLine('chart-lh-hora', labels, [
     { label:'Planejado', data:porHoraPlanejado, borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:2 },
     { label:'Realizado', data:porHoraRealizado, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:2 },
@@ -5876,6 +5935,7 @@ function lhGenerateInsights(){
 
 // ── First Mile ──
 const FM_STATE = { from: null, to: null, turno: '', agencia: '' };
+let FM_CHART_VIEW = 'chegadas'; // 'chegadas' | 'descarga'
 const FM_SORT_COLS = ['driver','estacao','turno','checkinDriver','atribuicaoDoca','finalizacaoJornada','tempoFilaMin','tempoDescargaMin','performanceDoca'];
 const FM_SORT = { key: 'finalizacaoJornada', dir: -1 };
 let FM_DATA = null;
@@ -5957,13 +6017,35 @@ function fmRenderKpis(){
   ]);
 }
 
+// Botão no gráfico alterna entre contagem de chegadas e tempo médio de
+// descarga por hora, em horas (formato "2,5"), pedido pelo Roberto em 2026-08-04.
+function fmToggleChartView(){
+  FM_CHART_VIEW = FM_CHART_VIEW === 'chegadas' ? 'descarga' : 'chegadas';
+  const btn = document.getElementById('fm-chart-toggle');
+  const title = document.getElementById('fm-chart-title');
+  if(btn) btn.textContent = FM_CHART_VIEW === 'chegadas' ? 'Ver Tempo Médio de Descarga (h)' : 'Ver Chegadas';
+  if(title) title.textContent = FM_CHART_VIEW === 'chegadas' ? 'Chegadas por hora' : 'Tempo médio de descarga por hora (h)';
+  fmRenderChart();
+}
+
 function fmRenderChart(){
   if(!FM_DATA) return;
   const rows = fmFilteredRows();
-  const porHora = Array(24).fill(0);
-  rows.forEach(r => { if(r.hora>=0 && r.hora<=23) porHora[r.hora]++; });
   if(chartInstances['chart-fm-hora']){ chartInstances['chart-fm-hora'].destroy(); delete chartInstances['chart-fm-hora']; }
   const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
+
+  if(FM_CHART_VIEW === 'descarga'){
+    const somaMin = Array(24).fill(0), qtd = Array(24).fill(0);
+    rows.forEach(r => { if(r.hora>=0 && r.hora<=23){ somaMin[r.hora]+=r.tempoDescargaMin; qtd[r.hora]++; } });
+    const descargaHoras = somaMin.map((s,h) => qtd[h] ? +(s/qtd[h]/60).toFixed(1) : 0);
+    mkLine('chart-fm-hora', labels, [
+      { label:'Tempo médio de descarga (h)', data:descargaHoras, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.16)', fill:true, tension:.35, pointRadius:2 },
+    ], { plugins:{ legend:{labels:{color:'#5c5f7a',boxWidth:11,font:{size:11}}}, tooltip:{ callbacks:{ label: ctx => `Descarga média: ${String(ctx.raw).replace('.',',')}h` } } } });
+    return;
+  }
+
+  const porHora = Array(24).fill(0);
+  rows.forEach(r => { if(r.hora>=0 && r.hora<=23) porHora[r.hora]++; });
   mkLine('chart-fm-hora', labels, [
     { label:'Chegadas', data:porHora, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.16)', fill:true, tension:.35, pointRadius:2 },
   ]);
