@@ -59,6 +59,19 @@ module.exports = async (req, res) => {
     const planejado = parseDT(r.eta_destino_planejado);
     const realizado = parseDT(r.eta_destino_realizado);
     const atrasoMin = (planejado && realizado) ? Math.round((realizado - planejado) / 60000) : null;
+    // Tempo de fila/descarga (confirmado com o Roberto em 2026-08-04):
+    //   checkin_destino = chegada por telemetria
+    //   abertura_bau    = momento em que o carro foi docado
+    //   inicio_descarga / fim_descarga = início/fim do descarregamento
+    // "Tempo de Fila" = checkin_destino -> fim_descarga (não é só a espera
+    // pra iniciar a descarga, é o dwell time total até terminar — assim que
+    // o Roberto definiu o card).
+    const checkinDestino = parseDT(r.checkin_destino);
+    const aberturaBau = parseDT(r.abertura_bau);
+    const inicioDescarga = parseDT(r.inicio_descarga);
+    const fimDescarga = parseDT(r.fim_descarga);
+    const tempoFilaMin = (checkinDestino && fimDescarga) ? Math.round((fimDescarga - checkinDestino) / 60000) : null;
+    const tempoDescargaMin = (inicioDescarga && fimDescarga) ? Math.round((fimDescarga - inicioDescarga) / 60000) : null;
     return {
       viagem: r.viagem,
       origem: r.origem || '',
@@ -72,6 +85,12 @@ module.exports = async (req, res) => {
       realizada: !!r.eta_destino_realizado,
       atrasoMin,
       onTime: atrasoMin !== null ? atrasoMin <= 0 : null,
+      checkinDestino: r.checkin_destino || '',
+      aberturaBau: r.abertura_bau || '',
+      inicioDescarga: r.inicio_descarga || '',
+      fimDescarga: r.fim_descarga || '',
+      tempoFilaMin,
+      tempoDescargaMin,
       pacotes: toNum(r.total_pacotes),
       tos: toNum(r.total_tos),
       pacotesSaca: toNum(r.pacotes_saca),

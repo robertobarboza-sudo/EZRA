@@ -5787,6 +5787,10 @@ function lhRenderKpis(){
     clickable: true, active: LH_ACTIVE_CARD===key, onclickAttr: `lhCardClick('${key}')`,
   });
   const somaCampo = campo => rows.reduce((s,r)=>s+r[campo],0);
+  const mediaCampo = campo => {
+    const vals = rows.map(r=>r[campo]).filter(v=>v!==null);
+    return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) : 0;
+  };
 
   const cardsSolicitacao = (LH_DATA?.opcoes.solicitacoes || []).map(valor => {
     const key = 'solic:'+valor;
@@ -5801,6 +5805,8 @@ function lhRenderKpis(){
     { label:'Viagens', value:rows.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck' },
     { label:'% On Time', value:pctOnTime+'%', delta:'', trend:'up', type: pctOnTime>=90?'success':(pctOnTime>=75?'warning':'danger'), icon:'fa-clock' },
     { label:'Atraso Médio (min)', value:atrasoMedio.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
+    { label:'Tempo de Fila (min)', value:mediaCampo('tempoFilaMin').toLocaleString('pt-BR'), sub:'Chegada → Fim Descarga', delta:'', trend:'up', type:'', icon:'fa-hourglass' },
+    { label:'Tempo de Descarga (min)', value:mediaCampo('tempoDescargaMin').toLocaleString('pt-BR'), sub:'Início → Fim Descarga', delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
     { label:'Pacotes Recebidos', value:pacotes.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
     { label:'TOs Recebidos', value:tos.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-clipboard-list' },
     cardStatus('canceladas', 'Canceladas', 'CANCELADO', 'fa-ban'),
