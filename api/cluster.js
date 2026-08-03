@@ -23,6 +23,15 @@
  * (antes era fixa em 20 pra todas).
  * `aging` não existe mais como coluna — recalculado aqui como horas desde
  * `create time` até agora (assunção; ajustar se o Roberto quiser outra base).
+ * Roster limitado à RUA 142 (mapa físico, confirmado em 2026-08-04) — ruas
+ * além disso existem na config mas ficam fora do roster/de-para.
+ *
+ * Correção de clusterização (`cluster`, coluna nova na config = destino
+ * esperado por rua, confirmado em 2026-08-04): rua vazia OU cujo destino
+ * dominante (fanout) bate o esperado = correta; rua ocupada com fanout
+ * diferente = incorreta. `atual.ruasCorretas`/`ruasIncorretas`/
+ * `pctClusterizacao` resumem isso; cada item de `grade` carrega
+ * `clusterEsperado`/`clusterCorreto`.
  *
  * `stage`=ENDEREÇADO = TO já ocupa 1 posição física na `rua` indicada;
  * `stage`=PENDENTE (`rua`="Pendente") = TO ainda sem rua física.
@@ -165,18 +174,26 @@ module.exports = async (req, res) => {
   // De-para código→rua + capacidade real por rua, direto da aba `config`
   // (colunas H-J: staging area id / staging area name / capacity). O roster
   // de ruas segue a ORDEM DA PLANILHA — preserva onde a RESERVA 37A fica
-  // fisicamente sem precisar hardcodar.
+  // fisicamente sem precisar hardcodar. O mapa físico vai só até a RUA 142
+  // (confirmado com o Roberto em 2026-08-04) — a config já tem ruas além
+  // disso (até 169), mas ficam fora do roster/de-para: TOs endereçados nelas
+  // caem como PENDENTE, já que essas posições não fazem parte do mapa hoje.
   const STAGING_DEPARA = new Map(); // staging area id -> { rua, capacidade }
   const RUA_ROSTER = [];
   const CAPACIDADE_POR_RUA = new Map(); // rua -> capacidade
+  const CLUSTER_ESPERADO = new Map(); // rua -> destino esperado (coluna "Cluster" da config)
   configRows.forEach(r => {
     const id = r['staging area id'];
     const rua = r['staging area name'];
     if (!id || !rua) return;
+    const numRua = (rua.match(/^RUA (\d+)$/) || [])[1];
+    const dentroDoMapa = numRua ? Number(numRua) <= 142 : /^RESERVA/i.test(rua);
+    if (!dentroDoMapa) return;
     const capacidade = toNum(r.capacity);
     STAGING_DEPARA.set(id, { rua, capacidade });
     RUA_ROSTER.push(rua);
     CAPACIDADE_POR_RUA.set(rua, capacidade);
+    if (r.cluster) CLUSTER_ESPERADO.set(rua, r.cluster);
   });
   const CAPACIDADE_TOTAL_CD = RUA_ROSTER.reduce((s, rua) => s + (CAPACIDADE_POR_RUA.get(rua) || 0), 0);
 
@@ -239,15 +256,23 @@ module.exports = async (req, res) => {
     if (r.destino) acc.destinos.set(r.destino, (acc.destinos.get(r.destino) || 0) + 1);
   });
 
+  // Correção de clusterização (confirmado com o Roberto em 2026-08-04): rua
+  // vazia OU com o destino dominante (fanout) batendo o cluster esperado
+  // (coluna "Cluster" da config) = correta. Rua ocupada com fanout diferente
+  // do esperado = incorreta. Rua ocupada sem cluster esperado definido na
+  // config (ainda não configurado) não tem regra pra violar — conta como
+  // correta, mesmo tratamento de "vazia" (assunção, ajustar se necessário).
   const grade = RUA_ROSTER.map(rua => {
     const capacidade = CAPACIDADE_POR_RUA.get(rua) || 0;
+    const clusterEsperado = CLUSTER_ESPERADO.get(rua) || null;
     const acc = porRua.get(rua);
     if (!acc || (!acc.sacaTOs && !acc.outrosTOs)) {
-      return { rua, ocupadas: 0, capacidade, pct: 0, saca: 0, scuttle: 0, pacotes: 0, agingMedio: null, fanout: null };
+      return { rua, ocupadas: 0, capacidade, pct: 0, saca: 0, scuttle: 0, pacotes: 0, agingMedio: null, fanout: null, clusterEsperado, clusterCorreto: true };
     }
     const posicoes = acc.outrosTOs + Math.ceil(acc.sacaTOs / SACOS_POR_POSICAO);
     let fanout = null, fanoutMax = 0;
     acc.destinos.forEach((n, destino) => { if (n > fanoutMax) { fanoutMax = n; fanout = destino; } });
+    const clusterCorreto = !clusterEsperado || fanout === clusterEsperado;
     return {
       rua,
       ocupadas: posicoes,
@@ -258,11 +283,17 @@ module.exports = async (req, res) => {
       pacotes: acc.pacotes,
       agingMedio: +(acc.agingSoma / acc.agingCount).toFixed(1),
       fanout,
+      clusterEsperado,
+      clusterCorreto,
     };
   });
   const posicoesOcupadasTotal = grade.reduce((s, g) => s + g.ocupadas, 0);
   atual.posicoesOcupadas = posicoesOcupadasTotal;
   atual.ocupacaoTotalPct = CAPACIDADE_TOTAL_CD ? +(posicoesOcupadasTotal / CAPACIDADE_TOTAL_CD * 100).toFixed(1) : 0;
+
+  atual.ruasCorretas = grade.filter(g => g.clusterCorreto).length;
+  atual.ruasIncorretas = grade.filter(g => !g.clusterCorreto).length;
+  atual.pctClusterizacao = grade.length ? +(atual.ruasCorretas / grade.length * 100).toFixed(1) : 0;
 
   const pendentesAtual = filtradas.filter(r => r.stage === 'PENDENTE').length;
 

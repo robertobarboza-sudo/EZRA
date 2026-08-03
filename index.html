@@ -1280,6 +1280,14 @@
     .clst-pos-sq.occ  { background: #ef4444; }
     .clst-pos-overflow { font-size: 9px; font-weight: 800; color: var(--red); text-align: center; margin-top: 3px; }
 
+    /* Farol horizontal de clusterização — 1 bolinha por rua, verde/vermelho/
+       branco (ver clusterCorreto em api/cluster.js). */
+    .clst-farol-dot { width: 16px; height: 16px; border-radius: 50%; margin: 0 auto; border: 1px solid var(--border); }
+    .clst-farol-correta   { background: #10b981; border-color: #10b981; }
+    .clst-farol-incorreta { background: #ef4444; border-color: #ef4444; }
+    .clst-farol-vazia     { background: #fff; }
+    [data-theme="dark"] .clst-farol-vazia { background: #e8eaf0; }
+
     @media(max-width:768px){
       .clst-summary-bar { grid-template-columns: repeat(2,1fr); }
     }
@@ -5686,12 +5694,22 @@ function renderClusterGrid(data){
   tbody += `<tr><td class="clst-rowlabel">OCUPAÇÃO</td>${grade.map(g => `<td class="${clusterOcupClasse(g.pct)}">${g.pct}%</td>`).join('')}</tr>`;
 
   tbody += sectionRow('OCUPAÇÃO STAGE POR RUA — Live');
-  tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom">Posições</td>${grade.map(g => {
+  tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom;text-align:center">Posições</td>${grade.map(g => {
     const ocupInSquares = Math.min(g.ocupadas, g.capacidade);
     const overflow = Math.max(g.ocupadas - g.capacidade, 0);
     let squares = '';
     for(let i=0;i<g.capacidade;i++) squares += `<div class="clst-pos-sq ${i<ocupInSquares?'occ':'free'}"></div>`;
     return `<td style="padding:3px;vertical-align:top"><div class="clst-pos-grid">${squares}</div>${overflow?`<div class="clst-pos-overflow">+${overflow}</div>`:''}</td>`;
+  }).join('')}</tr>`;
+
+  // Farol de clusterização: verde = rua correta (fanout bate o cluster
+  // esperado), vermelho = incorreta, branco = vazia (ver clusterCorreto em
+  // api/cluster.js). Pedido pelo Roberto em 2026-08-04, entre as seções
+  // OCUPAÇÃO STAGE e FANOUT ENDEREÇADO.
+  tbody += `<tr><td class="clst-rowlabel" style="text-align:center">Status</td>${grade.map(g => {
+    const cls = g.ocupadas === 0 ? 'clst-farol-vazia' : (g.clusterCorreto ? 'clst-farol-correta' : 'clst-farol-incorreta');
+    const titulo = g.ocupadas === 0 ? 'Vazia' : (g.clusterCorreto ? 'Cluster correto' : 'Cluster incorreto');
+    return `<td style="padding:4px"><div class="clst-farol-dot ${cls}" title="${pulsoEscHtml(titulo)}"></div></td>`;
   }).join('')}</tr>`;
 
   tbody += sectionRow('FANOUT ENDEREÇADO');
@@ -5700,7 +5718,9 @@ function renderClusterGrid(data){
     : '<td>—</td>').join('')}</tr>`;
 
   tbody += sectionRow('CLUSTERIZAÇÃO IDEAL');
-  tbody += emptyRow('Sugestão de Cluster');
+  tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom">Sugestão de Cluster</td>${grade.map(g => g.clusterEsperado
+    ? `<td style="writing-mode:vertical-rl;text-orientation:mixed;height:150px;font-size:9px;padding:6px 3px;white-space:nowrap;overflow:visible">${pulsoEscHtml(g.clusterEsperado)}</td>`
+    : '<td>—</td>').join('')}</tr>`;
   tbody += '</tbody>';
 
   wrap.innerHTML = `
@@ -5708,6 +5728,9 @@ function renderClusterGrid(data){
       <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-free"></span> Livre (&lt;40%)</div>
       <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-mid"></span> Média (40–69%)</div>
       <div class="clst-legend-item"><span class="clst-legend-swatch clst-occ-busy"></span> Cheia (≥70%)</div>
+      <div class="clst-legend-item"><span class="clst-legend-swatch clst-farol-correta"></span> Cluster correto</div>
+      <div class="clst-legend-item"><span class="clst-legend-swatch clst-farol-incorreta"></span> Cluster incorreto</div>
+      <div class="clst-legend-item"><span class="clst-legend-swatch clst-farol-vazia" style="border:1px solid var(--border)"></span> Rua vazia</div>
       ${data.pendentesAtual ? `<div class="clst-legend-item"><i class="fas fa-triangle-exclamation" style="color:var(--orange)"></i> ${data.pendentesAtual.toLocaleString('pt-BR')} TO(s) ainda sem rua (Pendente) agora</div>` : ''}
     </div>
     <div class="clst-table-wrap"><table class="clst-table">${thead}${tbody}</table></div>`;
@@ -5747,6 +5770,9 @@ pulsoRegister({
     { key:'agingMedio',        label:'Aging Médio (h)',    icon:'fa-clock' },
     { key:'ocupacaoTotalPct',  label:'Ocupação Total',     icon:'fa-warehouse',        isPercent:true, rowFilter: r => r.stage === 'ENDEREÇADO' },
     { key:'pctAtendimento',    label:'% Att. da Cluster', icon:'fa-map-location-dot', isPercent:true, rowFilter: r => r.stage === 'ENDEREÇADO' },
+    { key:'ruasCorretas',      label:'Ruas Corretas',     icon:'fa-circle-check' },
+    { key:'ruasIncorretas',    label:'Ruas Incorretas',   icon:'fa-circle-xmark' },
+    { key:'pctClusterizacao',  label:'% Clusterização',   icon:'fa-diagram-project', isPercent:true },
     // Pendentes = Saca/Scuttle ainda sem rua, exceto 3PL (3PL nunca é
     // endereçado — ver classificação em api/cluster.js).
     { key:'pendentesPacotes',  label:'Pendentes',    icon:'fa-hourglass-half', countKey:'pendentesTOs',  countSuffix:"TO's",
@@ -5804,6 +5830,10 @@ pulsoRegister({
     }
 
     out.push({ icon:'fa-map-location-dot', html: `% Atendimento da Clusterização agora: <strong>${atual.pctAtendimento}%</strong> dos TOs no piso já têm rua endereçada.` });
+
+    if(atual.ruasIncorretas){
+      out.push({ icon:'fa-triangle-exclamation', html: `<strong>${atual.ruasIncorretas} rua(s)</strong> com cluster incorreto agora (${atual.pctClusterizacao}% de clusterização correta).` });
+    }
 
     if(data.pendentesAtual){
       out.push({ icon:'fa-clipboard-question', html: `${data.pendentesAtual.toLocaleString('pt-BR')} TO(s) no piso ainda sem rua endereçada agora.` });
