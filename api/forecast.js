@@ -5,12 +5,13 @@
  * são uma tabela independente do bloco de Backlog (colunas A-E, ver
  * api/backlog.js) — não têm relação linha a linha, só coexistem na mesma aba.
  *
- * Clusterização de origin_type (confirmado com o Roberto em 2026-07-31,
- * ajustado em 2026-08-03 pra incluir FM como origin_type próprio — os 7
- * valores reais na aba hoje são FMH/INTER-SOC/CB/BIG SELLER/PUDO SVP/SOC/FULL,
- * FM ainda não apareceu mas o mapeamento já cobre se/quando aparecer):
- *   FMH, SOC, INTER-SOC        -> LH
- *   FM, PUDO SVP, BIG SELLER   -> FM
+ * Clusterização de origin_type (confirmado com o Roberto em 2026-07-31;
+ * SOC corrigido de LH pra FM em 2026-08-03 — a soma de FM batia errado com
+ * a base por causa disso). Os 7 valores reais na aba hoje são
+ * FMH/INTER-SOC/CB/BIG SELLER/PUDO SVP/SOC/FULL — FM ainda não apareceu
+ * como origin_type próprio, mas o mapeamento já cobre se/quando aparecer:
+ *   FMH, INTER-SOC             -> LH
+ *   FM, PUDO SVP, BIG SELLER, SOC -> FM
  *   CB                         -> CB
  *   FULL                       -> critério próprio (card/linha separada), mas soma no Total
  * `total` (= direct + transhipment) é o valor usado no forecast — cada canal
@@ -39,8 +40,8 @@ const { toNum } = require('./_period');
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '202012183' };
 
 const CLUSTER = {
-  FMH: 'LH', SOC: 'LH', 'INTER-SOC': 'LH',
-  FM: 'FM', 'PUDO SVP': 'FM', 'BIG SELLER': 'FM',
+  FMH: 'LH', 'INTER-SOC': 'LH',
+  FM: 'FM', 'PUDO SVP': 'FM', 'BIG SELLER': 'FM', SOC: 'FM',
   CB: 'CB',
   FULL: 'FULL',
 };
