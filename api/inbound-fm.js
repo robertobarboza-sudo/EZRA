@@ -33,8 +33,11 @@ module.exports = async (req, res) => {
 
   const datasDisponiveis = [...new Set(fm.map(r => r.data_operacional))].sort();
   const dataMinima = datasDisponiveis[0], dataMaxima = datasDisponiveis[datasDisponiveis.length - 1];
+  const hojeIso = new Date().toISOString().slice(0, 10);
   const dataQuery = req.query.date;
-  const dataRef = (dataQuery && datasDisponiveis.includes(dataQuery)) ? dataQuery : dataMaxima;
+  const dataRef = (dataQuery && datasDisponiveis.includes(dataQuery))
+    ? dataQuery
+    : (datasDisponiveis.includes(hojeIso) ? hojeIso : dataMaxima);
 
   const doDia = fm.filter(r => r.data_operacional === dataRef);
 

@@ -41,8 +41,14 @@ module.exports = async (req, res) => {
 
   const datasDisponiveis = [...new Set(lh.map(r => r.data_eta_ajustado))].sort();
   const dataMinima = datasDisponiveis[0], dataMaxima = datasDisponiveis[datasDisponiveis.length - 1];
+  // dataMaxima pode ser um ETA planejado futuro (viagem pré-agendada) — o
+  // default tem que ser o dia real de hoje, não a data mais distante da
+  // planilha (mesmo bug já corrigido no Outbound/Backlog).
+  const hojeIso = new Date().toISOString().slice(0, 10);
   const dataQuery = req.query.date;
-  const dataRef = (dataQuery && datasDisponiveis.includes(dataQuery)) ? dataQuery : dataMaxima;
+  const dataRef = (dataQuery && datasDisponiveis.includes(dataQuery))
+    ? dataQuery
+    : (datasDisponiveis.includes(hojeIso) ? hojeIso : dataMaxima);
 
   const doDia = lh.filter(r => r.data_eta_ajustado === dataRef);
 
