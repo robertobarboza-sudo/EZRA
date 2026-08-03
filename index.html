@@ -1288,17 +1288,6 @@
     .clst-farol-vazia     { background: #fff; }
     [data-theme="dark"] .clst-farol-vazia { background: #e8eaf0; }
 
-    /* FANOUT ENDEREÇADO / CLUSTERIZAÇÃO IDEAL: texto horizontal (esquerda
-       pra direita), truncado com reticências — nomes longos não podem mais
-       vazar pra cima/baixo (linha Status), ficam contidos na própria célula. */
-    .clst-cell-truncate {
-      max-width: 60px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-      cursor: default;
-    }
-
     @media(max-width:768px){
       .clst-summary-bar { grid-template-columns: repeat(2,1fr); }
     }
@@ -5717,8 +5706,8 @@ function renderClusterGrid(data){
   }).join('')}</tr>`;
 
   tbody += sectionRow('FANOUT ENDEREÇADO');
-  tbody += `<tr><td class="clst-rowlabel">Destino</td>${grade.map(g => g.fanout
-    ? `<td class="clst-cell-truncate" title="${pulsoEscHtml(g.fanout)}">${pulsoEscHtml(g.fanout)}</td>`
+  tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom">Destino</td>${grade.map(g => g.fanout
+    ? `<td style="writing-mode:vertical-rl;text-orientation:mixed;height:150px;font-size:9px;padding:6px 3px;white-space:nowrap;overflow:visible">${pulsoEscHtml(g.fanout)}</td>`
     : '<td>—</td>').join('')}</tr>`;
 
   // Farol de clusterização: verde = rua correta (fanout bate o cluster
@@ -5732,8 +5721,8 @@ function renderClusterGrid(data){
   }).join('')}</tr>`;
 
   tbody += sectionRow('CLUSTERIZAÇÃO IDEAL');
-  tbody += `<tr><td class="clst-rowlabel">Sugestão de Cluster</td>${grade.map(g => g.clusterEsperado
-    ? `<td class="clst-cell-truncate" title="${pulsoEscHtml(g.clusterEsperado)}">${pulsoEscHtml(g.clusterEsperado)}</td>`
+  tbody += `<tr><td class="clst-rowlabel" style="vertical-align:bottom">Sugestão de Cluster</td>${grade.map(g => g.clusterEsperado
+    ? `<td style="writing-mode:vertical-rl;text-orientation:mixed;height:150px;font-size:9px;padding:6px 3px;white-space:nowrap;overflow:visible">${pulsoEscHtml(g.clusterEsperado)}</td>`
     : '<td>—</td>').join('')}</tr>`;
   tbody += '</tbody>';
 
