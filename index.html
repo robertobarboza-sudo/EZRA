@@ -2782,44 +2782,86 @@
 
     <!-- INBOUND -->
         <section id="section-inbound" class="section">
-      <div class="section-header" id="section-inbound-header">
-        <!-- header restored below by JS -->
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">Inbound <span class="ds-badge ok" id="ds-badge-inbound" style="margin-left:8px"></span></div>
+          <div class="section-subtitle" id="inbound-subtitle">Pontualidade planejado x realizado · Line Haul</div>
+        </div>
+        <div class="section-dl-group">
+          <button class="spr-pipboy-btn" onclick="inboundOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="dl-btn dl-btn-csv" onclick="inboundReload()"><i class="fas fa-rotate-right"></i> Atualizar</button>
+        </div>
       </div>
-      <div id="section-inbound-wip" style="
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        min-height:420px;text-align:center;gap:20px;padding:40px">
-        <div style="
-          width:90px;height:90px;border-radius:50%;
-          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
-          display:flex;align-items:center;justify-content:center;font-size:36px">
-          🚧
-        </div>
-        <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Inbound — Recebimento</div>
-          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
-            Esta seção está em construção.<br/>
-            Os dados reais serão integrados via Google Sheets.
+
+      <div class="bkl-tabs" id="inbound-subpage-tabs" style="margin-bottom:16px">
+        <div class="bkl-tab active" onclick="inboundSwitchSubpage('lh',this)">Line Haul</div>
+        <div class="bkl-tab" onclick="inboundSwitchSubpage('fm',this)">First Mile</div>
+      </div>
+
+      <div id="inbound-lh-panel">
+        <div class="spr-filters">
+          <div class="spr-filter-group">
+            <input type="date" class="filter-select pulso-date-input" id="lh-date-input" onchange="lhSetFilter('date',this.value)" style="color-scheme:dark"/>
+            <select class="filter-select" id="lh-turno-input" onchange="lhSetFilter('turno',this.value)" style="height:34px"><option value="">Todos os turnos</option></select>
+            <select class="filter-select" id="lh-status-input" onchange="lhSetFilter('status',this.value)" style="height:34px"><option value="">Todos os status</option></select>
+            <select class="filter-select" id="lh-origem-input" onchange="lhSetFilter('origem',this.value)" style="height:34px"><option value="">Todas as origens</option></select>
           </div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;
-          background:var(--surface);border:1px solid var(--border);
-          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
-          <i class="fas fa-database" style="color:var(--orange)"></i>
-          Aguardando conexão com a fonte de dados
+        <div class="pulso-coverage" id="lh-coverage"></div>
+        <div id="lh-kpis" style="margin-top:12px"></div>
+        <div class="chart-card full" style="margin-top:16px">
+          <div class="chart-title">Viagens por hora — Planejado vs Realizado</div>
+          <div style="height:320px;margin-top:12px"><canvas id="chart-lh-hora"></canvas></div>
         </div>
-        <div style="display:flex;gap:10px">
-          <div class="pdf-menu-wrap">
-            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('inbound',event)">
-              <i class="fas fa-file-pdf"></i> PDF
-              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
-            </button>
-            <div class="pdf-dropdown" id="pdf-menu-inbound">
-              <div class="pdf-dropdown-label">Formato</div>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('inbound','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('inbound','dash')"><i class="fas fa-display"></i> Print Dash</button>
-            </div>
+        <div class="table-card full" style="margin-top:16px">
+          <div class="table-toolbar"><div class="table-toolbar-title">Viagens do dia</div></div>
+          <div style="overflow-x:auto">
+            <table><thead><tr>
+              <th class="spr-sortable" onclick="lhSortBy('viagem')" id="lh-th-viagem">Viagem <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="lhSortBy('origem')" id="lh-th-origem">Origem <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="lhSortBy('veiculo')" id="lh-th-veiculo">Veículo <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="lhSortBy('turno')" id="lh-th-turno">Turno <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="lhSortBy('status')" id="lh-th-status">Status <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="lhSortBy('planejado')" id="lh-th-planejado">Planejado <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="lhSortBy('realizado')" id="lh-th-realizado">Realizado <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="lhSortBy('atrasoMin')" id="lh-th-atrasoMin">Atraso (min) <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="lhSortBy('pacotes')" id="lh-th-pacotes">Pacotes <i class="fas fa-sort"></i></th>
+            </tr></thead><tbody id="lh-tbody"></tbody></table>
           </div>
-          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('inbound')"><i class="fas fa-file-csv"></i> CSV</button>
+          <div class="pulso-footer" id="lh-footer" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--text-muted)"></div>
+        </div>
+      </div>
+
+      <div id="inbound-fm-panel" style="display:none">
+        <div class="spr-filters">
+          <div class="spr-filter-group">
+            <input type="date" class="filter-select pulso-date-input" id="fm-date-input" onchange="fmSetFilter('date',this.value)" style="color-scheme:dark"/>
+            <select class="filter-select" id="fm-turno-input" onchange="fmSetFilter('turno',this.value)" style="height:34px"><option value="">Todos os turnos</option></select>
+            <select class="filter-select" id="fm-agencia-input" onchange="fmSetFilter('agencia',this.value)" style="height:34px"><option value="">Todas as agências</option></select>
+          </div>
+        </div>
+        <div class="pulso-coverage" id="fm-coverage"></div>
+        <div id="fm-kpis" style="margin-top:12px"></div>
+        <div class="chart-card full" style="margin-top:16px">
+          <div class="chart-title">Chegadas por hora</div>
+          <div style="height:320px;margin-top:12px"><canvas id="chart-fm-hora"></canvas></div>
+        </div>
+        <div class="table-card full" style="margin-top:16px">
+          <div class="table-toolbar"><div class="table-toolbar-title">Chegadas do dia</div></div>
+          <div style="overflow-x:auto">
+            <table><thead><tr>
+              <th class="spr-sortable" onclick="fmSortBy('driver')" id="fm-th-driver">Driver <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="fmSortBy('estacao')" id="fm-th-estacao">Estação <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="fmSortBy('turno')" id="fm-th-turno">Turno <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="fmSortBy('checkinDriver')" id="fm-th-checkinDriver">Checkin <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="fmSortBy('atribuicaoDoca')" id="fm-th-atribuicaoDoca">Atrib. Doca <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="fmSortBy('finalizacaoJornada')" id="fm-th-finalizacaoJornada">Finalização <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="fmSortBy('tempoFilaMin')" id="fm-th-tempoFilaMin">Fila (min) <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="fmSortBy('tempoDescargaMin')" id="fm-th-tempoDescargaMin">Descarga (min) <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="fmSortBy('performanceDoca')" id="fm-th-performanceDoca">Performance <i class="fas fa-sort"></i></th>
+            </tr></thead><tbody id="fm-tbody"></tbody></table>
+          </div>
+          <div class="pulso-footer" id="fm-footer" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--text-muted)"></div>
         </div>
       </div>
     </section>
@@ -4400,7 +4442,7 @@ async function renderSection(section){
     setBadge(section,'ok',source);
     const fn = {gestao:renderGestao, performance:renderPerformance, asm:()=>loadAsm(),
       backlog:()=>loadBacklog(), spr:()=>pulsoRender(PULSO_ACTIVE_SUBPAGE),
-      conveyor:()=>loadConveyor(), inbound:renderInbound, tratativas:renderTratativas,
+      conveyor:()=>loadConveyor(), inbound:()=>loadInbound(), tratativas:renderTratativas,
       laborplan:renderLaborplan, arvore:renderArvore, kpioverview:renderKpioverview,
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
       configuracoes:renderConfiguracoes, forecast:()=>loadForecast(),
@@ -5543,8 +5585,382 @@ function subViewTab(section,view,el){
   if(section==='inbound') renderInbound();
 }
 
-function renderInbound(){
-  setBadge('inbound','ok','Em Construção');
+/* ================================================================
+   INBOUND — Line Haul (planejado x realizado) + First Mile (chegada/descarga)
+================================================================ */
+let INBOUND_SUBPAGE = 'lh';
+
+function inboundSwitchSubpage(key, el){
+  INBOUND_SUBPAGE = key;
+  document.querySelectorAll('#inbound-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('inbound-lh-panel').style.display = key==='lh' ? '' : 'none';
+  document.getElementById('inbound-fm-panel').style.display = key==='fm' ? '' : 'none';
+  document.getElementById('inbound-subtitle').textContent = key==='lh'
+    ? 'Pontualidade planejado x realizado · Line Haul'
+    : 'Monitor histórico de chegada/descarga · First Mile';
+  if(key==='lh' && !LH_DATA) loadLh();
+  if(key==='fm' && !FM_DATA) loadFm();
+}
+
+function loadInbound(){
+  INBOUND_SUBPAGE==='lh' ? loadLh() : loadFm();
+}
+function inboundReload(){
+  INBOUND_SUBPAGE==='lh' ? loadLh() : loadFm();
+}
+function inboundOpenPipboy(){
+  if(INBOUND_SUBPAGE==='lh') pulsoOpenPipboyGeneric('Inbound — Line Haul', lhGenerateInsights());
+  else pulsoOpenPipboyGeneric('Inbound — First Mile', fmGenerateInsights());
+}
+
+// ── Line Haul ──
+const LH_STATE = { date: null, turno: '', status: '', origem: '' };
+const LH_SORT_COLS = ['viagem','origem','veiculo','turno','status','planejado','realizado','atrasoMin','pacotes'];
+const LH_SORT = { key: 'planejado', dir: 1 };
+let LH_DATA = null;
+let LH_PAGE = 0;
+
+async function loadLh(){
+  setBadge('inbound', 'loading');
+  try {
+    const p = new URLSearchParams();
+    if(LH_STATE.date) p.set('date', LH_STATE.date);
+    const r = await fetch('/api/inbound-lh?'+p.toString(), { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    setBadge('inbound', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    LH_DATA = j;
+    LH_PAGE = 0;
+
+    const dateInput = document.getElementById('lh-date-input');
+    if(dateInput && j.data) dateInput.value = j.data;
+
+    const buildOptions = (values, placeholder) => `<option value="">${placeholder}</option>` +
+      values.map(v => `<option value="${pulsoEscHtml(v)}">${pulsoEscHtml(v)}</option>`).join('');
+    const set = (id, html, val) => { const el = document.getElementById(id); if(el){ el.innerHTML = html; el.value = val; } };
+    set('lh-turno-input', buildOptions(j.opcoes.turnos, 'Todos os turnos'), LH_STATE.turno);
+    set('lh-status-input', buildOptions(j.opcoes.status, 'Todos os status'), LH_STATE.status);
+    set('lh-origem-input', buildOptions(j.opcoes.origens, 'Todas as origens'), LH_STATE.origem);
+    lhUpdateSortHeaders();
+
+    const cov = document.getElementById('lh-coverage');
+    if(cov) cov.innerHTML = j.cobertura.inicio
+      ? `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>`
+      : '';
+
+    lhRenderAll();
+  } catch(err){
+    setBadge('inbound', 'error', 'Erro: '+err.message);
+    console.error('[inbound-lh]', err);
+  }
+}
+
+function lhSetFilter(campo, valor){
+  if(campo === 'date'){ LH_STATE.date = valor; loadLh(); return; }
+  LH_STATE[campo] = valor;
+  LH_PAGE = 0;
+  lhRenderAll();
+}
+
+function lhFilteredRows(){
+  if(!LH_DATA) return [];
+  return LH_DATA.rows.filter(r =>
+    (!LH_STATE.turno || r.turno === LH_STATE.turno) &&
+    (!LH_STATE.status || r.status === LH_STATE.status) &&
+    (!LH_STATE.origem || r.origem === LH_STATE.origem)
+  );
+}
+
+function lhRenderAll(){
+  lhRenderKpis();
+  lhRenderChart();
+  lhRenderTable();
+}
+
+function lhRenderKpis(){
+  const rows = lhFilteredRows();
+  const realizadas = rows.filter(r => r.realizada);
+  const onTime = realizadas.filter(r => r.onTime);
+  const pctOnTime = realizadas.length ? Math.round(onTime.length/realizadas.length*100) : 0;
+  const atrasoMedio = realizadas.length ? Math.round(realizadas.reduce((s,r)=>s+(r.atrasoMin||0),0)/realizadas.length) : 0;
+  const pacotes = rows.reduce((s,r)=>s+r.pacotes,0);
+  const tos = rows.reduce((s,r)=>s+r.tos,0);
+  const porStatus = k => rows.filter(r=>r.status===k).length;
+
+  buildKPIs('lh-kpis', [
+    { label:'Viagens', value:rows.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck' },
+    { label:'% On Time', value:pctOnTime+'%', delta:'', trend:'up', type: pctOnTime>=90?'success':(pctOnTime>=75?'warning':'danger'), icon:'fa-clock' },
+    { label:'Atraso Médio (min)', value:atrasoMedio.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
+    { label:'Pacotes Recebidos', value:pacotes.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
+    { label:'TOs Recebidos', value:tos.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-clipboard-list' },
+    { label:'Canceladas', value:porStatus('CANCELADO').toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-ban' },
+    { label:'No Show', value:porStatus('NO SHOW').toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-user-slash' },
+    { label:'Infrutífera', value:porStatus('INFRUTÍFERA').toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-triangle-exclamation' },
+  ]);
+}
+
+function lhRenderChart(){
+  if(!LH_DATA) return;
+  const rows = lhFilteredRows();
+  const porHoraPlanejado = Array(24).fill(0), porHoraRealizado = Array(24).fill(0);
+  rows.forEach(r => {
+    if(r.horaPlanejada>=0 && r.horaPlanejada<=23) porHoraPlanejado[r.horaPlanejada]++;
+    if(r.horaRealizada!==null && r.horaRealizada>=0 && r.horaRealizada<=23) porHoraRealizado[r.horaRealizada]++;
+  });
+  if(chartInstances['chart-lh-hora']){ chartInstances['chart-lh-hora'].destroy(); delete chartInstances['chart-lh-hora']; }
+  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
+  mkLine('chart-lh-hora', labels, [
+    { label:'Planejado', data:porHoraPlanejado, borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:2 },
+    { label:'Realizado', data:porHoraRealizado, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:2 },
+  ]);
+}
+
+function lhSortBy(colKey){
+  if(LH_SORT.key !== colKey){ LH_SORT.key = colKey; LH_SORT.dir = 1; }
+  else if(LH_SORT.dir === 1) LH_SORT.dir = -1;
+  else { LH_SORT.key = null; LH_SORT.dir = 0; }
+  LH_PAGE = 0;
+  lhUpdateSortHeaders();
+  lhRenderTable();
+}
+function lhUpdateSortHeaders(){
+  LH_SORT_COLS.forEach(c => {
+    const th = document.getElementById('lh-th-'+c);
+    if(!th) return;
+    const icon = th.querySelector('i');
+    const active = LH_SORT.key === c;
+    th.classList.toggle('active', active);
+    if(icon) icon.className = 'fas ' + (active ? (LH_SORT.dir===1 ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort');
+  });
+}
+
+function lhRenderTable(){
+  const tbody = document.getElementById('lh-tbody');
+  const footer = document.getElementById('lh-footer');
+  if(!tbody) return;
+  let rows = lhFilteredRows();
+  if(LH_SORT.key){
+    rows = [...rows].sort((a, b) => {
+      let va = a[LH_SORT.key], vb = b[LH_SORT.key];
+      if(['atrasoMin','pacotes'].includes(LH_SORT.key)){ va = va||0; vb = vb||0; }
+      else { va = String(va||''); vb = String(vb||''); }
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      return cmp * LH_SORT.dir;
+    });
+  }
+  if(!rows.length){
+    tbody.innerHTML = emptyRow(9);
+    if(footer) footer.textContent = '';
+    return;
+  }
+  const PAGE_SIZE = 100;
+  const totalPaginas = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  LH_PAGE = Math.min(LH_PAGE, totalPaginas - 1);
+  const pageRows = rows.slice(LH_PAGE * PAGE_SIZE, (LH_PAGE + 1) * PAGE_SIZE);
+  tbody.innerHTML = pageRows.map(r => `<tr>
+    <td>${pulsoEscHtml(r.viagem)}</td>
+    <td>${pulsoEscHtml(r.origem||'—')}</td>
+    <td>${pulsoEscHtml(r.veiculo||'—')}</td>
+    <td>${pulsoEscHtml(r.turno||'—')}</td>
+    <td>${pulsoEscHtml(r.status||'—')}</td>
+    <td>${pulsoFmtCell(r.planejado,'date')}</td>
+    <td>${pulsoFmtCell(r.realizado,'date')}</td>
+    <td>${r.atrasoMin===null?'—':r.atrasoMin.toLocaleString('pt-BR')}</td>
+    <td>${r.pacotes.toLocaleString('pt-BR')}</td>
+  </tr>`).join('');
+  const pager = totalPaginas > 1 ? `<span class="pulso-pager">
+    <button type="button" class="spr-ms-action-btn" ${LH_PAGE===0?'disabled':''} onclick="lhSetPage(${LH_PAGE-1})"><i class="fas fa-chevron-left"></i> Anterior</button>
+    <span>Página ${LH_PAGE+1} de ${totalPaginas}</span>
+    <button type="button" class="spr-ms-action-btn" ${LH_PAGE>=totalPaginas-1?'disabled':''} onclick="lhSetPage(${LH_PAGE+1})">Próxima <i class="fas fa-chevron-right"></i></button>
+  </span>` : '';
+  if(footer) footer.innerHTML = `<span>${rows.length.toLocaleString('pt-BR')} viagem(ns).</span>${pager}`;
+}
+function lhSetPage(pg){ LH_PAGE = Math.max(0, pg); lhRenderTable(); }
+
+function lhGenerateInsights(){
+  if(!LH_DATA) return [];
+  const insights = [];
+  const rows = lhFilteredRows();
+  const realizadas = rows.filter(r => r.realizada);
+  if(realizadas.length){
+    const pct = Math.round(realizadas.filter(r=>r.onTime).length/realizadas.length*100);
+    insights.push({ icon:'fa-clock', html:`<strong>${pct}%</strong> das viagens realizadas chegaram on time hoje.` });
+    const atraso = Math.round(realizadas.reduce((s,r)=>s+(r.atrasoMin||0),0)/realizadas.length);
+    insights.push({ icon: atraso>0?'fa-arrow-trend-up':'fa-arrow-trend-down', html:`Atraso médio: <strong>${atraso} min</strong>.` });
+  }
+  const canceladas = rows.filter(r=>r.status==='CANCELADO').length;
+  if(canceladas) insights.push({ icon:'fa-ban', html:`<strong>${canceladas}</strong> viagem(ns) cancelada(s) hoje.` });
+  return insights;
+}
+
+// ── First Mile ──
+const FM_STATE = { date: null, turno: '', agencia: '' };
+const FM_SORT_COLS = ['driver','estacao','turno','checkinDriver','atribuicaoDoca','finalizacaoJornada','tempoFilaMin','tempoDescargaMin','performanceDoca'];
+const FM_SORT = { key: 'finalizacaoJornada', dir: -1 };
+let FM_DATA = null;
+let FM_PAGE = 0;
+
+async function loadFm(){
+  setBadge('inbound', 'loading');
+  try {
+    const p = new URLSearchParams();
+    if(FM_STATE.date) p.set('date', FM_STATE.date);
+    const r = await fetch('/api/inbound-fm?'+p.toString(), { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    setBadge('inbound', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    FM_DATA = j;
+    FM_PAGE = 0;
+
+    const dateInput = document.getElementById('fm-date-input');
+    if(dateInput && j.data) dateInput.value = j.data;
+
+    const buildOptions = (values, placeholder) => `<option value="">${placeholder}</option>` +
+      values.map(v => `<option value="${pulsoEscHtml(v)}">${pulsoEscHtml(v)}</option>`).join('');
+    const set = (id, html, val) => { const el = document.getElementById(id); if(el){ el.innerHTML = html; el.value = val; } };
+    set('fm-turno-input', buildOptions(j.opcoes.turnos, 'Todos os turnos'), FM_STATE.turno);
+    set('fm-agencia-input', buildOptions(j.opcoes.agencias, 'Todas as agências'), FM_STATE.agencia);
+    fmUpdateSortHeaders();
+
+    const cov = document.getElementById('fm-coverage');
+    if(cov) cov.innerHTML = j.cobertura.inicio
+      ? `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>`
+      : '';
+
+    fmRenderAll();
+  } catch(err){
+    setBadge('inbound', 'error', 'Erro: '+err.message);
+    console.error('[inbound-fm]', err);
+  }
+}
+
+function fmSetFilter(campo, valor){
+  if(campo === 'date'){ FM_STATE.date = valor; loadFm(); return; }
+  FM_STATE[campo] = valor;
+  FM_PAGE = 0;
+  fmRenderAll();
+}
+
+function fmFilteredRows(){
+  if(!FM_DATA) return [];
+  return FM_DATA.rows.filter(r =>
+    (!FM_STATE.turno || r.turno === FM_STATE.turno) &&
+    (!FM_STATE.agencia || r.agencia === FM_STATE.agencia)
+  );
+}
+
+function fmRenderAll(){
+  fmRenderKpis();
+  fmRenderChart();
+  fmRenderTable();
+}
+
+function fmRenderKpis(){
+  const rows = fmFilteredRows();
+  const avg = arr => arr.length ? Math.round(arr.reduce((s,v)=>s+v,0)/arr.length) : 0;
+  const tempoFila = avg(rows.map(r=>r.tempoFilaMin));
+  const tempoDescarga = avg(rows.map(r=>r.tempoDescargaMin));
+  const dentroMeta = rows.filter(r=>r.performanceDoca==='Dentro da Meta').length;
+  const pctMeta = rows.length ? Math.round(dentroMeta/rows.length*100) : 0;
+  const desvioMedio = avg(rows.map(r=>r.desvioMetaMin));
+
+  buildKPIs('fm-kpis', [
+    { label:'Chegadas', value:rows.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
+    { label:'Tempo Médio de Fila (min)', value:tempoFila.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
+    { label:'Tempo Médio de Descarga (min)', value:tempoDescarga.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-dolly' },
+    { label:'% Dentro da Meta', value:pctMeta+'%', delta:'', trend:'up', type: pctMeta>=90?'success':(pctMeta>=75?'warning':'danger'), icon:'fa-bullseye' },
+    { label:'Desvio Médio (min)', value:desvioMedio.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-gauge' },
+  ]);
+}
+
+function fmRenderChart(){
+  if(!FM_DATA) return;
+  const rows = fmFilteredRows();
+  const porHora = Array(24).fill(0);
+  rows.forEach(r => { if(r.hora>=0 && r.hora<=23) porHora[r.hora]++; });
+  if(chartInstances['chart-fm-hora']){ chartInstances['chart-fm-hora'].destroy(); delete chartInstances['chart-fm-hora']; }
+  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
+  mkLine('chart-fm-hora', labels, [
+    { label:'Chegadas', data:porHora, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.16)', fill:true, tension:.35, pointRadius:2 },
+  ]);
+}
+
+function fmSortBy(colKey){
+  if(FM_SORT.key !== colKey){ FM_SORT.key = colKey; FM_SORT.dir = 1; }
+  else if(FM_SORT.dir === 1) FM_SORT.dir = -1;
+  else { FM_SORT.key = null; FM_SORT.dir = 0; }
+  FM_PAGE = 0;
+  fmUpdateSortHeaders();
+  fmRenderTable();
+}
+function fmUpdateSortHeaders(){
+  FM_SORT_COLS.forEach(c => {
+    const th = document.getElementById('fm-th-'+c);
+    if(!th) return;
+    const icon = th.querySelector('i');
+    const active = FM_SORT.key === c;
+    th.classList.toggle('active', active);
+    if(icon) icon.className = 'fas ' + (active ? (FM_SORT.dir===1 ? 'fa-sort-up' : 'fa-sort-down') : 'fa-sort');
+  });
+}
+
+function fmRenderTable(){
+  const tbody = document.getElementById('fm-tbody');
+  const footer = document.getElementById('fm-footer');
+  if(!tbody) return;
+  let rows = fmFilteredRows();
+  if(FM_SORT.key){
+    rows = [...rows].sort((a, b) => {
+      let va = a[FM_SORT.key], vb = b[FM_SORT.key];
+      if(['tempoFilaMin','tempoDescargaMin'].includes(FM_SORT.key)){ va = va||0; vb = vb||0; }
+      else { va = String(va||''); vb = String(vb||''); }
+      const cmp = va < vb ? -1 : va > vb ? 1 : 0;
+      return cmp * FM_SORT.dir;
+    });
+  }
+  if(!rows.length){
+    tbody.innerHTML = emptyRow(9);
+    if(footer) footer.textContent = '';
+    return;
+  }
+  const PAGE_SIZE = 100;
+  const totalPaginas = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  FM_PAGE = Math.min(FM_PAGE, totalPaginas - 1);
+  const pageRows = rows.slice(FM_PAGE * PAGE_SIZE, (FM_PAGE + 1) * PAGE_SIZE);
+  tbody.innerHTML = pageRows.map(r => `<tr>
+    <td>${pulsoEscHtml(r.driver||'—')}</td>
+    <td>${pulsoEscHtml(r.estacao||'—')}</td>
+    <td>${pulsoEscHtml(r.turno||'—')}</td>
+    <td>${pulsoFmtCell(r.checkinDriver,'date')}</td>
+    <td>${pulsoFmtCell(r.atribuicaoDoca,'date')}</td>
+    <td>${pulsoFmtCell(r.finalizacaoJornada,'date')}</td>
+    <td>${r.tempoFilaMin.toLocaleString('pt-BR')}</td>
+    <td>${r.tempoDescargaMin.toLocaleString('pt-BR')}</td>
+    <td>${pulsoEscHtml(r.performanceDoca||'—')}</td>
+  </tr>`).join('');
+  const pager = totalPaginas > 1 ? `<span class="pulso-pager">
+    <button type="button" class="spr-ms-action-btn" ${FM_PAGE===0?'disabled':''} onclick="fmSetPage(${FM_PAGE-1})"><i class="fas fa-chevron-left"></i> Anterior</button>
+    <span>Página ${FM_PAGE+1} de ${totalPaginas}</span>
+    <button type="button" class="spr-ms-action-btn" ${FM_PAGE>=totalPaginas-1?'disabled':''} onclick="fmSetPage(${FM_PAGE+1})">Próxima <i class="fas fa-chevron-right"></i></button>
+  </span>` : '';
+  if(footer) footer.innerHTML = `<span>${rows.length.toLocaleString('pt-BR')} chegada(s).</span>${pager}`;
+}
+function fmSetPage(pg){ FM_PAGE = Math.max(0, pg); fmRenderTable(); }
+
+function fmGenerateInsights(){
+  if(!FM_DATA) return [];
+  const insights = [];
+  const rows = fmFilteredRows();
+  if(rows.length){
+    const dentroMeta = rows.filter(r=>r.performanceDoca==='Dentro da Meta').length;
+    insights.push({ icon:'fa-bullseye', html:`<strong>${Math.round(dentroMeta/rows.length*100)}%</strong> das chegadas dentro da meta de descarga hoje.` });
+    const porHora = Array(24).fill(0);
+    rows.forEach(r => { if(r.hora>=0 && r.hora<=23) porHora[r.hora]++; });
+    const pico = porHora.reduce((best,v,h)=> v>best.v?{h,v}:best, {h:0,v:0});
+    if(pico.v>0) insights.push({ icon:'fa-clock', html:`Horário de pico de chegadas: <strong>${String(pico.h).padStart(2,'0')}h</strong> (${pico.v} chegada(s)).` });
+  }
+  return insights;
 }
 
 /* ================================================================
