@@ -33,6 +33,17 @@
  * `pctClusterizacao` resumem isso; cada item de `grade` carrega
  * `clusterEsperado`/`clusterCorreto`.
  *
+ * Colunas derivadas na tabela de TOs (confirmado com o Roberto em
+ * 2026-08-04, `to pack`/`operator` originais nunca são alterados):
+ *   origem:        Saca Sorter -> Sorter · Scuttle -> Esteira · resto vazio
+ *   classificacao: operator=spx@shopee.com + to pack=Saca    -> ASM
+ *                  operator=spx@shopee.com + to pack=Scuttle -> Transbordo
+ *                  resto vazio
+ *
+ * Resíduo operacional: TO com quantity < 15 E aging > 15 dias (360h) some
+ * de TUDO (cards/grade/tabela) — filtrado logo depois do de-para, antes de
+ * qualquer agregação.
+ *
  * `stage`=ENDEREÇADO = TO já ocupa 1 posição física na `rua` indicada;
  * `stage`=PENDENTE (`rua`="Pendente") = TO ainda sem rua física.
  *
@@ -200,8 +211,27 @@ module.exports = async (req, res) => {
   // Reconstrói destino/rua/stage/aging a partir das colunas reais de hoje
   // (receiver, staging area, create time) + o de-para acima. Ordenação/"Att."
   // usam complete time (quando o TO foi de fato concluído), não create time.
+  //
+  // origem/classificacao (colunas derivadas, confirmado com o Roberto em
+  // 2026-08-04) — não alteram `to pack`/`operator` originais, só preenchem
+  // campos novos:
+  //   origem:         Saca Sorter -> Sorter · Scuttle -> Esteira · resto vazio
+  //   classificacao:  operator=spx@shopee.com + Saca    -> ASM
+  //                   operator=spx@shopee.com + Scuttle -> Transbordo
+  //                   resto vazio
   const agoraMs = Date.now();
-  const comData = rows.map(r => {
+  const origemDe = toPack => {
+    if (toPack === 'Saca Sorter') return 'Sorter';
+    if (toPack === 'Scuttle') return 'Esteira';
+    return '';
+  };
+  const classificacaoDe = (operator, toPack) => {
+    if (operator !== 'spx@shopee.com') return '';
+    if (toPack === 'Saca') return 'ASM';
+    if (toPack === 'Scuttle') return 'Transbordo';
+    return '';
+  };
+  const comDataBruta = rows.map(r => {
     const codigo = r['staging area'];
     const depara = (codigo && codigo !== '-') ? STAGING_DEPARA.get(codigo) : null;
     const createMs = r['create time'] ? new Date(String(r['create time']).replace(' ', 'T') + 'Z').getTime() : null;
@@ -211,9 +241,19 @@ module.exports = async (req, res) => {
       rua: depara ? depara.rua : 'Pendente',
       stage: depara ? 'ENDEREÇADO' : 'PENDENTE',
       aging: (createMs && !isNaN(createMs)) ? +((agoraMs - createMs) / 3600000).toFixed(1) : 0,
+      origem: origemDe(r['to pack']),
+      classificacao: classificacaoDe(r.operator, r['to pack']),
       __date: r['complete time'] ? new Date(String(r['complete time']).replace(' ', 'T') + 'Z') : null,
     };
   });
+
+  // Resíduo operacional (confirmado com o Roberto em 2026-08-04): quantidade
+  // < 15 E aging > 15 dias (360h) somadas — não aparece em NADA da página
+  // (cards, grade, tabela), por isso o filtro roda antes de qualquer
+  // agregação, não só na tabela final.
+  const RESIDUO_QTD_MAX = 15;
+  const RESIDUO_AGING_HORAS_MIN = 15 * 24;
+  const comData = comDataBruta.filter(r => !(toNum(r.quantity) < RESIDUO_QTD_MAX && r.aging > RESIDUO_AGING_HORAS_MIN));
 
   // Opções de filtro sempre vêm da base inteira (não da já filtrada), senão
   // as opções somem conforme o usuário seleciona — padrão igual SPR/Leftover.
@@ -325,6 +365,8 @@ module.exports = async (req, res) => {
     destino: r.destino,
     current_station: r['current station'],
     to_pack: r['to pack'],
+    origem: r.origem,
+    classificacao: r.classificacao,
     quantity: toNum(r.quantity),
     aging: toNum(r.aging),
     stage: r.stage,
