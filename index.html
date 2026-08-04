@@ -659,6 +659,13 @@
       margin-bottom: 14px; gap: 12px; flex-wrap: wrap;
     }
     .table-toolbar-title { font-size: 13px; font-weight: 600; color: var(--text); }
+    .ovw-accordion { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); margin-top: 8px; overflow: hidden; }
+    .ovw-accordion summary { cursor: pointer; padding: 12px 16px; font-size: 13px; font-weight: 600; color: var(--text); list-style: none; display: flex; align-items: center; justify-content: space-between; }
+    .ovw-accordion summary::-webkit-details-marker { display: none; }
+    .ovw-accordion summary:hover { background: var(--surface-2); }
+    .ovw-accordion summary .ovw-chevron { transition: transform .2s; color: var(--text-muted); }
+    .ovw-accordion[open] summary .ovw-chevron { transform: rotate(180deg); }
+    .ovw-accordion-body { padding: 0 16px 16px; }
     .table-search {
       display: flex; align-items: center; gap: 8px;
       background: var(--surface-2); border: 1px solid var(--border);
@@ -2565,23 +2572,67 @@
 
       <div class="table-toolbar-title" style="margin-top:4px">Backlog</div>
       <div id="ovw-kpis-backlog" style="margin-top:8px"></div>
+      <details class="ovw-accordion" id="ovw-details-backlog" ontoggle="ovwOnToggleChart(this,'backlog')">
+        <summary><span><i class="fas fa-chart-line"></i> Ver gráfico por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-backlog"></canvas></div></div>
+      </details>
 
       <div class="table-toolbar-title" style="margin-top:16px">Inbound Line Haul</div>
       <div id="ovw-kpis-lh" style="margin-top:8px"></div>
+      <div class="table-card full" style="margin-top:8px">
+        <div class="table-toolbar"><div class="table-toolbar-title">Por canal</div></div>
+        <div style="overflow-x:auto"><table><thead><tr><th>Canal</th><th>Carros</th><th>Pacotes</th><th>Tempo de Fila Médio</th></tr></thead><tbody id="ovw-canal-lh"></tbody></table></div>
+      </div>
+      <details class="ovw-accordion" id="ovw-details-lh" ontoggle="ovwOnToggleChart(this,'lh')">
+        <summary><span><i class="fas fa-chart-line"></i> Ver previstos vs descarregados por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-lh"></canvas></div></div>
+      </details>
 
       <div class="table-toolbar-title" style="margin-top:16px">Inbound First Mile</div>
       <div id="ovw-kpis-fm" style="margin-top:8px"></div>
+      <div class="table-card full" style="margin-top:8px">
+        <div class="table-toolbar"><div class="table-toolbar-title">Por canal (agência)</div></div>
+        <div style="overflow-x:auto"><table><thead><tr><th>Canal</th><th>Carros</th><th>Pacotes</th><th>Tempo de Fila Médio</th></tr></thead><tbody id="ovw-canal-fm"></tbody></table></div>
+      </div>
+      <details class="ovw-accordion" id="ovw-details-fm" ontoggle="ovwOnToggleChart(this,'fm')">
+        <summary><span><i class="fas fa-chart-line"></i> Ver chegadas por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-fm"></canvas></div></div>
+      </details>
 
       <div class="table-toolbar-title" style="margin-top:16px">ASM</div>
       <div id="ovw-kpis-asm" style="margin-top:8px"></div>
       <div id="ovw-capacidade-asm" class="pulso-coverage" style="margin-top:8px"></div>
+      <div class="table-card full" style="margin-top:8px">
+        <div class="table-toolbar"><div class="table-toolbar-title">Por zona</div></div>
+        <div style="overflow-x:auto"><table><thead><tr><th>Zona</th><th>Realizado</th></tr></thead><tbody id="ovw-zona-asm"></tbody></table></div>
+      </div>
+      <details class="ovw-accordion" id="ovw-details-asm" ontoggle="ovwOnToggleChart(this,'asm')">
+        <summary><span><i class="fas fa-chart-line"></i> Ver planejado vs realizado por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-asm"></canvas></div></div>
+      </details>
 
       <div class="table-toolbar-title" style="margin-top:16px">Conveyor</div>
       <div id="ovw-kpis-conveyor" style="margin-top:8px"></div>
       <div id="ovw-capacidade-conveyor" class="pulso-coverage" style="margin-top:8px"></div>
+      <div class="table-card full" style="margin-top:8px">
+        <div class="table-toolbar"><div class="table-toolbar-title">Por grupo</div></div>
+        <div style="overflow-x:auto"><table><thead><tr><th>Grupo</th><th>Realizado</th></tr></thead><tbody id="ovw-grupo-conveyor"></tbody></table></div>
+      </div>
+      <details class="ovw-accordion" id="ovw-details-conveyor" ontoggle="ovwOnToggleChart(this,'conveyor')">
+        <summary><span><i class="fas fa-chart-line"></i> Ver planejado vs realizado por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-conveyor"></canvas></div></div>
+      </details>
 
       <div class="table-toolbar-title" style="margin-top:16px">Outbound</div>
       <div id="ovw-kpis-outbound" style="margin-top:8px"></div>
+      <div class="table-card full" style="margin-top:8px">
+        <div class="table-toolbar"><div class="table-toolbar-title">Por canal</div></div>
+        <div style="overflow-x:auto"><table><thead><tr><th>Canal</th><th>Pacotes</th><th>TOs</th></tr></thead><tbody id="ovw-canal-outbound"></tbody></table></div>
+      </div>
+      <details class="ovw-accordion" id="ovw-details-outbound" ontoggle="ovwOnToggleChart(this,'outbound')">
+        <summary><span><i class="fas fa-chart-line"></i> Ver previstos vs realizados por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-outbound"></canvas></div></div>
+      </details>
 
       <div id="ovw-erros" style="margin-top:12px"></div>
     </section>
@@ -2935,6 +2986,7 @@
       <div class="pulso-coverage" id="bkl-coverage"></div>
       <div class="table-toolbar-title" style="margin-top:14px">Backlog Total e por Perfil</div>
       <div id="bkl-kpis-perfil" style="margin-top:8px"></div>
+      <div class="pulso-coverage" id="bkl-hora-label" style="margin-top:8px"></div>
       <div class="table-toolbar-title" style="margin-top:16px">Por Tempo de Aging</div>
       <div id="bkl-kpis-tempo" style="margin-top:8px"></div>
       <div class="chart-card full" style="margin-top:16px">
@@ -5629,6 +5681,10 @@ function ovwRenderAll(){
 
   const fonteIndisponivel = (label, icon) => ({ label, value:'—', sub:'fonte indisponível', delta:'', trend:'up', type:'danger', icon });
   const pctType = pct => pct>=90?'success':(pct>=70?'warning':'danger');
+  const fmtMin = min => min===null||min===undefined ? '—' : pulsoFmtHoraVirgula(min)+'h';
+  const canalTableRows = (canais, cols) => canais.length
+    ? canais.map(c => `<tr><td>${pulsoEscHtml(c.label)}</td>${cols.map(col=>`<td>${col(c)}</td>`).join('')}</tr>`).join('')
+    : emptyRow(cols.length+1);
 
   // 1. Backlog
   const b = j.backlog;
@@ -5644,12 +5700,20 @@ function ovwRenderAll(){
     { label:'Descarregados', value:j.lineHaul.descarregados.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
     { label:'Em Andamento', value:j.lineHaul.andamento.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-moving' },
   ] : [fonteIndisponivel('Line Haul', 'fa-truck')]);
+  const canalLhEl = document.getElementById('ovw-canal-lh');
+  if(canalLhEl) canalLhEl.innerHTML = j.lineHaul
+    ? canalTableRows(j.lineHaul.porCanal, [c=>c.carros.toLocaleString('pt-BR'), c=>c.pacotes.toLocaleString('pt-BR'), c=>fmtMin(c.tempoFilaMedioMin)])
+    : emptyRow(4);
 
   // 3. Inbound First Mile
   buildKPIs('ovw-kpis-fm', j.firstMile ? [
     { label:'Descarregados', value:j.firstMile.descarregados.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
     { label:'Em Andamento', value:j.firstMile.andamento.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-moving' },
   ] : [fonteIndisponivel('First Mile', 'fa-truck-ramp-box')]);
+  const canalFmEl = document.getElementById('ovw-canal-fm');
+  if(canalFmEl) canalFmEl.innerHTML = j.firstMile
+    ? canalTableRows(j.firstMile.porCanal, [c=>c.carros.toLocaleString('pt-BR'), c=>c.pacotes.toLocaleString('pt-BR'), c=>fmtMin(c.tempoFilaMedioMin)])
+    : emptyRow(4);
 
   // 4. ASM
   const asm = j.asm;
@@ -5658,12 +5722,22 @@ function ovwRenderAll(){
     asm.pctAtingimento!==null
       ? { label:'% Atingimento', value:asm.pctAtingimento+'%', delta:'', trend:'up', type:pctType(asm.pctAtingimento), icon:'fa-bullseye' }
       : fonteIndisponivel('% Atingimento', 'fa-bullseye'),
+    { label:'Média Zonas Ativas', value:asm.mediaZonasAtivas??'—', sub:'por hora', delta:'', trend:'up', type:'', icon:'fa-diagram-project' },
+    ...asm.mediaMesasPorNivel.map(n => ({ label:'Mesas '+n.label, value:n.mediaMesas, sub:'média/hora', delta:'', trend:'up', type:'', icon:'fa-chair' })),
+    asm.picoInducao
+      ? { label:'Pico de Indução', value:asm.picoInducao.total.toLocaleString('pt-BR'), sub:`às ${String(asm.picoInducao.hora).padStart(2,'0')}h`, delta:'', trend:'up', type:'', icon:'fa-arrow-trend-up' }
+      : fonteIndisponivel('Pico de Indução', 'fa-arrow-trend-up'),
+    { label:'Média de Indução', value:(asm.mediaInducaoPorHora??0).toLocaleString('pt-BR'), sub:'por hora', delta:'', trend:'up', type:'', icon:'fa-gauge' },
   ] : [fonteIndisponivel('ASM', 'fa-user-check')]);
   const capAsm = asm && asm.capacidadeAgora;
   const capAsmEl = document.getElementById('ovw-capacidade-asm');
   if(capAsmEl) capAsmEl.innerHTML = capAsm
     ? `<i class="fas fa-people-group"></i> Capacidade planejada (${String(capAsm.hora).padStart(2,'0')}h): <strong style="color:var(--text)">NV1 ${capAsm.nv1} · NV2 ${capAsm.nv2} · NV3 ${capAsm.nv3}</strong> · ${capAsm.zonas} zonas`
     : '';
+  const zonaAsmEl = document.getElementById('ovw-zona-asm');
+  if(zonaAsmEl) zonaAsmEl.innerHTML = asm
+    ? canalTableRows(asm.porZona, [z=>z.realizado.toLocaleString('pt-BR')])
+    : emptyRow(2);
 
   // 5. Conveyor
   const cnv = j.conveyor;
@@ -5672,16 +5746,27 @@ function ovwRenderAll(){
     cnv.pctAtingimento!==null
       ? { label:'% Atingimento', value:cnv.pctAtingimento+'%', delta:'', trend:'up', type:pctType(cnv.pctAtingimento), icon:'fa-bullseye' }
       : fonteIndisponivel('% Atingimento', 'fa-bullseye'),
+    cnv.picoProcessamento
+      ? { label:'Pico de Processamento', value:cnv.picoProcessamento.total.toLocaleString('pt-BR'), sub:`às ${String(cnv.picoProcessamento.hora).padStart(2,'0')}h`, delta:'', trend:'up', type:'', icon:'fa-arrow-trend-up' }
+      : fonteIndisponivel('Pico de Processamento', 'fa-arrow-trend-up'),
+    { label:'Média de Processamento', value:(cnv.mediaProcessamentoPorHora??0).toLocaleString('pt-BR'), sub:'por hora', delta:'', trend:'up', type:'', icon:'fa-gauge' },
   ] : [fonteIndisponivel('Conveyor', 'fa-conveyor-belt')]);
   const capCnv = cnv && cnv.capacidadeAgora;
   const capCnvEl = document.getElementById('ovw-capacidade-conveyor');
   if(capCnvEl) capCnvEl.innerHTML = capCnv
     ? `<i class="fas fa-gears"></i> Capacidade planejada (${String(capCnv.hora).padStart(2,'0')}h): <strong style="color:var(--text)">Esteiras ${capCnv.esteiras}${capCnv.esteiraTermo?` + Termo ${capCnv.esteiraTermo}`:''}</strong>`
     : '';
+  const grupoCnvEl = document.getElementById('ovw-grupo-conveyor');
+  if(grupoCnvEl) grupoCnvEl.innerHTML = cnv
+    ? canalTableRows(cnv.porGrupo, [g=>g.realizado.toLocaleString('pt-BR')])
+    : emptyRow(2);
 
-  // 6. Outbound
+  // 6. Outbound — % Clusterização entra primeiro (pedido do Roberto em 2026-08-04)
   const ob = j.outbound;
   buildKPIs('ovw-kpis-outbound', ob ? [
+    (ob.pctClusterizacao!==null)
+      ? { label:'% Clusterização', value:ob.pctClusterizacao+'%', delta:'', trend:'up', type: ob.pctClusterizacao>89?'success':(ob.pctClusterizacao>=75?'warning':'danger'), icon:'fa-layer-group' }
+      : fonteIndisponivel('% Clusterização', 'fa-layer-group'),
     (ob.carrosRealizados!==null)
       ? { label:'Carros Carregados', value:ob.carrosRealizados.toLocaleString('pt-BR'), sub:`de ${ob.carrosPrevistos.toLocaleString('pt-BR')} planejados`, delta:'', trend:'up', type:'', icon:'fa-truck-loading' }
       : fonteIndisponivel('Carros Carregados', 'fa-truck-loading'),
@@ -5694,15 +5779,45 @@ function ovwRenderAll(){
     (ob.pacotesNoPiso!==null)
       ? { label:'Pacotes no Piso', value:ob.pacotesNoPiso.toLocaleString('pt-BR'), sub:'Clusterização · staging outbound', delta:'', trend:'up', type:'', icon:'fa-warehouse' }
       : fonteIndisponivel('Pacotes no Piso', 'fa-warehouse'),
-    (ob.pctClusterizacao!==null)
-      ? { label:'% Clusterização', value:ob.pctClusterizacao+'%', delta:'', trend:'up', type: ob.pctClusterizacao>89?'success':(ob.pctClusterizacao>=75?'warning':'danger'), icon:'fa-layer-group' }
-      : fonteIndisponivel('% Clusterização', 'fa-layer-group'),
   ] : [fonteIndisponivel('Outbound', 'fa-truck-loading')]);
+  const canalObEl = document.getElementById('ovw-canal-outbound');
+  if(canalObEl) canalObEl.innerHTML = ob
+    ? canalTableRows(ob.porCanal, [c=>c.pacotes.toLocaleString('pt-BR'), c=>c.tos.toLocaleString('pt-BR')])
+    : emptyRow(3);
 
   const errosEl = document.getElementById('ovw-erros');
   if(errosEl) errosEl.innerHTML = j.erros
     ? `<div class="switch-hint"><i class="fas fa-triangle-exclamation"></i> Fontes indisponíveis: ${Object.entries(j.erros).map(([k,v])=>`${pulsoEscHtml(k)} (${pulsoEscHtml(v)})`).join(', ')}</div>`
     : '';
+
+  // Re-renderiza os gráficos dos blocos que já estiverem abertos (ex.: após
+  // "Atualizar" com o accordion já expandido).
+  ['backlog','lh','fm','asm','conveyor','outbound'].forEach(key => {
+    const det = document.getElementById('ovw-details-'+key);
+    if(det && det.open) ovwRenderChart(key);
+  });
+}
+
+// Gráficos ficam dentro de <details> fechados por padrão — só monta o
+// Chart.js quando o usuário abre (canvas com display:none não tem largura,
+// Chart.js desenha errado se criado antes disso).
+function ovwOnToggleChart(details, blockKey){
+  if(details.open) ovwRenderChart(blockKey);
+}
+function ovwRenderChart(blockKey){
+  const j = OVERVIEW_DATA;
+  if(!j) return;
+  const serieDe = { backlog:j.backlog, lh:j.lineHaul, fm:j.firstMile, asm:j.asm, conveyor:j.conveyor, outbound:j.outbound };
+  const serie = serieDe[blockKey] && serieDe[blockKey].serieHoraria;
+  const canvasId = 'chart-ovw-'+blockKey;
+  if(chartInstances[canvasId]){ chartInstances[canvasId].destroy(); delete chartInstances[canvasId]; }
+  if(!serie) return;
+  const labels = Array.from({length:24}, (_,h) => String(h).padStart(2,'0')+'h');
+  const datasets = [];
+  if(serie.previstos) datasets.push({ label:'Previstos', data:serie.previstos, borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:0 });
+  if(serie.planejado) datasets.push({ label:'Planejado', data:serie.planejado, borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:0 });
+  if(serie.realizado) datasets.push({ label:'Realizado', data:serie.realizado, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:0 });
+  mkLine(canvasId, labels, datasets);
 }
 
 function ovwGenerateInsights(){
@@ -5712,7 +5827,7 @@ function ovwGenerateInsights(){
   if(j.backlog) insights.push({ icon:'fa-boxes-stacked', html:`Backlog atual: <strong>${j.backlog.total.toLocaleString('pt-BR')}</strong> pacotes (média/hora).` });
   if(j.lineHaul) insights.push({ icon:'fa-truck', html:`Line Haul: <strong>${j.lineHaul.descarregados.toLocaleString('pt-BR')}</strong> descarregados de ${j.lineHaul.previstos.toLocaleString('pt-BR')} previstos, ${j.lineHaul.andamento} em andamento.` });
   if(j.firstMile) insights.push({ icon:'fa-truck-ramp-box', html:`First Mile: <strong>${j.firstMile.descarregados.toLocaleString('pt-BR')}</strong> descarregados, ${j.firstMile.andamento} em andamento.` });
-  if(j.asm && j.asm.pctAtingimento!==null) insights.push({ icon:'fa-user-check', html:`ASM em <strong>${j.asm.pctAtingimento}%</strong> da meta até agora.` });
+  if(j.asm && j.asm.pctAtingimento!==null) insights.push({ icon:'fa-user-check', html:`ASM em <strong>${j.asm.pctAtingimento}%</strong> da meta até agora, pico de indução de ${j.asm.picoInducao?j.asm.picoInducao.total.toLocaleString('pt-BR'):'—'} às ${j.asm.picoInducao?String(j.asm.picoInducao.hora).padStart(2,'0')+'h':'—'}.` });
   if(j.conveyor && j.conveyor.pctAtingimento!==null) insights.push({ icon:'fa-conveyor-belt', html:`Conveyor em <strong>${j.conveyor.pctAtingimento}%</strong> da meta até agora.` });
   if(j.outbound) insights.push({ icon:'fa-truck-loading', html:`Outbound: <strong>${j.outbound.carrosRealizados.toLocaleString('pt-BR')}</strong> carros carregados de ${j.outbound.carrosPrevistos.toLocaleString('pt-BR')} planejados.` });
   if(j.outbound && j.outbound.pctClusterizacao!==null) insights.push({ icon:'fa-layer-group', html:`Clusterização em <strong>${j.outbound.pctClusterizacao}%</strong> de atendimento, ${j.outbound.pacotesNoPiso.toLocaleString('pt-BR')} pacotes no piso.` });
@@ -6718,6 +6833,7 @@ const PERFIL_CARDS = [
 ];
 
 const BACKLOG_STATE = { date: null, hour: '', perfil: '' };
+let BACKLOG_HOUR_INITIALIZED = false; // 1ª carga: default = última hora atualizada, não "Dia todo"
 let BACKLOG_DATA = null;
 let BACKLOG_CHART_VIEW = 'chart';     // 'chart' | 'table'
 let BACKLOG_CHART_METRIC = 'pacotes'; // 'pacotes' | 'aging'
@@ -6738,6 +6854,13 @@ async function loadBacklog(){
     const dateInput = document.getElementById('bkl-date-input');
     if(dateInput && j.date) dateInput.value = j.date;
 
+    // "Deixe ele trazendo o Backlog da última hora atualizada" (pedido do
+    // Roberto em 2026-08-04) — só na 1ª carga: depois disso o usuário pode
+    // trocar livremente pra "Dia todo" sem a página voltar a forçar a hora.
+    if(!BACKLOG_HOUR_INITIALIZED){
+      if(j.opcoes.horas.length) BACKLOG_STATE.hour = j.opcoes.horas[j.opcoes.horas.length-1];
+      BACKLOG_HOUR_INITIALIZED = true;
+    }
     const hourInput = document.getElementById('bkl-hour-input');
     if(hourInput){
       hourInput.innerHTML = '<option value="">Dia todo</option>' +
@@ -6828,19 +6951,24 @@ function bklRenderAll(){
 function bklRenderKpis(){
   const rows = bklFilteredRows();
   const subHora = BACKLOG_STATE.hour === '' ? 'média/hora · dia inteiro' : `${String(BACKLOG_STATE.hour).padStart(2,'0')}h`;
+  const totalAtual = bklQtdMedia(rows);
 
-  // Linha 1 — Backlog Total e por Perfil
+  // Linha 1 — Backlog Total e por Perfil (sub mostra % do total, pedido do Roberto em 2026-08-04)
   const cardsPerfil = PERFIL_CARDS.map(pc => {
     const key = 'perfil:'+pc.label;
     const qtd = bklQtdMedia(rows.filter(r=>pc.match(r.perfil)));
-    return { label:pc.label, value:qtd.toLocaleString('pt-BR'), delta:'', trend:'up',
+    const pct = totalAtual ? (qtd/totalAtual*100).toFixed(1) : '0,0';
+    return { label:pc.label, value:qtd.toLocaleString('pt-BR'), sub:`${String(pct).replace('.',',')}% do total`, delta:'', trend:'up',
       type: BACKLOG_ACTIVE_CARD===key ? 'info' : '', icon:'fa-tag',
       clickable:true, active:BACKLOG_ACTIVE_CARD===key, onclickAttr:`bklCardClick('${key}')` };
   });
   buildKPIs('bkl-kpis-perfil', [
-    { label:'Backlog Atual', value:bklQtdMedia(rows).toLocaleString('pt-BR'), sub:subHora, delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
+    { label:'Backlog Atual', value:totalAtual.toLocaleString('pt-BR'), sub:subHora, delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
     ...cardsPerfil,
   ]);
+
+  const horaLabelEl = document.getElementById('bkl-hora-label');
+  if(horaLabelEl) horaLabelEl.innerHTML = `<i class="fas fa-clock"></i> Mostrando backlog de: <strong style="color:var(--text)">${BACKLOG_STATE.hour===''?'dia inteiro (média/hora)':String(BACKLOG_STATE.hour).padStart(2,'0')+'h'}</strong>`;
 
   // Linha 2 — Por Tempo de Aging (3 clusters)
   const cardsCluster = AGING_CLUSTERS.map(c => {
