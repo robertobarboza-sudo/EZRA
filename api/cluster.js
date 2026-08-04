@@ -106,6 +106,23 @@ function destinoCategoria(destino) {
   return '3PL';
 }
 
+// Aging médio ignorando outliers (pedido do Roberto em 2026-08-04): o
+// resíduo operacional já é filtrado antes de chegar aqui (ver comData mais
+// abaixo), mas ainda sobram TOs com aging muito acima do normal (parado
+// há muito tempo sem bater o critério de resíduo) que puxam a média pra
+// cima e escondem a "oportunidade" real. Cerca IQR (Q3 + 1.5×IQR) — método
+// estatístico padrão pra outlier, não um corte arbitrário.
+function agingMedioSemOutliers(rows) {
+  const valores = rows.map(r => toNum(r.aging)).sort((a, b) => a - b);
+  if (!valores.length) return 0;
+  const q1 = valores[Math.floor(valores.length * 0.25)];
+  const q3 = valores[Math.floor(valores.length * 0.75)];
+  const cerca = q3 + (q3 - q1) * 1.5;
+  const semOutliers = valores.filter(v => v <= cerca);
+  const usar = semOutliers.length ? semOutliers : valores;
+  return +(usar.reduce((s, v) => s + v, 0) / usar.length).toFixed(1);
+}
+
 function aggregate(rows) {
   const totalRegistros = rows.length;
   const pacotesTotal = rows.reduce((s, r) => s + toNum(r.quantity), 0);
@@ -136,7 +153,7 @@ function aggregate(rows) {
   });
 
   const enderecados = rows.filter(r => r.stage === 'ENDEREÇADO').length;
-  const agingMedio = totalRegistros ? +(rows.reduce((s, r) => s + toNum(r.aging), 0) / totalRegistros).toFixed(1) : 0;
+  const agingMedio = agingMedioSemOutliers(rows);
   const pctAtendimento = totalRegistros ? +(enderecados / totalRegistros * 100).toFixed(1) : 0;
 
   // ocupacaoTotalPct/posicoesOcupadas são preenchidos depois de montar `grade`

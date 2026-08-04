@@ -128,6 +128,8 @@ function toCarroRow(r) {
     cpt_realizado: r.cpt_realizado,
     orders_saca: toNum(r.orders_saca),
     orders_scuttle: toNum(r.orders_scuttle),
+    to_saca: toNum(r.to_saca),
+    to_scuttle: toNum(r.to_scuttle),
   };
 }
 

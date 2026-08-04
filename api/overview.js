@@ -6,16 +6,27 @@
  *      (mesmos grupos da página Backlog — ver PERFIL_GRUPOS/
  *      AGING_CLUSTER_OF abaixo, têm que ficar em sincronia com o mesmo
  *      mapeamento em index.html)
- *   2. Inbound Line Haul: carros previstos vs descarregados + em andamento
- *   3. Inbound First Mile: carros descarregados + em andamento
+ *   2. Inbound Line Haul: previstos/descarregados/andamento + quebra por
+ *      canal (origem, classificada por prefixo — ver canalDeOrigemLh)
+ *   3. Inbound First Mile: descarregados/andamento + quebra por canal
+ *      (agência, já é um campo pequeno e direto na base)
  *   4. ASM: realizado (scans) vs planejado até agora (labor_pulso asm
- *      target) + snapshot de capacidade (NV.1-3/zonas) da hora vigente
+ *      target) + quebra por zona real, média de zonas/mesas ativas por
+ *      hora, pico e média de indução por hora
  *   5. Conveyor: realizado (pedidos) vs planejado até agora (labor_pulso
- *      packing esteira+volumoso) + snapshot de esteiras da hora vigente
- *   6. Outbound: carros carregados vs planejados na expedição, saca/scuttle
- *      separados (com TOs de cada), % de Clusterização e pacotes no piso
- *      (= pacotesTotal da Clusterização, o staging onde os TOs ficam
- *      endereçados aguardando expedição — por isso entra no bloco Outbound)
+ *      packing esteira+volumoso) + quebra por grupo de estação (OBC/OBD já
+ *      soma os dois códigos — ver classificarEsteira em api/conveyor.js),
+ *      pico e média por hora
+ *   6. Outbound: carros carregados vs planejados, saca/scuttle separados
+ *      (com TOs de cada), quebra por canal (destino, por prefixo), % de
+ *      Clusterização e pacotes no piso (= pacotesTotal da Clusterização,
+ *      o staging onde os TOs ficam endereçados aguardando expedição — por
+ *      isso entra no bloco Outbound, como primeiro card do bloco)
+ *
+ * Cada bloco com dado por hora real (todos exceto Backlog/Outbound, que
+ * usam campos derivados — ver porHora/horaDeTs) também devolve uma
+ * `serieHoraria` (24 posições, 0-23) pro gráfico planejado x realizado do
+ * front, escondido por padrão num accordion abaixo do bloco.
  *
  * Em vez de duplicar a lógica de negócio de cada página (residuo, correção
  * de clusterização, etc.), esse endpoint chama as próprias APIs irmãs via
@@ -78,6 +89,52 @@ const PERFIL_GRUPOS = [
 const AGING_CLUSTER_OF = { '0-1h': '0-4h', '1-2h': '0-4h', '2-4h': '0-4h', '4-8h': '4-24h', '8-24h': '4-24h', '>24h': '>24h' };
 const AGING_CLUSTERS = ['0-4h', '4-24h', '>24h'];
 
+// Canais por prefixo (mesmo padrão de destinoCategoria em api/cluster.js,
+// aplicado às bases que ainda não tinham essa quebra) — confirmado ao vivo
+// via debug-meta em 2026-08-04.
+function canalDeDestinoOutbound(destino) {
+  const d = String(destino || '').toUpperCase();
+  if (d.startsWith('SOC-')) return 'SOC';
+  if (d.startsWith('HUB-')) return 'LM Hub';
+  if (d.startsWith('XPT-')) return 'XPT';
+  if (d.startsWith('FMH-')) return 'FMH';
+  return 'Outros';
+}
+const OUTBOUND_CANAIS = ['SOC', 'LM Hub', 'XPT', 'FMH', 'Outros'];
+
+function canalDeOrigemLh(origem) {
+  const o = String(origem || '');
+  if (/^SoC_/i.test(o)) return 'SOC';
+  if (/^FM Hub_/i.test(o)) return 'FM Hub';
+  if (/^FBS_/i.test(o)) return 'FBS';
+  return 'Outros';
+}
+const LH_CANAIS = ['SOC', 'FM Hub', 'FBS', 'Outros'];
+
+const ASM_ZONAS_REAIS = ['ZONA A', 'ZONA B', 'ZONA C'];
+const ASM_NIVEIS = ['Nível 1', 'Nível 2', 'Nível 3'];
+const CNV_GRUPOS = ['OBA/OBB', 'OBC/OBD', 'Termoplástica', 'Esteira A', 'Esteira B', 'Tintas', 'TO-Audit', 'Non-TO'];
+
+// Extrai a hora de um timestamp cru "YYYY-MM-DD HH:MM:SS" (usado nos
+// cpt_planejado/cpt_realizado crus do Outbound) — mesmo padrão de horaDe()
+// em api/inbound-lh.js, evita ambiguidade de fuso do parse via Date.
+function horaDeTs(v) {
+  const m = String(v || '').match(/(\d{2}):\d{2}:\d{2}/);
+  return m ? Number(m[1]) : null;
+}
+
+// Soma valorFn(linha) em 24 posições (0-23) pela hora de cada linha
+// (horaField pode ser o nome do campo ou uma função extratora).
+function porHora(rows, horaField, valorFn) {
+  const arr = Array.from({ length: 24 }, () => 0);
+  rows.forEach(r => {
+    const h = typeof horaField === 'function' ? horaField(r) : r[horaField];
+    if (h === null || h === undefined || h < 0 || h > 23) return;
+    arr[h] += valorFn ? valorFn(r) : 1;
+  });
+  return arr;
+}
+
 async function getJson(base, path) {
   const r = await fetch(base + path, { headers: { 'x-overview-internal': '1' } });
   const j = await r.json();
@@ -104,87 +161,160 @@ module.exports = async (req, res) => {
     safe('labor', () => getLabor()),
   ]);
 
-  // Outbound — carros carregados vs planejados na expedição, saca/scuttle
-  // separados (com contagem de TOs de cada) e % de Clusterização/pacotes no
-  // piso (piso = staging outbound, onde os TOs endereçados aguardam
-  // expedição — por isso entram no bloco Outbound em vez de um bloco à parte).
-  const outboundResumo = (outbound || cluster) ? {
-    carrosPrevistos: outbound ? outbound.atual.carrosPrevistos : null,
-    carrosRealizados: outbound ? outbound.atual.carrosRealizados : null,
-    saca: outbound ? { pacotes: outbound.atual.pacotesSaca, tos: outbound.atual.qtySaca } : null,
-    scuttle: outbound ? { pacotes: outbound.atual.pacotesScuttle, tos: outbound.atual.qtyScuttle } : null,
-    pacotesNoPiso: cluster ? cluster.atual.pacotesTotal : null,
-    pctClusterizacao: cluster ? cluster.atual.pctClusterizacao : null,
-  } : null;
+  // 1. Backlog — média por hora (mesma lógica de bklQtdMedia em index.html:
+  // soma ÷ horas do dia, nunca soma crua, senão infla contando a mesma
+  // fila várias vezes), quebrado por grupo de perfil e por cluster de aging.
+  let backlogResumo = null;
+  if (backlog) {
+    const horasBkl = backlog.opcoes.horas.length || 1;
+    const media = rows => Math.round(rows.reduce((s, r) => s + r.qtdPacotes, 0) / horasBkl);
+    backlogResumo = {
+      total: media(backlog.rows),
+      perfis: PERFIL_GRUPOS.map(pg => ({ label: pg.label, qtd: media(backlog.rows.filter(r => pg.match(r.perfil))) })),
+      clusters: AGING_CLUSTERS.map(c => ({ label: c, qtd: media(backlog.rows.filter(r => AGING_CLUSTER_OF[r.faixaAging] === c)) })),
+      serieHoraria: { realizado: porHora(backlog.rows, 'hora', r => r.qtdPacotes) },
+    };
+  }
 
-  // Inbound Line Haul — previstos vs descarregados (fim_descarga preenchido) + em andamento
+  // 2. Inbound Line Haul — previstos vs descarregados (fim_descarga
+  // preenchido) + em andamento + quebra por canal (origem).
   const lhRows = lh ? lh.rows : [];
   const lineHaul = lh ? {
     previstos: lhRows.length,
     descarregados: lhRows.filter(r => r.fimDescarga).length,
     andamento: lhRows.filter(r => r.checkinDestino && !r.fimDescarga).length,
+    porCanal: LH_CANAIS.map(canal => {
+      const rows = lhRows.filter(r => canalDeOrigemLh(r.origem) === canal);
+      const comFila = rows.filter(r => r.tempoFilaMin !== null);
+      return {
+        label: canal,
+        carros: rows.length,
+        pacotes: rows.reduce((s, r) => s + r.pacotes, 0),
+        tempoFilaMedioMin: comFila.length ? Math.round(comFila.reduce((s, r) => s + r.tempoFilaMin, 0) / comFila.length) : null,
+      };
+    }).filter(c => c.carros > 0),
+    serieHoraria: {
+      previstos: porHora(lhRows, 'horaPlanejada', () => 1),
+      realizado: porHora(lhRows.filter(r => r.fimDescarga), 'horaCheckin', () => 1),
+    },
   } : null;
 
-  // Inbound First Mile — descarregados (finalização de jornada preenchida) + em andamento
+  // 3. Inbound First Mile — descarregados (finalização de jornada
+  // preenchida) + em andamento + quebra por canal (agência).
   const fmRows = fm ? fm.rows : [];
+  const fmAgencias = [...new Set(fmRows.map(r => r.agencia).filter(Boolean))].sort();
   const firstMile = fm ? {
     descarregados: fmRows.filter(r => r.finalizacaoJornada).length,
     andamento: fmRows.filter(r => r.checkinDriver && !r.finalizacaoJornada).length,
+    porCanal: fmAgencias.map(canal => {
+      const rows = fmRows.filter(r => r.agencia === canal);
+      const comFila = rows.filter(r => r.tempoFilaMin !== null);
+      return {
+        label: canal,
+        carros: rows.length,
+        pacotes: rows.reduce((s, r) => s + r.pacotes, 0),
+        tempoFilaMedioMin: comFila.length ? Math.round(comFila.reduce((s, r) => s + r.tempoFilaMin, 0) / comFila.length) : null,
+      };
+    }),
+    serieHoraria: { realizado: porHora(fmRows, 'hora', () => 1) },
   } : null;
-
-  // Backlog — média por hora (mesma lógica de bklQtdMedia em index.html: soma
-  // ÷ horas do dia, nunca soma crua, senão infla contando a mesma fila várias
-  // vezes), quebrado por grupo de perfil e por cluster de aging.
-  let backlogResumo = null;
-  if (backlog) {
-    const horas = backlog.opcoes.horas.length || 1;
-    const media = rows => Math.round(rows.reduce((s, r) => s + r.qtdPacotes, 0) / horas);
-    backlogResumo = {
-      total: media(backlog.rows),
-      perfis: PERFIL_GRUPOS.map(pg => ({ label: pg.label, qtd: media(backlog.rows.filter(r => pg.match(r.perfil))) })),
-      clusters: AGING_CLUSTERS.map(c => ({ label: c, qtd: media(backlog.rows.filter(r => AGING_CLUSTER_OF[r.faixaAging] === c)) })),
-    };
-  }
 
   // ASM e Conveyor — realizado no dia (soma bruta, são contadores de volume,
   // não uma leitura pontual) vs planejado ATÉ AGORA (soma do labor_pulso só
   // das horas que já passaram — comparar contra o planejado do dia inteiro
   // sempre pareceria "atrasado" de manhã, mesmo no ritmo certo). Horário de
   // Brasília fixo (UTC-3, mesma conta de hojeOperacionalIso em _period.js).
-  // NV.1-3 (ASM) e Esteiras/Esteira Termo (Conveyor) não entram na
-  // comparação de volume (são níveis de equipe/equipamento) — viram um
-  // snapshot da hora vigente em cada bloco.
   const horaAgora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours();
   const laborAteAgora = labor ? labor.rows.filter(r => r.hora <= horaAgora) : [];
   const laborAgora = labor && labor.rows.length
     ? (labor.rows.find(r => r.hora === horaAgora) || [...labor.rows].sort((a, b) => Math.abs(a.hora - horaAgora) - Math.abs(b.hora - horaAgora))[0])
     : null;
 
+  // 4. ASM — realizado por zona real (exclui System Default), média de
+  // zonas/mesas-por-nível ativas por hora (só conta quem teve indução>0
+  // naquela hora), pico e média de indução por hora.
+  const asmRowsReais = asm ? asm.rows.filter(r => !r.isSystemDefault) : [];
+  const asmHoras = asm ? [...new Set(asm.rows.map(r => r.hora))].sort((a, b) => a - b) : [];
   const asmRealizado = asm ? asm.rows.reduce((s, r) => s + r.scanNumbers, 0) : null;
   const asmPlanejado = labor ? Math.round(laborAteAgora.reduce((s, r) => s + r.asmTarget, 0)) : null;
-  const asmResumo = (asm || labor) ? {
-    realizado: asmRealizado,
-    planejado: asmPlanejado,
-    pctAtingimento: asmPlanejado ? Math.round((asmRealizado ?? 0) / asmPlanejado * 100) : null,
-    capacidadeAgora: laborAgora ? { hora: laborAgora.hora, nv1: laborAgora.nv1, nv2: laborAgora.nv2, nv3: laborAgora.nv3, zonas: laborAgora.asmZonas } : null,
-  } : null;
+  let asmResumo = null;
+  if (asm || labor) {
+    const porHoraTotal = asmHoras.map(h => ({ hora: h, total: asm.rows.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0) }));
+    const pico = porHoraTotal.length ? porHoraTotal.reduce((best, c) => c.total > best.total ? c : best) : null;
+    asmResumo = {
+      realizado: asmRealizado,
+      planejado: asmPlanejado,
+      pctAtingimento: asmPlanejado ? Math.round((asmRealizado ?? 0) / asmPlanejado * 100) : null,
+      porZona: ASM_ZONAS_REAIS.map(zona => ({ label: zona, realizado: asmRowsReais.filter(r => r.zona === zona).reduce((s, r) => s + r.scanNumbers, 0) })),
+      mediaZonasAtivas: asmHoras.length ? +(asmHoras.reduce((s, h) => s + new Set(asmRowsReais.filter(r => r.hora === h && r.scanNumbers > 0).map(r => r.zona)).size, 0) / asmHoras.length).toFixed(1) : null,
+      mediaMesasPorNivel: ASM_NIVEIS.map(nivel => {
+        const porHoraMesas = asmHoras.map(h => new Set(asmRowsReais.filter(r => r.hora === h && r.nivel === nivel && r.scanNumbers > 0).map(r => r.mesa)).size);
+        return { label: nivel, mediaMesas: porHoraMesas.length ? +(porHoraMesas.reduce((s, v) => s + v, 0) / porHoraMesas.length).toFixed(1) : 0 };
+      }),
+      picoInducao: pico,
+      mediaInducaoPorHora: asmHoras.length ? Math.round((asmRealizado ?? 0) / asmHoras.length) : null,
+      capacidadeAgora: laborAgora ? { hora: laborAgora.hora, nv1: laborAgora.nv1, nv2: laborAgora.nv2, nv3: laborAgora.nv3, zonas: laborAgora.asmZonas } : null,
+      serieHoraria: { planejado: labor ? porHora(labor.rows, 'hora', r => r.asmTarget) : null, realizado: asm ? porHora(asm.rows, 'hora', r => r.scanNumbers) : null },
+    };
+  }
 
-  const conveyorRealizado = conveyor ? conveyor.rows.reduce((s, r) => s + r.totalProcessamento, 0) : null;
+  // 5. Conveyor — realizado por grupo de estação (OBC/OBD já vem somado da
+  // própria classificação em api/conveyor.js), pico e média por hora.
+  const cnvRows = conveyor ? conveyor.rows : [];
+  const cnvHoras = conveyor ? [...new Set(cnvRows.map(r => r.hora))].sort((a, b) => a - b) : [];
+  const conveyorRealizado = conveyor ? cnvRows.reduce((s, r) => s + r.totalProcessamento, 0) : null;
   const conveyorPlanejado = labor ? Math.round(laborAteAgora.reduce((s, r) => s + r.packingEsteira + r.packingVolumoso, 0)) : null;
-  const conveyorResumo = (conveyor || labor) ? {
-    realizado: conveyorRealizado,
-    planejado: conveyorPlanejado,
-    pctAtingimento: conveyorPlanejado ? Math.round((conveyorRealizado ?? 0) / conveyorPlanejado * 100) : null,
-    capacidadeAgora: laborAgora ? { hora: laborAgora.hora, esteiras: laborAgora.esteiras, esteiraTermo: laborAgora.esteiraTermo } : null,
+  let conveyorResumo = null;
+  if (conveyor || labor) {
+    const porHoraTotal = cnvHoras.map(h => ({ hora: h, total: cnvRows.filter(r => r.hora === h).reduce((s, r) => s + r.totalProcessamento, 0) }));
+    const pico = porHoraTotal.length ? porHoraTotal.reduce((best, c) => c.total > best.total ? c : best) : null;
+    conveyorResumo = {
+      realizado: conveyorRealizado,
+      planejado: conveyorPlanejado,
+      pctAtingimento: conveyorPlanejado ? Math.round((conveyorRealizado ?? 0) / conveyorPlanejado * 100) : null,
+      porGrupo: CNV_GRUPOS.map(g => ({ label: g, realizado: cnvRows.filter(r => r.grupo === g).reduce((s, r) => s + r.totalProcessamento, 0) })).filter(g => g.realizado > 0),
+      picoProcessamento: pico,
+      mediaProcessamentoPorHora: cnvHoras.length ? Math.round((conveyorRealizado ?? 0) / cnvHoras.length) : null,
+      capacidadeAgora: laborAgora ? { hora: laborAgora.hora, esteiras: laborAgora.esteiras, esteiraTermo: laborAgora.esteiraTermo } : null,
+      serieHoraria: { planejado: labor ? porHora(labor.rows, 'hora', r => r.packingEsteira + r.packingVolumoso) : null, realizado: conveyor ? porHora(cnvRows, 'hora', r => r.totalProcessamento) : null },
+    };
+  }
+
+  // 6. Outbound — carros carregados vs planejados, saca/scuttle separados
+  // (com TOs de cada), quebra por canal (destino), % de Clusterização e
+  // pacotes no piso (piso = staging outbound, onde os TOs endereçados
+  // aguardam expedição — por isso entram aqui em vez de um bloco à parte,
+  // como primeiro card do bloco).
+  const outboundCarros = outbound ? outbound.carros : [];
+  const outboundResumo = (outbound || cluster) ? {
+    pctClusterizacao: cluster ? cluster.atual.pctClusterizacao : null,
+    pacotesNoPiso: cluster ? cluster.atual.pacotesTotal : null,
+    carrosPrevistos: outbound ? outbound.atual.carrosPrevistos : null,
+    carrosRealizados: outbound ? outbound.atual.carrosRealizados : null,
+    saca: outbound ? { pacotes: outbound.atual.pacotesSaca, tos: outbound.atual.qtySaca } : null,
+    scuttle: outbound ? { pacotes: outbound.atual.pacotesScuttle, tos: outbound.atual.qtyScuttle } : null,
+    porCanal: OUTBOUND_CANAIS.map(canal => {
+      const rows = outboundCarros.filter(r => canalDeDestinoOutbound(r.destino) === canal);
+      return {
+        label: canal,
+        pacotes: rows.reduce((s, r) => s + r.orders_saca + r.orders_scuttle, 0),
+        tos: rows.reduce((s, r) => s + r.to_saca + r.to_scuttle, 0),
+      };
+    }).filter(c => c.pacotes > 0 || c.tos > 0),
+    serieHoraria: outbound ? {
+      previstos: porHora(outboundCarros, r => horaDeTs(r.cpt_planejado), () => 1),
+      realizado: porHora(outboundCarros.filter(r => r.cpt_realizado), r => horaDeTs(r.cpt_realizado), () => 1),
+    } : null,
   } : null;
 
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
     ok: true,
     atualizadoEm: new Date().toISOString(),
-    outbound: outboundResumo, lineHaul, firstMile,
-    asm: asmResumo, conveyor: conveyorResumo,
     backlog: backlogResumo,
+    lineHaul, firstMile,
+    asm: asmResumo, conveyor: conveyorResumo,
+    outbound: outboundResumo,
     erros: Object.keys(erros).length ? erros : null,
   });
 };
