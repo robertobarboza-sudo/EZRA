@@ -1,18 +1,21 @@
 /**
  * PULSO — Overview: retrato acumulado da operação, juntando os números já
- * calculados pelas outras páginas (confirmado com o Roberto em 2026-08-04):
- *   - Outbound: carros carregados vs planejados na expedição
- *   - Inbound Line Haul: carros previstos vs descarregados
- *   - Inbound First Mile: carros descarregados
- *   - Carros em andamento (LH + FM somados: já chegou, ainda não descarregou)
- *   - % de atendimento da Clusterização
- *   - Pacotes no piso de outbound (= pacotesTotal da Clusterização, o piso
- *     de staging onde os TOs ficam endereçados aguardando expedição)
- *   - Backlog atual, entre perfis e clusters de aging (mesmos grupos da
- *     página Backlog — ver PERFIL_GRUPOS/AGING_CLUSTER_OF abaixo, têm que
- *     ficar em sincronia com o mesmo mapeamento em index.html)
- *   - Performance do ASM e do Conveyor somados: realizado (scans/pedidos do
- *     dia) vs planejado (labor_pulso: asm target / packing esteira+volumoso)
+ * calculados pelas outras páginas. Blocos, nessa ordem (confirmado com o
+ * Roberto em 2026-08-04):
+ *   1. Backlog: atual (média/hora) + grupos de perfil + clusters de aging
+ *      (mesmos grupos da página Backlog — ver PERFIL_GRUPOS/
+ *      AGING_CLUSTER_OF abaixo, têm que ficar em sincronia com o mesmo
+ *      mapeamento em index.html)
+ *   2. Inbound Line Haul: carros previstos vs descarregados + em andamento
+ *   3. Inbound First Mile: carros descarregados + em andamento
+ *   4. ASM: realizado (scans) vs planejado até agora (labor_pulso asm
+ *      target) + snapshot de capacidade (NV.1-3/zonas) da hora vigente
+ *   5. Conveyor: realizado (pedidos) vs planejado até agora (labor_pulso
+ *      packing esteira+volumoso) + snapshot de esteiras da hora vigente
+ *   6. Outbound: carros carregados vs planejados na expedição, saca/scuttle
+ *      separados (com TOs de cada), % de Clusterização e pacotes no piso
+ *      (= pacotesTotal da Clusterização, o staging onde os TOs ficam
+ *      endereçados aguardando expedição — por isso entra no bloco Outbound)
  *
  * Em vez de duplicar a lógica de negócio de cada página (residuo, correção
  * de clusterização, etc.), esse endpoint chama as próprias APIs irmãs via
@@ -101,32 +104,32 @@ module.exports = async (req, res) => {
     safe('labor', () => getLabor()),
   ]);
 
-  // Outbound — carros carregados vs planejados na expedição
-  const expedicao = outbound ? {
-    carrosPrevistos: outbound.atual.carrosPrevistos,
-    carrosRealizados: outbound.atual.carrosRealizados,
-    pacotesSaca: outbound.atual.pacotesSaca,
-    pacotesScuttle: outbound.atual.pacotesScuttle,
+  // Outbound — carros carregados vs planejados na expedição, saca/scuttle
+  // separados (com contagem de TOs de cada) e % de Clusterização/pacotes no
+  // piso (piso = staging outbound, onde os TOs endereçados aguardam
+  // expedição — por isso entram no bloco Outbound em vez de um bloco à parte).
+  const outboundResumo = (outbound || cluster) ? {
+    carrosPrevistos: outbound ? outbound.atual.carrosPrevistos : null,
+    carrosRealizados: outbound ? outbound.atual.carrosRealizados : null,
+    saca: outbound ? { pacotes: outbound.atual.pacotesSaca, tos: outbound.atual.qtySaca } : null,
+    scuttle: outbound ? { pacotes: outbound.atual.pacotesScuttle, tos: outbound.atual.qtyScuttle } : null,
+    pacotesNoPiso: cluster ? cluster.atual.pacotesTotal : null,
+    pctClusterizacao: cluster ? cluster.atual.pctClusterizacao : null,
   } : null;
 
   // Inbound Line Haul — previstos vs descarregados (fim_descarga preenchido) + em andamento
   const lhRows = lh ? lh.rows : [];
-  const lhDescarregados = lhRows.filter(r => r.fimDescarga).length;
-  const lhAndamento = lhRows.filter(r => r.checkinDestino && !r.fimDescarga).length;
-  const lineHaul = lh ? { previstos: lhRows.length, descarregados: lhDescarregados, andamento: lhAndamento } : null;
+  const lineHaul = lh ? {
+    previstos: lhRows.length,
+    descarregados: lhRows.filter(r => r.fimDescarga).length,
+    andamento: lhRows.filter(r => r.checkinDestino && !r.fimDescarga).length,
+  } : null;
 
   // Inbound First Mile — descarregados (finalização de jornada preenchida) + em andamento
   const fmRows = fm ? fm.rows : [];
-  const fmDescarregados = fmRows.filter(r => r.finalizacaoJornada).length;
-  const fmAndamento = fmRows.filter(r => r.checkinDriver && !r.finalizacaoJornada).length;
-  const firstMile = fm ? { descarregados: fmDescarregados, andamento: fmAndamento } : null;
-
-  const carrosAndamento = lhAndamento + fmAndamento;
-
-  // Clusterização — % de atendimento (pctClusterizacao) + pacotes no piso de outbound
-  const clusterizacao = cluster ? {
-    pctClusterizacao: cluster.atual.pctClusterizacao,
-    pacotesNoPiso: cluster.atual.pacotesTotal,
+  const firstMile = fm ? {
+    descarregados: fmRows.filter(r => r.finalizacaoJornada).length,
+    andamento: fmRows.filter(r => r.checkinDriver && !r.finalizacaoJornada).length,
   } : null;
 
   // Backlog — média por hora (mesma lógica de bklQtdMedia em index.html: soma
@@ -143,45 +146,45 @@ module.exports = async (req, res) => {
     };
   }
 
-  // ASM + Conveyor — realizado no dia (soma bruta, são contadores de volume,
+  // ASM e Conveyor — realizado no dia (soma bruta, são contadores de volume,
   // não uma leitura pontual) vs planejado ATÉ AGORA (soma do labor_pulso só
   // das horas que já passaram — comparar contra o planejado do dia inteiro
   // sempre pareceria "atrasado" de manhã, mesmo no ritmo certo). Horário de
   // Brasília fixo (UTC-3, mesma conta de hojeOperacionalIso em _period.js).
-  // NV.1-3/esteiras não entram na comparação (são níveis de equipe, não
-  // volume) — viram só um snapshot da hora vigente (ou a mais próxima
-  // disponível, pra planejamento pré-carregado do dia inteiro).
+  // NV.1-3 (ASM) e Esteiras/Esteira Termo (Conveyor) não entram na
+  // comparação de volume (são níveis de equipe/equipamento) — viram um
+  // snapshot da hora vigente em cada bloco.
   const horaAgora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours();
-  const asmRealizado = asm ? asm.rows.reduce((s, r) => s + r.scanNumbers, 0) : null;
-  const conveyorRealizado = conveyor ? conveyor.rows.reduce((s, r) => s + r.totalProcessamento, 0) : null;
   const laborAteAgora = labor ? labor.rows.filter(r => r.hora <= horaAgora) : [];
-  const asmPlanejado = labor ? Math.round(laborAteAgora.reduce((s, r) => s + r.asmTarget, 0)) : null;
-  const conveyorPlanejado = labor ? Math.round(laborAteAgora.reduce((s, r) => s + r.packingEsteira + r.packingVolumoso, 0)) : null;
-  const capacidadeAgora = labor && labor.rows.length
+  const laborAgora = labor && labor.rows.length
     ? (labor.rows.find(r => r.hora === horaAgora) || [...labor.rows].sort((a, b) => Math.abs(a.hora - horaAgora) - Math.abs(b.hora - horaAgora))[0])
     : null;
 
-  const performance = {
-    asm: { realizado: asmRealizado, planejado: asmPlanejado },
-    conveyor: { realizado: conveyorRealizado, planejado: conveyorPlanejado },
-    somado: {
-      realizado: (asmRealizado ?? 0) + (conveyorRealizado ?? 0),
-      planejado: (asmPlanejado ?? 0) + (conveyorPlanejado ?? 0),
-    },
-    capacidadeAgora: capacidadeAgora ? {
-      hora: capacidadeAgora.hora,
-      nv1: capacidadeAgora.nv1, nv2: capacidadeAgora.nv2, nv3: capacidadeAgora.nv3,
-      asmZonas: capacidadeAgora.asmZonas,
-      esteiras: capacidadeAgora.esteiras, esteiraTermo: capacidadeAgora.esteiraTermo,
-    } : null,
-  };
+  const asmRealizado = asm ? asm.rows.reduce((s, r) => s + r.scanNumbers, 0) : null;
+  const asmPlanejado = labor ? Math.round(laborAteAgora.reduce((s, r) => s + r.asmTarget, 0)) : null;
+  const asmResumo = (asm || labor) ? {
+    realizado: asmRealizado,
+    planejado: asmPlanejado,
+    pctAtingimento: asmPlanejado ? Math.round((asmRealizado ?? 0) / asmPlanejado * 100) : null,
+    capacidadeAgora: laborAgora ? { hora: laborAgora.hora, nv1: laborAgora.nv1, nv2: laborAgora.nv2, nv3: laborAgora.nv3, zonas: laborAgora.asmZonas } : null,
+  } : null;
+
+  const conveyorRealizado = conveyor ? conveyor.rows.reduce((s, r) => s + r.totalProcessamento, 0) : null;
+  const conveyorPlanejado = labor ? Math.round(laborAteAgora.reduce((s, r) => s + r.packingEsteira + r.packingVolumoso, 0)) : null;
+  const conveyorResumo = (conveyor || labor) ? {
+    realizado: conveyorRealizado,
+    planejado: conveyorPlanejado,
+    pctAtingimento: conveyorPlanejado ? Math.round((conveyorRealizado ?? 0) / conveyorPlanejado * 100) : null,
+    capacidadeAgora: laborAgora ? { hora: laborAgora.hora, esteiras: laborAgora.esteiras, esteiraTermo: laborAgora.esteiraTermo } : null,
+  } : null;
 
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
     ok: true,
     atualizadoEm: new Date().toISOString(),
-    expedicao, lineHaul, firstMile, carrosAndamento,
-    clusterizacao, backlog: backlogResumo, performance,
+    outbound: outboundResumo, lineHaul, firstMile,
+    asm: asmResumo, conveyor: conveyorResumo,
+    backlog: backlogResumo,
     erros: Object.keys(erros).length ? erros : null,
   });
 };
