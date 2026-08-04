@@ -23,7 +23,47 @@
  * uma. Cada chamada é isolada em try/catch — a queda de uma fonte não
  * derruba o Overview inteiro, só zera aquele bloco (`erros` sinaliza qual).
  */
-const { toNum } = require('./_period');
+const { fetchTabByGid } = require('./_google');
+const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
+
+// Planejamento de capacidade (labor_pulso) — inline em vez de um endpoint
+// próprio (api/labor.js): Overview é o único consumidor hoje, e o limite de
+// 12 funções serverless do plano Hobby da Vercel não sobra pra um endpoint
+// dedicado só pra isso (confirmado com o Roberto em 2026-08-04, erro real
+// de deploy). Se um dia existir uma página Labor Plan de verdade, separar
+// de novo faz sentido — até lá, menos um function slot gasto.
+const LABOR_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1065816747' };
+function brToIso(v) {
+  const m = String(v || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+}
+async function getLabor() {
+  const { rows } = await fetchTabByGid(LABOR_SHEET.spreadsheetId, LABOR_SHEET.gid);
+  const labor = rows
+    .filter(r => r.data && r.hora !== '')
+    .map(r => {
+      const dataIso = brToIso(r.data);
+      if (dataIso === null) return null;
+      const hora = toNum(r.hora);
+      const data = dataOperacionalDe(`${dataIso} ${String(hora).padStart(2, '0')}:00:00`);
+      return {
+        data, hora,
+        asmTarget: toNum(r['asm target']),
+        asmZonas: toNum(r['asm (zonas)']),
+        esteiraTermo: toNum(r['esteira termo']),
+        esteiras: toNum(r.esteiras),
+        nv1: toNum(r['nv.1']), nv2: toNum(r['nv.2']), nv3: toNum(r['nv.3']),
+        packingEsteira: toNum(r['packing esteira']),
+        packingVolumoso: toNum(r['packing volumoso']),
+      };
+    })
+    .filter(Boolean);
+  if (!labor.length) return { rows: [] };
+  const datasDisponiveis = [...new Set(labor.map(r => r.data))].sort();
+  const hojeIso = hojeOperacionalIso();
+  const dataRef = datasDisponiveis.includes(hojeIso) ? hojeIso : datasDisponiveis[datasDisponiveis.length - 1];
+  return { rows: labor.filter(r => r.data === dataRef).sort((a, b) => a.hora - b.hora) };
+}
 
 const PERFIL_GRUPOS = [
   { label: 'P', match: p => p === 'P' },
@@ -58,7 +98,7 @@ module.exports = async (req, res) => {
     safe('backlog', () => getJson(base, '/api/backlog')),
     safe('asm', () => getJson(base, '/api/asm')),
     safe('conveyor', () => getJson(base, '/api/conveyor')),
-    safe('labor', () => getJson(base, '/api/labor')),
+    safe('labor', () => getLabor()),
   ]);
 
   // Outbound — carros carregados vs planejados na expedição
