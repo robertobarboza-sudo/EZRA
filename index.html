@@ -2924,7 +2924,7 @@
       <div class="section-header" id="section-backlog-header">
         <div class="section-header-left">
           <div class="section-title">Backlog <span class="ds-badge ok" id="ds-badge-backlog" style="margin-left:8px"></span></div>
-          <div class="section-subtitle">Backlog por hora · Total e &gt;24h</div>
+          <div class="section-subtitle">Backlog por faixa de aging, perfil e origem</div>
         </div>
         <div class="section-dl-group">
           <button class="spr-pipboy-btn" onclick="bklOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
@@ -2935,15 +2935,25 @@
       <div class="spr-filters">
         <div class="spr-filter-group">
           <input type="date" class="filter-select pulso-date-input" id="bkl-date-input" onchange="bklSetDate(this.value)" style="color-scheme:dark"/>
-          <select class="filter-select" id="bkl-hour-input" onchange="bklSetHour(this.value)" style="height:34px"></select>
+          <select class="filter-select" id="bkl-hour-input" onchange="bklSetHour(this.value)" style="height:34px"><option value="">Dia todo</option></select>
+          <select class="filter-select" id="bkl-perfil-input" onchange="bklSetPerfil(this.value)" style="height:34px"><option value="">Todos os perfis</option></select>
           <button type="button" class="bkl-ontime-btn" onclick="bklOnTime()"><i class="fas fa-bolt"></i> On Time</button>
         </div>
       </div>
-      <div id="bkl-kpis"></div>
       <div class="pulso-coverage" id="bkl-coverage"></div>
+      <div id="bkl-kpis" style="margin-top:12px"></div>
       <div class="chart-card full" style="margin-top:16px">
-        <div class="chart-title">Backlog por hora — total e &gt;24h</div>
-        <div style="height:320px;margin-top:12px"><canvas id="chart-backlog-hora"></canvas></div>
+        <div class="table-toolbar" style="margin-bottom:0">
+          <div class="chart-title" id="bkl-chart-title">Pacotes por faixa de aging</div>
+          <div style="display:flex;gap:8px">
+            <button type="button" class="spr-ms-action-btn" id="bkl-pivot-metric-toggle" onclick="bklTogglePivotMetric()" style="display:none">Ver Soma de Pacotes</button>
+            <button type="button" class="spr-ms-action-btn" id="bkl-chart-toggle" onclick="bklToggleChartView()">Ver Tabela por Origem</button>
+          </div>
+        </div>
+        <div id="bkl-chart-wrap" style="height:320px;margin-top:12px"><canvas id="chart-backlog-faixa"></canvas></div>
+        <div id="bkl-pivot-wrap" style="margin-top:12px;overflow-x:auto;display:none;max-height:480px">
+          <table><thead id="bkl-pivot-thead"></thead><tbody id="bkl-pivot-tbody"></tbody></table>
+        </div>
       </div>
     </section>
 
@@ -6573,21 +6583,21 @@ function renderPlaceholder(section){
 }
 
 /* ================================================================
-   BACKLOG — por hora, total e >24h (forecast_backlog_pulso, colunas A-E)
+   BACKLOG — faixa_aging/perfil/origem (forecast_backlog_pulso, colunas A-G)
 ================================================================ */
-const BACKLOG_STATE = { date: null, hour: null };
+const FAIXA_ORDER = ['0-1h','1-2h','2-4h','4-8h','8-24h','>24h'];
+const FAIXA_TYPE = { '0-1h':'success', '1-2h':'success', '2-4h':'', '4-8h':'warning', '8-24h':'warning', '>24h':'danger' };
+
+const BACKLOG_STATE = { date: null, hour: '', perfil: '' };
 let BACKLOG_DATA = null;
+let BACKLOG_CHART_VIEW = 'chart';   // 'chart' | 'table'
+let BACKLOG_PIVOT_METRIC = 'aging'; // 'aging' | 'qtd'
 
 async function loadBacklog(){
   setBadge('backlog', 'loading');
-  const hourInput = document.getElementById('bkl-hour-input');
-  if(hourInput && !hourInput.options.length){
-    hourInput.innerHTML = Array.from({length:24}, (_,h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
-  }
   try {
     const p = new URLSearchParams();
     if(BACKLOG_STATE.date) p.set('date', BACKLOG_STATE.date);
-    if(BACKLOG_STATE.hour !== null) p.set('hour', BACKLOG_STATE.hour);
     const r = await fetch('/api/backlog?'+p.toString(), { cache:'no-store' });
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
@@ -6595,32 +6605,30 @@ async function loadBacklog(){
     BACKLOG_DATA = j;
 
     const dateInput = document.getElementById('bkl-date-input');
-    if(dateInput && j.cutoff) dateInput.value = j.cutoff;
-    if(hourInput) hourInput.value = String(j.hora);
+    if(dateInput && j.date) dateInput.value = j.date;
 
-    const bsVar = j.backlogStart.variacao;
-    const bsDelta = (bsVar === null || bsVar === undefined || !isFinite(bsVar)) ? '' : `${bsVar>=0?'+':''}${bsVar.toFixed(1)}% vs dia anterior`;
-    const bsTrend = (bsVar !== null && bsVar !== undefined && bsVar < 0) ? 'down' : 'up';
-
-    buildKPIs('bkl-kpis', [
-      { label:'Backlog Atual',       value:j.atual.backlogAtual.toLocaleString('pt-BR'),      delta:'', trend:'up', type:'', icon:'fa-clock' },
-      { label:'Backlog Méd. Dia',    value:j.atual.backlogMedio.toLocaleString('pt-BR'),      delta:'', trend:'up', type:'', icon:'fa-layer-group' },
-      { label:'Backlog > 24 Atual',  value:j.atual.backlogAtual24h.toLocaleString('pt-BR'),   delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
-      { label:'Backlog Médio >24h',  value:j.atual.backlogMedio24h.toLocaleString('pt-BR'),   delta:'', trend:'up', type:'', icon:'fa-triangle-exclamation' },
-      { label:'Backlog Start',       value:j.backlogStart.valor.toLocaleString('pt-BR'),      delta:bsDelta, trend:bsTrend, type:'', icon:'fa-sun', sub:'6h da manhã · dia vigente' },
-    ]);
+    const hourInput = document.getElementById('bkl-hour-input');
+    if(hourInput){
+      hourInput.innerHTML = '<option value="">Dia todo</option>' +
+        j.opcoes.horas.map(h => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
+      hourInput.value = BACKLOG_STATE.hour;
+    }
+    const perfilInput = document.getElementById('bkl-perfil-input');
+    if(perfilInput){
+      perfilInput.innerHTML = '<option value="">Todos os perfis</option>' +
+        j.opcoes.perfis.map(v => `<option value="${pulsoEscHtml(v)}">${pulsoEscHtml(v)}</option>`).join('');
+      perfilInput.value = BACKLOG_STATE.perfil;
+    }
 
     const cov = document.getElementById('bkl-coverage');
+    const ua = j.ultimaAtualizacao;
+    const uaFmt = ua ? `${pulsoFmtDataBr(ua.slice(0,10))} ${ua.slice(11,16)}` : '';
     if(cov) cov.innerHTML = j.cobertura.inicio
-      ? `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>`
+      ? `<i class="fas fa-database"></i> Dados de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>` +
+        (uaFmt ? ` · Última leitura: <strong style="color:var(--text)">${uaFmt}</strong>` : '')
       : '';
 
-    if(chartInstances['chart-backlog-hora']){ chartInstances['chart-backlog-hora'].destroy(); delete chartInstances['chart-backlog-hora']; }
-    const labels = j.curva.map(c => String(c.hora).padStart(2,'0')+'h');
-    mkLine('chart-backlog-hora', labels, [
-      { label:'Backlog',      data:j.curva.map(c=>c.pacotes),  borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.12)',  fill:true, tension:.35, pointRadius:3 },
-      { label:'Backlog >24h', data:j.curva.map(c=>c.maior24h), borderColor:'#5d8dff', backgroundColor:'rgba(93,141,255,.12)', fill:true, tension:.35, pointRadius:3 },
-    ]);
+    bklRenderAll();
   } catch(err){
     setBadge('backlog', 'error', 'Erro: '+err.message);
     console.error('[backlog]', err);
@@ -6628,34 +6636,150 @@ async function loadBacklog(){
 }
 
 function bklSetDate(v){ BACKLOG_STATE.date = v || null; loadBacklog(); }
-function bklSetHour(v){ BACKLOG_STATE.hour = v; loadBacklog(); }
+function bklSetHour(v){ BACKLOG_STATE.hour = v; bklRenderAll(); }
+function bklSetPerfil(v){ BACKLOG_STATE.perfil = v; bklRenderAll(); }
 
-// "On Time" — joga o filtro pra data mais recente disponível + última hora com dado real dela.
-async function bklOnTime(){
-  try {
-    const r = await fetch('/api/backlog', { cache:'no-store' });
-    const j = await r.json();
-    if(!j.ok || !j.cutoff) return;
-    BACKLOG_STATE.date = j.cutoff;
-    BACKLOG_STATE.hour = (j.ultimaHoraComDado !== null && j.ultimaHoraComDado !== undefined) ? j.ultimaHoraComDado : 6;
-    loadBacklog();
-  } catch(err){
-    console.error('[backlog on-time]', err);
-  }
+// "On Time" — limpa os filtros (data/hora/perfil) e volta pra leitura mais recente disponível.
+function bklOnTime(){
+  BACKLOG_STATE.date = null;
+  BACKLOG_STATE.hour = '';
+  BACKLOG_STATE.perfil = '';
+  loadBacklog();
+}
+
+// hour '' = dia todo (todas as horas do dia selecionado); usado pelos cards
+// de perfil/pivot (que ignoram o filtro de perfil, já que são a própria
+// quebra por perfil) e como base pro filtro de perfil abaixo.
+function bklBaseRows(){
+  if(!BACKLOG_DATA) return [];
+  return BACKLOG_DATA.rows.filter(r => BACKLOG_STATE.hour === '' || r.hora === Number(BACKLOG_STATE.hour));
+}
+function bklFilteredRows(){
+  return bklBaseRows().filter(r => !BACKLOG_STATE.perfil || r.perfil === BACKLOG_STATE.perfil);
+}
+// Média ponderada por qtd_pacotes (confirmado com o Roberto em 2026-08-04) —
+// nunca a média simples dos aging_medio_min de cada linha.
+function bklAgingPonderado(rows){
+  const qtd = rows.reduce((s,r)=>s+r.qtdPacotes,0);
+  if(!qtd) return 0;
+  return rows.reduce((s,r)=>s+r.agingMedioMin*r.qtdPacotes,0) / qtd;
+}
+function bklFaixasOrdenadas(){
+  const faixas = BACKLOG_DATA?.opcoes.faixas || [];
+  return [...FAIXA_ORDER.filter(f => faixas.includes(f)), ...faixas.filter(f => !FAIXA_ORDER.includes(f))];
+}
+
+function bklRenderAll(){
+  bklRenderKpis();
+  if(BACKLOG_CHART_VIEW === 'chart') bklRenderChart(); else bklRenderPivot();
+}
+
+function bklRenderKpis(){
+  const base = bklBaseRows();
+  const rows = bklFilteredRows();
+  const totalPacotes = rows.reduce((s,r)=>s+r.qtdPacotes,0);
+  const subHora = BACKLOG_STATE.hour === '' ? 'dia inteiro' : `${String(BACKLOG_STATE.hour).padStart(2,'0')}h`;
+
+  const cardsFaixa = bklFaixasOrdenadas().map(f => {
+    const qtd = rows.filter(r=>r.faixaAging===f).reduce((s,r)=>s+r.qtdPacotes,0);
+    return { label:f, value:qtd.toLocaleString('pt-BR'), delta:'', trend:'up', type:FAIXA_TYPE[f]||'', icon:'fa-clock' };
+  });
+
+  const cardsPerfil = (BACKLOG_DATA?.opcoes.perfis || []).map(perfil => {
+    const qtd = base.filter(r=>r.perfil===perfil).reduce((s,r)=>s+r.qtdPacotes,0);
+    return { label:perfil, value:qtd.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-tag' };
+  });
+
+  buildKPIs('bkl-kpis', [
+    { label:'Backlog Atual', value:totalPacotes.toLocaleString('pt-BR'), sub:subHora, delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
+    { label:'Aging Médio Ponderado (h)', value:pulsoFmtHoraVirgula(bklAgingPonderado(rows)), sub:subHora, delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
+    ...cardsFaixa,
+    ...cardsPerfil,
+  ]);
+}
+
+function bklToggleChartView(){
+  BACKLOG_CHART_VIEW = BACKLOG_CHART_VIEW === 'chart' ? 'table' : 'chart';
+  const isTable = BACKLOG_CHART_VIEW === 'table';
+  const btn = document.getElementById('bkl-chart-toggle');
+  const metricBtn = document.getElementById('bkl-pivot-metric-toggle');
+  const title = document.getElementById('bkl-chart-title');
+  const chartWrap = document.getElementById('bkl-chart-wrap');
+  const pivotWrap = document.getElementById('bkl-pivot-wrap');
+  if(btn) btn.textContent = isTable ? 'Ver Gráfico' : 'Ver Tabela por Origem';
+  if(metricBtn) metricBtn.style.display = isTable ? '' : 'none';
+  if(title) title.textContent = isTable
+    ? (BACKLOG_PIVOT_METRIC === 'aging' ? 'Aging médio por origem x perfil' : 'Soma de pacotes por origem x perfil')
+    : 'Pacotes por faixa de aging';
+  if(chartWrap) chartWrap.style.display = isTable ? 'none' : '';
+  if(pivotWrap) pivotWrap.style.display = isTable ? '' : 'none';
+  bklRenderAll();
+}
+function bklTogglePivotMetric(){
+  BACKLOG_PIVOT_METRIC = BACKLOG_PIVOT_METRIC === 'aging' ? 'qtd' : 'aging';
+  const btn = document.getElementById('bkl-pivot-metric-toggle');
+  const title = document.getElementById('bkl-chart-title');
+  if(btn) btn.textContent = BACKLOG_PIVOT_METRIC === 'aging' ? 'Ver Soma de Pacotes' : 'Ver Aging Médio';
+  if(title) title.textContent = BACKLOG_PIVOT_METRIC === 'aging' ? 'Aging médio por origem x perfil' : 'Soma de pacotes por origem x perfil';
+  bklRenderPivot();
+}
+
+function bklRenderChart(){
+  if(!BACKLOG_DATA) return;
+  const rows = bklFilteredRows();
+  if(chartInstances['chart-backlog-faixa']){ chartInstances['chart-backlog-faixa'].destroy(); delete chartInstances['chart-backlog-faixa']; }
+  const faixas = bklFaixasOrdenadas();
+  const dados = faixas.map(f => rows.filter(r=>r.faixaAging===f).reduce((s,r)=>s+r.qtdPacotes,0));
+  const cores = { success:'#10b981', warning:'#f59e0b', danger:'#ee4d2d', '':'#5d8dff' };
+  mkBar('chart-backlog-faixa', faixas, [{
+    label:'Pacotes', data:dados,
+    backgroundColor: faixas.map(f => cores[FAIXA_TYPE[f]||'']),
+    borderRadius:4,
+  }]);
+}
+
+function bklRenderPivot(){
+  if(!BACKLOG_DATA) return;
+  const thead = document.getElementById('bkl-pivot-thead');
+  const tbody = document.getElementById('bkl-pivot-tbody');
+  if(!thead || !tbody) return;
+  const rows = bklBaseRows();
+  const perfis = BACKLOG_DATA.opcoes.perfis || [];
+  const origens = [...new Set(rows.map(r=>r.origem).filter(Boolean))].sort();
+
+  thead.innerHTML = `<tr><th>Origem</th>${perfis.map(p=>`<th>${pulsoEscHtml(p)}</th>`).join('')}</tr>`;
+  if(!origens.length){ tbody.innerHTML = emptyRow(perfis.length+1); return; }
+
+  tbody.innerHTML = origens.map(origem => {
+    const cels = perfis.map(perfil => {
+      const grupo = rows.filter(r=>r.origem===origem && r.perfil===perfil);
+      const qtd = grupo.reduce((s,r)=>s+r.qtdPacotes,0);
+      if(!qtd) return '<td>—</td>';
+      const val = BACKLOG_PIVOT_METRIC === 'qtd' ? qtd.toLocaleString('pt-BR') : pulsoFmtHoraVirgula(bklAgingPonderado(grupo))+'h';
+      return `<td>${val}</td>`;
+    }).join('');
+    return `<tr><td>${pulsoEscHtml(origem)}</td>${cels}</tr>`;
+  }).join('');
 }
 
 function bklGenerateInsights(){
   if(!BACKLOG_DATA) return [];
   const insights = [];
-  const j = BACKLOG_DATA;
-  insights.push({ icon:'fa-layer-group', html:`Backlog atual (${String(j.hora).padStart(2,'0')}h): <strong>${j.atual.backlogAtual.toLocaleString('pt-BR')}</strong>, média do dia de ${j.atual.backlogMedio.toLocaleString('pt-BR')}.` });
-  const horaPico = j.curva.reduce((best,c) => c.pacotes>best.pacotes ? c : best, {hora:0,pacotes:0});
-  if(horaPico.pacotes>0) insights.push({ icon:'fa-clock', html:`Pico de backlog às <strong>${String(horaPico.hora).padStart(2,'0')}h</strong>: ${horaPico.pacotes.toLocaleString('pt-BR')} pacotes.` });
-  if(j.atual.backlogMedio24h>0) insights.push({ icon:'fa-triangle-exclamation', html:`Backlog médio &gt;24h no dia: <strong>${j.atual.backlogMedio24h.toLocaleString('pt-BR')}</strong> pacotes.` });
-  const bsVar = j.backlogStart.variacao;
-  if(bsVar !== null && bsVar !== undefined && isFinite(bsVar)){
-    insights.push({ icon: bsVar>=0?'fa-arrow-trend-up':'fa-arrow-trend-down', html:`Backlog Start (6h) ${bsVar>=0?'subiu':'caiu'} <strong>${Math.abs(bsVar).toFixed(1)}%</strong> vs o dia anterior.` });
-  }
+  const base = bklBaseRows();
+  const rows = bklFilteredRows();
+  const total = rows.reduce((s,r)=>s+r.qtdPacotes,0);
+  insights.push({ icon:'fa-boxes-stacked', html:`Backlog atual: <strong>${total.toLocaleString('pt-BR')}</strong> pacotes, aging médio ponderado de ${pulsoFmtHoraVirgula(bklAgingPonderado(rows))}h.` });
+
+  const porFaixa = {};
+  rows.forEach(r => { porFaixa[r.faixaAging] = (porFaixa[r.faixaAging]||0) + r.qtdPacotes; });
+  const faixaTop = Object.entries(porFaixa).sort((a,b)=>b[1]-a[1])[0];
+  if(faixaTop && faixaTop[1]>0) insights.push({ icon:'fa-clock', html:`Maior faixa de aging: <strong>${pulsoEscHtml(faixaTop[0])}</strong> com ${faixaTop[1].toLocaleString('pt-BR')} pacotes.` });
+
+  const porPerfil = {};
+  base.forEach(r => { porPerfil[r.perfil] = (porPerfil[r.perfil]||0) + r.qtdPacotes; });
+  const perfilTop = Object.entries(porPerfil).sort((a,b)=>b[1]-a[1])[0];
+  if(perfilTop && perfilTop[1]>0) insights.push({ icon:'fa-tag', html:`Perfil predominante: <strong>${pulsoEscHtml(perfilTop[0])}</strong> com ${perfilTop[1].toLocaleString('pt-BR')} pacotes.` });
+
   return insights;
 }
 
