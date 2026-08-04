@@ -666,6 +666,11 @@
     .ovw-accordion summary .ovw-chevron { transition: transform .2s; color: var(--text-muted); }
     .ovw-accordion[open] summary .ovw-chevron { transform: rotate(180deg); }
     .ovw-accordion-body { padding: 0 16px 16px; }
+    .ovw-accordion .kpi-strip-item { padding: 11px 12px; }
+    .ovw-accordion .kpi-strip-label { font-size: 9px; margin-bottom: 3px; }
+    .ovw-accordion .kpi-strip-value { font-size: 16px; margin-bottom: 2px; }
+    .ovw-accordion .kpi-strip-sub { font-size: 9px; margin-top: -2px; margin-bottom: 3px; }
+    .ovw-accordion .kpi-strip-icon { font-size: 14px; top: 9px; right: 9px; }
     .table-search {
       display: flex; align-items: center; gap: 8px;
       background: var(--surface-2); border: 1px solid var(--border);
@@ -2570,68 +2575,68 @@
         </div>
       </div>
 
-      <div class="table-toolbar-title" style="margin-top:4px">Backlog</div>
-      <div id="ovw-kpis-backlog" style="margin-top:8px"></div>
-      <details class="ovw-accordion" id="ovw-details-backlog" ontoggle="ovwOnToggleChart(this,'backlog')">
-        <summary><span><i class="fas fa-chart-line"></i> Ver gráfico por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
-        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-backlog"></canvas></div></div>
+      <div class="table-toolbar-title" style="margin-top:4px">Resumo</div>
+      <div id="ovw-resumo-cards" style="margin-top:8px"></div>
+      <div class="chart-card full" style="margin-top:12px">
+        <div class="chart-title">Capacidade vs Realizado — ASM + Conveyor</div>
+        <div style="height:260px;margin-top:12px"><canvas id="chart-ovw-resumo"></canvas></div>
+      </div>
+
+      <div class="table-toolbar-title" style="margin-top:20px">Detalhamento</div>
+
+      <details class="ovw-accordion" id="ovw-block-backlog" ontoggle="ovwOnToggleBlock(this,'backlog')">
+        <summary><span><i class="fas fa-boxes-stacked"></i> Backlog</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body">
+          <div id="ovw-kpis-backlog"></div>
+          <div style="height:240px;margin-top:12px"><canvas id="chart-ovw-backlog"></canvas></div>
+        </div>
       </details>
 
-      <div class="table-toolbar-title" style="margin-top:16px">Inbound Line Haul</div>
-      <div id="ovw-kpis-lh" style="margin-top:8px"></div>
-      <div class="table-card full" style="margin-top:8px">
-        <div class="table-toolbar"><div class="table-toolbar-title">Por canal</div></div>
-        <div style="overflow-x:auto"><table><thead><tr><th>Canal</th><th>Carros</th><th>Pacotes</th><th>Tempo de Fila Médio</th></tr></thead><tbody id="ovw-canal-lh"></tbody></table></div>
-      </div>
-      <details class="ovw-accordion" id="ovw-details-lh" ontoggle="ovwOnToggleChart(this,'lh')">
-        <summary><span><i class="fas fa-chart-line"></i> Ver previstos vs descarregados por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
-        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-lh"></canvas></div></div>
+      <details class="ovw-accordion" id="ovw-block-lh" ontoggle="ovwOnToggleBlock(this,'lh')">
+        <summary><span><i class="fas fa-truck"></i> Inbound Line Haul</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body">
+          <div id="ovw-kpis-lh"></div>
+          <div style="overflow-x:auto;margin-top:12px"><table><thead><tr><th>Canal</th><th>Carros</th><th>Pacotes</th><th>Tempo de Fila Médio</th></tr></thead><tbody id="ovw-canal-lh"></tbody></table></div>
+          <div style="height:240px;margin-top:12px"><canvas id="chart-ovw-lh"></canvas></div>
+        </div>
       </details>
 
-      <div class="table-toolbar-title" style="margin-top:16px">Inbound First Mile</div>
-      <div id="ovw-kpis-fm" style="margin-top:8px"></div>
-      <div class="table-card full" style="margin-top:8px">
-        <div class="table-toolbar"><div class="table-toolbar-title">Por canal (agência)</div></div>
-        <div style="overflow-x:auto"><table><thead><tr><th>Canal</th><th>Carros</th><th>Pacotes</th><th>Tempo de Fila Médio</th></tr></thead><tbody id="ovw-canal-fm"></tbody></table></div>
-      </div>
-      <details class="ovw-accordion" id="ovw-details-fm" ontoggle="ovwOnToggleChart(this,'fm')">
-        <summary><span><i class="fas fa-chart-line"></i> Ver chegadas por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
-        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-fm"></canvas></div></div>
+      <details class="ovw-accordion" id="ovw-block-fm" ontoggle="ovwOnToggleBlock(this,'fm')">
+        <summary><span><i class="fas fa-truck-ramp-box"></i> Inbound First Mile</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body">
+          <div id="ovw-kpis-fm"></div>
+          <div style="overflow-x:auto;margin-top:12px"><table><thead><tr><th>Canal (agência)</th><th>Carros</th><th>Pacotes</th><th>Tempo de Fila Médio</th></tr></thead><tbody id="ovw-canal-fm"></tbody></table></div>
+          <div style="height:240px;margin-top:12px"><canvas id="chart-ovw-fm"></canvas></div>
+        </div>
       </details>
 
-      <div class="table-toolbar-title" style="margin-top:16px">ASM</div>
-      <div id="ovw-kpis-asm" style="margin-top:8px"></div>
-      <div id="ovw-capacidade-asm" class="pulso-coverage" style="margin-top:8px"></div>
-      <div class="table-card full" style="margin-top:8px">
-        <div class="table-toolbar"><div class="table-toolbar-title">Por zona</div></div>
-        <div style="overflow-x:auto"><table><thead><tr><th>Zona</th><th>Realizado</th></tr></thead><tbody id="ovw-zona-asm"></tbody></table></div>
-      </div>
-      <details class="ovw-accordion" id="ovw-details-asm" ontoggle="ovwOnToggleChart(this,'asm')">
-        <summary><span><i class="fas fa-chart-line"></i> Ver planejado vs realizado por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
-        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-asm"></canvas></div></div>
+      <details class="ovw-accordion" id="ovw-block-asm" ontoggle="ovwOnToggleBlock(this,'asm')">
+        <summary><span><i class="fas fa-user-check"></i> ASM</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body">
+          <div id="ovw-kpis-asm"></div>
+          <div id="ovw-capacidade-asm" class="pulso-coverage" style="margin-top:8px"></div>
+          <div style="overflow-x:auto;margin-top:12px"><table><thead><tr><th>Zona</th><th>Realizado</th></tr></thead><tbody id="ovw-zona-asm"></tbody></table></div>
+          <div style="height:240px;margin-top:12px"><canvas id="chart-ovw-asm"></canvas></div>
+        </div>
       </details>
 
-      <div class="table-toolbar-title" style="margin-top:16px">Conveyor</div>
-      <div id="ovw-kpis-conveyor" style="margin-top:8px"></div>
-      <div id="ovw-capacidade-conveyor" class="pulso-coverage" style="margin-top:8px"></div>
-      <div class="table-card full" style="margin-top:8px">
-        <div class="table-toolbar"><div class="table-toolbar-title">Por grupo</div></div>
-        <div style="overflow-x:auto"><table><thead><tr><th>Grupo</th><th>Realizado</th></tr></thead><tbody id="ovw-grupo-conveyor"></tbody></table></div>
-      </div>
-      <details class="ovw-accordion" id="ovw-details-conveyor" ontoggle="ovwOnToggleChart(this,'conveyor')">
-        <summary><span><i class="fas fa-chart-line"></i> Ver planejado vs realizado por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
-        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-conveyor"></canvas></div></div>
+      <details class="ovw-accordion" id="ovw-block-conveyor" ontoggle="ovwOnToggleBlock(this,'conveyor')">
+        <summary><span><i class="fas fa-conveyor-belt"></i> Conveyor</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body">
+          <div id="ovw-kpis-conveyor"></div>
+          <div id="ovw-capacidade-conveyor" class="pulso-coverage" style="margin-top:8px"></div>
+          <div style="overflow-x:auto;margin-top:12px"><table><thead><tr><th>Grupo</th><th>Realizado</th></tr></thead><tbody id="ovw-grupo-conveyor"></tbody></table></div>
+          <div style="height:240px;margin-top:12px"><canvas id="chart-ovw-conveyor"></canvas></div>
+        </div>
       </details>
 
-      <div class="table-toolbar-title" style="margin-top:16px">Outbound</div>
-      <div id="ovw-kpis-outbound" style="margin-top:8px"></div>
-      <div class="table-card full" style="margin-top:8px">
-        <div class="table-toolbar"><div class="table-toolbar-title">Por canal</div></div>
-        <div style="overflow-x:auto"><table><thead><tr><th>Canal</th><th>Pacotes</th><th>TOs</th></tr></thead><tbody id="ovw-canal-outbound"></tbody></table></div>
-      </div>
-      <details class="ovw-accordion" id="ovw-details-outbound" ontoggle="ovwOnToggleChart(this,'outbound')">
-        <summary><span><i class="fas fa-chart-line"></i> Ver previstos vs realizados por hora</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
-        <div class="ovw-accordion-body"><div style="height:240px"><canvas id="chart-ovw-outbound"></canvas></div></div>
+      <details class="ovw-accordion" id="ovw-block-outbound" ontoggle="ovwOnToggleBlock(this,'outbound')">
+        <summary><span><i class="fas fa-truck-loading"></i> Outbound</span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
+        <div class="ovw-accordion-body">
+          <div id="ovw-kpis-outbound"></div>
+          <div style="overflow-x:auto;margin-top:12px"><table><thead><tr><th>Canal</th><th>Pacotes</th><th>TOs</th></tr></thead><tbody id="ovw-canal-outbound"></tbody></table></div>
+          <div style="height:240px;margin-top:12px"><canvas id="chart-ovw-outbound"></canvas></div>
+        </div>
       </details>
 
       <div id="ovw-erros" style="margin-top:12px"></div>
@@ -2758,7 +2763,14 @@
       <div class="switch-grid" id="asm-zone-cards" style="margin-top:12px"></div>
 
       <div class="chart-card full" style="margin-top:16px">
-        <div class="chart-title">Acumulado do dia — Realizado <span style="opacity:.6;font-weight:400">vs Capacidade (em breve)</span></div>
+        <div class="table-toolbar" style="margin-bottom:0">
+          <div class="chart-title" id="asm-chart-title">Performance por hora — Realizado</div>
+          <div class="bkl-tabs">
+            <div class="bkl-tab active" id="asm-chart-tab-hora" onclick="asmSetChartView('hora',this)">Hora</div>
+            <div class="bkl-tab" id="asm-chart-tab-acumulado" onclick="asmSetChartView('acumulado',this)">Acumulado</div>
+            <div class="bkl-tab" id="asm-chart-tab-comparativo" onclick="asmSetChartView('comparativo',this)">Comparativo por Zona</div>
+          </div>
+        </div>
         <div style="height:320px;margin-top:12px"><canvas id="chart-asm-hora"></canvas></div>
       </div>
 
@@ -2819,7 +2831,14 @@
       <div class="switch-grid" id="cnv-group-cards" style="margin-top:12px"></div>
 
       <div class="chart-card full" style="margin-top:16px">
-        <div class="chart-title">Acumulado do dia — Realizado <span style="opacity:.6;font-weight:400">vs Capacidade (em breve)</span></div>
+        <div class="table-toolbar" style="margin-bottom:0">
+          <div class="chart-title" id="cnv-chart-title">Performance por hora — Realizado</div>
+          <div class="bkl-tabs">
+            <div class="bkl-tab active" id="cnv-chart-tab-hora" onclick="cnvSetChartView('hora',this)">Hora</div>
+            <div class="bkl-tab" id="cnv-chart-tab-acumulado" onclick="cnvSetChartView('acumulado',this)">Acumulado</div>
+            <div class="bkl-tab" id="cnv-chart-tab-comparativo" onclick="cnvSetChartView('comparativo',this)">Comparativo por Grupo</div>
+          </div>
+        </div>
         <div style="height:320px;margin-top:12px"><canvas id="chart-cnv-hora"></canvas></div>
       </div>
 
@@ -5679,6 +5698,8 @@ function ovwRenderAll(){
   const j = OVERVIEW_DATA;
   if(!j) return;
 
+  ovwRenderResumo();
+
   const fonteIndisponivel = (label, icon) => ({ label, value:'—', sub:'fonte indisponível', delta:'', trend:'up', type:'danger', icon });
   const pctType = pct => pct>=90?'success':(pct>=70?'warning':'danger');
   const fmtMin = min => min===null||min===undefined ? '—' : pulsoFmtHoraVirgula(min)+'h';
@@ -5793,15 +5814,45 @@ function ovwRenderAll(){
   // Re-renderiza os gráficos dos blocos que já estiverem abertos (ex.: após
   // "Atualizar" com o accordion já expandido).
   ['backlog','lh','fm','asm','conveyor','outbound'].forEach(key => {
-    const det = document.getElementById('ovw-details-'+key);
+    const det = document.getElementById('ovw-block-'+key);
     if(det && det.open) ovwRenderChart(key);
   });
 }
 
-// Gráficos ficam dentro de <details> fechados por padrão — só monta o
-// Chart.js quando o usuário abre (canvas com display:none não tem largura,
-// Chart.js desenha errado se criado antes disso).
-function ovwOnToggleChart(details, blockKey){
+// Resumo: 1 card por área + 1 gráfico de capacidade planejada vs realizado
+// somando ASM+Conveyor (únicas áreas com meta de volume real, vinda do
+// labor_pulso — as demais são contagem de carros/inventário, não dá pra
+// somar tudo junto numa métrica só).
+function ovwRenderResumo(){
+  const j = OVERVIEW_DATA;
+  if(!j) return;
+  const fonteIndisponivel = (label, icon) => ({ label, value:'—', sub:'fonte indisponível', delta:'', trend:'up', type:'danger', icon });
+  const pctType = pct => pct>=90?'success':(pct>=70?'warning':'danger');
+
+  buildKPIs('ovw-resumo-cards', [
+    j.backlog ? { label:'Backlog', value:j.backlog.total.toLocaleString('pt-BR'), sub:'média/hora', delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' } : fonteIndisponivel('Backlog','fa-boxes-stacked'),
+    j.lineHaul ? { label:'Line Haul', value:j.lineHaul.descarregados.toLocaleString('pt-BR'), sub:`de ${j.lineHaul.previstos.toLocaleString('pt-BR')} previstos`, delta:'', trend:'up', type:'', icon:'fa-truck' } : fonteIndisponivel('Line Haul','fa-truck'),
+    j.firstMile ? { label:'First Mile', value:j.firstMile.descarregados.toLocaleString('pt-BR'), sub:`${j.firstMile.andamento} em andamento`, delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' } : fonteIndisponivel('First Mile','fa-truck-ramp-box'),
+    j.asm ? { label:'ASM', value:(j.asm.realizado??0).toLocaleString('pt-BR'), sub: j.asm.pctAtingimento!==null?`${j.asm.pctAtingimento}% da meta`:'', delta:'', trend:'up', type: j.asm.pctAtingimento!==null?pctType(j.asm.pctAtingimento):'', icon:'fa-user-check' } : fonteIndisponivel('ASM','fa-user-check'),
+    j.conveyor ? { label:'Conveyor', value:(j.conveyor.realizado??0).toLocaleString('pt-BR'), sub: j.conveyor.pctAtingimento!==null?`${j.conveyor.pctAtingimento}% da meta`:'', delta:'', trend:'up', type: j.conveyor.pctAtingimento!==null?pctType(j.conveyor.pctAtingimento):'', icon:'fa-conveyor-belt' } : fonteIndisponivel('Conveyor','fa-conveyor-belt'),
+    j.outbound ? { label:'Outbound', value:(j.outbound.carrosRealizados??0).toLocaleString('pt-BR'), sub: j.outbound.carrosPrevistos!==null?`de ${j.outbound.carrosPrevistos.toLocaleString('pt-BR')} planejados`:'', delta:'', trend:'up', type:'', icon:'fa-truck-loading' } : fonteIndisponivel('Outbound','fa-truck-loading'),
+  ]);
+
+  if(chartInstances['chart-ovw-resumo']){ chartInstances['chart-ovw-resumo'].destroy(); delete chartInstances['chart-ovw-resumo']; }
+  const somar = (a,b) => (!a && !b) ? null : Array.from({length:24},(_,i)=>(a?a[i]:0)+(b?b[i]:0));
+  const planejado = somar(j.asm?.serieHoraria.planejado, j.conveyor?.serieHoraria.planejado);
+  const realizado = somar(j.asm?.serieHoraria.realizado, j.conveyor?.serieHoraria.realizado);
+  const datasets = [];
+  if(planejado) datasets.push({ label:'Capacidade Planejada', data:planejado, borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:0, borderWidth:1.5 });
+  if(realizado) datasets.push({ label:'Realizado', data:realizado, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:0, borderWidth:2.5 });
+  if(datasets.length) mkLine('chart-ovw-resumo', Array.from({length:24},(_,h)=>String(h).padStart(2,'0')+'h'), datasets);
+}
+
+// Gráficos ficam dentro do MESMO <details> do bloco (cards+tabela+gráfico
+// juntos, pedido do Roberto em 2026-08-04) — fechado por padrão, só monta
+// o Chart.js quando o usuário abre (canvas com display:none não tem
+// largura, Chart.js desenha errado se criado antes disso).
+function ovwOnToggleBlock(details, blockKey){
   if(details.open) ovwRenderChart(blockKey);
 }
 function ovwRenderChart(blockKey){
@@ -8246,6 +8297,7 @@ const ASM_ZONE_COLORS = { 'ZONA A': '#ee4d2d', 'ZONA B': '#5d8dff', 'ZONA C': '#
 const ASM_SORT_COLS = ['colaborador','zona','nivel','mesa','turno','lider','scanNumbers'];
 const ASM_SORT = { key: 'scanNumbers', dir: -1 }; // default: maior pro menor
 let ASM_DATA = null;
+let ASM_CHART_VIEW = 'hora'; // 'hora' | 'acumulado' | 'comparativo'
 let ASM_ULTIMA_HORA = 23;
 let ASM_PAGE = 0;
 
@@ -8455,19 +8507,55 @@ function asmZonaClick(zona){
   asmRenderAll();
 }
 
+// Botões de visão (pedido do Roberto em 2026-08-04): "Hora" (performance
+// da hora, não acumulada) virou o padrão — o acumulado escondia o
+// desempenho real de cada hora atrás de uma curva sempre-crescente.
+// "Acumulado" continua disponível como visão secundária. "Comparativo"
+// mostra uma linha por zona real (sem acumular), pra comparar ritmo entre
+// zonas ao longo do dia.
+function asmSetChartView(view, el){
+  ASM_CHART_VIEW = view;
+  document.querySelectorAll('#section-asm .chart-card .bkl-tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  const title = document.getElementById('asm-chart-title');
+  if(title) title.textContent = view==='comparativo' ? 'Comparativo por zona — Realizado' : (view==='acumulado' ? 'Acumulado do dia — Realizado' : 'Performance por hora — Realizado');
+  asmRenderChart();
+}
+
 function asmRenderChart(){
   if(!ASM_DATA) return;
   const rows = asmRowsForChart();
   // Soma por hora, na ORDEM cronológica real do turno (6h...23h,0h...5h) —
-  // não na ordem numérica crua, senão a curva de acumulação fica errada.
+  // não na ordem numérica crua, senão a curva de acumulação/comparação fica errada.
+  const labels = ASM_HORAS_ORDENADAS.map(h => String(h).padStart(2,'0')+'h');
+  if(chartInstances['chart-asm-hora']){ chartInstances['chart-asm-hora'].destroy(); delete chartInstances['chart-asm-hora']; }
+
+  if(ASM_CHART_VIEW === 'comparativo'){
+    const zonas = Object.keys(ASM_ZONE_COLORS).filter(z => z !== 'System Default');
+    const datasets = zonas.map(zona => ({
+      label: zona,
+      data: ASM_HORAS_ORDENADAS.map(h => rows.filter(r => r.hora===h && r.zona===zona).reduce((s,r)=>s+r.scanNumbers,0)),
+      borderColor: ASM_ZONE_COLORS[zona], backgroundColor:'transparent', fill:false, tension:.3, pointRadius:2, borderWidth:2,
+    }));
+    mkLine('chart-asm-hora', labels, datasets);
+    return;
+  }
+
   const porHoraOrdenada = ASM_HORAS_ORDENADAS.map(h => rows.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0));
+  const rotulo = ASM_STATE.zona || 'Total';
+
+  if(ASM_CHART_VIEW === 'hora'){
+    mkLine('chart-asm-hora', labels, [
+      { label: 'Realizado — '+rotulo, data: porHoraOrdenada,
+        borderColor: '#ee4d2d', backgroundColor: 'rgba(238,77,45,.16)', fill: true, tension: .35, pointRadius: 2, borderWidth: 2.5 },
+    ]);
+    return;
+  }
+
+  // Acumulado — visão secundária, mantém o comportamento original.
   let acc = 0;
   const realizadoAcumulado = porHoraOrdenada.map(v => { acc += v; return acc; });
   const capacidadeAcumulada = Array(24).fill(0); // placeholder até termos a meta real
-
-  if(chartInstances['chart-asm-hora']){ chartInstances['chart-asm-hora'].destroy(); delete chartInstances['chart-asm-hora']; }
-  const labels = ASM_HORAS_ORDENADAS.map(h => String(h).padStart(2,'0')+'h');
-  const rotulo = ASM_STATE.zona || 'Total';
   mkLine('chart-asm-hora', labels, [
     { label: 'Realizado — '+rotulo, data: realizadoAcumulado,
       borderColor: '#ee4d2d', backgroundColor: 'rgba(238,77,45,.16)', fill: true, tension: .4, pointRadius: 0, borderWidth: 2.5 },
@@ -8606,6 +8694,7 @@ const CNV_GROUP_COLORS = { 'OBA/OBB': '#ee4d2d', 'OBC/OBD': '#f5a623', 'Termopl�
 const CNV_SORT_COLS = ['opsId','colaborador','grupo','estacao','turno','totalProcessamento'];
 const CNV_SORT = { key: 'totalProcessamento', dir: -1 }; // default: maior pro menor
 let CONVEYOR_DATA = null;
+let CNV_CHART_VIEW = 'hora'; // 'hora' | 'acumulado' | 'comparativo'
 let CNV_ULTIMA_HORA = 23;
 let CNV_PAGE = 0;
 
@@ -8795,18 +8884,51 @@ function cnvGrupoClick(grupo){
   cnvRenderAll();
 }
 
+// Mesma lógica de visão do ASM (pedido do Roberto em 2026-08-04): "Hora"
+// (performance da hora, não acumulada) é o padrão, "Acumulado" fica
+// secundário, "Comparativo" mostra uma linha por grupo de estação
+// (OBC/OBD já vem somado — ver classificarEsteira em api/conveyor.js).
+function cnvSetChartView(view, el){
+  CNV_CHART_VIEW = view;
+  document.querySelectorAll('#section-conveyor .chart-card .bkl-tab').forEach(t=>t.classList.remove('active'));
+  if(el) el.classList.add('active');
+  const title = document.getElementById('cnv-chart-title');
+  if(title) title.textContent = view==='comparativo' ? 'Comparativo por grupo — Realizado' : (view==='acumulado' ? 'Acumulado do dia — Realizado' : 'Performance por hora — Realizado');
+  cnvRenderChart();
+}
+
 function cnvRenderChart(){
   if(!CONVEYOR_DATA) return;
   const rows = cnvRowsForChart();
+  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
+  if(chartInstances['chart-cnv-hora']){ chartInstances['chart-cnv-hora'].destroy(); delete chartInstances['chart-cnv-hora']; }
+
+  if(CNV_CHART_VIEW === 'comparativo'){
+    const datasets = CONVEYOR_DATA.grupos.map(grupo => ({
+      label: grupo,
+      data: Array.from({length:24}, (_,h) => rows.filter(r=>r.hora===h && r.grupo===grupo).reduce((s,r)=>s+r.totalProcessamento,0)),
+      borderColor: CNV_GROUP_COLORS[grupo]||'#75809b', backgroundColor:'transparent', fill:false, tension:.3, pointRadius:2, borderWidth:2,
+    }));
+    mkLine('chart-cnv-hora', labels, datasets);
+    return;
+  }
+
   const porHora = Array(24).fill(0);
   rows.forEach(r => { if(r.hora >= 0 && r.hora <= 23) porHora[r.hora] += r.totalProcessamento; });
+  const rotulo = CONVEYOR_STATE.estacao || CONVEYOR_STATE.grupo || 'Total';
+
+  if(CNV_CHART_VIEW === 'hora'){
+    mkLine('chart-cnv-hora', labels, [
+      { label: 'Realizado — '+rotulo, data: porHora,
+        borderColor: '#ee4d2d', backgroundColor: 'rgba(238,77,45,.16)', fill: true, tension: .35, pointRadius: 2, borderWidth: 2.5 },
+    ]);
+    return;
+  }
+
+  // Acumulado — visão secundária, mantém o comportamento original.
   let acc = 0;
   const realizadoAcumulado = porHora.map(v => { acc += v; return acc; });
   const capacidadeAcumulada = Array(24).fill(0); // placeholder até termos a meta real
-
-  if(chartInstances['chart-cnv-hora']){ chartInstances['chart-cnv-hora'].destroy(); delete chartInstances['chart-cnv-hora']; }
-  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
-  const rotulo = CONVEYOR_STATE.estacao || CONVEYOR_STATE.grupo || 'Total';
   mkLine('chart-cnv-hora', labels, [
     { label: 'Realizado — '+rotulo, data: realizadoAcumulado,
       borderColor: '#ee4d2d', backgroundColor: 'rgba(238,77,45,.16)', fill: true, tension: .4, pointRadius: 0, borderWidth: 2.5 },
