@@ -7948,8 +7948,8 @@ function asmRenderZoneCards(){
   const ordemH = asmHourOrder(h);
   const horaAnterior = ordemH > 0 ? ASM_HORAS_ORDENADAS[ordemH - 1] : null;
   const rows = asmRowsForZoneCards();
-  const zonasTodas = [...ASM_DATA.zonas, 'System Default'];
-  wrap.innerHTML = zonasTodas.map(zona => {
+
+  const cardParaZona = zona => {
     const rowsZona = rows.filter(r => r.zona === zona);
     const valorHora = rowsZona.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0);
     const valorHoraAnterior = horaAnterior !== null ? rowsZona.filter(r => r.hora === horaAnterior).reduce((s, r) => s + r.scanNumbers, 0) : null;
@@ -7957,7 +7957,6 @@ function asmRenderZoneCards(){
     const mesas = new Set(rowsZona.filter(r => r.hora === h && r.mesa).map(r => r.mesa)).size;
     const operadores = new Set(rowsZona.filter(r => r.hora === h).map(r => r.colaborador)).size;
     const ativo = ASM_STATE.zona === zona;
-    const isSD = zona === 'System Default';
 
     let deltaHtml = '';
     if(valorHoraAnterior !== null && valorHoraAnterior > 0){
@@ -7970,15 +7969,49 @@ function asmRenderZoneCards(){
 
     return `<div class="switch-card" style="cursor:pointer;${ativo?'border-color:var(--orange)':''}" onclick="asmZonaClick('${zona.replace(/'/g,"\\'")}')">
       <div class="switch-card-top">
-        <div class="switch-card-name"><i class="fas ${isSD?'fa-robot':'fa-location-dot'}" style="color:${isSD?'var(--text-muted)':'var(--orange)'};margin-right:8px"></i>${zona}</div>
+        <div class="switch-card-name"><i class="fas fa-location-dot" style="color:var(--orange);margin-right:8px"></i>${zona}</div>
       </div>
       <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHora.toLocaleString('pt-BR')}</div>
-      <div class="switch-card-desc">induções às ${String(h).padStart(2,'0')}h ${isSD ? '(fora do fluxo de mesa/zona real)' : `· ${mesas} mesa(s) · ${operadores} operador(es)`}</div>
+      <div class="switch-card-desc">induções às ${String(h).padStart(2,'0')}h · ${mesas} mesa(s) · ${operadores} operador(es)</div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
         Acumulado do dia: <strong style="color:var(--text)">${acumuladoDia.toLocaleString('pt-BR')}</strong>${deltaHtml}
       </div>
     </div>`;
-  }).join('');
+  };
+
+  // Total Realizado = soma das zonas reais (ZONA A/B/C), sem contar System
+  // Default no número principal — o quanto veio de System Default aparece
+  // só como texto de apoio no rodapé (pedido do Roberto em 2026-08-04).
+  const rowsReais = rows.filter(r => !r.isSystemDefault);
+  const rowsSD = rows.filter(r => r.isSystemDefault);
+  const valorHoraTotal = rowsReais.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0);
+  const valorHoraAnteriorTotal = horaAnterior !== null ? rowsReais.filter(r => r.hora === horaAnterior).reduce((s, r) => s + r.scanNumbers, 0) : null;
+  const acumuladoDiaTotal = rowsReais.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
+  const acumuladoDiaSD = rowsSD.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
+  const mesasTotal = new Set(rowsReais.filter(r => r.hora === h && r.mesa).map(r => r.mesa)).size;
+  const operadoresTotal = new Set(rowsReais.filter(r => r.hora === h).map(r => r.colaborador)).size;
+
+  let deltaTotalHtml = '';
+  if(valorHoraAnteriorTotal !== null && valorHoraAnteriorTotal > 0){
+    const pct = (valorHoraTotal - valorHoraAnteriorTotal) / valorHoraAnteriorTotal * 100;
+    const trend = pct >= 0 ? 'green' : 'red';
+    deltaTotalHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
+  } else if(valorHoraAnteriorTotal === 0 && valorHoraTotal > 0){
+    deltaTotalHtml = ` · <span style="color:var(--green)">novo vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
+  }
+
+  const cardTotalHtml = `<div class="switch-card" style="cursor:pointer;border-color:var(--orange)" onclick="asmZonaClick('')">
+    <div class="switch-card-top">
+      <div class="switch-card-name"><i class="fas fa-chart-simple" style="color:var(--orange);margin-right:8px"></i>Total Realizado</div>
+    </div>
+    <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHoraTotal.toLocaleString('pt-BR')}</div>
+    <div class="switch-card-desc">induções às ${String(h).padStart(2,'0')}h · ${mesasTotal} mesa(s) · ${operadoresTotal} operador(es)</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
+      Total das zonas: <strong style="color:var(--text)">${acumuladoDiaTotal.toLocaleString('pt-BR')}</strong> + ${acumuladoDiaSD.toLocaleString('pt-BR')} de S. Default${deltaTotalHtml}
+    </div>
+  </div>`;
+
+  wrap.innerHTML = cardTotalHtml + ASM_DATA.zonas.map(cardParaZona).join('');
 }
 
 function asmZonaClick(zona){
