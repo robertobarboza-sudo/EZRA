@@ -144,14 +144,22 @@ module.exports = async (req, res) => {
   }
 
   // ASM + Conveyor — realizado no dia (soma bruta, são contadores de volume,
-  // não uma leitura pontual) vs planejado no dia (soma do labor_pulso pras
-  // mesmas horas). NV.1-3/esteiras não entram aqui (são níveis de equipe,
-  // não volume) — viram só um snapshot da hora mais recente disponível.
+  // não uma leitura pontual) vs planejado ATÉ AGORA (soma do labor_pulso só
+  // das horas que já passaram — comparar contra o planejado do dia inteiro
+  // sempre pareceria "atrasado" de manhã, mesmo no ritmo certo). Horário de
+  // Brasília fixo (UTC-3, mesma conta de hojeOperacionalIso em _period.js).
+  // NV.1-3/esteiras não entram na comparação (são níveis de equipe, não
+  // volume) — viram só um snapshot da hora vigente (ou a mais próxima
+  // disponível, pra planejamento pré-carregado do dia inteiro).
+  const horaAgora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours();
   const asmRealizado = asm ? asm.rows.reduce((s, r) => s + r.scanNumbers, 0) : null;
   const conveyorRealizado = conveyor ? conveyor.rows.reduce((s, r) => s + r.totalProcessamento, 0) : null;
-  const asmPlanejado = labor ? Math.round(labor.rows.reduce((s, r) => s + r.asmTarget, 0)) : null;
-  const conveyorPlanejado = labor ? Math.round(labor.rows.reduce((s, r) => s + r.packingEsteira + r.packingVolumoso, 0)) : null;
-  const capacidadeAgora = labor && labor.rows.length ? labor.rows[labor.rows.length - 1] : null;
+  const laborAteAgora = labor ? labor.rows.filter(r => r.hora <= horaAgora) : [];
+  const asmPlanejado = labor ? Math.round(laborAteAgora.reduce((s, r) => s + r.asmTarget, 0)) : null;
+  const conveyorPlanejado = labor ? Math.round(laborAteAgora.reduce((s, r) => s + r.packingEsteira + r.packingVolumoso, 0)) : null;
+  const capacidadeAgora = labor && labor.rows.length
+    ? (labor.rows.find(r => r.hora === horaAgora) || [...labor.rows].sort((a, b) => Math.abs(a.hora - horaAgora) - Math.abs(b.hora - horaAgora))[0])
+    : null;
 
   const performance = {
     asm: { realizado: asmRealizado, planejado: asmPlanejado },

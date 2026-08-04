@@ -2553,45 +2553,33 @@
     <!-- GESTÃO -->
         <section id="section-gestao" class="section">
       <div class="section-header" id="section-gestao-header">
-        <!-- header restored below by JS -->
-      </div>
-      <div id="section-gestao-wip" style="
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        min-height:420px;text-align:center;gap:20px;padding:40px">
-        <div style="
-          width:90px;height:90px;border-radius:50%;
-          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
-          display:flex;align-items:center;justify-content:center;font-size:36px">
-          🚧
+        <div class="section-header-left">
+          <div class="section-title">Overview <span class="ds-badge ok" id="ds-badge-gestao" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Retrato acumulado da operação</div>
         </div>
-        <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Overview</div>
-          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
-            Esta seção está em construção.<br/>
-            Os dados reais serão integrados via Google Sheets.
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;
-          background:var(--surface);border:1px solid var(--border);
-          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
-          <i class="fas fa-database" style="color:var(--orange)"></i>
-          Aguardando conexão com a fonte de dados
-        </div>
-        <div style="display:flex;gap:10px">
-          <div class="pdf-menu-wrap">
-            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('gestao',event)">
-              <i class="fas fa-file-pdf"></i> PDF
-              <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i>
-            </button>
-            <div class="pdf-dropdown" id="pdf-menu-gestao">
-              <div class="pdf-dropdown-label">Formato</div>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('gestao','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
-              <button class="pdf-dropdown-item" onclick="downloadPDF('gestao','dash')"><i class="fas fa-display"></i> Print Dash</button>
-            </div>
-          </div>
-          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('gestao')"><i class="fas fa-file-csv"></i> CSV</button>
+        <div class="section-dl-group">
+          <button class="spr-pipboy-btn" onclick="ovwOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="dl-btn dl-btn-csv" onclick="loadOverview()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
+
+      <div class="table-toolbar-title" style="margin-top:4px">Expedição (Outbound)</div>
+      <div id="ovw-kpis-expedicao" style="margin-top:8px"></div>
+
+      <div class="table-toolbar-title" style="margin-top:16px">Inbound (Line Haul + First Mile)</div>
+      <div id="ovw-kpis-inbound" style="margin-top:8px"></div>
+
+      <div class="table-toolbar-title" style="margin-top:16px">Clusterização</div>
+      <div id="ovw-kpis-cluster" style="margin-top:8px"></div>
+
+      <div class="table-toolbar-title" style="margin-top:16px">Backlog</div>
+      <div id="ovw-kpis-backlog" style="margin-top:8px"></div>
+
+      <div class="table-toolbar-title" style="margin-top:16px">Performance ASM + Conveyor</div>
+      <div id="ovw-kpis-performance" style="margin-top:8px"></div>
+      <div id="ovw-capacidade-agora" class="pulso-coverage" style="margin-top:8px"></div>
+
+      <div id="ovw-erros" style="margin-top:12px"></div>
     </section>
 
     <!-- PERFORMANCE -->
@@ -5607,8 +5595,112 @@ function mkPie(id,labels,data,colors){
 /* ================================================================
    RENDER FUNCTIONS
 ================================================================ */
+/* ================================================================
+   OVERVIEW — retrato acumulado da operação (api/overview.js)
+================================================================ */
+let OVERVIEW_DATA = null;
+
 function renderGestao(){
-  setBadge('gestao','ok','Em Construção');
+  loadOverview();
+}
+
+async function loadOverview(){
+  setBadge('gestao', 'loading');
+  try {
+    const r = await fetch('/api/overview', { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    setBadge('gestao', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    OVERVIEW_DATA = j;
+    ovwRenderAll();
+  } catch(err){
+    setBadge('gestao', 'error', 'Erro: '+err.message);
+    console.error('[overview]', err);
+  }
+}
+
+function ovwRenderAll(){
+  const j = OVERVIEW_DATA;
+  if(!j) return;
+
+  const fonteIndisponivel = (label, icon) => ({ label, value:'—', sub:'fonte indisponível', delta:'', trend:'up', type:'danger', icon });
+
+  buildKPIs('ovw-kpis-expedicao', [
+    j.expedicao
+      ? { label:'Carros Carregados', value:j.expedicao.carrosRealizados.toLocaleString('pt-BR'), sub:`de ${j.expedicao.carrosPrevistos.toLocaleString('pt-BR')} planejados`, delta:'', trend:'up', type:'', icon:'fa-truck-loading' }
+      : fonteIndisponivel('Carros Carregados', 'fa-truck-loading'),
+    j.expedicao
+      ? { label:'Pacotes Saca + Scuttle', value:(j.expedicao.pacotesSaca+j.expedicao.pacotesScuttle).toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' }
+      : fonteIndisponivel('Pacotes Saca + Scuttle', 'fa-boxes-stacked'),
+    j.clusterizacao
+      ? { label:'Pacotes no Piso', value:j.clusterizacao.pacotesNoPiso.toLocaleString('pt-BR'), sub:'Clusterização · staging outbound', delta:'', trend:'up', type:'', icon:'fa-warehouse' }
+      : fonteIndisponivel('Pacotes no Piso', 'fa-warehouse'),
+  ]);
+
+  buildKPIs('ovw-kpis-inbound', [
+    j.lineHaul
+      ? { label:'LH Previstos', value:j.lineHaul.previstos.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck' }
+      : fonteIndisponivel('LH Previstos', 'fa-truck'),
+    j.lineHaul
+      ? { label:'LH Descarregados', value:j.lineHaul.descarregados.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' }
+      : fonteIndisponivel('LH Descarregados', 'fa-truck-ramp-box'),
+    j.firstMile
+      ? { label:'FM Descarregados', value:j.firstMile.descarregados.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' }
+      : fonteIndisponivel('FM Descarregados', 'fa-truck-ramp-box'),
+    { label:'Carros em Andamento', value:j.carrosAndamento.toLocaleString('pt-BR'), sub:'LH + FM', delta:'', trend:'up', type:'', icon:'fa-truck-moving' },
+  ]);
+
+  buildKPIs('ovw-kpis-cluster', [
+    j.clusterizacao
+      ? { label:'% Clusterização', value:j.clusterizacao.pctClusterizacao+'%', delta:'', trend:'up', type: j.clusterizacao.pctClusterizacao>89?'success':(j.clusterizacao.pctClusterizacao>=75?'warning':'danger'), icon:'fa-layer-group' }
+      : fonteIndisponivel('% Clusterização', 'fa-layer-group'),
+  ]);
+
+  const b = j.backlog;
+  buildKPIs('ovw-kpis-backlog', b ? [
+    { label:'Backlog Atual', value:b.total.toLocaleString('pt-BR'), sub:'média/hora · dia inteiro', delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
+    ...b.perfis.map(p => ({ label:p.label, value:p.qtd.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-tag' })),
+    ...b.clusters.map(c => ({ label:c.label, value:c.qtd.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-clock' })),
+  ] : [fonteIndisponivel('Backlog', 'fa-boxes-stacked')]);
+
+  const p = j.performance;
+  const pct = (real, plan) => plan ? Math.round(real/plan*100) : 0;
+  const pctSomado = p ? pct(p.somado.realizado, p.somado.planejado) : 0;
+  buildKPIs('ovw-kpis-performance', p ? [
+    { label:'ASM Realizado', value:(p.asm.realizado??0).toLocaleString('pt-BR'), sub: p.asm.planejado?`meta até agora: ${p.asm.planejado.toLocaleString('pt-BR')}`:'', delta:'', trend:'up', type:'', icon:'fa-user-check' },
+    { label:'Conveyor Realizado', value:(p.conveyor.realizado??0).toLocaleString('pt-BR'), sub: p.conveyor.planejado?`meta até agora: ${p.conveyor.planejado.toLocaleString('pt-BR')}`:'', delta:'', trend:'up', type:'', icon:'fa-conveyor-belt' },
+    { label:'Performance Somada', value:p.somado.realizado.toLocaleString('pt-BR'), sub:`meta até agora: ${p.somado.planejado.toLocaleString('pt-BR')}`, delta:'', trend:'up', type:'', icon:'fa-gauge-high' },
+    { label:'% Atingimento', value:pctSomado+'%', sub:'ASM + Conveyor vs planejado até agora', delta:'', trend:'up', type: pctSomado>=90?'success':(pctSomado>=70?'warning':'danger'), icon:'fa-bullseye' },
+  ] : [fonteIndisponivel('Performance', 'fa-gauge-high')]);
+
+  const cap = p && p.capacidadeAgora;
+  const capEl = document.getElementById('ovw-capacidade-agora');
+  if(capEl) capEl.innerHTML = cap
+    ? `<i class="fas fa-people-group"></i> Capacidade planejada (${String(cap.hora).padStart(2,'0')}h): <strong style="color:var(--text)">NV1 ${cap.nv1} · NV2 ${cap.nv2} · NV3 ${cap.nv3}</strong> · ASM ${cap.asmZonas} zonas · Esteiras ${cap.esteiras}${cap.esteiraTermo?` + Termo ${cap.esteiraTermo}`:''}`
+    : '';
+
+  const errosEl = document.getElementById('ovw-erros');
+  if(errosEl) errosEl.innerHTML = j.erros
+    ? `<div class="switch-hint"><i class="fas fa-triangle-exclamation"></i> Fontes indisponíveis: ${Object.entries(j.erros).map(([k,v])=>`${pulsoEscHtml(k)} (${pulsoEscHtml(v)})`).join(', ')}</div>`
+    : '';
+}
+
+function ovwGenerateInsights(){
+  if(!OVERVIEW_DATA) return [];
+  const j = OVERVIEW_DATA;
+  const insights = [];
+  if(j.expedicao) insights.push({ icon:'fa-truck-loading', html:`Expedição: <strong>${j.expedicao.carrosRealizados.toLocaleString('pt-BR')}</strong> carros carregados de ${j.expedicao.carrosPrevistos.toLocaleString('pt-BR')} planejados.` });
+  if(j.clusterizacao) insights.push({ icon:'fa-layer-group', html:`Clusterização em <strong>${j.clusterizacao.pctClusterizacao}%</strong> de atendimento, ${j.clusterizacao.pacotesNoPiso.toLocaleString('pt-BR')} pacotes no piso.` });
+  if(j.backlog) insights.push({ icon:'fa-boxes-stacked', html:`Backlog atual: <strong>${j.backlog.total.toLocaleString('pt-BR')}</strong> pacotes (média/hora).` });
+  if(j.performance && j.performance.somado.planejado){
+    const pct = Math.round(j.performance.somado.realizado/j.performance.somado.planejado*100);
+    insights.push({ icon:'fa-gauge-high', html:`Performance ASM+Conveyor em <strong>${pct}%</strong> da meta até agora.` });
+  }
+  insights.push({ icon:'fa-truck-moving', html:`<strong>${j.carrosAndamento}</strong> carros em andamento entre Line Haul e First Mile.` });
+  return insights;
+}
+function ovwOpenPipboy(){
+  pulsoOpenPipboyGeneric('Overview', ovwGenerateInsights());
 }
 
 function renderPerformance(){
