@@ -181,6 +181,10 @@
       position: relative; white-space: nowrap; overflow: hidden;
     }
     .nav-item:hover { background: var(--surface-2); color: var(--text); }
+    /* Abas ainda em desenvolvimento (pedido do Roberto em 2026-08-04) —
+       cinza, cadeado, sem clique nem hover. */
+    .nav-item.nav-item-locked { opacity: .4; cursor: not-allowed; pointer-events: none; }
+    .nav-item.nav-item-locked .nav-lock-icon { margin-left: auto; font-size: 11px; }
     .nav-item.active {
       background: linear-gradient(90deg, rgba(238,77,45,.2), rgba(238,77,45,.06));
       color: var(--orange-ll);
@@ -2405,11 +2409,11 @@
       <div class="nav-item active" data-section="gestao" data-label="Overview" onclick="navigateTo('gestao',this)">
         <i class="fas fa-gauge-high nav-icon"></i><span class="nav-label">Overview</span>
       </div>
-      <div class="nav-item" data-section="performance" data-label="Performance" onclick="navigateTo('performance',this)">
-        <i class="fas fa-chart-line nav-icon"></i><span class="nav-label">Performance</span>
+      <div class="nav-item nav-item-locked" data-section="performance" data-label="Performance">
+        <i class="fas fa-chart-line nav-icon"></i><span class="nav-label">Performance</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
-      <div class="nav-item" data-section="laborplan" data-label="Labor Plan" onclick="navigateTo('laborplan',this)">
-        <i class="fas fa-brain nav-icon"></i><span class="nav-label">Labor Plan</span>
+      <div class="nav-item nav-item-locked" data-section="laborplan" data-label="Labor Plan">
+        <i class="fas fa-brain nav-icon"></i><span class="nav-label">Labor Plan</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
       <div class="nav-item" data-section="backlog" data-label="Backlog" onclick="navigateTo('backlog',this)">
         <i class="fas fa-layer-group nav-icon"></i><span class="nav-label">Backlog</span>
@@ -2458,8 +2462,8 @@
 
     <div class="nav-group">
       <div class="nav-group-label">Gestão</div>
-      <div class="nav-item" data-section="scorecard" data-label="Score Card" onclick="navigateTo('scorecard',this)">
-        <i class="fas fa-id-card nav-icon"></i><span class="nav-label">Score Card</span>
+      <div class="nav-item nav-item-locked" data-section="scorecard" data-label="Score Card">
+        <i class="fas fa-id-card nav-icon"></i><span class="nav-label">Score Card</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
       <div class="nav-item" data-label="Absenteísmo" onclick="pulsoNavExternal(LINK_ABSENTEISMO)">
         <i class="fas fa-user-clock nav-icon"></i><span class="nav-label">Absenteísmo</span>
@@ -2476,11 +2480,11 @@
 
     <div class="nav-group">
       <div class="nav-group-label">Indicadores</div>
-      <div class="nav-item" data-section="arvore" data-label="Árvore (daily)" onclick="navigateTo('arvore',this)">
-        <i class="fas fa-tree nav-icon"></i><span class="nav-label">Árvore (daily)</span>
+      <div class="nav-item nav-item-locked" data-section="arvore" data-label="Árvore (daily)">
+        <i class="fas fa-tree nav-icon"></i><span class="nav-label">Árvore (daily)</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
-      <div class="nav-item" data-section="kpioverview" data-label="Overview KPIs" onclick="navigateTo('kpioverview',this)">
-        <span class="nav-icon-composite"><i class="fas fa-gauge-simple-high icon-base" style="font-size:14px"></i><span class="icon-badge" style="font-size:6px;padding:0 1.5px">KPI</span></span><span class="nav-label">Overview KPIs</span>
+      <div class="nav-item nav-item-locked" data-section="kpioverview" data-label="Overview KPIs">
+        <span class="nav-icon-composite"><i class="fas fa-gauge-simple-high icon-base" style="font-size:14px"></i><span class="icon-badge" style="font-size:6px;padding:0 1.5px">KPI</span></span><span class="nav-label">Overview KPIs</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
     </div>
 
