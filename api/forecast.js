@@ -40,7 +40,7 @@
  *          anterior ao início do forecast)
  */
 const { fetchTabByGid } = require('./_google');
-const { toNum } = require('./_period');
+const { toNum, hojeOperacionalIso } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '202012183' };
 
@@ -187,7 +187,7 @@ module.exports = async (req, res) => {
   const datasDisponiveis = [...new Set(forecast.map(r => r.dataIso))].sort();
   const dataMinima = datasDisponiveis[0], dataMaxima = datasDisponiveis[datasDisponiveis.length - 1];
 
-  const hojeIso = new Date().toISOString().slice(0, 10);
+  const hojeIso = hojeOperacionalIso();
   const dataQuery = req.query.date;
   const dataRef = (dataQuery && dataQuery >= dataMinima && dataQuery <= dataMaxima)
     ? dataQuery

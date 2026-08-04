@@ -18,7 +18,7 @@
  *              se hoje não tiver dado ainda)
  */
 const { fetchTabByGid } = require('./_google');
-const { toNum } = require('./_period');
+const { toNum, hojeOperacionalIso } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1485919739' };
 
@@ -55,7 +55,7 @@ module.exports = async (req, res) => {
   // dataMaxima pode ser um ETA planejado futuro (viagem pré-agendada) — o
   // default tem que ser o dia real de hoje, não a data mais distante da
   // planilha (mesmo bug já corrigido no Outbound/Backlog).
-  const hojeIso = new Date().toISOString().slice(0, 10);
+  const hojeIso = hojeOperacionalIso();
   const padrao = datasDisponiveis.includes(hojeIso) ? hojeIso : dataMaxima;
   const de = (req.query.from && datasDisponiveis.includes(req.query.from)) ? req.query.from : padrao;
   const ate = (req.query.to && datasDisponiveis.includes(req.query.to) && req.query.to >= de) ? req.query.to : de;

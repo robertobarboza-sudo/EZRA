@@ -16,7 +16,7 @@
  *              recente disponível se hoje não tiver dado ainda)
  */
 const { fetchTabByGid } = require('./_google');
-const { toNum } = require('./_period');
+const { toNum, hojeOperacionalIso } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1026737209' };
 
@@ -37,7 +37,7 @@ module.exports = async (req, res) => {
 
   const datasDisponiveis = [...new Set(fm.map(r => r.data_operacional))].sort();
   const dataMinima = datasDisponiveis[0], dataMaxima = datasDisponiveis[datasDisponiveis.length - 1];
-  const hojeIso = new Date().toISOString().slice(0, 10);
+  const hojeIso = hojeOperacionalIso();
   const padrao = datasDisponiveis.includes(hojeIso) ? hojeIso : dataMaxima;
   const de = (req.query.from && datasDisponiveis.includes(req.query.from)) ? req.query.from : padrao;
   const ate = (req.query.to && datasDisponiveis.includes(req.query.to) && req.query.to >= de) ? req.query.to : de;

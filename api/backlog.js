@@ -10,23 +10,30 @@
  * (backlog) e H-M (forecast, ver api/forecast.js) continuam sendo DUAS
  * TABELAS INDEPENDENTES coladas lado a lado — sem relação linha a linha.
  *
+ * Data operacional (padrão pra todos os reports/gráficos, confirmado com
+ * o Roberto em 2026-08-04): cutoff de 6h — snapshot_hora entre 00:00 e
+ * 05:59 pertence ao dia operacional ANTERIOR, não ao dia-calendário do
+ * timestamp (ver dataOperacionalDe em api/_period.js). É o único ponto do
+ * PULSO que deriva uma data a partir de um timestamp cru; as demais
+ * páginas já recebem a data pronta da planilha (cutoff/data_operacional).
+ *
  * `date` (período, igual ao padrão de from/to do Inbound) é resolvido no
  * servidor; hora/perfil são filtros de dimensão e ficam a cargo do
  * front (mesmo padrão do turno/status/origem no Inbound LH) — por isso a
  * API devolve todas as linhas do dia e deixa o front recortar.
  *
  * Query params:
- *   date   YYYY-MM-DD (default = hoje, ou o dia mais recente disponível)
+ *   date   YYYY-MM-DD (default = hoje operacional, ou o dia mais recente disponível)
  */
 const { fetchTabByGid } = require('./_google');
-const { toNum } = require('./_period');
+const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '202012183' };
 
-// "2026-08-03 09:00:00" -> { data:"2026-08-03", hora:9 }
+// "2026-08-03 09:00:00" -> { data:"2026-08-03" (operacional, cutoff 6h), hora:9 (relógio real, pro filtro de hora) }
 function dataHoraDe(v) {
   const m = String(v || '').match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):\d{2}:\d{2}$/);
-  return m ? { data: m[1], hora: Number(m[2]) } : { data: null, hora: null };
+  return m ? { data: dataOperacionalDe(v), hora: Number(m[2]) } : { data: null, hora: null };
 }
 
 module.exports = async (req, res) => {
@@ -67,7 +74,7 @@ module.exports = async (req, res) => {
 
   const datasDisponiveis = [...new Set(backlog.map(r => r.data))].sort();
   const dataMinima = datasDisponiveis[0], dataMaxima = datasDisponiveis[datasDisponiveis.length - 1];
-  const hojeIso = new Date().toISOString().slice(0, 10);
+  const hojeIso = hojeOperacionalIso();
   const padrao = datasDisponiveis.includes(hojeIso) ? hojeIso : dataMaxima;
   const date = (req.query.date && datasDisponiveis.includes(req.query.date)) ? req.query.date : padrao;
 
