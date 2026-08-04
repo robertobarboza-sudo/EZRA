@@ -1,10 +1,12 @@
 /**
  * PULSO — Backlog (aba forecast_backlog_pulso, colunas A-G).
  *
- * Modelo novo (2026-08-04): a base deixou de ser uma série horária
- * (cutoff/hour_cutoff) e virou um snapshot granular por
- * faixa_aging/perfil/origem, com `ultima_atualizacao_tabela` como único
- * referencial de tempo (ex.: "2026-08-03 22:01:48"). As colunas A-G
+ * Modelo novo (2026-08-04): a base deixou de ser uma série horária por
+ * cutoff/hour_cutoff e virou um snapshot granular por
+ * faixa_aging/perfil/origem, com `snapshot_hora` como referencial de
+ * tempo (ex.: "2026-08-03 09:00:00") — confirmado ao vivo em
+ * 2026-08-04 via debug-meta: 24 horários distintos reais (não um único
+ * valor), cobrindo um range rolante das últimas ~24h. As colunas A-G
  * (backlog) e H-M (forecast, ver api/forecast.js) continuam sendo DUAS
  * TABELAS INDEPENDENTES coladas lado a lado — sem relação linha a linha.
  *
@@ -21,7 +23,7 @@ const { toNum } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '202012183' };
 
-// "2026-08-03 22:01:48" -> { data:"2026-08-03", hora:22 }
+// "2026-08-03 09:00:00" -> { data:"2026-08-03", hora:9 }
 function dataHoraDe(v) {
   const m = String(v || '').match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):\d{2}:\d{2}$/);
   return m ? { data: m[1], hora: Number(m[2]) } : { data: null, hora: null };
@@ -39,7 +41,7 @@ module.exports = async (req, res) => {
   const backlog = rows
     .filter(r => r.faixa_aging)
     .map(r => {
-      const { data, hora } = dataHoraDe(r.ultima_atualizacao_tabela);
+      const { data, hora } = dataHoraDe(r.snapshot_hora);
       return {
         data, hora,
         faixaAging: r.faixa_aging || '',
@@ -48,7 +50,7 @@ module.exports = async (req, res) => {
         origem: r.origem || '',
         qtdPacotes: toNum(r.qtd_pacotes),
         agingMedioMin: toNum(r.aging_medio_min),
-        ultimaAtualizacao: r.ultima_atualizacao_tabela || '',
+        snapshotHora: r.snapshot_hora || '',
       };
     })
     .filter(r => r.data !== null);
@@ -77,7 +79,7 @@ module.exports = async (req, res) => {
     horas: [...new Set(doDia.map(r => r.hora))].sort((a, b) => a - b),
   };
 
-  const ultimaAtualizacao = doDia.reduce((max, r) => (!max || r.ultimaAtualizacao > max) ? r.ultimaAtualizacao : max, null);
+  const ultimaAtualizacao = doDia.reduce((max, r) => (!max || r.snapshotHora > max) ? r.snapshotHora : max, null);
 
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
