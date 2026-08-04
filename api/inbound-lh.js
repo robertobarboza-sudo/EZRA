@@ -28,6 +28,13 @@ function parseDT(v) {
   return isNaN(d) ? null : d;
 }
 
+// Hora extraída direto da string ("YYYY-MM-DD HH:MM:SS") — evita qualquer
+// ambiguidade de fuso horário do parse via Date (usado só pro diff em ms).
+function horaDe(v) {
+  const m = String(v || '').match(/(\d{2}):\d{2}:\d{2}/);
+  return m ? Number(m[1]) : null;
+}
+
 module.exports = async (req, res) => {
   let rows;
   try {
@@ -89,6 +96,7 @@ module.exports = async (req, res) => {
       aberturaBau: r.abertura_bau || '',
       inicioDescarga: r.inicio_descarga || '',
       fimDescarga: r.fim_descarga || '',
+      horaCheckin: horaDe(r.checkin_destino),
       tempoFilaMin,
       tempoDescargaMin,
       pacotes: toNum(r.total_pacotes),

@@ -58,6 +58,7 @@ module.exports = async (req, res) => {
     tempoTotalMin: toNum(r.tempo_total_minutos),
     performanceDoca: r.performance_doca || '',
     desvioMetaMin: toNum(r.desvio_meta_minutos),
+    pacotes: toNum(r.pickup_quantity),
   }));
 
   const opcoes = {

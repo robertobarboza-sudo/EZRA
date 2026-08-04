@@ -4887,6 +4887,12 @@ function pulsoFmtDataBr(iso){
   return (y && m && d) ? `${d}/${m}/${y}` : (iso || '—');
 }
 
+// Minutos -> horas, 1 casa decimal, vírgula (padrão "2,5" pedido pelo
+// Roberto em 2026-08-04 pros cards/gráficos de tempo do Inbound).
+function pulsoFmtHoraVirgula(min){
+  return (min/60).toFixed(1).replace('.', ',');
+}
+
 // Informativo abaixo dos cards: até quando a planilha tem dados (cobertura
 // real da base, não o período filtrado nos cards) — sempre que a API
 // devolver `cobertura`, funciona em qualquer página do motor.
@@ -5739,6 +5745,7 @@ const LH_CARD_FILTERS = {
   canceladas: r => r.status === 'CANCELADO',
   noshow: r => r.status === 'NO SHOW',
   infrutifera: r => r.status === 'INFRUTÍFERA',
+  antecipada: r => r.atrasoMin !== null && r.atrasoMin < 0,
 };
 function lhCardClick(key){
   LH_ACTIVE_CARD = (LH_ACTIVE_CARD === key) ? null : key;
@@ -5777,7 +5784,12 @@ function lhRenderKpis(){
   const realizadas = rows.filter(r => r.realizada);
   const onTime = realizadas.filter(r => r.onTime);
   const pctOnTime = realizadas.length ? Math.round(onTime.length/realizadas.length*100) : 0;
-  const atrasoMedio = realizadas.length ? Math.round(realizadas.reduce((s,r)=>s+(r.atrasoMin||0),0)/realizadas.length) : 0;
+  // Atraso Médio só conta viagens realmente atrasadas (atrasoMin > 0) —
+  // antecipações puxavam a média pra negativo e ficava confuso (pedido do
+  // Roberto em 2026-08-04). Antecipações têm card próprio abaixo.
+  const atrasadas = realizadas.filter(r => r.atrasoMin > 0);
+  const antecipadas = realizadas.filter(r => r.atrasoMin < 0);
+  const atrasoMedio = atrasadas.length ? Math.round(atrasadas.reduce((s,r)=>s+r.atrasoMin,0)/atrasadas.length) : 0;
   const pacotes = rows.reduce((s,r)=>s+r.pacotes,0);
   const tos = rows.reduce((s,r)=>s+r.tos,0);
   const porStatus = k => rows.filter(r=>r.status===k).length;
@@ -5787,9 +5799,9 @@ function lhRenderKpis(){
     clickable: true, active: LH_ACTIVE_CARD===key, onclickAttr: `lhCardClick('${key}')`,
   });
   const somaCampo = campo => rows.reduce((s,r)=>s+r[campo],0);
-  const mediaCampo = campo => {
+  const mediaCampoMin = campo => {
     const vals = rows.map(r=>r[campo]).filter(v=>v!==null);
-    return vals.length ? Math.round(vals.reduce((s,v)=>s+v,0)/vals.length) : 0;
+    return vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0;
   };
 
   const cardsSolicitacao = (LH_DATA?.opcoes.solicitacoes || []).map(valor => {
@@ -5804,9 +5816,12 @@ function lhRenderKpis(){
   buildKPIs('lh-kpis', [
     { label:'Viagens', value:rows.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck' },
     { label:'% On Time', value:pctOnTime+'%', delta:'', trend:'up', type: pctOnTime>=90?'success':(pctOnTime>=75?'warning':'danger'), icon:'fa-clock' },
-    { label:'Atraso Médio (min)', value:atrasoMedio.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
-    { label:'Tempo de Fila (min)', value:mediaCampo('tempoFilaMin').toLocaleString('pt-BR'), sub:'Chegada → Fim Descarga', delta:'', trend:'up', type:'', icon:'fa-hourglass' },
-    { label:'Tempo de Descarga (min)', value:mediaCampo('tempoDescargaMin').toLocaleString('pt-BR'), sub:'Início → Fim Descarga', delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
+    { label:'Atraso Médio (min)', value:atrasoMedio.toLocaleString('pt-BR'), sub:'só viagens atrasadas', delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
+    { label:'Chegada Antecipada', value:antecipadas.length.toLocaleString('pt-BR'), delta:'', trend:'up',
+      type: LH_ACTIVE_CARD==='antecipada'?'info':'', icon:'fa-forward',
+      clickable: true, active: LH_ACTIVE_CARD==='antecipada', onclickAttr: `lhCardClick('antecipada')` },
+    { label:'Tempo de Fila (h)', value:pulsoFmtHoraVirgula(mediaCampoMin('tempoFilaMin')), sub:'Chegada → Fim Descarga', delta:'', trend:'up', type:'', icon:'fa-hourglass' },
+    { label:'Tempo de Descarga (h)', value:pulsoFmtHoraVirgula(mediaCampoMin('tempoDescargaMin')), sub:'Início → Fim Descarga', delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
     { label:'Pacotes Recebidos', value:pacotes.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
     { label:'TOs Recebidos', value:tos.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-clipboard-list' },
     cardStatus('canceladas', 'Canceladas', 'CANCELADO', 'fa-ban'),
@@ -5820,15 +5835,16 @@ function lhRenderKpis(){
   ]);
 }
 
-// Botão no gráfico alterna entre contagem de viagens e atraso médio por
-// hora, em horas (formato "2,5" — vírgula, 1 casa decimal), pedido pelo
-// Roberto em 2026-08-04.
+// Botão no gráfico alterna entre contagem de viagens e tempo de fila médio
+// por hora (chegada até fim de descarga, agrupado pela hora real de
+// chegada), em horas (formato "2,5"). Ajustado em 2026-08-04 — antes
+// mostrava atraso médio, mas o gráfico é pra olhar fila, não pontualidade.
 function lhToggleChartView(){
-  LH_CHART_VIEW = LH_CHART_VIEW === 'viagens' ? 'atraso' : 'viagens';
+  LH_CHART_VIEW = LH_CHART_VIEW === 'viagens' ? 'fila' : 'viagens';
   const btn = document.getElementById('lh-chart-toggle');
   const title = document.getElementById('lh-chart-title');
-  if(btn) btn.textContent = LH_CHART_VIEW === 'viagens' ? 'Ver Atraso Médio (h)' : 'Ver Viagens';
-  if(title) title.textContent = LH_CHART_VIEW === 'viagens' ? 'Viagens por hora — Planejado vs Realizado' : 'Atraso médio por hora (h)';
+  if(btn) btn.textContent = LH_CHART_VIEW === 'viagens' ? 'Ver Tempo de Fila Médio (h)' : 'Ver Viagens';
+  if(title) title.textContent = LH_CHART_VIEW === 'viagens' ? 'Viagens por hora — Planejado vs Realizado' : 'Tempo de fila médio por hora (h)';
   lhRenderChart();
 }
 
@@ -5838,15 +5854,15 @@ function lhRenderChart(){
   if(chartInstances['chart-lh-hora']){ chartInstances['chart-lh-hora'].destroy(); delete chartInstances['chart-lh-hora']; }
   const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
 
-  if(LH_CHART_VIEW === 'atraso'){
+  if(LH_CHART_VIEW === 'fila'){
     const somaMin = Array(24).fill(0), qtd = Array(24).fill(0);
     rows.forEach(r => {
-      if(r.atrasoMin!==null && r.horaPlanejada>=0 && r.horaPlanejada<=23){ somaMin[r.horaPlanejada]+=r.atrasoMin; qtd[r.horaPlanejada]++; }
+      if(r.tempoFilaMin!==null && r.horaCheckin>=0 && r.horaCheckin<=23){ somaMin[r.horaCheckin]+=r.tempoFilaMin; qtd[r.horaCheckin]++; }
     });
-    const atrasoHoras = somaMin.map((s,h) => qtd[h] ? +(s/qtd[h]/60).toFixed(1) : 0);
+    const filaHoras = somaMin.map((s,h) => qtd[h] ? +(s/qtd[h]/60).toFixed(1) : 0);
     mkLine('chart-lh-hora', labels, [
-      { label:'Atraso médio (h)', data:atrasoHoras, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:2 },
-    ], { plugins:{ legend:{labels:{color:'#5c5f7a',boxWidth:11,font:{size:11}}}, tooltip:{ callbacks:{ label: ctx => `Atraso médio: ${String(ctx.raw).replace('.',',')}h` } } } });
+      { label:'Tempo de fila médio (h)', data:filaHoras, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:2 },
+    ], { plugins:{ legend:{labels:{color:'#5c5f7a',boxWidth:11,font:{size:11}}}, tooltip:{ callbacks:{ label: ctx => `Tempo de fila médio: ${String(ctx.raw).replace('.',',')}h` } } } });
     return;
   }
 
@@ -6007,19 +6023,35 @@ function fmRenderAll(){
 
 function fmRenderKpis(){
   const rows = fmFilteredRows();
-  const avg = arr => arr.length ? Math.round(arr.reduce((s,v)=>s+v,0)/arr.length) : 0;
+  const avg = arr => arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0;
   const tempoFila = avg(rows.map(r=>r.tempoFilaMin));
   const tempoDescarga = avg(rows.map(r=>r.tempoDescargaMin));
   const dentroMeta = rows.filter(r=>r.performanceDoca==='Dentro da Meta').length;
   const pctMeta = rows.length ? Math.round(dentroMeta/rows.length*100) : 0;
-  const desvioMedio = avg(rows.map(r=>r.desvioMetaMin));
+
+  // Médias "por hora" usam só as horas com dado (não /24) — mesmo padrão
+  // usado no Backlog. Trocou o card Desvio Médio por esses 3 (pedido do
+  // Roberto em 2026-08-04, "não sei se desvio médio faz sentido").
+  const porHora = new Map();
+  rows.forEach(r => {
+    if(r.hora<0 || r.hora>23) return;
+    if(!porHora.has(r.hora)) porHora.set(r.hora, { carros:0, pacotes:0 });
+    const acc = porHora.get(r.hora);
+    acc.carros++; acc.pacotes += r.pacotes;
+  });
+  const horas = [...porHora.values()];
+  const mediaCarrosHora = horas.length ? Math.round(horas.reduce((s,h)=>s+h.carros,0)/horas.length) : 0;
+  const totalPacotes = rows.reduce((s,r)=>s+r.pacotes,0);
+  const mediaPacotesHora = horas.length ? Math.round(horas.reduce((s,h)=>s+h.pacotes,0)/horas.length) : 0;
 
   buildKPIs('fm-kpis', [
     { label:'Chegadas', value:rows.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
-    { label:'Tempo Médio de Fila (min)', value:tempoFila.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
-    { label:'Tempo Médio de Descarga (min)', value:tempoDescarga.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-dolly' },
+    { label:'Tempo Médio de Fila (h)', value:pulsoFmtHoraVirgula(tempoFila), delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
+    { label:'Tempo Médio de Descarga (h)', value:pulsoFmtHoraVirgula(tempoDescarga), delta:'', trend:'up', type:'', icon:'fa-dolly' },
     { label:'% Dentro da Meta', value:pctMeta+'%', delta:'', trend:'up', type: pctMeta>=90?'success':(pctMeta>=75?'warning':'danger'), icon:'fa-bullseye' },
-    { label:'Desvio Médio (min)', value:desvioMedio.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-gauge' },
+    { label:'Média de Carros/Hora', value:mediaCarrosHora.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck' },
+    { label:'Total de Pacotes Recebidos', value:totalPacotes.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
+    { label:'Média de Pacotes/Hora', value:mediaPacotesHora.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-chart-column' },
   ]);
 }
 
@@ -8226,7 +8258,34 @@ function cnvRenderGroupCards(){
   if(!wrap || !CONVEYOR_DATA) return;
   const h = cnvEffectiveHora();
   const rows = cnvRowsForGroupCards();
-  wrap.innerHTML = CONVEYOR_DATA.grupos.map(grupo => {
+
+  // Packing Total = soma de todos os grupos (pedido do Roberto em
+  // 2026-08-04). Clicar limpa o filtro de grupo, já que representa "todos".
+  const rowsHoraTotal = rows.filter(r => r.hora === h);
+  const valorHoraTotal = rowsHoraTotal.reduce((s, r) => s + r.totalProcessamento, 0);
+  const rowsHoraAnteriorTotal = h > 0 ? rows.filter(r => r.hora === h-1) : [];
+  const valorHoraAnteriorTotal = h > 0 ? rowsHoraAnteriorTotal.reduce((s, r) => s + r.totalProcessamento, 0) : null;
+  const acumuladoDiaTotal = rows.filter(r => r.hora <= h).reduce((s, r) => s + r.totalProcessamento, 0);
+  let deltaTotalHtml = '';
+  if(valorHoraAnteriorTotal !== null && valorHoraAnteriorTotal > 0){
+    const pct = (valorHoraTotal - valorHoraAnteriorTotal) / valorHoraAnteriorTotal * 100;
+    const trend = pct >= 0 ? 'green' : 'red';
+    deltaTotalHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(h-1).padStart(2,'0')}h</span>`;
+  } else if(valorHoraAnteriorTotal === 0 && valorHoraTotal > 0){
+    deltaTotalHtml = ` · <span style="color:var(--green)">novo vs ${String(h-1).padStart(2,'0')}h</span>`;
+  }
+  const packingTotalHtml = `<div class="switch-card" style="cursor:pointer;border-color:var(--orange)" onclick="cnvGrupoClick('')">
+    <div class="switch-card-top">
+      <div class="switch-card-name"><i class="fas fa-boxes-stacked" style="color:var(--orange);margin-right:8px"></i>Packing Total</div>
+    </div>
+    <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHoraTotal.toLocaleString('pt-BR')}</div>
+    <div class="switch-card-desc">processado às ${String(h).padStart(2,'0')}h · soma de todos os grupos</div>
+    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
+      Acumulado do dia: <strong style="color:var(--text)">${acumuladoDiaTotal.toLocaleString('pt-BR')}</strong>${deltaTotalHtml}
+    </div>
+  </div>`;
+
+  wrap.innerHTML = packingTotalHtml + CONVEYOR_DATA.grupos.map(grupo => {
     const rowsGrupo = rows.filter(r => r.grupo === grupo);
     const rowsHora = rowsGrupo.filter(r => r.hora === h);
     const valorHora = rowsHora.reduce((s, r) => s + r.totalProcessamento, 0);
