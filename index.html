@@ -2941,10 +2941,13 @@
         </div>
       </div>
       <div class="pulso-coverage" id="bkl-coverage"></div>
-      <div id="bkl-kpis" style="margin-top:12px"></div>
+      <div class="table-toolbar-title" style="margin-top:14px">Backlog Total e por Perfil</div>
+      <div id="bkl-kpis-perfil" style="margin-top:8px"></div>
+      <div class="table-toolbar-title" style="margin-top:16px">Por Tempo de Aging</div>
+      <div id="bkl-kpis-tempo" style="margin-top:8px"></div>
       <div class="chart-card full" style="margin-top:16px">
         <div class="table-toolbar" style="margin-bottom:0">
-          <div class="chart-title" id="bkl-chart-title">Pacotes por faixa de aging</div>
+          <div class="chart-title" id="bkl-chart-title">Pacotes por hora — clusters de aging</div>
           <div style="display:flex;gap:8px">
             <button type="button" class="spr-ms-action-btn" id="bkl-pivot-metric-toggle" onclick="bklTogglePivotMetric()" style="display:none">Ver Soma de Pacotes</button>
             <button type="button" class="spr-ms-action-btn" id="bkl-chart-toggle" onclick="bklToggleChartView()">Ver Tabela por Origem</button>
@@ -6585,8 +6588,23 @@ function renderPlaceholder(section){
 /* ================================================================
    BACKLOG — faixa_aging/perfil/origem (forecast_backlog_pulso, colunas A-G)
 ================================================================ */
-const FAIXA_ORDER = ['0-1h','1-2h','2-4h','4-8h','8-24h','>24h'];
-const FAIXA_TYPE = { '0-1h':'success', '1-2h':'success', '2-4h':'', '4-8h':'warning', '8-24h':'warning', '>24h':'danger' };
+// Clusters de aging (pedido do Roberto em 2026-08-04, pra reduzir as 6
+// faixas cruas a 3 grupos legíveis no card/gráfico): 0-4h junta 0-1h/1-2h/
+// 2-4h, 4-24h junta 4-8h/8-24h, >24h fica sozinho.
+const AGING_CLUSTERS = ['0-4h', '4-24h', '>24h'];
+const AGING_CLUSTER_TYPE = { '0-4h':'success', '4-24h':'warning', '>24h':'danger' };
+const AGING_CLUSTER_OF = { '0-1h':'0-4h', '1-2h':'0-4h', '2-4h':'0-4h', '4-8h':'4-24h', '8-24h':'4-24h', '>24h':'>24h' };
+
+// Cards de perfil consolidados (pedido do Roberto em 2026-08-04): P/M/G/
+// Bulky/Líquido ficam sozinhos, Ração+Tinta+S/Class viram um card só.
+const PERFIL_CARDS = [
+  { label:'P',       match: p => p === 'P' },
+  { label:'M',       match: p => p === 'M' },
+  { label:'G',       match: p => p === 'G' },
+  { label:'Bulky',   match: p => p === 'BULKY' },
+  { label:'Ração + Tinta + S/Class', match: p => p === 'RAÇÃO' || p === 'TINTA' || p === 'S/CLASS' },
+  { label:'Líquido', match: p => p === 'LIQUIDO' },
+];
 
 const BACKLOG_STATE = { date: null, hour: '', perfil: '' };
 let BACKLOG_DATA = null;
@@ -6664,11 +6682,6 @@ function bklAgingPonderado(rows){
   if(!qtd) return 0;
   return rows.reduce((s,r)=>s+r.agingMedioMin*r.qtdPacotes,0) / qtd;
 }
-function bklFaixasOrdenadas(){
-  const faixas = BACKLOG_DATA?.opcoes.faixas || [];
-  return [...FAIXA_ORDER.filter(f => faixas.includes(f)), ...faixas.filter(f => !FAIXA_ORDER.includes(f))];
-}
-
 function bklRenderAll(){
   bklRenderKpis();
   if(BACKLOG_CHART_VIEW === 'chart') bklRenderChart(); else bklRenderPivot();
@@ -6680,21 +6693,25 @@ function bklRenderKpis(){
   const totalPacotes = rows.reduce((s,r)=>s+r.qtdPacotes,0);
   const subHora = BACKLOG_STATE.hour === '' ? 'dia inteiro' : `${String(BACKLOG_STATE.hour).padStart(2,'0')}h`;
 
-  const cardsFaixa = bklFaixasOrdenadas().map(f => {
-    const qtd = rows.filter(r=>r.faixaAging===f).reduce((s,r)=>s+r.qtdPacotes,0);
-    return { label:f, value:qtd.toLocaleString('pt-BR'), delta:'', trend:'up', type:FAIXA_TYPE[f]||'', icon:'fa-clock' };
+  // Linha 1 — Backlog Total e por Perfil (ignora o filtro de perfil, já que
+  // os cards SÃO a própria quebra por perfil).
+  const cardsPerfil = PERFIL_CARDS.map(pc => {
+    const qtd = base.filter(r=>pc.match(r.perfil)).reduce((s,r)=>s+r.qtdPacotes,0);
+    return { label:pc.label, value:qtd.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-tag' };
   });
-
-  const cardsPerfil = (BACKLOG_DATA?.opcoes.perfis || []).map(perfil => {
-    const qtd = base.filter(r=>r.perfil===perfil).reduce((s,r)=>s+r.qtdPacotes,0);
-    return { label:perfil, value:qtd.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-tag' };
-  });
-
-  buildKPIs('bkl-kpis', [
+  buildKPIs('bkl-kpis-perfil', [
     { label:'Backlog Atual', value:totalPacotes.toLocaleString('pt-BR'), sub:subHora, delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
-    { label:'Aging Médio Ponderado (h)', value:pulsoFmtHoraVirgula(bklAgingPonderado(rows)), sub:subHora, delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
-    ...cardsFaixa,
     ...cardsPerfil,
+  ]);
+
+  // Linha 2 — Por Tempo de Aging (3 clusters, respeita o filtro de perfil).
+  const cardsCluster = AGING_CLUSTERS.map(c => {
+    const qtd = rows.filter(r=>AGING_CLUSTER_OF[r.faixaAging]===c).reduce((s,r)=>s+r.qtdPacotes,0);
+    return { label:c, value:qtd.toLocaleString('pt-BR'), delta:'', trend:'up', type:AGING_CLUSTER_TYPE[c]||'', icon:'fa-clock' };
+  });
+  buildKPIs('bkl-kpis-tempo', [
+    { label:'Aging Médio Ponderado (h)', value:pulsoFmtHoraVirgula(bklAgingPonderado(rows)), sub:subHora, delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
+    ...cardsCluster,
   ]);
 }
 
@@ -6710,7 +6727,7 @@ function bklToggleChartView(){
   if(metricBtn) metricBtn.style.display = isTable ? '' : 'none';
   if(title) title.textContent = isTable
     ? (BACKLOG_PIVOT_METRIC === 'aging' ? 'Aging médio por origem x perfil' : 'Soma de pacotes por origem x perfil')
-    : 'Pacotes por faixa de aging';
+    : 'Pacotes por hora — clusters de aging';
   if(chartWrap) chartWrap.style.display = isTable ? 'none' : '';
   if(pivotWrap) pivotWrap.style.display = isTable ? '' : 'none';
   bklRenderAll();
@@ -6724,18 +6741,21 @@ function bklTogglePivotMetric(){
   bklRenderPivot();
 }
 
+// Linhas por hora (não barras por faixa, pedido do Roberto em 2026-08-04) —
+// ignora o filtro de hora (o gráfico é a evolução do dia inteiro; o filtro
+// de hora é só pros cards/pivot de uma leitura específica).
 function bklRenderChart(){
   if(!BACKLOG_DATA) return;
-  const rows = bklFilteredRows();
+  const rows = BACKLOG_DATA.rows.filter(r => !BACKLOG_STATE.perfil || r.perfil === BACKLOG_STATE.perfil);
   if(chartInstances['chart-backlog-faixa']){ chartInstances['chart-backlog-faixa'].destroy(); delete chartInstances['chart-backlog-faixa']; }
-  const faixas = bklFaixasOrdenadas();
-  const dados = faixas.map(f => rows.filter(r=>r.faixaAging===f).reduce((s,r)=>s+r.qtdPacotes,0));
-  const cores = { success:'#10b981', warning:'#f59e0b', danger:'#ee4d2d', '':'#5d8dff' };
-  mkBar('chart-backlog-faixa', faixas, [{
-    label:'Pacotes', data:dados,
-    backgroundColor: faixas.map(f => cores[FAIXA_TYPE[f]||'']),
-    borderRadius:4,
-  }]);
+  const labels = Array.from({length:24}, (_,h) => String(h).padStart(2,'0')+'h');
+  const cores = { '0-4h':'#10b981', '4-24h':'#f59e0b', '>24h':'#ee4d2d' };
+  const datasets = AGING_CLUSTERS.map(c => ({
+    label: c,
+    data: Array.from({length:24}, (_,h) => rows.filter(r => r.hora===h && AGING_CLUSTER_OF[r.faixaAging]===c).reduce((s,r)=>s+r.qtdPacotes,0)),
+    borderColor: cores[c], backgroundColor: cores[c]+'22', fill:false, tension:.3, pointRadius:2,
+  }));
+  mkLine('chart-backlog-faixa', labels, datasets);
 }
 
 function bklRenderPivot(){
@@ -6770,10 +6790,10 @@ function bklGenerateInsights(){
   const total = rows.reduce((s,r)=>s+r.qtdPacotes,0);
   insights.push({ icon:'fa-boxes-stacked', html:`Backlog atual: <strong>${total.toLocaleString('pt-BR')}</strong> pacotes, aging médio ponderado de ${pulsoFmtHoraVirgula(bklAgingPonderado(rows))}h.` });
 
-  const porFaixa = {};
-  rows.forEach(r => { porFaixa[r.faixaAging] = (porFaixa[r.faixaAging]||0) + r.qtdPacotes; });
-  const faixaTop = Object.entries(porFaixa).sort((a,b)=>b[1]-a[1])[0];
-  if(faixaTop && faixaTop[1]>0) insights.push({ icon:'fa-clock', html:`Maior faixa de aging: <strong>${pulsoEscHtml(faixaTop[0])}</strong> com ${faixaTop[1].toLocaleString('pt-BR')} pacotes.` });
+  const porCluster = {};
+  rows.forEach(r => { const c = AGING_CLUSTER_OF[r.faixaAging]; porCluster[c] = (porCluster[c]||0) + r.qtdPacotes; });
+  const clusterTop = Object.entries(porCluster).sort((a,b)=>b[1]-a[1])[0];
+  if(clusterTop && clusterTop[1]>0) insights.push({ icon:'fa-clock', html:`Maior cluster de aging: <strong>${pulsoEscHtml(clusterTop[0])}</strong> com ${clusterTop[1].toLocaleString('pt-BR')} pacotes.` });
 
   const porPerfil = {};
   base.forEach(r => { porPerfil[r.perfil] = (porPerfil[r.perfil]||0) + r.qtdPacotes; });
