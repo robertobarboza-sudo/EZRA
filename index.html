@@ -664,6 +664,7 @@
     .ovw-accordion summary::-webkit-details-marker { display: none; }
     .ovw-accordion summary:hover { background: var(--surface-2); }
     .ovw-accordion summary .ovw-chevron { transition: transform .2s; color: var(--text-muted); }
+    .ovw-accordion summary > span i { opacity: .35; }
     .ovw-accordion[open] summary .ovw-chevron { transform: rotate(180deg); }
     .ovw-accordion-body { padding: 0 16px 16px; }
     .ovw-accordion .kpi-strip-item { padding: 11px 12px; }
@@ -1456,6 +1457,7 @@
     }
     .bkl-ontime-btn:hover { background: rgba(238,77,45,.16); }
     .bkl-ontime-btn i { font-size: 11px; }
+    .bkl-ontime-btn.active { background: var(--orange); color: #fff; box-shadow: 0 2px 10px rgba(238,77,45,.35); }
 
     .spr-ms-wrap { position: relative; display: inline-flex; }
     .spr-ms-btn {
@@ -2999,7 +3001,7 @@
           <input type="date" class="filter-select pulso-date-input" id="bkl-date-input" onchange="bklSetDate(this.value)" style="color-scheme:dark"/>
           <select class="filter-select" id="bkl-hour-input" onchange="bklSetHour(this.value)" style="height:34px"><option value="">Dia todo</option></select>
           <select class="filter-select" id="bkl-perfil-input" onchange="bklSetPerfil(this.value)" style="height:34px"><option value="">Todos os perfis</option></select>
-          <button type="button" class="bkl-ontime-btn" onclick="bklOnTime()"><i class="fas fa-bolt"></i> On Time</button>
+          <button type="button" class="bkl-ontime-btn" id="bkl-ontime-btn" onclick="bklOnTime()"><i class="fas fa-bolt"></i> On Time</button>
         </div>
       </div>
       <div class="pulso-coverage" id="bkl-coverage"></div>
@@ -4527,12 +4529,18 @@ function pulsoNavExternal(url){
    RENDER PIPELINE
 ================================================================ */
 function navigateTo(id, el){
-  if(currentSection===id) return;
   // Access control guard
   if(!canAccess(id)){
     showToast('Acesso não permitido para o seu perfil.', true);
     return;
   }
+  // O highlight do menu (seção + nav-item) sempre roda, mesmo se currentSection
+  // já for `id` — bug corrigido em 2026-08-04: Outbound/Leftover compartilham o
+  // mesmo id de seção ('spr'), então trocar entre as subpáginas chamava
+  // navigateTo com o MESMO id de novo, e o early-return antigo (antes de
+  // marcar as classes active) deixava o menu lateral sem refletir a página
+  // atual. Só o recarregamento de dados (caro) continua pulando quando a
+  // seção não mudou de verdade.
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
   const target=document.getElementById('section-'+id);
@@ -4540,10 +4548,12 @@ function navigateTo(id, el){
   if(el) el.classList.add('active');
   const m = sectionMeta[id] || {};
   document.getElementById('greet-sub').textContent = m.sub || id;
+  const mudouSecao = currentSection!==id;
   currentSection=id;
+  if(window.innerWidth<=768) closeMobileSidebar();
+  if(!mudouSecao) return;
   destroyCharts();
   renderSection(id);
-  if(window.innerWidth<=768) closeMobileSidebar();
 }
 
 // Nav-items com subpáginas (Outbound/SPR/Leftover, Line Haul/First Mile):
@@ -4720,7 +4730,7 @@ function pulsoBuildHTML(cfg){
         <input type="date" class="filter-select pulso-date-input" id="pulso-date-de-${cfg.key}" onchange="pulsoSetDateRange('${cfg.key}','De', this.value)" style="color-scheme:dark"/>
         <span style="font-size:11px;color:var(--text-muted);align-self:center">Até</span>
         <input type="date" class="filter-select pulso-date-input" id="pulso-date-ate-${cfg.key}" onchange="pulsoSetDateRange('${cfg.key}','Ate', this.value)" style="color-scheme:dark"/>
-        <button type="button" class="spr-ms-action-btn" onclick="pulsoClearDateRange('${cfg.key}')">Hoje</button>
+        <button type="button" class="spr-ms-action-btn" onclick="pulsoClearDateRange('${cfg.key}')">Limpar</button>
       </div>` : (cfg.hidePeriod ? '' : `
       <div class="spr-filter-group">
         <div class="bkl-tabs" id="pulso-dim-${cfg.key}">${dimTabs}</div>
@@ -5155,13 +5165,17 @@ function pulsoGenericInsights(key, data){
   if(!data) return [];
   const cfg = PULSO_DASHBOARDS[key];
   const insights = [];
-  const entries = Object.entries(data.delta || {});
+  // data.delta traz TODO campo numérico de `atual` (ver api/leftover.js),
+  // inclusive campos internos usados só como countKey (ex: registrosExterno)
+  // que não têm KPI/label próprio — sem esse filtro, o "maior mover" podia
+  // cair num desses e vazar o nome cru do campo no texto do Pipboy.
+  const entries = Object.entries(data.delta || {}).filter(([k]) => cfg.kpis.some(x => x.key === k));
   if(entries.length){
     const [k, v] = entries.sort((a,b)=>Math.abs(b[1])-Math.abs(a[1]))[0];
     const kpiDef = cfg.kpis.find(x=>x.key===k);
     insights.push({
       icon: v>=0 ? 'fa-arrow-trend-up' : 'fa-arrow-trend-down',
-      html: `<strong>${kpiDef ? kpiDef.label : k}</strong> foi o que mais mudou: ${v>0?'+':''}${v}% vs o período anterior.`
+      html: `<strong>${kpiDef.label}</strong> foi o que mais mudou: ${v>0?'+':''}${v}% vs o período anterior.`
     });
   }
   return insights;
@@ -6885,6 +6899,7 @@ const PERFIL_CARDS = [
 
 const BACKLOG_STATE = { date: null, hour: '', perfil: '' };
 let BACKLOG_HOUR_INITIALIZED = false; // 1ª carga: default = última hora atualizada, não "Dia todo"
+let BACKLOG_ON_TIME_ACTIVE = false; // true logo após clicar "On Time", até o usuário mexer em algum filtro
 let BACKLOG_DATA = null;
 let BACKLOG_CHART_VIEW = 'chart';     // 'chart' | 'table'
 let BACKLOG_CHART_METRIC = 'pacotes'; // 'pacotes' | 'aging'
@@ -6940,17 +6955,20 @@ async function loadBacklog(){
   }
 }
 
-function bklSetDate(v){ BACKLOG_STATE.date = v || null; loadBacklog(); }
-function bklSetHour(v){ BACKLOG_STATE.hour = v; bklRenderAll(); }
-function bklSetPerfil(v){ BACKLOG_STATE.perfil = v; bklRenderAll(); }
+function bklSetDate(v){ BACKLOG_STATE.date = v || null; BACKLOG_ON_TIME_ACTIVE = false; loadBacklog(); }
+function bklSetHour(v){ BACKLOG_STATE.hour = v; BACKLOG_ON_TIME_ACTIVE = false; bklRenderAll(); }
+function bklSetPerfil(v){ BACKLOG_STATE.perfil = v; BACKLOG_ON_TIME_ACTIVE = false; bklRenderAll(); }
 
 // "On Time" — limpa os filtros (data/hora/perfil/card ativo) e volta pra
-// leitura mais recente disponível.
+// leitura mais recente disponível (mesma lógica do default da 1ª carga:
+// reseta BACKLOG_HOUR_INITIALIZED pra recalcular a última hora do dia).
 function bklOnTime(){
   BACKLOG_STATE.date = null;
   BACKLOG_STATE.hour = '';
   BACKLOG_STATE.perfil = '';
   BACKLOG_ACTIVE_CARD = null;
+  BACKLOG_HOUR_INITIALIZED = false;
+  BACKLOG_ON_TIME_ACTIVE = true;
   loadBacklog();
 }
 
@@ -6997,6 +7015,8 @@ function bklQtdMedia(rows){
 function bklRenderAll(){
   bklRenderKpis();
   if(BACKLOG_CHART_VIEW === 'chart') bklRenderChart(); else bklRenderPivot();
+  const ontimeBtn = document.getElementById('bkl-ontime-btn');
+  if(ontimeBtn) ontimeBtn.classList.toggle('active', BACKLOG_ON_TIME_ACTIVE);
 }
 
 function bklRenderKpis(){
@@ -8331,7 +8351,8 @@ async function loadAsm(){
     ASM_ULTIMA_HORA = horasComDado.length ? horasComDado[horasComDado.length-1] : 23;
     const horaEl = document.getElementById('asm-hora-input');
     if(horaEl){
-      horaEl.innerHTML = ASM_HORAS_ORDENADAS.map(h => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
+      horaEl.innerHTML = '<option value="">Dia todo</option>' +
+        ASM_HORAS_ORDENADAS.map(h => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
       horaEl.value = String(asmEffectiveHora());
     }
 
@@ -8351,6 +8372,7 @@ async function loadAsm(){
 }
 
 function asmEffectiveHora(){
+  if(ASM_STATE.hora === '') return ''; // "Dia todo" — sentinel explícito, distinto de null (= "sem escolha, usa a última hora")
   return (ASM_STATE.hora !== null && ASM_STATE.hora !== undefined) ? ASM_STATE.hora : ASM_ULTIMA_HORA;
 }
 
@@ -8366,7 +8388,7 @@ function asmPopulateFilterOptions(j){
 
 function asmSetFilter(campo, valor){
   if(campo === 'date'){ ASM_STATE.date = valor; ASM_STATE.hora = null; loadAsm(); return; }
-  if(campo === 'hora'){ ASM_STATE.hora = valor === '' ? null : Number(valor); ASM_PAGE = 0; asmRenderAll(); return; }
+  if(campo === 'hora'){ ASM_STATE.hora = valor === '' ? '' : Number(valor); ASM_PAGE = 0; asmRenderAll(); return; }
   ASM_STATE[campo] = valor;
   ASM_PAGE = 0;
   asmRenderAll();
@@ -8400,13 +8422,15 @@ function asmRowsForZoneCards(){
   );
 }
 
-// Tabela: modo "acumulado" soma hora <= h; modo "hora" pega só a hora h.
+// Tabela: modo "acumulado" soma hora <= h; modo "hora" pega só a hora h;
+// "Dia todo" (h==='') ignora os dois modos e pega o dia inteiro.
 function asmFilteredRows(){
   if(!ASM_DATA) return [];
   const h = asmEffectiveHora();
-  const ordemH = asmHourOrder(h);
+  const diaTodo = h === '';
+  const ordemH = diaTodo ? null : asmHourOrder(h);
   return ASM_DATA.rows.filter(r =>
-    (ASM_STATE.tableMode === 'hora' ? r.hora === h : asmHourOrder(r.hora) <= ordemH) &&
+    (diaTodo || (ASM_STATE.tableMode === 'hora' ? r.hora === h : asmHourOrder(r.hora) <= ordemH)) &&
     (!ASM_STATE.turno || r.turno === ASM_STATE.turno) &&
     (!ASM_STATE.zona || r.zona === ASM_STATE.zona) &&
     (!ASM_STATE.nivel || r.nivel === ASM_STATE.nivel) &&
@@ -8430,26 +8454,31 @@ function asmRenderZoneCards(){
   const wrap = document.getElementById('asm-zone-cards');
   if(!wrap || !ASM_DATA) return;
   const h = asmEffectiveHora();
-  const ordemH = asmHourOrder(h);
-  const horaAnterior = ordemH > 0 ? ASM_HORAS_ORDENADAS[ordemH - 1] : null;
+  const diaTodo = h === ''; // "Dia todo" (pedido do Roberto em 2026-08-04) — sem hora de referência, sem "vs hora anterior"
+  const ordemH = diaTodo ? null : asmHourOrder(h);
+  const horaAnterior = (!diaTodo && ordemH > 0) ? ASM_HORAS_ORDENADAS[ordemH - 1] : null;
   const rows = asmRowsForZoneCards();
+  const rotuloHora = diaTodo ? 'no dia' : `às ${String(h).padStart(2,'0')}h`;
 
   const cardParaZona = zona => {
     const rowsZona = rows.filter(r => r.zona === zona);
-    const valorHora = rowsZona.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0);
-    const valorHoraAnterior = horaAnterior !== null ? rowsZona.filter(r => r.hora === horaAnterior).reduce((s, r) => s + r.scanNumbers, 0) : null;
-    const acumuladoDia = rowsZona.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
-    const mesas = new Set(rowsZona.filter(r => r.hora === h && r.mesa).map(r => r.mesa)).size;
-    const operadores = new Set(rowsZona.filter(r => r.hora === h).map(r => r.colaborador)).size;
+    const rowsNaHora = diaTodo ? rowsZona : rowsZona.filter(r => r.hora === h);
+    const valorHora = rowsNaHora.reduce((s, r) => s + r.scanNumbers, 0);
+    const valorHoraAnterior = (!diaTodo && horaAnterior !== null) ? rowsZona.filter(r => r.hora === horaAnterior).reduce((s, r) => s + r.scanNumbers, 0) : null;
+    const acumuladoDia = diaTodo ? valorHora : rowsZona.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
+    const mesas = new Set(rowsNaHora.filter(r => r.mesa).map(r => r.mesa)).size;
+    const operadores = new Set(rowsNaHora.map(r => r.colaborador)).size;
     const ativo = ASM_STATE.zona === zona;
 
     let deltaHtml = '';
-    if(valorHoraAnterior !== null && valorHoraAnterior > 0){
-      const pct = (valorHora - valorHoraAnterior) / valorHoraAnterior * 100;
-      const trend = pct >= 0 ? 'green' : 'red';
-      deltaHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
-    } else if(valorHoraAnterior === 0 && valorHora > 0){
-      deltaHtml = ` · <span style="color:var(--green)">novo vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
+    if(!diaTodo){
+      if(valorHoraAnterior !== null && valorHoraAnterior > 0){
+        const pct = (valorHora - valorHoraAnterior) / valorHoraAnterior * 100;
+        const trend = pct >= 0 ? 'green' : 'red';
+        deltaHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
+      } else if(valorHoraAnterior === 0 && valorHora > 0){
+        deltaHtml = ` · <span style="color:var(--green)">novo vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
+      }
     }
 
     return `<div class="switch-card" style="cursor:pointer;${ativo?'border-color:var(--orange)':''}" onclick="asmZonaClick('${zona.replace(/'/g,"\\'")}')">
@@ -8457,10 +8486,10 @@ function asmRenderZoneCards(){
         <div class="switch-card-name"><i class="fas fa-location-dot" style="color:var(--orange);margin-right:8px"></i>${zona}</div>
       </div>
       <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHora.toLocaleString('pt-BR')}</div>
-      <div class="switch-card-desc">induções às ${String(h).padStart(2,'0')}h · ${mesas} mesa(s) · ${operadores} operador(es)</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
+      <div class="switch-card-desc">induções ${rotuloHora} · ${mesas} mesa(s) · ${operadores} operador(es)</div>
+      ${diaTodo ? '' : `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
         Acumulado do dia: <strong style="color:var(--text)">${acumuladoDia.toLocaleString('pt-BR')}</strong>${deltaHtml}
-      </div>
+      </div>`}
     </div>`;
   };
 
@@ -8469,28 +8498,35 @@ function asmRenderZoneCards(){
   // só como texto de apoio no rodapé (pedido do Roberto em 2026-08-04).
   const rowsReais = rows.filter(r => !r.isSystemDefault);
   const rowsSD = rows.filter(r => r.isSystemDefault);
-  const valorHoraTotal = rowsReais.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0);
-  const valorHoraAnteriorTotal = horaAnterior !== null ? rowsReais.filter(r => r.hora === horaAnterior).reduce((s, r) => s + r.scanNumbers, 0) : null;
-  const acumuladoDiaTotal = rowsReais.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
-  const acumuladoDiaSD = rowsSD.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
-  const mesasTotal = new Set(rowsReais.filter(r => r.hora === h && r.mesa).map(r => r.mesa)).size;
-  const operadoresTotal = new Set(rowsReais.filter(r => r.hora === h).map(r => r.colaborador)).size;
+  const rowsReaisNaHora = diaTodo ? rowsReais : rowsReais.filter(r => r.hora === h);
+  const valorHoraTotal = rowsReaisNaHora.reduce((s, r) => s + r.scanNumbers, 0);
+  const valorHoraAnteriorTotal = (!diaTodo && horaAnterior !== null) ? rowsReais.filter(r => r.hora === horaAnterior).reduce((s, r) => s + r.scanNumbers, 0) : null;
+  const acumuladoDiaTotal = diaTodo ? valorHoraTotal : rowsReais.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
+  const acumuladoDiaSD = diaTodo ? rowsSD.reduce((s, r) => s + r.scanNumbers, 0) : rowsSD.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
+  const mesasTotal = new Set(rowsReaisNaHora.filter(r => r.mesa).map(r => r.mesa)).size;
+  const operadoresTotal = new Set(rowsReaisNaHora.map(r => r.colaborador)).size;
 
   let deltaTotalHtml = '';
-  if(valorHoraAnteriorTotal !== null && valorHoraAnteriorTotal > 0){
-    const pct = (valorHoraTotal - valorHoraAnteriorTotal) / valorHoraAnteriorTotal * 100;
-    const trend = pct >= 0 ? 'green' : 'red';
-    deltaTotalHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
-  } else if(valorHoraAnteriorTotal === 0 && valorHoraTotal > 0){
-    deltaTotalHtml = ` · <span style="color:var(--green)">novo vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
+  if(!diaTodo){
+    if(valorHoraAnteriorTotal !== null && valorHoraAnteriorTotal > 0){
+      const pct = (valorHoraTotal - valorHoraAnteriorTotal) / valorHoraAnteriorTotal * 100;
+      const trend = pct >= 0 ? 'green' : 'red';
+      deltaTotalHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
+    } else if(valorHoraAnteriorTotal === 0 && valorHoraTotal > 0){
+      deltaTotalHtml = ` · <span style="color:var(--green)">novo vs ${String(horaAnterior).padStart(2,'0')}h</span>`;
+    }
   }
 
-  const cardTotalHtml = `<div class="switch-card" style="cursor:pointer;border-color:var(--orange)" onclick="asmZonaClick('')">
+  // Bug corrigido em 2026-08-04: a borda desse card era fixa (sempre
+  // laranja), então ficava "selecionado" mesmo com uma zona ativa — agora
+  // só destaca quando nenhuma zona está filtrada (mesmo padrão dos cards de zona).
+  const totalAtivo = ASM_STATE.zona === '';
+  const cardTotalHtml = `<div class="switch-card" style="cursor:pointer;${totalAtivo?'border-color:var(--orange)':''}" onclick="asmZonaClick('')">
     <div class="switch-card-top">
       <div class="switch-card-name"><i class="fas fa-chart-simple" style="color:var(--orange);margin-right:8px"></i>Total Realizado</div>
     </div>
     <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHoraTotal.toLocaleString('pt-BR')}</div>
-    <div class="switch-card-desc">induções às ${String(h).padStart(2,'0')}h · ${mesasTotal} mesa(s) · ${operadoresTotal} operador(es)</div>
+    <div class="switch-card-desc">induções ${rotuloHora} · ${mesasTotal} mesa(s) · ${operadoresTotal} operador(es)</div>
     <div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
       Total das zonas: <strong style="color:var(--text)">${acumuladoDiaTotal.toLocaleString('pt-BR')}</strong> + ${acumuladoDiaSD.toLocaleString('pt-BR')} de S. Default${deltaTotalHtml}
     </div>
@@ -8608,9 +8644,9 @@ function asmRenderTable(){
   const label = document.getElementById('asm-table-hora-label');
   if(!tbody) return;
   const h = asmEffectiveHora();
-  if(label) label.textContent = ASM_STATE.tableMode === 'hora'
-    ? `(hora ${String(h).padStart(2,'0')}h)`
-    : `(acumulado até ${String(h).padStart(2,'0')}h)`;
+  if(label) label.textContent = h === ''
+    ? '(dia todo)'
+    : (ASM_STATE.tableMode === 'hora' ? `(hora ${String(h).padStart(2,'0')}h)` : `(acumulado até ${String(h).padStart(2,'0')}h)`);
 
   let linhas = asmGroupByColaborador();
   if(ASM_SORT.key){
@@ -8717,7 +8753,8 @@ async function loadConveyor(){
     CNV_ULTIMA_HORA = horasComDado.length ? horasComDado[horasComDado.length-1] : 23;
     const horaEl = document.getElementById('cnv-hora-input');
     if(horaEl){
-      horaEl.innerHTML = Array.from({length:24}, (_, h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
+      horaEl.innerHTML = '<option value="">Dia todo</option>' +
+        Array.from({length:24}, (_, h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
       horaEl.value = String(cnvEffectiveHora());
     }
 
@@ -8742,6 +8779,7 @@ async function loadConveyor(){
 }
 
 function cnvEffectiveHora(){
+  if(CONVEYOR_STATE.hora === '') return ''; // "Dia todo" — sentinel explícito, distinto de null (= "sem escolha, usa a última hora")
   return (CONVEYOR_STATE.hora !== null && CONVEYOR_STATE.hora !== undefined) ? CONVEYOR_STATE.hora : CNV_ULTIMA_HORA;
 }
 
@@ -8757,7 +8795,7 @@ function cnvPopulateEstacaoOptions(){
 
 function cnvSetFilter(campo, valor){
   if(campo === 'date'){ CONVEYOR_STATE.date = valor; CONVEYOR_STATE.hora = null; loadConveyor(); return; }
-  if(campo === 'hora'){ CONVEYOR_STATE.hora = valor === '' ? null : Number(valor); CNV_PAGE = 0; cnvRenderAll(); return; }
+  if(campo === 'hora'){ CONVEYOR_STATE.hora = valor === '' ? '' : Number(valor); CNV_PAGE = 0; cnvRenderAll(); return; }
   CONVEYOR_STATE[campo] = valor;
   if(campo === 'grupo') cnvPopulateEstacaoOptions();
   CNV_PAGE = 0;
@@ -8788,12 +8826,14 @@ function cnvRowsForGroupCards(){
   return CONVEYOR_DATA.rows.filter(r => !CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao);
 }
 
-// Tabela: modo "acumulado" soma hora <= h; modo "hora" pega só a hora h.
+// Tabela: modo "acumulado" soma hora <= h; modo "hora" pega só a hora h;
+// "Dia todo" (h==='') ignora os dois modos e pega o dia inteiro.
 function cnvFilteredRows(){
   if(!CONVEYOR_DATA) return [];
   const h = cnvEffectiveHora();
+  const diaTodo = h === '';
   return CONVEYOR_DATA.rows.filter(r =>
-    (CONVEYOR_STATE.tableMode === 'hora' ? r.hora === h : r.hora <= h) &&
+    (diaTodo || (CONVEYOR_STATE.tableMode === 'hora' ? r.hora === h : r.hora <= h)) &&
     (!CONVEYOR_STATE.grupo || r.grupo === CONVEYOR_STATE.grupo) &&
     (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao)
   );
@@ -8812,29 +8852,36 @@ function cnvRenderGroupCards(){
   const wrap = document.getElementById('cnv-group-cards');
   if(!wrap || !CONVEYOR_DATA) return;
   const h = cnvEffectiveHora();
+  const diaTodo = h === ''; // "Dia todo" (pedido do Roberto em 2026-08-04) — sem hora de referência, sem "vs hora anterior"
   const rows = cnvRowsForGroupCards();
+  const rotuloHora = diaTodo ? 'no dia' : `às ${String(h).padStart(2,'0')}h`;
 
   // Packing Total = soma de todos os grupos (pedido do Roberto em
   // 2026-08-04). Clicar limpa o filtro de grupo, já que representa "todos".
-  const rowsHoraTotal = rows.filter(r => r.hora === h);
+  const rowsHoraTotal = diaTodo ? rows : rows.filter(r => r.hora === h);
   const valorHoraTotal = rowsHoraTotal.reduce((s, r) => s + r.totalProcessamento, 0);
-  const rowsHoraAnteriorTotal = h > 0 ? rows.filter(r => r.hora === h-1) : [];
-  const valorHoraAnteriorTotal = h > 0 ? rowsHoraAnteriorTotal.reduce((s, r) => s + r.totalProcessamento, 0) : null;
-  const acumuladoDiaTotal = rows.filter(r => r.hora <= h).reduce((s, r) => s + r.totalProcessamento, 0);
+  const rowsHoraAnteriorTotal = (!diaTodo && h > 0) ? rows.filter(r => r.hora === h-1) : [];
+  const valorHoraAnteriorTotal = (!diaTodo && h > 0) ? rowsHoraAnteriorTotal.reduce((s, r) => s + r.totalProcessamento, 0) : null;
+  const acumuladoDiaTotal = diaTodo ? valorHoraTotal : rows.filter(r => r.hora <= h).reduce((s, r) => s + r.totalProcessamento, 0);
   let deltaTotalHtml = '';
-  if(valorHoraAnteriorTotal !== null && valorHoraAnteriorTotal > 0){
-    const pct = (valorHoraTotal - valorHoraAnteriorTotal) / valorHoraAnteriorTotal * 100;
-    const trend = pct >= 0 ? 'green' : 'red';
-    deltaTotalHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(h-1).padStart(2,'0')}h</span>`;
-  } else if(valorHoraAnteriorTotal === 0 && valorHoraTotal > 0){
-    deltaTotalHtml = ` · <span style="color:var(--green)">novo vs ${String(h-1).padStart(2,'0')}h</span>`;
+  if(!diaTodo){
+    if(valorHoraAnteriorTotal !== null && valorHoraAnteriorTotal > 0){
+      const pct = (valorHoraTotal - valorHoraAnteriorTotal) / valorHoraAnteriorTotal * 100;
+      const trend = pct >= 0 ? 'green' : 'red';
+      deltaTotalHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(h-1).padStart(2,'0')}h</span>`;
+    } else if(valorHoraAnteriorTotal === 0 && valorHoraTotal > 0){
+      deltaTotalHtml = ` · <span style="color:var(--green)">novo vs ${String(h-1).padStart(2,'0')}h</span>`;
+    }
   }
-  const packingTotalHtml = `<div class="switch-card" style="cursor:pointer;border-color:var(--orange)" onclick="cnvGrupoClick('')">
+  // Bug corrigido em 2026-08-04 (mesmo do "Total Realizado" do ASM): a borda
+  // era fixa (sempre laranja) — agora só destaca quando nenhum grupo está filtrado.
+  const totalAtivo = CONVEYOR_STATE.grupo === '';
+  const packingTotalHtml = `<div class="switch-card" style="cursor:pointer;${totalAtivo?'border-color:var(--orange)':''}" onclick="cnvGrupoClick('')">
     <div class="switch-card-top">
       <div class="switch-card-name"><i class="fas fa-boxes-stacked" style="color:var(--orange);margin-right:8px"></i>Packing Total</div>
     </div>
     <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHoraTotal.toLocaleString('pt-BR')}</div>
-    <div class="switch-card-desc">processado às ${String(h).padStart(2,'0')}h · soma de todos os grupos</div>
+    <div class="switch-card-desc">processado ${rotuloHora} · soma de todos os grupos</div>
     <div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
       Acumulado do dia: <strong style="color:var(--text)">${acumuladoDiaTotal.toLocaleString('pt-BR')}</strong>${deltaTotalHtml}
     </div>
@@ -8842,24 +8889,26 @@ function cnvRenderGroupCards(){
 
   wrap.innerHTML = packingTotalHtml + CONVEYOR_DATA.grupos.map(grupo => {
     const rowsGrupo = rows.filter(r => r.grupo === grupo);
-    const rowsHora = rowsGrupo.filter(r => r.hora === h);
+    const rowsHora = diaTodo ? rowsGrupo : rowsGrupo.filter(r => r.hora === h);
     const valorHora = rowsHora.reduce((s, r) => s + r.totalProcessamento, 0);
     const estacoes = new Set(rowsHora.map(r => r.estacao)).size;
 
-    const rowsHoraAnterior = h > 0 ? rowsGrupo.filter(r => r.hora === h-1) : [];
-    const valorHoraAnterior = h > 0 ? rowsHoraAnterior.reduce((s, r) => s + r.totalProcessamento, 0) : null;
+    const rowsHoraAnterior = (!diaTodo && h > 0) ? rowsGrupo.filter(r => r.hora === h-1) : [];
+    const valorHoraAnterior = (!diaTodo && h > 0) ? rowsHoraAnterior.reduce((s, r) => s + r.totalProcessamento, 0) : null;
 
-    const acumuladoDia = rowsGrupo.filter(r => r.hora <= h).reduce((s, r) => s + r.totalProcessamento, 0);
+    const acumuladoDia = diaTodo ? valorHora : rowsGrupo.filter(r => r.hora <= h).reduce((s, r) => s + r.totalProcessamento, 0);
 
     const ativo = CONVEYOR_STATE.grupo === grupo;
 
     let deltaHtml = '';
-    if(valorHoraAnterior !== null && valorHoraAnterior > 0){
-      const pct = (valorHora - valorHoraAnterior) / valorHoraAnterior * 100;
-      const trend = pct >= 0 ? 'green' : 'red';
-      deltaHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(h-1).padStart(2,'0')}h</span>`;
-    } else if(valorHoraAnterior === 0 && valorHora > 0){
-      deltaHtml = ` · <span style="color:var(--green)">novo vs ${String(h-1).padStart(2,'0')}h</span>`;
+    if(!diaTodo){
+      if(valorHoraAnterior !== null && valorHoraAnterior > 0){
+        const pct = (valorHora - valorHoraAnterior) / valorHoraAnterior * 100;
+        const trend = pct >= 0 ? 'green' : 'red';
+        deltaHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(h-1).padStart(2,'0')}h</span>`;
+      } else if(valorHoraAnterior === 0 && valorHora > 0){
+        deltaHtml = ` · <span style="color:var(--green)">novo vs ${String(h-1).padStart(2,'0')}h</span>`;
+      }
     }
 
     return `<div class="switch-card" style="cursor:pointer;${ativo?'border-color:var(--orange)':''}" onclick="cnvGrupoClick('${grupo.replace(/'/g,"\\'")}')">
@@ -8867,10 +8916,10 @@ function cnvRenderGroupCards(){
         <div class="switch-card-name"><i class="fas fa-gears" style="color:var(--orange);margin-right:8px"></i>${grupo}</div>
       </div>
       <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHora.toLocaleString('pt-BR')}</div>
-      <div class="switch-card-desc">processado às ${String(h).padStart(2,'0')}h · ${estacoes} estação(ões)</div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
+      <div class="switch-card-desc">processado ${rotuloHora} · ${estacoes} estação(ões)</div>
+      ${diaTodo ? '' : `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
         Acumulado do dia: <strong style="color:var(--text)">${acumuladoDia.toLocaleString('pt-BR')}</strong>${deltaHtml}
-      </div>
+      </div>`}
     </div>`;
   }).join('');
 }
@@ -8980,9 +9029,9 @@ function cnvRenderTable(){
   const label = document.getElementById('cnv-table-hora-label');
   if(!tbody) return;
   const h = cnvEffectiveHora();
-  if(label) label.textContent = CONVEYOR_STATE.tableMode === 'hora'
-    ? `(hora ${String(h).padStart(2,'0')}h)`
-    : `(acumulado até ${String(h).padStart(2,'0')}h)`;
+  if(label) label.textContent = h === ''
+    ? '(dia todo)'
+    : (CONVEYOR_STATE.tableMode === 'hora' ? `(hora ${String(h).padStart(2,'0')}h)` : `(acumulado até ${String(h).padStart(2,'0')}h)`);
 
   let linhas = cnvGroupByOps();
   if(CNV_SORT.key){
