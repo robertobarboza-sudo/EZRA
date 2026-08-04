@@ -2792,10 +2792,10 @@
           <table>
             <thead><tr>
               <th class="spr-sortable" onclick="cnvSortBy('opsId')" id="cnv-th-opsId">OPS Id <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="cnvSortBy('colaborador')" id="cnv-th-colaborador">Colaborador <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="cnvSortBy('grupo')" id="cnv-th-grupo">Grupo <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="cnvSortBy('estacao')" id="cnv-th-estacao">Estação <i class="fas fa-sort"></i></th>
-              <th class="spr-sortable" onclick="cnvSortBy('horasTrabalho')" id="cnv-th-horasTrabalho">Horas Trab. <i class="fas fa-sort"></i></th>
-              <th class="spr-sortable" onclick="cnvSortBy('produtividade')" id="cnv-th-produtividade">Produtividade <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="cnvSortBy('turno')" id="cnv-th-turno">Turno <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="cnvSortBy('totalProcessamento')" id="cnv-th-totalProcessamento">Processado <i class="fas fa-sort"></i></th>
             </tr></thead>
             <tbody id="cnv-tbody"></tbody>
@@ -8363,8 +8363,8 @@ function asmOpenPipboy(){
    CONVEYOR — performance por grupo de estação, hora a hora (aba conveyor_pulso)
 ================================================================ */
 const CONVEYOR_STATE = { date: null, hora: null, grupo: '', estacao: '', tableMode: 'acumulado' };
-const CNV_GROUP_COLORS = { 'OBA/OBB': '#ee4d2d', 'OBC/OBD': '#f5a623', 'Termoplástica': '#5d8dff', 'Esteira A': '#10b981', 'Esteira B': '#06b6d4', 'Non-TO': '#a855f7' };
-const CNV_SORT_COLS = ['opsId','grupo','estacao','horasTrabalho','produtividade','totalProcessamento'];
+const CNV_GROUP_COLORS = { 'OBA/OBB': '#ee4d2d', 'OBC/OBD': '#f5a623', 'Termoplástica': '#5d8dff', 'Esteira A': '#10b981', 'Esteira B': '#06b6d4', 'Tintas': '#ec4899', 'TO-Audit': '#eab308', 'Non-TO': '#a855f7' };
+const CNV_SORT_COLS = ['opsId','colaborador','grupo','estacao','turno','totalProcessamento'];
 const CNV_SORT = { key: 'totalProcessamento', dir: -1 }; // default: maior pro menor
 let CONVEYOR_DATA = null;
 let CNV_ULTIMA_HORA = 23;
@@ -8516,8 +8516,6 @@ function cnvRenderGroupCards(){
     const rowsGrupo = rows.filter(r => r.grupo === grupo);
     const rowsHora = rowsGrupo.filter(r => r.hora === h);
     const valorHora = rowsHora.reduce((s, r) => s + r.totalProcessamento, 0);
-    const horasTrabalhoHora = rowsHora.reduce((s, r) => s + r.horasTrabalho, 0);
-    const produtividadeHora = horasTrabalhoHora > 0 ? Math.round(valorHora / horasTrabalhoHora) : 0;
     const estacoes = new Set(rowsHora.map(r => r.estacao)).size;
 
     const rowsHoraAnterior = h > 0 ? rowsGrupo.filter(r => r.hora === h-1) : [];
@@ -8541,7 +8539,7 @@ function cnvRenderGroupCards(){
         <div class="switch-card-name"><i class="fas fa-gears" style="color:var(--orange);margin-right:8px"></i>${grupo}</div>
       </div>
       <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHora.toLocaleString('pt-BR')}</div>
-      <div class="switch-card-desc">processado às ${String(h).padStart(2,'0')}h · ${estacoes} estação(ões) · produtividade ${produtividadeHora.toLocaleString('pt-BR')} ped/mnhr</div>
+      <div class="switch-card-desc">processado às ${String(h).padStart(2,'0')}h · ${estacoes} estação(ões)</div>
       <div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
         Acumulado do dia: <strong style="color:var(--text)">${acumuladoDia.toLocaleString('pt-BR')}</strong>${deltaHtml}
       </div>
@@ -8578,22 +8576,21 @@ function cnvRenderChart(){
   ]);
 }
 
-// Uma linha por OPS Id, somando processamento/horas das linhas retornadas
-// por cnvFilteredRows() (acumulado até a hora, ou só a hora vigente,
-// conforme CONVEYOR_STATE.tableMode); produtividade recalculada sobre a
-// soma (não é a média das produtividades horárias, que seria errado).
+// Uma linha por OPS Id, somando processamento das linhas retornadas por
+// cnvFilteredRows() (acumulado até a hora, ou só a hora vigente, conforme
+// CONVEYOR_STATE.tableMode); colaborador/grupo/estação/turno usam a
+// leitura mais recente (maior hora) do OPS no período.
 function cnvGroupByOps(){
   const rows = cnvFilteredRows();
   const porOps = new Map();
   rows.forEach(r => {
     const chave = r.opsId || '(sem id)';
-    if(!porOps.has(chave)) porOps.set(chave, { opsId:chave, grupo:r.grupo, estacao:r.estacao, horasTrabalho:0, totalProcessamento:0, _ultimaHora:-1 });
+    if(!porOps.has(chave)) porOps.set(chave, { opsId:chave, colaborador:r.colaborador, grupo:r.grupo, estacao:r.estacao, turno:r.turno, totalProcessamento:0, _ultimaHora:-1 });
     const acc = porOps.get(chave);
-    acc.horasTrabalho += r.horasTrabalho;
     acc.totalProcessamento += r.totalProcessamento;
-    if(r.hora >= acc._ultimaHora){ acc.grupo=r.grupo; acc.estacao=r.estacao; acc._ultimaHora=r.hora; }
+    if(r.hora >= acc._ultimaHora){ acc.colaborador=r.colaborador; acc.grupo=r.grupo; acc.estacao=r.estacao; acc.turno=r.turno; acc._ultimaHora=r.hora; }
   });
-  return [...porOps.values()].map(a => ({ ...a, produtividade: a.horasTrabalho>0 ? Math.round(a.totalProcessamento/a.horasTrabalho) : 0 }));
+  return [...porOps.values()];
 }
 
 function cnvSortBy(colKey){
@@ -8630,7 +8627,7 @@ function cnvRenderTable(){
   if(CNV_SORT.key){
     linhas = [...linhas].sort((a, b) => {
       let va = a[CNV_SORT.key], vb = b[CNV_SORT.key];
-      if(['horasTrabalho','produtividade','totalProcessamento'].includes(CNV_SORT.key)){ va = va||0; vb = vb||0; }
+      if(CNV_SORT.key === 'totalProcessamento'){ va = va||0; vb = vb||0; }
       else { va = String(va||''); vb = String(vb||''); }
       const cmp = va < vb ? -1 : va > vb ? 1 : 0;
       return cmp * CNV_SORT.dir;
@@ -8648,10 +8645,10 @@ function cnvRenderTable(){
   const pageRows = linhas.slice(CNV_PAGE * PAGE_SIZE, (CNV_PAGE + 1) * PAGE_SIZE);
   tbody.innerHTML = pageRows.map(r => `<tr>
     <td>${pulsoEscHtml(r.opsId)}</td>
+    <td>${pulsoEscHtml(r.colaborador||'—')}</td>
     <td>${pulsoEscHtml(r.grupo)}</td>
     <td>${pulsoEscHtml(r.estacao)}</td>
-    <td>${r.horasTrabalho.toLocaleString('pt-BR')}</td>
-    <td>${r.produtividade.toLocaleString('pt-BR')}</td>
+    <td>${pulsoEscHtml(r.turno||'—')}</td>
     <td>${r.totalProcessamento.toLocaleString('pt-BR')}</td>
   </tr>`).join('');
   const pager = totalPaginas > 1 ? `<span class="pulso-pager">

@@ -1,45 +1,52 @@
 /**
  * PULSO — Conveyor: performance por grupo de estação, hora a hora (aba conveyor_pulso).
  *
- * Cada linha = 1 colaborador (OPS Id) em 1 estação de trabalho em 1 hora,
- * com `total de processamento (pedidos)` = pedidos processados e
- * `produtividade horária (pedido/mnhr)` = produtividade daquela hora.
- * `hora_extracao` é a hora real da performance (confirmado com o Roberto em
- * 2026-07-31) — "hora de entrada"/"hora de saída" só têm data, sem horário.
+ * Estrutura da aba mudou (confirmado com o Roberto em 2026-08-04): antes
+ * cada linha vinha com `data` (BR) + `hora_extracao` + a estação crua (de
+ * onde o grupo era inferido via regex no prefixo) + horas de trabalho +
+ * produtividade. Agora (verificado ao vivo via debug-meta):
+ *   - `data extração`  timestamp completo "YYYY-MM-DD HH:MM:SS" — é o
+ *     horário em que o LOTE inteiro foi extraído (todas as linhas da aba
+ *     têm o mesmo valor), não o horário de cada linha — só usamos a parte
+ *     de DATA daqui; a hora de cada linha é a própria coluna `hora`.
+ *   - `hora`            hora real a que a linha se refere (0-23)
+ *   - `ops`/`nome ops`  id + nome do colaborador (nome é novo, não existia)
+ *   - `workstation`/`nome ws`  código + nome do posto de trabalho
+ *   - `esteira`         código do grupo JÁ vem pronto da planilha (ex.
+ *     "P2", "POBC", "PTIN") — não precisa mais inferir via regex do nome
+ *     da estação. Dois grupos novos apareceram: PTIN (Tintas) e
+ *     P_TO-Audit (TO-Audit).
+ *   - `pacotes`         substitui o antigo "total de processamento
+ *     (pedidos)"; não existe mais "horas de trabalho"/"produtividade" —
+ *     esses campos somem da página (não são mais calculáveis).
+ *   - `turno`           novo, vem pronto por linha.
  *
- * Classificação por prefixo do nome da estação (confirmado com o Roberto em
- * 2026-07-31, quebra de Quedas em OBA/OBB e OBC/OBD ajustada em 2026-07-31),
- * extraído de `id/nome da estação de trabalho`
- * (ex: "[WS8300000019]P2_AU06" -> prefixo "P2_AU06"):
- *   POBA/POBB -> OBA/OBB
- *   POBC/POBD -> OBC/OBD
- *   P4        -> Termoplástica
- *   P1        -> Esteira A
- *   P2        -> Esteira B
- *   qualquer outro (ex: "P_NON-TO 88") -> Non-TO (processo próprio, com card)
+ * Data operacional (cutoff 6h, ver api/_period.js): a data do lote não é
+ * pré-bucketizada pro dia operacional, então combinamos data+hora aqui
+ * (mesmo padrão de api/backlog.js e api/labor.js).
+ *
+ * Classificação esteira -> grupo de exibição:
+ *   POBA/POBB -> OBA/OBB · POBC/POBD -> OBC/OBD · P4 -> Termoplástica
+ *   P1 -> Esteira A · P2 -> Esteira B · PTIN -> Tintas
+ *   P_TO-Audit -> TO-Audit · resto (ex: P_NON-TO) -> Non-TO
  *
  * Query params:
- *   date   YYYY-MM-DD (dia a visualizar; default = dia mais recente da base)
+ *   date   YYYY-MM-DD (dia operacional a visualizar; default = hoje operacional)
  */
 const { fetchTabByGid } = require('./_google');
-const { toNum } = require('./_period');
+const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1013894222' };
 
-function brToIso(v) {
-  const m = String(v || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
-}
-
-function classificarEstacao(nomeEstacao) {
-  const semPrefixoWs = String(nomeEstacao || '').replace(/^\[.*?\]/, '');
-  if (/^POBA/.test(semPrefixoWs)) return 'OBA/OBB';
-  if (/^POBB/.test(semPrefixoWs)) return 'OBA/OBB';
-  if (/^POBC/.test(semPrefixoWs)) return 'OBC/OBD';
-  if (/^POBD/.test(semPrefixoWs)) return 'OBC/OBD';
-  if (/^P4/.test(semPrefixoWs)) return 'Termoplástica';
-  if (/^P1/.test(semPrefixoWs)) return 'Esteira A';
-  if (/^P2/.test(semPrefixoWs)) return 'Esteira B';
+function classificarEsteira(esteira) {
+  const e = String(esteira || '').toUpperCase();
+  if (e === 'POBA' || e === 'POBB') return 'OBA/OBB';
+  if (e === 'POBC' || e === 'POBD') return 'OBC/OBD';
+  if (e === 'P4') return 'Termoplástica';
+  if (e === 'P1') return 'Esteira A';
+  if (e === 'P2') return 'Esteira B';
+  if (e === 'PTIN') return 'Tintas';
+  if (e === 'P_TO-AUDIT') return 'TO-Audit';
   return 'Non-TO';
 }
 
@@ -53,8 +60,14 @@ module.exports = async (req, res) => {
   }
 
   const conveyor = rows
-    .filter(r => r.data)
-    .map(r => ({ ...r, dataIso: brToIso(r.data) }))
+    .filter(r => r['data extração'] && r.hora !== '')
+    .map(r => {
+      const dataExtracao = String(r['data extração'] || '');
+      const dataExtracaoIso = dataExtracao.slice(0, 10);
+      const hora = toNum(r.hora);
+      const dataIso = dataOperacionalDe(`${dataExtracaoIso} ${String(hora).padStart(2, '0')}:00:00`);
+      return { ...r, dataIso, hora };
+    })
     .filter(r => r.dataIso !== null);
 
   if (!conveyor.length) {
@@ -67,27 +80,25 @@ module.exports = async (req, res) => {
 
   const datasDisponiveis = [...new Set(conveyor.map(r => r.dataIso))].sort();
   const dataMinima = datasDisponiveis[0], dataMaxima = datasDisponiveis[datasDisponiveis.length - 1];
-
+  const hojeIso = hojeOperacionalIso();
+  const padrao = datasDisponiveis.includes(hojeIso) ? hojeIso : dataMaxima;
   const dataQuery = req.query.date;
-  const dataRef = (dataQuery && datasDisponiveis.includes(dataQuery)) ? dataQuery : dataMaxima;
+  const dataRef = (dataQuery && datasDisponiveis.includes(dataQuery)) ? dataQuery : padrao;
 
   const doDia = conveyor.filter(r => r.dataIso === dataRef);
 
-  const linhas = doDia.map(r => {
-    const estacao = r['id/nome da estação de trabalho'] || '';
-    return {
-      hora: toNum(r.hora_extracao),
-      opsId: r['ops id'] || '',
-      estacao,
-      grupo: classificarEstacao(estacao),
-      tipoAtividade: r['tipo de atividade'] || '',
-      horasTrabalho: toNum(r['horas de trabalho (mnhr)']),
-      produtividade: toNum(r['produtividade horária (pedido/mnhr)']),
-      totalProcessamento: toNum(r['total de processamento (pedidos)']),
-    };
-  });
+  const linhas = doDia.map(r => ({
+    hora: r.hora,
+    opsId: r.ops || '',
+    colaborador: r['nome ops'] || '',
+    estacao: r.workstation || '',
+    nomeEstacao: r['nome ws'] || '',
+    grupo: classificarEsteira(r.esteira),
+    turno: r.turno || '',
+    totalProcessamento: toNum(r.pacotes),
+  }));
 
-  const grupos = ['OBA/OBB', 'OBC/OBD', 'Termoplástica', 'Esteira A', 'Esteira B', 'Non-TO'];
+  const grupos = ['OBA/OBB', 'OBC/OBD', 'Termoplástica', 'Esteira A', 'Esteira B', 'Tintas', 'TO-Audit', 'Non-TO'];
 
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
   res.status(200).json({
