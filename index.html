@@ -3413,7 +3413,8 @@
       <div class="spr-filters">
         <div class="spr-filter-group">
           <input type="date" class="filter-select pulso-date-input" id="fct-date-input" onchange="fctSetDate(this.value)" style="color-scheme:dark" title="Mês vigente (data de referência)"/>
-          <input type="month" class="filter-select pulso-date-input" id="fct-mes-comparacao-input" onchange="fctSetMesComparacao(this.value)" style="color-scheme:dark" title="Mês a comparar (padrão: mês anterior)"/>
+          <input type="date" class="filter-select pulso-date-input" id="fct-comp-de-input" onchange="fctSetComparacao('de',this.value)" style="color-scheme:dark" title="Comparar de"/>
+          <input type="date" class="filter-select pulso-date-input" id="fct-comp-ate-input" onchange="fctSetComparacao('ate',this.value)" style="color-scheme:dark" title="Comparar até"/>
         </div>
       </div>
       <div id="fct-kpis"></div>
@@ -7354,7 +7355,7 @@ function clearNewUserForm(){
 /* ================================================================
    FORECAST — pacotes previstos por canal (forecast_backlog_pulso, colunas H-M)
 ================================================================ */
-const FORECAST_STATE = { date: null, mesComparacao: null };
+const FORECAST_STATE = { date: null, compDe: null, compAte: null };
 const FCT_ROWS = [
   { label:'FORECAST',     key:'total',        cls:'fct-row-total' },
   { label:'LH',           key:'lh',           cls:'fct-row-sub' },
@@ -7371,7 +7372,8 @@ async function loadForecast(){
   try {
     const p = new URLSearchParams();
     if(FORECAST_STATE.date) p.set('date', FORECAST_STATE.date);
-    if(FORECAST_STATE.mesComparacao) p.set('mesComparacao', FORECAST_STATE.mesComparacao);
+    if(FORECAST_STATE.compDe) p.set('compDe', FORECAST_STATE.compDe);
+    if(FORECAST_STATE.compAte) p.set('compAte', FORECAST_STATE.compAte);
     const r = await fetch('/api/forecast?'+p.toString(), { cache:'no-store' });
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
@@ -7380,11 +7382,14 @@ async function loadForecast(){
 
     const dateInput = document.getElementById('fct-date-input');
     if(dateInput && !FORECAST_STATE.date && j.data) dateInput.value = j.data;
-    // Mês de comparação (pedido do Roberto em 2026-08-05): padrão é o mês
-    // anterior ao vigente, calculado pelo backend — só refletimos no input
-    // se o usuário ainda não escolheu um manualmente.
-    const mesCompInput = document.getElementById('fct-mes-comparacao-input');
-    if(mesCompInput && !FORECAST_STATE.mesComparacao && j.mesComparacao) mesCompInput.value = j.mesComparacao;
+    // Range de comparação (pedido do Roberto em 2026-08-05: "a range deve
+    // ser data vs data", não mês-calendário vs mês-calendário) — padrão é o
+    // mês anterior ao vigente inteiro, calculado pelo backend; só refletimos
+    // nos inputs se o usuário ainda não escolheu um range manualmente.
+    const compDeInput = document.getElementById('fct-comp-de-input');
+    const compAteInput = document.getElementById('fct-comp-ate-input');
+    if(compDeInput && !FORECAST_STATE.compDe && j.compDe) compDeInput.value = j.compDe;
+    if(compAteInput && !FORECAST_STATE.compAte && j.compAte) compAteInput.value = j.compAte;
 
     buildKPIs('fct-kpis', [
       { label:'Forecast Total', value:j.atual.total.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
@@ -7400,7 +7405,7 @@ async function loadForecast(){
       ? `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>`
       : '';
 
-    buildForecastPeriodKpis(j.cardsPeriodo, j.mesComparacao);
+    buildForecastPeriodKpis(j.cardsPeriodo, j.compDe, j.compAte);
     buildForecastWeeks(j.semanas);
     buildForecastMonthBlocks(j.mesTotal, j.quartilMensal, j.adoQuartil, j.mes);
   } catch(err){
@@ -7415,17 +7420,15 @@ function fctDelta(pct, vsLabel){
   return { delta: `${pct>=0?'+':''}${pct.toFixed(1)}% vs ${vsLabel || 'período anterior'}`, trend };
 }
 
-// Os cards de Mês comparam contra FORECAST_STATE.mesComparacao (padrão: mês
-// anterior, mas selecionável — pedido do Roberto em 2026-08-05); o texto do
-// delta nomeia o mês escolhido em vez do genérico "período anterior".
-function buildForecastPeriodKpis(cardsPeriodo, mesComparacao){
+// Os cards de Mês comparam contra um range livre (FORECAST_STATE.compDe/
+// compAte — "a range deve ser data vs data", pedido do Roberto em
+// 2026-08-05, não mês-calendário vs mês-calendário; padrão: mês anterior
+// inteiro). O texto do delta nomeia o range escolhido em vez do genérico
+// "período anterior".
+function buildForecastPeriodKpis(cardsPeriodo, compDe, compAte){
   if(!cardsPeriodo) return;
   const { mes, week, dia } = cardsPeriodo;
-  const mesCompLabel = (() => {
-    if(!mesComparacao) return null;
-    const [y, m] = mesComparacao.split('-').map(Number);
-    return `${FCT_MESES_PT[m-1]}/${y}`;
-  })();
+  const mesCompLabel = (compDe && compAte) ? `${pulsoFmtDataBr(compDe)} a ${pulsoFmtDataBr(compAte)}` : null;
   const card = (label, valor, varPct, icon, vsLabel) => {
     const { delta, trend } = fctDelta(varPct, vsLabel);
     return { label, value: Math.round(valor||0).toLocaleString('pt-BR'), delta, trend, type:'', icon };
@@ -7520,7 +7523,11 @@ function buildForecastMonthBlocks(mesTotal, quartilMensal, adoQuartil, mesRef){
 }
 
 function fctSetDate(v){ FORECAST_STATE.date = v || null; loadForecast(); }
-function fctSetMesComparacao(v){ FORECAST_STATE.mesComparacao = v || null; loadForecast(); }
+function fctSetComparacao(lado, v){
+  if(lado === 'de') FORECAST_STATE.compDe = v || null;
+  else FORECAST_STATE.compAte = v || null;
+  loadForecast();
+}
 
 function fctGenerateInsights(){
   if(!FORECAST_DATA) return [];

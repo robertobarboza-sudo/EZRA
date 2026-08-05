@@ -35,11 +35,12 @@
  *     conta os dias de semanas vizinhas que "vazam" pro mês anterior/seguinte).
  *
  * Query params:
- *   date          YYYY-MM-DD — data de referência pros cards do topo E mês
- *                 exibido na tabela; default = hoje (ou a menor data
- *                 disponível, se hoje for anterior ao início do forecast)
- *   mesComparacao YYYY-MM — mês a comparar no card "Mês" (pedido do Roberto
- *                 em 2026-08-05); default = mês anterior ao de `date`
+ *   date            YYYY-MM-DD — data de referência pros cards do topo E mês
+ *                   exibido na tabela; default = hoje (ou a menor data
+ *                   disponível, se hoje for anterior ao início do forecast)
+ *   compDe, compAte YYYY-MM-DD — intervalo a comparar no card "Mês" (data vs
+ *                   data, pedido do Roberto em 2026-08-05, não trava em mês-
+ *                   calendário); default = mês anterior ao de `date` inteiro
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum, hojeOperacionalIso } = require('./_period');
@@ -145,6 +146,20 @@ function totalDoMes(mesRefStr, aggDia) {
   return { total: somaAgg(dias), numSemanas };
 }
 
+// Total de um intervalo arbitrário de dias (pedido do Roberto em
+// 2026-08-05: a comparação do card "Mês" tem que ser data vs data, não
+// travada em mês-calendário — mesma soma de totalDoMes, só que sobre um
+// range livre). numSemanas aqui é fracionário (dias ÷ 7), pra manter a
+// mesma fórmula de "6 dias produtivos por semana" do Ado Médio proporcional
+// a qualquer tamanho de range, não só um mês inteiro.
+function totalDoRange(deIso, ateIso, aggDia) {
+  const dias = [];
+  for (let d = new Date(deIso + 'T00:00:00Z'); d <= new Date(ateIso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + 1)) {
+    dias.push(aggDia(d.toISOString().slice(0, 10)));
+  }
+  return { total: somaAgg(dias), numSemanas: dias.length / 7 };
+}
+
 function totalDaSemana(mondayIso, aggDia) {
   const start = new Date(mondayIso + 'T00:00:00Z');
   const dias = Array.from({ length: 7 }, (_, i) => {
@@ -178,7 +193,7 @@ module.exports = async (req, res) => {
   if (!forecast.length) {
     const zeroCard = { forecast: 0, forecastVar: null, adoMedio: 0, adoMedioVar: null, transhipment: 0, transhipmentVar: null, adoTranshipment: 0, adoTranshipmentVar: null };
     res.status(200).json({
-      ok: true, data: null, mes: null, mesComparacao: null, atual: { ...ZERO_AGG },
+      ok: true, data: null, mes: null, compDe: null, compAte: null, atual: { ...ZERO_AGG },
       semanas: [], mesTotal: { ...ZERO_AGG }, quartilMensal: { ...ZERO_AGG }, adoQuartil: { ...ZERO_AGG },
       cardsPeriodo: { mes: zeroCard, week: { ...zeroCard }, dia: { ...zeroCard } },
       cobertura: { inicio: null, fim: null },
@@ -254,9 +269,23 @@ module.exports = async (req, res) => {
   // ── Cards por período (Mês/Week/Dia) + variação vs período anterior ──
   const semanaRef = semanas.find(s => dataRef >= s.inicio && dataRef <= s.fim) || semanas[semanas.length - 1];
 
-  const mesComparacaoQuery = req.query.mesComparacao;
-  const mesAnteriorRef = (mesComparacaoQuery && /^\d{4}-\d{2}$/.test(mesComparacaoQuery)) ? mesComparacaoQuery : addMonths(mesRef, -1);
-  const mesAnteriorCalc = totalDoMes(mesAnteriorRef, aggDia);
+  // Comparação do card "Mês" — data vs data (pedido do Roberto em
+  // 2026-08-05), não mês-calendário vs mês-calendário. Default = mês
+  // anterior inteiro (primeiro ao último dia), mas o usuário pode escolher
+  // qualquer intervalo via compDe/compAte.
+  const DATA_RE = /^\d{4}-\d{2}-\d{2}$/;
+  const compDeQuery = req.query.compDe, compAteQuery = req.query.compAte;
+  let compDe, compAte;
+  if (compDeQuery && compAteQuery && DATA_RE.test(compDeQuery) && DATA_RE.test(compAteQuery) && compDeQuery <= compAteQuery) {
+    compDe = compDeQuery;
+    compAte = compAteQuery;
+  } else {
+    const mesAnteriorRef = addMonths(mesRef, -1);
+    const [anoAnt, mesNumAnt] = mesAnteriorRef.split('-').map(Number);
+    compDe = new Date(Date.UTC(anoAnt, mesNumAnt - 1, 1)).toISOString().slice(0, 10);
+    compAte = new Date(Date.UTC(anoAnt, mesNumAnt, 0)).toISOString().slice(0, 10);
+  }
+  const mesAnteriorCalc = totalDoRange(compDe, compAte, aggDia);
   const numSemanasMesAtual = semanas.length;
 
   const semanaAnteriorSeg = new Date(semanaRef.inicio + 'T00:00:00Z');
@@ -304,7 +333,7 @@ module.exports = async (req, res) => {
     ok: true,
     data: dataRef,
     mes: mesRef,
-    mesComparacao: mesAnteriorRef,
+    compDe, compAte,
     atual,
     semanas,
     mesTotal,
