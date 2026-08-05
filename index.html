@@ -1463,6 +1463,14 @@
     .bkl-ontime-btn i { font-size: 11px; }
     .bkl-ontime-btn.active { background: var(--orange); color: #fff; box-shadow: 0 2px 10px rgba(238,77,45,.35); }
     .lh-fila-ofensor { color: #ff5b5b; font-weight: 700; }
+    .tv-mode-btn.dl-btn.active { background: var(--orange) !important; color: #fff !important; border-color: var(--orange) !important; }
+    .tv-mode-active #header, .tv-mode-active #sidebar, .tv-mode-active #sidebar-overlay { display: none !important; }
+    .tv-mode-active #app { margin-left: 0 !important; }
+    .tv-mode-active #main-content { padding: 32px 40px !important; }
+    .tv-mode-active .section-dl-group, .tv-mode-active .spr-filters, .tv-mode-active .table-search, .tv-mode-active .pdf-menu-wrap { display: none !important; }
+    .tv-rotation-badge { position: fixed; top: 16px; right: 16px; z-index: 9999; background: rgba(0,0,0,.55); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+    .tvcfg-page-check { display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:8px; cursor:pointer; }
+    .tvcfg-page-check.checked { border-color: var(--orange); background: rgba(238,77,45,.06); }
 
     .spr-ms-wrap { position: relative; display: inline-flex; }
     .spr-ms-btn {
@@ -2486,6 +2494,16 @@
       </div>
       <div class="nav-item nav-item-locked" data-section="kpioverview" data-label="Overview KPIs">
         <span class="nav-icon-composite"><i class="fas fa-gauge-simple-high icon-base" style="font-size:14px"></i><span class="icon-badge" style="font-size:6px;padding:0 1.5px">KPI</span></span><span class="nav-label">Overview KPIs</span><i class="fas fa-lock nav-lock-icon"></i>
+      </div>
+    </div>
+
+    <div class="nav-group">
+      <div class="nav-group-label">Monitoramento</div>
+      <div class="nav-item" data-section="tvconfig" data-label="TV Mode Config" onclick="navigateTo('tvconfig',this)">
+        <i class="fas fa-tv nav-icon"></i><span class="nav-label">TV Mode Config</span>
+      </div>
+      <div class="nav-item" data-section="livesoc" data-label="Live SoC" onclick="navigateTo('livesoc',this)">
+        <i class="fas fa-cubes nav-icon"></i><span class="nav-label">Live SoC</span>
       </div>
     </div>
 
@@ -3897,6 +3915,54 @@
 
     </section>
 
+    <!-- TV MODE CONFIG -->
+    <section id="section-tvconfig" class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">TV Mode Config <span class="ds-badge ok" id="ds-badge-tvconfig" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Escolha as telas e o intervalo de rotação pra espelhar numa TV</div>
+        </div>
+      </div>
+      <div class="table-card full" style="padding:20px;max-width:640px">
+        <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">Telas a espelhar</div>
+        <div id="tvcfg-page-list"></div>
+        <div style="display:flex;align-items:center;gap:12px;margin:20px 0">
+          <label style="font-size:13px;color:var(--text-muted)">Trocar a cada</label>
+          <input type="number" min="5" step="5" id="tvcfg-interval" class="filter-select" style="width:90px" value="30"/>
+          <span style="font-size:13px;color:var(--text-muted)">segundos</span>
+        </div>
+        <button class="btn btn-primary" id="tvcfg-start-btn" onclick="tvcfgToggleRotation()"><i class="fas fa-tv"></i> Iniciar Rotação</button>
+      </div>
+    </section>
+
+    <!-- LIVE SOC -->
+    <section id="section-livesoc" class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">Live SoC <span class="ds-badge ok" id="ds-badge-livesoc" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Visão ao vivo da unidade</div>
+        </div>
+      </div>
+      <div style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:360px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Live SoC 3D</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:440px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Nenhuma aba da planilha tem a planta baixa/posição das docas — precisa de um desenho
+            da unidade (aérea ou 3D) antes de conectar os carros ao vivo.
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- SWITCH -->
     <section id="section-switch" class="section">
       <div class="section-header">
@@ -4328,7 +4394,7 @@ const ALL_SECTIONS = [
   'gestao','performance','spr','asm','conveyor','inbound','clusterizacao',
   'tratativas','laborplan','backlog','arvore','kpioverview','scorecard',
   'absenteismo','forecast','auditoria','organograma','configuracoes',
-  'matriz','mapadados','jornal','switch'
+  'tvconfig','livesoc','matriz','mapadados','jornal','switch'
 ];
 
 const GOV_SECTIONS = ['matriz','mapadados','jornal'];
@@ -4495,10 +4561,101 @@ function togglePw(){
 }
 
 /* ================================================================
+   TV MODE — mirror de uma aba (fullscreen, sem sidebar/filtros) ou
+   rotação entre várias abas configuradas em TV Mode Config.
+================================================================ */
+// Só as abas operacionais com dado real — não inclui Governança/Config/Switch.
+const TV_ELIGIBLE_PAGES = [
+  { key:'gestao',        label:'Overview' },
+  { key:'backlog',       label:'Backlog' },
+  { key:'forecast',      label:'Forecast' },
+  { key:'spr',           label:'Outbound' },
+  { key:'asm',           label:'ASM' },
+  { key:'conveyor',      label:'Conveyor' },
+  { key:'inbound',       label:'Inbound' },
+  { key:'clusterizacao', label:'Clusterização' },
+];
+let TV_MODE_SECTION = null;   // seção em TV Mode simples (1 aba)
+let TV_ROTATION = null;       // { pages, intervalSec, idx, timer } quando a rotação do TV Mode Config está ativa
+
+function tvModeInit(){
+  TV_ELIGIBLE_PAGES.forEach(p => {
+    const group = document.querySelector(`#section-${p.key} .section-dl-group`);
+    if(!group || group.querySelector('.tv-mode-btn')) return;
+    const btn = document.createElement('button');
+    btn.className = 'dl-btn dl-btn-csv tv-mode-btn';
+    btn.innerHTML = '<i class="fas fa-tv"></i> TV Mode';
+    btn.onclick = () => tvModeToggle(p.key);
+    group.insertBefore(btn, group.firstChild);
+  });
+}
+
+function tvModeToggle(key){
+  if(TV_MODE_SECTION === key) tvModeExit();
+  else tvModeEnter(key);
+}
+
+function tvModeEnter(key){
+  if(TV_MODE_SECTION && TV_MODE_SECTION !== key){
+    document.querySelectorAll(`.tv-mode-btn`).forEach(b=>b.classList.remove('active'));
+  }
+  TV_MODE_SECTION = key;
+  const navItem = document.querySelector(`.nav-item[data-section="${key}"]`);
+  if(navItem) navigateTo(key, navItem);
+  document.body.classList.add('tv-mode-active');
+  document.querySelectorAll(`#section-${key} .tv-mode-btn`).forEach(b=>b.classList.add('active'));
+  if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
+}
+
+function tvModeExit(){
+  TV_MODE_SECTION = null;
+  document.body.classList.remove('tv-mode-active');
+  document.querySelectorAll('.tv-mode-btn').forEach(b=>b.classList.remove('active'));
+  if(document.fullscreenElement) document.exitFullscreen?.().catch(()=>{});
+  tvRotationStop();
+}
+
+document.addEventListener('fullscreenchange', () => {
+  if(!document.fullscreenElement && (TV_MODE_SECTION || TV_ROTATION)) tvModeExit();
+});
+
+/* ── Rotação (TV Mode Config): cicla entre várias abas num intervalo fixo ── */
+function tvRotationStart(pages, intervalSec){
+  tvRotationStop();
+  if(!pages.length) return;
+  TV_ROTATION = { pages, intervalSec, idx: 0 };
+  localStorage.setItem('pulso_tvmode_config', JSON.stringify({ pages, intervalSec }));
+  const badge = document.createElement('div');
+  badge.className = 'tv-rotation-badge';
+  badge.id = 'tv-rotation-badge';
+  document.body.appendChild(badge);
+  const tick = () => {
+    const key = TV_ROTATION.pages[TV_ROTATION.idx % TV_ROTATION.pages.length];
+    const navItem = document.querySelector(`.nav-item[data-section="${key}"]`);
+    TV_MODE_SECTION = key;
+    if(navItem) navigateTo(key, navItem);
+    document.body.classList.add('tv-mode-active');
+    if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
+    const label = (TV_ELIGIBLE_PAGES.find(p=>p.key===key)||{}).label || key;
+    const b = document.getElementById('tv-rotation-badge');
+    if(b) b.innerHTML = `<i class="fas fa-tv"></i> ${pulsoEscHtml(label)} · próxima em ${intervalSec}s`;
+    TV_ROTATION.idx++;
+  };
+  tick();
+  TV_ROTATION.timer = setInterval(tick, intervalSec * 1000);
+}
+function tvRotationStop(){
+  if(TV_ROTATION?.timer) clearInterval(TV_ROTATION.timer);
+  TV_ROTATION = null;
+  document.getElementById('tv-rotation-badge')?.remove();
+}
+
+/* ================================================================
    PORTAL INITIALIZATION — modo kiosk, sem tela de login
 ================================================================ */
 document.addEventListener('DOMContentLoaded', () => {
   enterPortal(PORTAL_USER);
+  tvModeInit();
 });
 
 /* ================================================================
@@ -4542,6 +4699,8 @@ const sectionMeta = {
   absenteismo: {title:'Absenteísmo',  sub:'Controle de Faltas e Ausências · Gestão'},
   configuracoes:{title:'Configurações', sub:'Gestão de Usuários · Sistema'},
   forecast:    {title:'Forecast',      sub:'Previsão e Projeção de Volume · Gestão'},
+  tvconfig:    {title:'TV Mode Config', sub:'Rotação de telas · Monitoramento'},
+  livesoc:     {title:'Live SoC',       sub:'Visão ao vivo da unidade · Monitoramento'},
   auditoria:   {title:'Auditoria',     sub:'Controle de Qualidade Operacional · Qualidade'},
   matriz:      {title:'Matriz',        sub:'Governança Operacional · Governança'},
   mapadados:   {title:'Mapa de Dados', sub:'Queries · Scripts · Links · Governança'},
@@ -4635,7 +4794,7 @@ async function renderSection(section){
       configuracoes:renderConfiguracoes, forecast:()=>loadForecast(),
       auditoria:renderAuditoria, clusterizacao:()=>pulsoRender('clusterizacao'),
       matriz:renderMatriz, mapadados:renderMapaDados, jornal:renderJornal,
-      switch:renderSwitch};
+      switch:renderSwitch, tvconfig:renderTvConfig, livesoc:renderLiveSoc};
     if(fn[section]) fn[section](data);
     else renderPlaceholder(section);
   } catch(err){
@@ -8407,6 +8566,54 @@ function switchCardHtml(a){
       <span class="switch-status ${statusCls}">${statusLabel}</span>
     </div>
   </div>`;
+}
+
+/* ================================================================
+   TV MODE CONFIG — escolher várias telas + intervalo de rotação
+================================================================ */
+function renderTvConfig(){
+  const list = document.getElementById('tvcfg-page-list');
+  if(!list) return;
+  let saved = {};
+  try { saved = JSON.parse(localStorage.getItem('pulso_tvmode_config') || '{}'); } catch(e){}
+  const selecionadas = TV_ROTATION ? TV_ROTATION.pages : (saved.pages || []);
+  list.innerHTML = TV_ELIGIBLE_PAGES.map(p => `
+    <label class="tvcfg-page-check ${selecionadas.includes(p.key)?'checked':''}" id="tvcfg-check-${p.key}">
+      <input type="checkbox" value="${p.key}" ${selecionadas.includes(p.key)?'checked':''} onchange="tvcfgToggleCheck('${p.key}',this)"/>
+      ${pulsoEscHtml(p.label)}
+    </label>`).join('');
+  const intervalInput = document.getElementById('tvcfg-interval');
+  if(intervalInput) intervalInput.value = TV_ROTATION ? TV_ROTATION.intervalSec : (saved.intervalSec || 30);
+  tvcfgUpdateButton();
+  setBadge('tvconfig', 'ok', 'Local');
+}
+function tvcfgToggleCheck(key, el){
+  document.getElementById('tvcfg-check-'+key)?.classList.toggle('checked', el.checked);
+}
+function tvcfgSelectedPages(){
+  return Array.from(document.querySelectorAll('#tvcfg-page-list input:checked')).map(el=>el.value);
+}
+function tvcfgUpdateButton(){
+  const btn = document.getElementById('tvcfg-start-btn');
+  if(!btn) return;
+  btn.innerHTML = TV_ROTATION
+    ? '<i class="fas fa-stop"></i> Parar Rotação'
+    : '<i class="fas fa-tv"></i> Iniciar Rotação';
+}
+function tvcfgToggleRotation(){
+  if(TV_ROTATION){ tvRotationStop(); tvcfgUpdateButton(); return; }
+  const pages = tvcfgSelectedPages();
+  if(!pages.length){ showToast('Selecione ao menos uma tela pra espelhar.', true); return; }
+  const intervalSec = Math.max(5, Number(document.getElementById('tvcfg-interval').value) || 30);
+  tvRotationStart(pages, intervalSec);
+  tvcfgUpdateButton();
+}
+
+/* ================================================================
+   LIVE SOC — placeholder, aguardando planta baixa/layout da unidade
+================================================================ */
+function renderLiveSoc(){
+  setBadge('livesoc', 'ok', 'Em Construção');
 }
 
 function renderSwitch(){
