@@ -18,11 +18,19 @@
  *   turno, type_cpt                    listas separadas por vírgula
  *   hub, causa1 (causa_l1), causa2 (causa_l2)  idem
  *   q                                  busca livre em hub + observacao
+ *
+ * Transportadora/Destino: a aba não tem essas colunas — cruza com
+ * rawdata_out_pulso (api/outbound.js) pela chave hub+cpt_planejado ==
+ * destination_station_code+cpt_scheduled_origin_edited (confirmado com
+ * amostra real: HUB-LMG-56 + 2026-08-03 19:00:00 -> DHL). Só cobre o
+ * período em que as duas bases se sobrepõem (rawdata_out_pulso só tem
+ * ~3 semanas de histórico); fora disso os campos ficam vazios.
  */
 const { fetchTabByGid } = require('./_google');
 const { periodStart, periodEnd, periodBefore, fmtDate, toNum, parseCSV, pctDelta } = require('./_period');
 
 const LEFTOVER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '352174025' };
+const OUTBOUND_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '0' };
 
 function classificarCausa(causa) {
   const c = String(causa || '');
@@ -62,13 +70,23 @@ function aggregate(rows) {
 }
 
 module.exports = async (req, res) => {
-  let rows;
+  let rows, outRows;
   try {
-    ({ rows } = await fetchTabByGid(LEFTOVER_SHEET.spreadsheetId, LEFTOVER_SHEET.gid));
+    [{ rows }, { rows: outRows }] = await Promise.all([
+      fetchTabByGid(LEFTOVER_SHEET.spreadsheetId, LEFTOVER_SHEET.gid),
+      fetchTabByGid(OUTBOUND_SHEET.spreadsheetId, OUTBOUND_SHEET.gid),
+    ]);
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });
     return;
   }
+
+  const transportadoraPorChave = new Map();
+  outRows.forEach(r => {
+    const chave = `${r.destination_station_code}|${r.cpt_scheduled_origin_edited}`;
+    if (r.used_agency_name) transportadoraPorChave.set(chave, r.used_agency_name);
+  });
+  const transportadoraDe = r => transportadoraPorChave.get(`${r.hub}|${r.cpt_planejado}`) || null;
 
   const withDate = rows
     .map(r => ({ ...r, __date: r.data ? new Date(r.data + 'T00:00:00Z') : null }))
@@ -83,6 +101,7 @@ module.exports = async (req, res) => {
   const hubs = parseCSV(req.query.hub);
   const causas1 = parseCSV(req.query.causa1);
   const causas2 = parseCSV(req.query.causa2);
+  const transportadoras = parseCSV(req.query.transportadora);
   const busca = (req.query.q || '').trim().toLowerCase();
 
   const passaFiltros = r =>
@@ -91,6 +110,7 @@ module.exports = async (req, res) => {
     (!hubs.length || hubs.includes(r.hub)) &&
     (!causas1.length || causas1.includes(r.leftover_until_cap_causa_l1)) &&
     (!causas2.length || causas2.includes(r.leftover_until_cap_causa_l2)) &&
+    (!transportadoras.length || transportadoras.includes(transportadoraDe(r))) &&
     (!busca || String(r.hub || '').toLowerCase().includes(busca) || String(r.observacao || '').toLowerCase().includes(busca));
 
   const filtradas = withDate.filter(passaFiltros);
@@ -120,6 +140,8 @@ module.exports = async (req, res) => {
   const ordenadas = [...doPeriodo].sort((a, b) => b.__date - a.__date);
   const leftovers = ordenadas.slice(0, LIMITE).map(r => ({
     hub: r.hub,
+    destino: r.hub,
+    transportadora: transportadoraDe(r),
     type_cpt: r.type_cpt,
     turno: r.turno,
     hora: toNum(r.hora),
@@ -146,6 +168,7 @@ module.exports = async (req, res) => {
       hub: uniq('hub'),
       causa1: uniq('leftover_until_cap_causa_l1'),
       causa2: uniq('leftover_until_cap_causa_l2'),
+      transportadora: [...new Set(withDate.map(transportadoraDe).filter(Boolean))].sort(),
     },
   });
 };

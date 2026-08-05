@@ -5371,6 +5371,7 @@ pulsoRegister({
     { key:'hub',    label:'Hub',     field:'hub', searchable:true },
     { key:'causa1', label:'Causa 1', field:'causa1' },
     { key:'causa2', label:'Causa 2', field:'causa2', searchable:true },
+    { key:'transportadora', label:'Transportadora', field:'transportadora', searchable:true },
   ],
   kpis: [
     { key:'registros',          label:'Registros de Leftover',    icon:'fa-list' },
@@ -5390,7 +5391,8 @@ pulsoRegister({
     searchPlaceholder: 'Buscar hub ou observação…',
     itemNameSingular: 'registro', itemNamePlural: 'registros',
     columns: [
-      { key:'hub',                        label:'Hub',        type:'text' },
+      { key:'hub',                        label:'Hub / Destino', type:'text' },
+      { key:'transportadora',             label:'Transportadora',type:'text' },
       { key:'type_cpt',                   label:'Type CPT',   type:'text' },
       { key:'turno',                      label:'Turno',      type:'text' },
       { key:'hora',                       label:'Hora',       type:'number' },
@@ -5419,6 +5421,17 @@ pulsoRegister({
       const [causa, pacotes] = porCausa[0];
       const pct = ((pacotes/totalPacotes)*100).toFixed(0);
       out.push({ icon:'fa-magnifying-glass', html: `Causa mais frequente: <strong>${pulsoEscHtml(causa)}</strong>, responsável por ${pct}% dos pacotes leftover (${pacotes.toLocaleString('pt-BR')}).` });
+    }
+
+    const comTransportadora = rows.filter(r => r.transportadora);
+    if(comTransportadora.length){
+      const porTransportadora = pulsoTopGroup(comTransportadora, 'transportadora', 'leftover_until_cap');
+      const totalComTransp = porTransportadora.reduce((s,[,v])=>s+v,0);
+      if(porTransportadora.length && totalComTransp){
+        const [transp, pacotes] = porTransportadora[0];
+        const pct = ((pacotes/totalComTransp)*100).toFixed(0);
+        out.push({ icon:'fa-truck-field', html: `<strong>${pulsoEscHtml(transp)}</strong> concentra ${pct}% dos pacotes leftover entre os registros com transportadora identificada (${pacotes.toLocaleString('pt-BR')} de ${totalComTransp.toLocaleString('pt-BR')}).` });
+      }
     }
 
     const inconsistencia = rows.filter(r => String(r.leftover_until_cap_causa_l1||'').startsWith('[GOV]'));
