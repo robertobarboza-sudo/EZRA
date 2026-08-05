@@ -3931,7 +3931,12 @@
           <input type="number" min="5" step="5" id="tvcfg-interval" class="filter-select" style="width:90px" value="30"/>
           <span style="font-size:13px;color:var(--text-muted)">segundos</span>
         </div>
-        <button class="btn btn-primary" id="tvcfg-start-btn" onclick="tvcfgToggleRotation()"><i class="fas fa-tv"></i> Iniciar Rotação</button>
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="btn btn-primary" id="tvcfg-start-btn" onclick="tvcfgToggleRotation()"><i class="fas fa-tv"></i> Iniciar Rotação</button>
+          <input type="text" id="tvcfg-preset-name" class="filter-select" placeholder="Nome da configuração" style="flex:1"/>
+          <button class="btn" id="tvcfg-save-btn" onclick="tvcfgSavePreset()"><i class="fas fa-floppy-disk"></i> Salvar</button>
+        </div>
+        <div id="tvcfg-preset-list" style="margin-top:20px"></div>
       </div>
     </section>
 
@@ -8585,6 +8590,7 @@ function renderTvConfig(){
   const intervalInput = document.getElementById('tvcfg-interval');
   if(intervalInput) intervalInput.value = TV_ROTATION ? TV_ROTATION.intervalSec : (saved.intervalSec || 30);
   tvcfgUpdateButton();
+  tvcfgRenderPresets();
   setBadge('tvconfig', 'ok', 'Local');
 }
 function tvcfgToggleCheck(key, el){
@@ -8607,6 +8613,50 @@ function tvcfgToggleRotation(){
   const intervalSec = Math.max(5, Number(document.getElementById('tvcfg-interval').value) || 30);
   tvRotationStart(pages, intervalSec);
   tvcfgUpdateButton();
+}
+
+/* ── Configurações salvas com nome (localStorage) ── */
+function tvcfgPresets(){
+  try { return JSON.parse(localStorage.getItem('pulso_tvmode_presets') || '[]'); } catch(e){ return []; }
+}
+function tvcfgSavePreset(){
+  const nameInput = document.getElementById('tvcfg-preset-name');
+  const name = (nameInput.value || '').trim();
+  if(!name){ showToast('Dê um nome pra essa configuração.', true); return; }
+  const pages = tvcfgSelectedPages();
+  if(!pages.length){ showToast('Selecione ao menos uma tela pra espelhar.', true); return; }
+  const intervalSec = Math.max(5, Number(document.getElementById('tvcfg-interval').value) || 30);
+  const presets = tvcfgPresets().filter(p => p.name !== name);
+  presets.push({ name, pages, intervalSec });
+  localStorage.setItem('pulso_tvmode_presets', JSON.stringify(presets));
+  nameInput.value = '';
+  tvcfgRenderPresets();
+  showToast(`Configuração "${name}" salva.`);
+}
+function tvcfgRenderPresets(){
+  const wrap = document.getElementById('tvcfg-preset-list');
+  if(!wrap) return;
+  const presets = tvcfgPresets();
+  if(!presets.length){ wrap.innerHTML = ''; return; }
+  wrap.innerHTML = `<div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">Configurações salvas</div>` +
+    presets.map(p => `
+      <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px">
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;color:var(--text)">${pulsoEscHtml(p.name)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${p.pages.map(k=>pulsoEscHtml((TV_ELIGIBLE_PAGES.find(x=>x.key===k)||{}).label||k)).join(', ')} · a cada ${p.intervalSec}s</div>
+        </div>
+        <button class="spr-ms-action-btn" onclick="tvcfgLoadPreset('${p.name.replace(/'/g,"\\'")}')"><i class="fas fa-play"></i> Usar</button>
+        <button class="spr-ms-action-btn" onclick="tvcfgDeletePreset('${p.name.replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>
+      </div>`).join('');
+}
+function tvcfgLoadPreset(name){
+  const preset = tvcfgPresets().find(p => p.name === name);
+  if(!preset) return;
+  tvRotationStart(preset.pages, preset.intervalSec);
+}
+function tvcfgDeletePreset(name){
+  localStorage.setItem('pulso_tvmode_presets', JSON.stringify(tvcfgPresets().filter(p => p.name !== name)));
+  tvcfgRenderPresets();
 }
 
 /* ================================================================
