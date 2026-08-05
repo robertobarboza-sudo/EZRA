@@ -1665,6 +1665,14 @@
     .tool-card-name { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
     .tool-card-desc { font-size: 11px; color: var(--text-muted); }
     .tool-card-link { font-size: 10px; color: var(--orange); margin-top: 8px; display: flex; align-items: center; gap: 4px; }
+    .jarvis-feature-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+    .jarvis-feature-list li { font-size: 11px; color: var(--text-muted); display: flex; align-items: baseline; gap: 6px; }
+    .jarvis-feature-list li i { color: var(--orange); font-size: 8px; }
+    .jarvis-subpage-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
+    .jarvis-subpage-pill { font-size: 10px; font-weight: 600; padding: 4px 10px; border-radius: 20px; background: var(--surface-2); border: 1px solid var(--border); color: var(--text-muted); cursor: pointer; }
+    .jarvis-subpage-pill:hover { border-color: var(--orange); color: var(--orange); }
+    .jarvis-subpage-pill.wip { opacity: .5; cursor: default; }
+    .jarvis-subpage-pill.wip:hover { border-color: var(--border); color: var(--text-muted); }
 
     /* Guia de reuniões */
     .meetings-grid {
@@ -3811,21 +3819,41 @@
         </div>
       </div>
 
-      <!-- Filtro de tipo -->
-      <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap" id="datamap-filters">
-        <button class="bkl-pf-btn active" onclick="filterDataMap('all',this)">Todos</button>
-        <button class="bkl-pf-btn" onclick="filterDataMap('sql',this)"><i class="fas fa-database"></i> SQL</button>
-        <button class="bkl-pf-btn" onclick="filterDataMap('py',this)"><i class="fas fa-code"></i> Python</button>
-        <button class="bkl-pf-btn" onclick="filterDataMap('link',this)"><i class="fas fa-link"></i> Links</button>
-        <button class="bkl-pf-btn" onclick="filterDataMap('sheet',this)"><i class="fas fa-table"></i> Planilhas</button>
+      <div class="bkl-tabs" id="mapadados-subpage-tabs" style="margin-bottom:16px">
+        <div class="bkl-tab active" id="subtab-datamap" onclick="mapadadosSwitchSubpage('datamap',this)">Mapa de Dados</div>
+        <div class="bkl-tab" id="subtab-jarvis" onclick="mapadadosSwitchSubpage('jarvis',this)">Jarvis</div>
       </div>
 
-      <div class="data-map-grid" id="data-map-grid"></div>
+      <div id="mapadados-panel-datamap">
+        <!-- Filtro de tipo -->
+        <div style="display:flex;gap:6px;margin-bottom:20px;flex-wrap:wrap" id="datamap-filters">
+          <button class="bkl-pf-btn active" onclick="filterDataMap('all',this)">Todos</button>
+          <button class="bkl-pf-btn" onclick="filterDataMap('sql',this)"><i class="fas fa-database"></i> SQL</button>
+          <button class="bkl-pf-btn" onclick="filterDataMap('py',this)"><i class="fas fa-code"></i> Python</button>
+          <button class="bkl-pf-btn" onclick="filterDataMap('link',this)"><i class="fas fa-link"></i> Links</button>
+          <button class="bkl-pf-btn" onclick="filterDataMap('sheet',this)"><i class="fas fa-table"></i> Planilhas</button>
+        </div>
 
-      <!-- Add new entry -->
-      <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="addDataEntry()"><i class="fas fa-plus"></i> Adicionar Entrada</button>
+        <div class="data-map-grid" id="data-map-grid"></div>
 
+        <!-- Add new entry -->
+        <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="addDataEntry()"><i class="fas fa-plus"></i> Adicionar Entrada</button>
+        </div>
+      </div>
+
+      <div id="mapadados-panel-jarvis" style="display:none">
+        <div style="
+          display:flex;align-items:center;gap:14px;margin-bottom:20px;padding:16px 20px;
+          background:linear-gradient(135deg,#1a1d2e 0%,rgba(238,77,45,.15) 100%);
+          border:1px solid rgba(238,77,45,.25);border-radius:var(--radius-lg)">
+          <div style="font-size:28px;color:var(--orange)"><i class="fas fa-check-circle"></i></div>
+          <div>
+            <div style="font-size:16px;font-weight:800;color:var(--text)">v.1 Jarvis</div>
+            <div style="font-size:12px;color:var(--text-muted)">Catálogo de tudo o que já está disponível no site, por processo — pronto pra apresentação ao cliente. Clique em qualquer item pra ir direto pra página.</div>
+          </div>
+        </div>
+        <div class="tools-grid" id="jarvis-catalog-grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))"></div>
       </div>
     </section>
 
@@ -8462,8 +8490,81 @@ function confirmAddTool(){
 }
 
 /* ── Mapa de Dados ── */
+let MAPADADOS_SUBPAGE = 'datamap';
+function mapadadosSwitchSubpage(key, el){
+  MAPADADOS_SUBPAGE = key;
+  document.querySelectorAll('#mapadados-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('mapadados-panel-datamap').style.display = key==='datamap' ? '' : 'none';
+  document.getElementById('mapadados-panel-jarvis').style.display = key==='jarvis' ? '' : 'none';
+  if(key==='jarvis') renderJarvisCatalog();
+}
+
 function renderMapaDados(){
   buildDataMap('all');
+}
+
+/* ================================================================
+   JARVIS (v.1) — catálogo de tudo que já está disponível no site,
+   por processo, pra apresentação ao cliente no fechamento da V.1.
+   Cada item navega direto pra página real (e subpágina, quando tem).
+================================================================ */
+const JARVIS_CATALOG = [
+  { key:'gestao', icon:'fa-gauge-high', title:'Overview', desc:'Resumo executivo de toda a operação: capacidade vs realizado e detalhamento por área.',
+    features:['Resumo — Capacidade vs Realizado (ASM + Conveyor)','Detalhamento por bloco: Backlog, Line Haul, First Mile, ASM, Conveyor, Outbound'] },
+  { key:'backlog', icon:'fa-layer-group', title:'Backlog', desc:'Backlog da última hora atualizada, por perfil e por cluster de aging.',
+    features:['Aging por cluster (0-4h / 4-24h / >24h), sem outliers','% de cada perfil (P, M, G…) sobre o total','Sinalização visual quando o filtro On Time está ativo'] },
+  { key:'forecast', icon:'fa-chart-line', title:'Forecast', desc:'Comparação de volume planejado vs realizado entre dois períodos.',
+    features:['Comparação por intervalo de datas (não só mês fechado)'] },
+  { key:'spr', icon:'fa-truck', title:'Outbound', desc:'CPT/ETA de saída, planejamento (SPR) e pacotes remanescentes (Leftover).',
+    subpages:[ {label:'Outbound', sub:'outbound'}, {label:'SPR', sub:'spr'}, {label:'Leftover', sub:'leftover'} ],
+    features:['ETA Destino: Hora, Antecipação e Fila de Chegada','Transportadora/Destino cruzado no Leftover'] },
+  { key:'asm', icon:'fa-people-carry-box', title:'ASM', desc:'Indução por zona, mesa e nível, hora a hora.',
+    features:['Performance da hora, acumulado do dia e comparativo por zona','Pico e média de indução, filtro de dia completo'] },
+  { key:'conveyor', icon:'fa-conveyor-belt', title:'Conveyor', desc:'Performance por grupo de estação (OBC+OBD, esteiras, Tintas, TO-Audit…).',
+    features:['Performance da hora, acumulado e comparativo por workstation','Filtro de dia completo'] },
+  { key:'inbound', icon:'fa-truck-ramp-box', title:'Inbound', desc:'Recebimento: pontualidade planejado x realizado, chegada e descarga.',
+    subpages:[ {label:'Line Haul', sub:'lh'}, {label:'First Mile', sub:'fm'}, {label:'Triagem', sub:'triagem', wip:true} ],
+    features:['Tempo de fila e de descarga, Sacas/Scuttles por hora','Destaque de ofensores de fila (≥4h)'] },
+  { key:'clusterizacao', icon:'fa-diagram-project', title:'Clusterização', desc:'Mapeamento de expedição por status e aging de oportunidade.',
+    features:['Aging sem outliers/resíduos divergentes'] },
+  { key:'tvconfig', icon:'fa-tv', title:'Monitoramento', desc:'TV Mode em todas as telas com dado + rotação configurável pra espelhar em TV.',
+    subpages:[ {label:'TV Mode Config', sub:null, target:'tvconfig'}, {label:'Live SoC', sub:null, target:'livesoc', wip:true} ],
+    features:['Botão de TV Mode (fullscreen) em cada página com dado','Configurações salvas e nomeadas, com rotação por intervalo'] },
+];
+
+function jarvisGoTo(sectionKey, subKey, isInbound){
+  const navItem = document.querySelector(`.nav-item[data-section="${sectionKey}"]`);
+  if(navItem) navigateTo(sectionKey, navItem);
+  else navigateTo(sectionKey, null);
+  if(subKey){
+    const tabEl = document.getElementById('subtab-'+subKey);
+    if(tabEl){ if(isInbound) inboundSwitchSubpage(subKey, tabEl); else pulsoSwitchSubpage(subKey, tabEl); }
+  }
+}
+
+function renderJarvisCatalog(){
+  const grid = document.getElementById('jarvis-catalog-grid');
+  if(!grid) return;
+  grid.innerHTML = JARVIS_CATALOG.map(p => {
+    const isInbound = p.key === 'inbound';
+    const subpagesHtml = (p.subpages||[]).map(sp => {
+      if(sp.wip) return `<span class="jarvis-subpage-pill wip" title="Em construção">${pulsoEscHtml(sp.label)}</span>`;
+      const target = sp.target || p.key;
+      return `<span class="jarvis-subpage-pill" onclick="event.stopPropagation();jarvisGoTo('${target}',${sp.sub?`'${sp.sub}'`:'null'},${isInbound})">${pulsoEscHtml(sp.label)}</span>`;
+    }).join('');
+    return `
+    <div class="tool-card" onclick="jarvisGoTo('${p.key}',null,false)">
+      <div class="tool-card-thumb"><i class="fas ${p.icon} tool-icon"></i></div>
+      <div class="tool-card-body">
+        <div class="tool-card-name">${pulsoEscHtml(p.title)}</div>
+        <div class="tool-card-desc">${pulsoEscHtml(p.desc)}</div>
+        <ul class="jarvis-feature-list">${(p.features||[]).map(f=>`<li><i class="fas fa-circle"></i>${pulsoEscHtml(f)}</li>`).join('')}</ul>
+        ${subpagesHtml ? `<div class="jarvis-subpage-pills">${subpagesHtml}</div>` : ''}
+        <div class="tool-card-link"><i class="fas fa-arrow-right"></i> Acessar</div>
+      </div>
+    </div>`;
+  }).join('');
 }
 
 function filterDataMap(type, el){
