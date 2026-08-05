@@ -3849,8 +3849,8 @@
           border:1px solid rgba(238,77,45,.25);border-radius:var(--radius-lg)">
           <div style="font-size:28px;color:var(--orange)"><i class="fas fa-check-circle"></i></div>
           <div>
-            <div style="font-size:16px;font-weight:800;color:var(--text)">v.1 Jarvis</div>
-            <div style="font-size:12px;color:var(--text-muted)">Catálogo de tudo o que já está disponível no site, por processo — pronto pra apresentação ao cliente. Clique em qualquer item pra ir direto pra página.</div>
+            <div style="font-size:16px;font-weight:800;color:#fff">v.1 Jarvis</div>
+            <div style="font-size:12px;color:#fff;opacity:.75">Catálogo de apoio ao usuário — um manual do que já está disponível no site, por processo. Clique em qualquer item pra ver o resumo e ir direto pra página.</div>
           </div>
         </div>
         <div class="tools-grid" id="jarvis-catalog-grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))"></div>
@@ -8564,6 +8564,16 @@ const JARVIS_CATALOG = [
     detail:'TV Mode: toda página com dado ganhou um botão de tela cheia (esconde menu e filtros) pra espelhar aquela tela sozinha numa TV. Em TV Mode Config dá pra selecionar várias páginas, definir o intervalo de troca entre elas e salvar essa combinação com um nome pra reusar depois. Live SoC (visão aérea/3D da unidade com os carros docando ao vivo) ainda está bloqueada — falta a planta baixa/posição das docas antes de dar pra desenhar.',
     subpages:[ {label:'TV Mode Config', sub:null, target:'tvconfig'}, {label:'Live SoC', sub:null, target:'livesoc', wip:true} ],
     features:['Botão de TV Mode (fullscreen) em cada página com dado','Configurações salvas e nomeadas, com rotação por intervalo'] },
+  { key:'tratativas-aud', composite:{base:'fa-user-check', badgeIcon:'fa-crosshairs'}, title:'Tratativas e Aud.',
+    desc:'Integração externa (Carta Controle) pra registro de tratativas e auditorias.',
+    detail:'Ferramenta externa integrada direto no menu lateral — abre o Carta Controle, usado pra registrar tratativas e auditorias da operação, sem precisar sair do fluxo do JARVIS pra procurar o link.',
+    external: LINK_TRATATIVAS_AUD,
+    features:['Acesso direto pelo menu, sem precisar do link solto'] },
+  { key:'absenteismo', icon:'fa-user-clock', title:'Absenteísmo',
+    desc:'Integração externa pro controle de presença e absenteísmo.',
+    detail:'Ferramenta externa integrada direto no menu lateral — abre o painel de controle de presença/absenteísmo da operação.',
+    external: LINK_ABSENTEISMO,
+    features:['Acesso direto pelo menu, sem precisar do link solto'] },
 ];
 
 function jarvisGoTo(sectionKey, subKey, isInbound){
@@ -8624,7 +8634,9 @@ function jarvisOpenDetail(key){
   document.getElementById('jarvis-detail-features').innerHTML =
     (p.features||[]).map(f=>`<li><i class="fas fa-circle"></i>${pulsoEscHtml(f)}</li>`).join('');
   const goBtns = document.getElementById('jarvis-detail-goto');
-  if(p.subpages && p.subpages.length){
+  if(p.external){
+    goBtns.innerHTML = `<button class="btn btn-primary" onclick="pulsoNavExternal('${p.external}');jarvisCloseDetail()"><i class="fas fa-arrow-up-right-from-square"></i> Acessar ${pulsoEscHtml(p.title)}</button>`;
+  } else if(p.subpages && p.subpages.length){
     goBtns.innerHTML = p.subpages.map(sp => sp.wip
       ? `<button class="btn" disabled style="opacity:.5" title="Em construção">${pulsoEscHtml(sp.label)}</button>`
       : `<button class="btn btn-primary" onclick="jarvisGoTo('${sp.target||p.key}',${sp.sub?`'${sp.sub}'`:'null'},${isInbound});jarvisCloseDetail()"><i class="fas fa-arrow-right"></i> ${pulsoEscHtml(sp.label)}</button>`
