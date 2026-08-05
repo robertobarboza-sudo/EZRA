@@ -91,6 +91,17 @@ module.exports = async (req, res) => {
 
   const uniq = key => [...new Set(doIntervalo.map(r => r[key]).filter(Boolean))].sort();
 
+  // ETA de destino por hora do dia: planejado vs realizado, pra curva de
+  // antecipação/fila de chegada — usa as colunas de hora já extraídas na planilha.
+  const etaPlanejadoPorHora = Array(24).fill(0);
+  const etaRealizadoPorHora = Array(24).fill(0);
+  filtradas.forEach(r => {
+    const hp = Number(r.hora_eta_destino_planejado);
+    if (Number.isInteger(hp) && hp >= 0 && hp <= 23) etaPlanejadoPorHora[hp]++;
+    const hr = Number(r.hora_eta_destino_realizado);
+    if (Number.isInteger(hr) && hr >= 0 && hr <= 23) etaRealizadoPorHora[hr]++;
+  });
+
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
     ok: true,
@@ -99,6 +110,7 @@ module.exports = async (req, res) => {
     intervalo: { inicio, fim },
     cobertura: { inicio: dataMinima, fim: dataMaxima },
     atual,
+    porHoraEta: { planejado: etaPlanejadoPorHora, realizado: etaRealizadoPorHora },
     carros, carrosTotal: filtradas.length,
     opcoesFiltro: {
       turno: ['T1', 'T2', 'T3'],

@@ -19,6 +19,12 @@
  */
 const { toNum } = require('./_period');
 
+function parseDT(v) {
+  if (!v) return null;
+  const d = new Date(String(v).replace(' ', 'T') + 'Z');
+  return isNaN(d) ? null : d;
+}
+
 const TURNO_ORDEM = ['T1', 'T2', 'T3'];
 function turnoSeguinte(t) {
   const i = TURNO_ORDEM.indexOf(t);
@@ -95,6 +101,26 @@ function aggregate(rows) {
     qtyScuttle += toNum(r.to_scuttle);
   });
 
+  // ETA de destino: antecipação = eta planejado - eta realizado (positivo =
+  // chegou antes do previsto); fila de chegada = tempo entre a chegada
+  // (eta_destino_realizado) e o fim da descarga (unloaded_destination_datetime),
+  // mesma definição já usada em Inbound Line Haul pra "tempo de fila".
+  let chegadaAntecipada = 0, etaComparaveis = 0, antecipacaoSomaMin = 0, filaComparaveis = 0, filaSomaMin = 0;
+  rows.forEach(r => {
+    if (r.status_eta_destino === 'EARLY') chegadaAntecipada++;
+    const etaPlan = parseDT(r.eta_destination_edited);
+    const etaReal = parseDT(r.eta_destino_realizado);
+    if (etaPlan && etaReal) {
+      etaComparaveis++;
+      antecipacaoSomaMin += (etaPlan - etaReal) / 60000;
+    }
+    const fimDescarga = parseDT(r.unloaded_destination_datetime);
+    if (etaReal && fimDescarga) {
+      filaComparaveis++;
+      filaSomaMin += (fimDescarga - etaReal) / 60000;
+    }
+  });
+
   return {
     carrosPrevistos,
     carrosRealizados,
@@ -109,6 +135,10 @@ function aggregate(rows) {
     atrasoMedioMin: cptComparaveis ? Math.round(atrasoSomaMin / cptComparaveis) : 0,
     pacotesSaca, qtySaca,
     pacotesScuttle, qtyScuttle,
+    chegadaAntecipada,
+    etaComparaveis,
+    antecipacaoMedioMin: etaComparaveis ? Math.round(antecipacaoSomaMin / etaComparaveis) : 0,
+    tempoFilaMedioMin: filaComparaveis ? Math.round(filaSomaMin / filaComparaveis) : 0,
   };
 }
 
@@ -130,6 +160,10 @@ function toCarroRow(r) {
     orders_scuttle: toNum(r.orders_scuttle),
     to_saca: toNum(r.to_saca),
     to_scuttle: toNum(r.to_scuttle),
+    eta_planejado: r.eta_destination_edited,
+    eta_realizado: r.eta_destino_realizado,
+    status_eta: r.status_eta_destino,
+    fim_descarga: r.unloaded_destination_datetime,
   };
 }
 

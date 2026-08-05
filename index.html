@@ -5461,6 +5461,9 @@ const OUTBOUND_KPIS = [
   { key:'naoConsumida',     label:'Não Consumida',      icon:'fa-circle-xmark', rowFilter: r => r.status_agrupado === 'NÃO CONSUMIDA' },
   { key:'pacotesSaca',      label:'Sacas Carregadas',    icon:'fa-sack-xmark', countKey:'qtySaca',    countSuffix:"TO's", rowFilter: r => (r.orders_saca||0) > 0 },
   { key:'pacotesScuttle',   label:'Scuttles Carregados', icon:'fa-dolly',      countKey:'qtyScuttle', countSuffix:"TO's", rowFilter: r => (r.orders_scuttle||0) > 0 },
+  { key:'chegadaAntecipada', label:'Chegadas Antecipadas', icon:'fa-clock-rotate-left', countKey:'etaComparaveis', countSuffix:'comparáveis', rowFilter: r => r.status_eta === 'EARLY' },
+  { key:'antecipacaoMedioMin', label:'Antecipação Média (min)', icon:'fa-stopwatch', rowFilter: r => !!(r.eta_planejado && r.eta_realizado) },
+  { key:'tempoFilaMedioMin', label:'Fila de Chegada Média (min)', icon:'fa-hourglass-half', rowFilter: r => !!(r.eta_realizado && r.fim_descarga) },
 ];
 const OUTBOUND_MULTISELECTS = [
   { key:'status',      label:'Status',      field:'status' },
@@ -5478,6 +5481,7 @@ function outboundInsights(data){
   if(atual.canceladas) out.push({ icon:'fa-ban', html: `${atual.canceladas.toLocaleString('pt-BR')} carro${atual.canceladas===1?'':'s'} cancelado${atual.canceladas===1?'':'s'}.` });
   if(atual.infrutiferas) out.push({ icon:'fa-triangle-exclamation', html: `${atual.infrutiferas.toLocaleString('pt-BR')} carro${atual.infrutiferas===1?'':'s'} infrutífero${atual.infrutiferas===1?'':'s'}.` });
   if(atual.noShow) out.push({ icon:'fa-user-slash', html: `${atual.noShow.toLocaleString('pt-BR')} No Show.` });
+  if(atual.etaComparaveis) out.push({ icon:'fa-clock-rotate-left', html: `<strong>${atual.chegadaAntecipada.toLocaleString('pt-BR')}</strong> carros chegaram antecipados (antecipação média de ${atual.antecipacaoMedioMin} min), fila de chegada média de ${atual.tempoFilaMedioMin} min até o fim da descarga.` });
   return out;
 }
 const OUTBOUND_TABLE_COLUMNS = [
@@ -5492,6 +5496,10 @@ const OUTBOUND_TABLE_COLUMNS = [
   { key:'used_agency_name',  label:'Agência',      type:'text' },
   { key:'cpt_planejado',     label:'CPT Planejado',type:'date' },
   { key:'cpt_realizado',     label:'CPT Realizado',type:'date' },
+  { key:'eta_planejado',     label:'ETA Destino Planejado', type:'date' },
+  { key:'eta_realizado',     label:'ETA Destino Realizado', type:'date' },
+  { key:'status_eta',        label:'Status ETA',   type:'text' },
+  { key:'fim_descarga',      label:'Fim Descarga', type:'date' },
 ];
 
 pulsoRegister({
@@ -5505,6 +5513,11 @@ pulsoRegister({
   toggleGroups: [ { key:'turno', static:['T1','T2','T3'] } ],
   multiselects: OUTBOUND_MULTISELECTS,
   kpis: OUTBOUND_KPIS,
+  extraHtml: `
+    <div class="table-card" style="margin-top:16px">
+      <div class="table-toolbar"><div class="table-toolbar-title">ETA Destino — Planejado vs Realizado por Hora</div></div>
+      <div style="height:260px;padding:8px 16px 16px"><canvas id="chart-outbound-eta"></canvas></div>
+    </div>`,
   table: {
     title: 'Carros previstos',
     rowsField: 'carros', totalField: 'carrosTotal',
@@ -5516,6 +5529,14 @@ pulsoRegister({
   onData(data){
     const title = document.querySelector('#pulso-root-outbound .table-toolbar-title');
     if(title) title.textContent = data.modo === 'hoje' ? 'Carros previstos — hoje' : 'Carros previstos — histórico';
+    if(data.porHoraEta){
+      const horas = Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+'h');
+      chartInstances['chart-outbound-eta']?.destroy();
+      mkLine('chart-outbound-eta', horas, [
+        { label:'Planejado', data:data.porHoraEta.planejado, borderColor:'#5c6bc0', backgroundColor:'transparent', tension:.3 },
+        { label:'Realizado', data:data.porHoraEta.realizado, borderColor:'var(--orange)', backgroundColor:'transparent', tension:.3 },
+      ]);
+    }
   },
   insights: outboundInsights,
 });
