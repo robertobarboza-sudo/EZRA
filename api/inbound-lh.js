@@ -111,6 +111,11 @@ module.exports = async (req, res) => {
       pacotesGBulk: toNum(r.pacotes_g) + toNum(r.pacotes_bulk),
       pacotesPM: toNum(r.pacotes_p) + toNum(r.pacotes_m),
       solicitacao: r.solicitation_agrupado || '',
+      // Hora em que a saca/scuttle fica disponível pra processamento = hora
+      // do fim da descarga (não a chegada — só depois de descarregado o
+      // conteúdo sai do caminhão) — pedido do Roberto em 2026-08-05.
+      horaDescarga: r.hora_descarga !== '' ? toNum(r.hora_descarga) : null,
+      docaDescarga: r.doca_descarga || '',
     };
   });
 

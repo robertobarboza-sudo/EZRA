@@ -1462,6 +1462,7 @@
     .bkl-ontime-btn:hover { background: rgba(238,77,45,.16); }
     .bkl-ontime-btn i { font-size: 11px; }
     .bkl-ontime-btn.active { background: var(--orange); color: #fff; box-shadow: 0 2px 10px rgba(238,77,45,.35); }
+    .lh-fila-ofensor { color: #ff5b5b; font-weight: 700; }
 
     .spr-ms-wrap { position: relative; display: inline-flex; }
     .spr-ms-btn {
@@ -2907,7 +2908,7 @@
         <div class="chart-card full" style="margin-top:16px">
           <div class="table-toolbar" style="margin-bottom:0">
             <div class="chart-title" id="lh-chart-title">Viagens por hora — Planejado vs Realizado</div>
-            <button type="button" class="spr-ms-action-btn" id="lh-chart-toggle" onclick="lhToggleChartView()" style="flex:0 0 auto">Ver Atraso Médio (h)</button>
+            <button type="button" class="spr-ms-action-btn" id="lh-chart-toggle" onclick="lhToggleChartView()" style="flex:0 0 auto">Ver Tempo de Fila Médio (h)</button>
           </div>
           <div style="height:320px;margin-top:12px"><canvas id="chart-lh-hora"></canvas></div>
         </div>
@@ -2924,6 +2925,9 @@
               <th class="spr-sortable" onclick="lhSortBy('realizado')" id="lh-th-realizado">Realizado <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="lhSortBy('atrasoMin')" id="lh-th-atrasoMin">Atraso (min) <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="lhSortBy('pacotes')" id="lh-th-pacotes">Pacotes <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="lhSortBy('pacotesSaca')" id="lh-th-pacotesSaca">Sacas <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="lhSortBy('pacotesScuttle')" id="lh-th-pacotesScuttle">Scuttles <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="lhSortBy('tempoFilaMin')" id="lh-th-tempoFilaMin">Fila (min) <i class="fas fa-sort"></i></th>
             </tr></thead><tbody id="lh-tbody"></tbody></table>
           </div>
           <div class="pulso-footer" id="lh-footer" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--text-muted)"></div>
@@ -6031,7 +6035,7 @@ function inboundOpenPipboy(){
 // ── Line Haul ──
 const LH_STATE = { from: null, to: null, turno: '', status: '', origem: '', veiculo: '' };
 let LH_CHART_VIEW = 'viagens'; // 'viagens' | 'atraso'
-const LH_SORT_COLS = ['viagem','origem','veiculo','turno','status','planejado','realizado','atrasoMin','pacotes'];
+const LH_SORT_COLS = ['viagem','origem','veiculo','turno','status','planejado','realizado','atrasoMin','pacotes','pacotesSaca','pacotesScuttle','tempoFilaMin'];
 const LH_SORT = { key: 'planejado', dir: 1 };
 let LH_DATA = null;
 let LH_PAGE = 0;
@@ -6184,12 +6188,15 @@ function lhRenderKpis(){
 // por hora (chegada até fim de descarga, agrupado pela hora real de
 // chegada), em horas (formato "2,5"). Ajustado em 2026-08-04 — antes
 // mostrava atraso médio, mas o gráfico é pra olhar fila, não pontualidade.
+const LH_CHART_VIEWS = ['viagens', 'fila', 'sacas'];
+const LH_CHART_LABELS = { viagens:'Ver Tempo de Fila Médio (h)', fila:'Ver Sacas/Scuttles por Hora', sacas:'Ver Viagens' };
+const LH_CHART_TITLES = { viagens:'Viagens por hora — Planejado vs Realizado', fila:'Tempo de fila médio por hora (h)', sacas:'Sacas e Scuttles disponíveis por hora (fim da descarga)' };
 function lhToggleChartView(){
-  LH_CHART_VIEW = LH_CHART_VIEW === 'viagens' ? 'fila' : 'viagens';
+  LH_CHART_VIEW = LH_CHART_VIEWS[(LH_CHART_VIEWS.indexOf(LH_CHART_VIEW)+1) % LH_CHART_VIEWS.length];
   const btn = document.getElementById('lh-chart-toggle');
   const title = document.getElementById('lh-chart-title');
-  if(btn) btn.textContent = LH_CHART_VIEW === 'viagens' ? 'Ver Tempo de Fila Médio (h)' : 'Ver Viagens';
-  if(title) title.textContent = LH_CHART_VIEW === 'viagens' ? 'Viagens por hora — Planejado vs Realizado' : 'Tempo de fila médio por hora (h)';
+  if(btn) btn.textContent = LH_CHART_LABELS[LH_CHART_VIEW];
+  if(title) title.textContent = LH_CHART_TITLES[LH_CHART_VIEW];
   lhRenderChart();
 }
 
@@ -6208,6 +6215,22 @@ function lhRenderChart(){
     mkLine('chart-lh-hora', labels, [
       { label:'Tempo de fila médio (h)', data:filaHoras, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:2 },
     ], { plugins:{ legend:{labels:{color:'#5c5f7a',boxWidth:11,font:{size:11}}}, tooltip:{ callbacks:{ label: ctx => `Tempo de fila médio: ${String(ctx.raw).replace('.',',')}h` } } } });
+    return;
+  }
+
+  if(LH_CHART_VIEW === 'sacas'){
+    const sacas = Array(24).fill(0), scuttles = Array(24).fill(0);
+    rows.forEach(r => {
+      if(r.horaDescarga!==null && r.horaDescarga>=0 && r.horaDescarga<=23){
+        sacas[r.horaDescarga] += r.pacotesSaca;
+        scuttles[r.horaDescarga] += r.pacotesScuttle;
+      }
+    });
+    const d = cd();
+    mkBar('chart-lh-hora', labels, [
+      { label:'Sacas', data:sacas, backgroundColor:'#ee4d2d' },
+      { label:'Scuttles', data:scuttles, backgroundColor:'#75809b' },
+    ], { scales:{ x:{ ...d.scales.x, stacked:true }, y:{ ...d.scales.y, stacked:true } } });
     return;
   }
 
@@ -6249,14 +6272,14 @@ function lhRenderTable(){
   if(LH_SORT.key){
     rows = [...rows].sort((a, b) => {
       let va = a[LH_SORT.key], vb = b[LH_SORT.key];
-      if(['atrasoMin','pacotes'].includes(LH_SORT.key)){ va = va||0; vb = vb||0; }
+      if(['atrasoMin','pacotes','pacotesSaca','pacotesScuttle','tempoFilaMin'].includes(LH_SORT.key)){ va = va||0; vb = vb||0; }
       else { va = String(va||''); vb = String(vb||''); }
       const cmp = va < vb ? -1 : va > vb ? 1 : 0;
       return cmp * LH_SORT.dir;
     });
   }
   if(!rows.length){
-    tbody.innerHTML = emptyRow(9);
+    tbody.innerHTML = emptyRow(12);
     if(footer) footer.textContent = '';
     return;
   }
@@ -6264,6 +6287,9 @@ function lhRenderTable(){
   const totalPaginas = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   LH_PAGE = Math.min(LH_PAGE, totalPaginas - 1);
   const pageRows = rows.slice(LH_PAGE * PAGE_SIZE, (LH_PAGE + 1) * PAGE_SIZE);
+  // Ofensor de fila: mais de 4h (240min) parado entre chegada e fim da
+  // descarga — mesmo limite usado como referência de SLA de doca.
+  const FILA_OFENSOR_MIN = 240;
   tbody.innerHTML = pageRows.map(r => `<tr>
     <td>${pulsoEscHtml(r.viagem)}</td>
     <td>${pulsoEscHtml(r.origem||'—')}</td>
@@ -6274,6 +6300,9 @@ function lhRenderTable(){
     <td>${pulsoFmtCell(r.realizado,'date')}</td>
     <td>${r.atrasoMin===null?'—':r.atrasoMin.toLocaleString('pt-BR')}</td>
     <td>${r.pacotes.toLocaleString('pt-BR')}</td>
+    <td>${r.pacotesSaca.toLocaleString('pt-BR')}</td>
+    <td>${r.pacotesScuttle.toLocaleString('pt-BR')}</td>
+    <td${r.tempoFilaMin!==null && r.tempoFilaMin>=FILA_OFENSOR_MIN ? ' class="lh-fila-ofensor"' : ''}>${r.tempoFilaMin===null?'—':r.tempoFilaMin.toLocaleString('pt-BR')}</td>
   </tr>`).join('');
   const pager = totalPaginas > 1 ? `<span class="pulso-pager">
     <button type="button" class="spr-ms-action-btn" ${LH_PAGE===0?'disabled':''} onclick="lhSetPage(${LH_PAGE-1})"><i class="fas fa-chevron-left"></i> Anterior</button>
