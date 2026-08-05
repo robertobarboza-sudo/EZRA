@@ -96,10 +96,14 @@ module.exports = async (req, res) => {
   const etaPlanejadoPorHora = Array(24).fill(0);
   const etaRealizadoPorHora = Array(24).fill(0);
   filtradas.forEach(r => {
-    const hp = Number(r.hora_eta_destino_planejado);
-    if (Number.isInteger(hp) && hp >= 0 && hp <= 23) etaPlanejadoPorHora[hp]++;
-    const hr = Number(r.hora_eta_destino_realizado);
-    if (Number.isInteger(hr) && hr >= 0 && hr <= 23) etaRealizadoPorHora[hr]++;
+    if (r.hora_eta_destino_planejado !== '' && r.hora_eta_destino_planejado != null) {
+      const hp = Number(r.hora_eta_destino_planejado);
+      if (Number.isInteger(hp) && hp >= 0 && hp <= 23) etaPlanejadoPorHora[hp]++;
+    }
+    if (r.hora_eta_destino_realizado !== '' && r.hora_eta_destino_realizado != null) {
+      const hr = Number(r.hora_eta_destino_realizado);
+      if (Number.isInteger(hr) && hr >= 0 && hr <= 23) etaRealizadoPorHora[hr]++;
+    }
   });
 
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
