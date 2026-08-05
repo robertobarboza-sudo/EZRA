@@ -1673,6 +1673,19 @@
     .jarvis-subpage-pill:hover { border-color: var(--orange); color: var(--orange); }
     .jarvis-subpage-pill.wip { opacity: .5; cursor: default; }
     .jarvis-subpage-pill.wip:hover { border-color: var(--border); color: var(--text-muted); }
+    .jarvis-roadmap { display: flex; align-items: stretch; gap: 0; margin-bottom: 28px; flex-wrap: wrap; }
+    .jarvis-roadmap-card { flex: 1; min-width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; display: flex; flex-direction: column; }
+    .jarvis-roadmap-arrow { display: flex; align-items: center; justify-content: center; padding: 0 10px; color: var(--orange); font-size: 20px; flex: 0 0 auto; }
+    .jarvis-roadmap-title { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .jarvis-roadmap-text { font-size: 12px; color: var(--text-muted); line-height: 1.7; }
+    .jarvis-roadmap-pipboy { width: 100%; max-width: 170px; margin: 0 auto 14px; display: block; filter: drop-shadow(0 8px 24px rgba(238,77,45,.25)); }
+    .jarvis-version-block { margin-top: 16px; }
+    .jarvis-version-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .jarvis-version-badge { display: inline-block; font-size: 10px; font-weight: 800; background: var(--orange); color: #fff; padding: 3px 9px; border-radius: 20px; margin-left: 8px; vertical-align: middle; white-space: nowrap; }
+    .jarvis-version-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+    .jarvis-version-list li { font-size: 11px; color: var(--text-muted); display: flex; align-items: baseline; gap: 6px; }
+    .jarvis-version-list li i { color: var(--orange); font-size: 8px; }
+    @media (max-width: 900px) { .jarvis-roadmap-arrow { transform: rotate(90deg); padding: 8px 0; } }
 
     /* Guia de reuniões */
     .meetings-grid {
@@ -3853,6 +3866,44 @@
             <div style="font-size:12px;color:#fff;opacity:.75">Catálogo de apoio ao usuário — um manual do que já está disponível no site, por processo. Clique em qualquer item pra ver o resumo e ir direto pra página.</div>
           </div>
         </div>
+
+        <div class="jarvis-roadmap">
+          <div class="jarvis-roadmap-card">
+            <div class="jarvis-roadmap-title"><i class="fas fa-flag-checkered" style="color:var(--orange)"></i> V.1 — Onde estamos</div>
+            <div class="jarvis-roadmap-text">Em julho fechamos a primeira versão do JARVIS: hoje já acompanhamos Backlog, Outbound, Inbound, ASM, Conveyor, Forecast e Clusterização em tempo real, num único lugar — aging tratado sem outlier, filas medidas de ponta a ponta, TV Mode pra espelhar qualquer tela quando quisermos. Deixamos de depender de planilha solta pra enxergar a operação inteira, hora a hora.</div>
+          </div>
+          <div class="jarvis-roadmap-arrow"><i class="fas fa-arrow-right"></i></div>
+          <div class="jarvis-roadmap-card" style="align-items:center;text-align:center">
+            <img src="/assets/pipboy.webp" alt="Pipboy" class="jarvis-roadmap-pipboy"/>
+            <div class="jarvis-roadmap-title" style="justify-content:center">Resumo</div>
+            <div class="jarvis-roadmap-text">O Pipboy já te dá o insight automático de cada página. E isso é só o começo — o que vem por aí eleva a visibilidade da operação pro próximo nível.</div>
+          </div>
+          <div class="jarvis-roadmap-arrow"><i class="fas fa-arrow-right"></i></div>
+          <div class="jarvis-roadmap-card">
+            <div class="jarvis-roadmap-title"><i class="fas fa-rocket" style="color:var(--orange)"></i> Próximas Entregas</div>
+            <div class="jarvis-version-block">
+              <div class="jarvis-version-title">V2 — Aprimorando a visibilidade <span class="jarvis-version-badge">14/08</span></div>
+              <ul class="jarvis-version-list">
+                <li><i class="fas fa-circle"></i>Labor Planning — Live</li>
+                <li><i class="fas fa-circle"></i>Capacidade Planejada x Real por Esteira — Live</li>
+                <li><i class="fas fa-circle"></i>Dashboard H/H (Inbound, Triagem, Outbound) com Produtividade — Live</li>
+                <li><i class="fas fa-circle"></i>Visão de Pacotes em Stage In — Live</li>
+                <li><i class="fas fa-circle"></i>Qualitativos do ASM e também OEE</li>
+                <li><i class="fas fa-circle"></i>FIFO Broken — Live</li>
+              </ul>
+            </div>
+            <div class="jarvis-version-block">
+              <div class="jarvis-version-title">V3 — Inteligência Operacional e Machine Learning <span class="jarvis-version-badge">28/08</span></div>
+              <ul class="jarvis-version-list">
+                <li><i class="fas fa-circle"></i>Performance Operacional por Turno e Oferta de Pacotes no DWS — Previsibilidade "Profeta"</li>
+                <li><i class="fas fa-circle"></i>KPI H/H de Atrelamento</li>
+                <li><i class="fas fa-circle"></i>Atualização Stage In e Triagem (5 min) com Tráfego de Pacotes</li>
+                <li><i class="fas fa-circle"></i>TOs sem Atrelamento no Singulator e Unpack por Nível/Zona</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
         <div class="tools-grid" id="jarvis-catalog-grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))"></div>
       </div>
 
