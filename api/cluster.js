@@ -237,6 +237,20 @@ module.exports = async (req, res) => {
   //                   operator=spx@shopee.com + Scuttle -> Transbordo
   //                   resto vazio
   const agoraMs = Date.now();
+  // `create time`/`complete time` vêm em horário de Brasília (mesma
+  // convenção de todo o PULSO pros timestamps crus da planilha — ver
+  // dataOperacionalDe em api/_period.js), não UTC. Interpretar a string
+  // direto como UTC (só anexando 'Z') deixa o instante 3h "no passado" do
+  // que realmente é, inflando o aging em +3h sistematicamente pra TODO TO —
+  // bug real, confirmado ao vivo em 2026-08-05 (TO criado há 7min aparecia
+  // com 3,1h de aging) e reportado pelo Roberto como "aging divergente".
+  // Corrige somando de volta o offset de Brasília (+3h) depois do parse.
+  const BR_PARA_UTC_MS = 3 * 60 * 60 * 1000;
+  const parseLocalBr = v => {
+    if (!v) return null;
+    const ms = new Date(String(v).replace(' ', 'T') + 'Z').getTime();
+    return isNaN(ms) ? null : ms + BR_PARA_UTC_MS;
+  };
   const origemDe = toPack => {
     if (toPack === 'Saca Sorter') return 'Sorter';
     if (toPack === 'Scuttle') return 'Esteira';
@@ -251,13 +265,18 @@ module.exports = async (req, res) => {
   const comDataBruta = rows.map(r => {
     const codigo = r['staging area'];
     const depara = (codigo && codigo !== '-') ? STAGING_DEPARA.get(codigo) : null;
-    const createMs = r['create time'] ? new Date(String(r['create time']).replace(' ', 'T') + 'Z').getTime() : null;
+    // Só o aging faz aritmética contra Date.now() (precisa do epoch UTC
+    // real, por isso passa por parseLocalBr) — __date só é usado pra
+    // ordenar/formatar (maxCompleteTime.getUTCHours() em "atual.att" conta
+    // com o truque padrão do PULSO de ler os dígitos crus via getters UTC),
+    // então continua com o parse "ingênuo" (dígitos crus = wall-clock BR).
+    const createMs = parseLocalBr(r['create time']);
     return {
       ...r,
       destino: r.receiver,
       rua: depara ? depara.rua : 'Pendente',
       stage: depara ? 'ENDEREÇADO' : 'PENDENTE',
-      aging: (createMs && !isNaN(createMs)) ? +((agoraMs - createMs) / 3600000).toFixed(1) : 0,
+      aging: (createMs !== null) ? +((agoraMs - createMs) / 3600000).toFixed(1) : 0,
       origem: origemDe(r['to pack']),
       classificacao: classificacaoDe(r.operator, r['to pack']),
       __date: r['complete time'] ? new Date(String(r['complete time']).replace(' ', 'T') + 'Z') : null,

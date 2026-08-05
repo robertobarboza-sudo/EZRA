@@ -3412,7 +3412,8 @@
 
       <div class="spr-filters">
         <div class="spr-filter-group">
-          <input type="date" class="filter-select pulso-date-input" id="fct-date-input" onchange="fctSetDate(this.value)" style="color-scheme:dark"/>
+          <input type="date" class="filter-select pulso-date-input" id="fct-date-input" onchange="fctSetDate(this.value)" style="color-scheme:dark" title="Mês vigente (data de referência)"/>
+          <input type="month" class="filter-select pulso-date-input" id="fct-mes-comparacao-input" onchange="fctSetMesComparacao(this.value)" style="color-scheme:dark" title="Mês a comparar (padrão: mês anterior)"/>
         </div>
       </div>
       <div id="fct-kpis"></div>
@@ -7353,7 +7354,7 @@ function clearNewUserForm(){
 /* ================================================================
    FORECAST — pacotes previstos por canal (forecast_backlog_pulso, colunas H-M)
 ================================================================ */
-const FORECAST_STATE = { date: null };
+const FORECAST_STATE = { date: null, mesComparacao: null };
 const FCT_ROWS = [
   { label:'FORECAST',     key:'total',        cls:'fct-row-total' },
   { label:'LH',           key:'lh',           cls:'fct-row-sub' },
@@ -7370,6 +7371,7 @@ async function loadForecast(){
   try {
     const p = new URLSearchParams();
     if(FORECAST_STATE.date) p.set('date', FORECAST_STATE.date);
+    if(FORECAST_STATE.mesComparacao) p.set('mesComparacao', FORECAST_STATE.mesComparacao);
     const r = await fetch('/api/forecast?'+p.toString(), { cache:'no-store' });
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
@@ -7378,6 +7380,11 @@ async function loadForecast(){
 
     const dateInput = document.getElementById('fct-date-input');
     if(dateInput && !FORECAST_STATE.date && j.data) dateInput.value = j.data;
+    // Mês de comparação (pedido do Roberto em 2026-08-05): padrão é o mês
+    // anterior ao vigente, calculado pelo backend — só refletimos no input
+    // se o usuário ainda não escolheu um manualmente.
+    const mesCompInput = document.getElementById('fct-mes-comparacao-input');
+    if(mesCompInput && !FORECAST_STATE.mesComparacao && j.mesComparacao) mesCompInput.value = j.mesComparacao;
 
     buildKPIs('fct-kpis', [
       { label:'Forecast Total', value:j.atual.total.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
@@ -7393,7 +7400,7 @@ async function loadForecast(){
       ? `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong>`
       : '';
 
-    buildForecastPeriodKpis(j.cardsPeriodo);
+    buildForecastPeriodKpis(j.cardsPeriodo, j.mesComparacao);
     buildForecastWeeks(j.semanas);
     buildForecastMonthBlocks(j.mesTotal, j.quartilMensal, j.adoQuartil, j.mes);
   } catch(err){
@@ -7402,24 +7409,32 @@ async function loadForecast(){
   }
 }
 
-function fctDelta(pct){
+function fctDelta(pct, vsLabel){
   if(pct === null || pct === undefined || !isFinite(pct)) return { delta:'', trend:'up' };
   const trend = pct >= 0 ? 'up' : 'down';
-  return { delta: `${pct>=0?'+':''}${pct.toFixed(1)}% vs período anterior`, trend };
+  return { delta: `${pct>=0?'+':''}${pct.toFixed(1)}% vs ${vsLabel || 'período anterior'}`, trend };
 }
 
-function buildForecastPeriodKpis(cardsPeriodo){
+// Os cards de Mês comparam contra FORECAST_STATE.mesComparacao (padrão: mês
+// anterior, mas selecionável — pedido do Roberto em 2026-08-05); o texto do
+// delta nomeia o mês escolhido em vez do genérico "período anterior".
+function buildForecastPeriodKpis(cardsPeriodo, mesComparacao){
   if(!cardsPeriodo) return;
   const { mes, week, dia } = cardsPeriodo;
-  const card = (label, valor, varPct, icon) => {
-    const { delta, trend } = fctDelta(varPct);
+  const mesCompLabel = (() => {
+    if(!mesComparacao) return null;
+    const [y, m] = mesComparacao.split('-').map(Number);
+    return `${FCT_MESES_PT[m-1]}/${y}`;
+  })();
+  const card = (label, valor, varPct, icon, vsLabel) => {
+    const { delta, trend } = fctDelta(varPct, vsLabel);
     return { label, value: Math.round(valor||0).toLocaleString('pt-BR'), delta, trend, type:'', icon };
   };
   buildKPIs('fct-period-kpis', [
-    card('Forecast - Mês',      mes.forecast,        mes.forecastVar,        'fa-calendar-days'),
-    card('Ado Méd. Mês',        mes.adoMedio,        mes.adoMedioVar,        'fa-chart-line'),
-    card('Transhipment Mês',    mes.transhipment,     mes.transhipmentVar,    'fa-shuffle'),
-    card('Ado Transhipment Mês', mes.adoTranshipment, mes.adoTranshipmentVar, 'fa-chart-line'),
+    card('Forecast - Mês',      mes.forecast,        mes.forecastVar,        'fa-calendar-days', mesCompLabel),
+    card('Ado Méd. Mês',        mes.adoMedio,        mes.adoMedioVar,        'fa-chart-line', mesCompLabel),
+    card('Transhipment Mês',    mes.transhipment,     mes.transhipmentVar,    'fa-shuffle', mesCompLabel),
+    card('Ado Transhipment Mês', mes.adoTranshipment, mes.adoTranshipmentVar, 'fa-chart-line', mesCompLabel),
     card('Forecast - Week',     week.forecast,       week.forecastVar,       'fa-calendar-week'),
     card('Ado Méd. Week',       week.adoMedio,       week.adoMedioVar,       'fa-chart-line'),
     card('Transhipment Week',   week.transhipment,    week.transhipmentVar,   'fa-shuffle'),
@@ -7505,6 +7520,7 @@ function buildForecastMonthBlocks(mesTotal, quartilMensal, adoQuartil, mesRef){
 }
 
 function fctSetDate(v){ FORECAST_STATE.date = v || null; loadForecast(); }
+function fctSetMesComparacao(v){ FORECAST_STATE.mesComparacao = v || null; loadForecast(); }
 
 function fctGenerateInsights(){
   if(!FORECAST_DATA) return [];

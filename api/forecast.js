@@ -35,9 +35,11 @@
  *     conta os dias de semanas vizinhas que "vazam" pro mês anterior/seguinte).
  *
  * Query params:
- *   date   YYYY-MM-DD — data de referência pros cards do topo E mês exibido
- *          na tabela; default = hoje (ou a menor data disponível, se hoje for
- *          anterior ao início do forecast)
+ *   date          YYYY-MM-DD — data de referência pros cards do topo E mês
+ *                 exibido na tabela; default = hoje (ou a menor data
+ *                 disponível, se hoje for anterior ao início do forecast)
+ *   mesComparacao YYYY-MM — mês a comparar no card "Mês" (pedido do Roberto
+ *                 em 2026-08-05); default = mês anterior ao de `date`
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum, hojeOperacionalIso } = require('./_period');
@@ -176,7 +178,7 @@ module.exports = async (req, res) => {
   if (!forecast.length) {
     const zeroCard = { forecast: 0, forecastVar: null, adoMedio: 0, adoMedioVar: null, transhipment: 0, transhipmentVar: null, adoTranshipment: 0, adoTranshipmentVar: null };
     res.status(200).json({
-      ok: true, data: null, mes: null, atual: { ...ZERO_AGG },
+      ok: true, data: null, mes: null, mesComparacao: null, atual: { ...ZERO_AGG },
       semanas: [], mesTotal: { ...ZERO_AGG }, quartilMensal: { ...ZERO_AGG }, adoQuartil: { ...ZERO_AGG },
       cardsPeriodo: { mes: zeroCard, week: { ...zeroCard }, dia: { ...zeroCard } },
       cobertura: { inicio: null, fim: null },
@@ -252,7 +254,8 @@ module.exports = async (req, res) => {
   // ── Cards por período (Mês/Week/Dia) + variação vs período anterior ──
   const semanaRef = semanas.find(s => dataRef >= s.inicio && dataRef <= s.fim) || semanas[semanas.length - 1];
 
-  const mesAnteriorRef = addMonths(mesRef, -1);
+  const mesComparacaoQuery = req.query.mesComparacao;
+  const mesAnteriorRef = (mesComparacaoQuery && /^\d{4}-\d{2}$/.test(mesComparacaoQuery)) ? mesComparacaoQuery : addMonths(mesRef, -1);
   const mesAnteriorCalc = totalDoMes(mesAnteriorRef, aggDia);
   const numSemanasMesAtual = semanas.length;
 
@@ -301,6 +304,7 @@ module.exports = async (req, res) => {
     ok: true,
     data: dataRef,
     mes: mesRef,
+    mesComparacao: mesAnteriorRef,
     atual,
     semanas,
     mesTotal,
