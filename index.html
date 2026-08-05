@@ -3855,6 +3855,21 @@
         </div>
         <div class="tools-grid" id="jarvis-catalog-grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))"></div>
       </div>
+
+      <div class="modal-overlay" id="jarvis-detail-overlay" onclick="if(event.target===this) jarvisCloseDetail()">
+        <div class="modal" style="max-width:520px">
+          <div class="modal-header">
+            <span class="modal-title" style="display:flex;align-items:center;gap:12px">
+              <span id="jarvis-detail-icon" style="font-size:22px;color:var(--orange)"></span>
+              <span id="jarvis-detail-title"></span>
+            </span>
+            <button class="modal-close" onclick="jarvisCloseDetail()"><i class="fas fa-xmark"></i></button>
+          </div>
+          <div id="jarvis-detail-text" style="font-size:13px;color:var(--text-muted);line-height:1.6;margin-bottom:14px"></div>
+          <ul class="jarvis-feature-list" id="jarvis-detail-features" style="margin-bottom:20px"></ul>
+          <div id="jarvis-detail-goto" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+        </div>
+      </div>
     </section>
 
 
@@ -8510,25 +8525,43 @@ function renderMapaDados(){
    Cada item navega direto pra página real (e subpágina, quando tem).
 ================================================================ */
 const JARVIS_CATALOG = [
-  { key:'gestao', icon:'fa-gauge-high', title:'Overview', desc:'Resumo executivo de toda a operação: capacidade vs realizado e detalhamento por área.',
+  { key:'gestao', icon:'fa-gauge-high', title:'Overview',
+    desc:'Resumo executivo de toda a operação: capacidade vs realizado e detalhamento por área.',
+    detail:'Primeiro o bloco Resumo: um card por área (Backlog, Line Haul, First Mile, ASM, Conveyor, Outbound) e o gráfico de Capacidade vs Realizado somando ASM + Conveyor. Abaixo, o Detalhamento — um acordeão fechado por padrão pra cada área, que só carrega o gráfico de planejado vs realizado quando você abre o bloco.',
     features:['Resumo — Capacidade vs Realizado (ASM + Conveyor)','Detalhamento por bloco: Backlog, Line Haul, First Mile, ASM, Conveyor, Outbound'] },
-  { key:'backlog', icon:'fa-layer-group', title:'Backlog', desc:'Backlog da última hora atualizada, por perfil e por cluster de aging.',
+  { key:'backlog', icon:'fa-layer-group', title:'Backlog',
+    desc:'Backlog da última hora atualizada, por perfil e por cluster de aging.',
+    detail:'Sempre mostra o backlog da última hora com dado atualizado na planilha (não a hora do relógio), com o horário exibido logo abaixo. Pacotes agrupados por perfil (P, M, G, Bulky+Ração+S/Class, Tinta+Líquido) e por cluster de aging (0-4h, 4-24h, >24h) — a média de aging já exclui outliers estatísticos (acima de Q3 + 1.5×IQR) pra não distorcer o número com resíduo.',
     features:['Aging por cluster (0-4h / 4-24h / >24h), sem outliers','% de cada perfil (P, M, G…) sobre o total','Sinalização visual quando o filtro On Time está ativo'] },
-  { key:'forecast', icon:'fa-chart-line', title:'Forecast', desc:'Comparação de volume planejado vs realizado entre dois períodos.',
+  { key:'forecast', composite:{base:'fa-chart-column', badgeIcon:'fa-magnifying-glass'}, title:'Forecast',
+    desc:'Comparação de volume planejado vs realizado entre dois períodos.',
+    detail:'Compara volume planejado vs realizado num intervalo de datas livre — o padrão é mês vigente vs mês anterior, mas dá pra escolher qualquer data de início/fim dos dois lados da comparação (não fica preso a mês fechado).',
     features:['Comparação por intervalo de datas (não só mês fechado)'] },
-  { key:'spr', icon:'fa-truck', title:'Outbound', desc:'CPT/ETA de saída, planejamento (SPR) e pacotes remanescentes (Leftover).',
+  { key:'spr', icon:'fa-truck-fast', title:'Outbound',
+    desc:'CPT/ETA de saída, planejamento (SPR) e pacotes remanescentes (Leftover).',
+    detail:'Três visões na mesma seção. Outbound: CPT e ETA de saída ao vivo do turno atual, com curva de ETA Destino Hora (planejado vs realizado), % de chegadas antecipadas e tempo médio de fila até o fim da descarga. SPR: planejamento/faturamento por viagem. Leftover: pacotes que sobraram no hub, com a Transportadora cruzada automaticamente pela chave hub + CPT com a base de viagens.',
     subpages:[ {label:'Outbound', sub:'outbound'}, {label:'SPR', sub:'spr'}, {label:'Leftover', sub:'leftover'} ],
     features:['ETA Destino: Hora, Antecipação e Fila de Chegada','Transportadora/Destino cruzado no Leftover'] },
-  { key:'asm', icon:'fa-people-carry-box', title:'ASM', desc:'Indução por zona, mesa e nível, hora a hora.',
+  { key:'asm', icon:'fa-feather', title:'ASM',
+    desc:'Indução por zona, mesa e nível, hora a hora.',
+    detail:'Três visões de gráfico: Hora (performance da hora selecionada), Acumulado (soma do dia) e Comparativo por Zona (uma linha por zona). Filtro de Dia Todo além da hora, e cards com pico e média de indução por hora, média de zonas e mesas ativas.',
     features:['Performance da hora, acumulado do dia e comparativo por zona','Pico e média de indução, filtro de dia completo'] },
-  { key:'conveyor', icon:'fa-conveyor-belt', title:'Conveyor', desc:'Performance por grupo de estação (OBC+OBD, esteiras, Tintas, TO-Audit…).',
+  { key:'conveyor', icon:'fa-box', title:'Conveyor',
+    desc:'Performance por grupo de estação (OBC+OBD, esteiras, Tintas, TO-Audit…).',
+    detail:'Mesma lógica do ASM, mas por grupo de estação — OBC e OBD somados num grupo só, esteiras (A, B, Tintas, TO-Audit) separadas, e tudo somado apenas na visão Acumulado do dia todo. Também tem os três modos de gráfico (Hora, Acumulado, Comparativo por Workstation) e filtro de dia completo.',
     features:['Performance da hora, acumulado e comparativo por workstation','Filtro de dia completo'] },
-  { key:'inbound', icon:'fa-truck-ramp-box', title:'Inbound', desc:'Recebimento: pontualidade planejado x realizado, chegada e descarga.',
+  { key:'inbound', composite:{base:'fa-truck', badgeText:'IN'}, title:'Inbound',
+    desc:'Recebimento: pontualidade planejado x realizado, chegada e descarga.',
+    detail:'Três sub-abas. Line Haul: pontualidade planejado x realizado, Tempo de Fila (chegada até fim da descarga) e Tempo de Descarga, com Sacas/Scuttles por hora do fim da descarga e fila ≥4h destacada como ofensor na tabela. First Mile: chegada/descarga histórico. Triagem: ainda sem dado publicado na planilha, placeholder de "em construção".',
     subpages:[ {label:'Line Haul', sub:'lh'}, {label:'First Mile', sub:'fm'}, {label:'Triagem', sub:'triagem', wip:true} ],
     features:['Tempo de fila e de descarga, Sacas/Scuttles por hora','Destaque de ofensores de fila (≥4h)'] },
-  { key:'clusterizacao', icon:'fa-diagram-project', title:'Clusterização', desc:'Mapeamento de expedição por status e aging de oportunidade.',
+  { key:'clusterizacao', icon:'fa-circle-nodes', title:'Clusterização',
+    desc:'Mapeamento de expedição por status e aging de oportunidade.',
+    detail:'Mapeamento de expedição por status. O card de Aging foi revisado pra excluir outliers/resíduos muito divergentes do cálculo da média, então o número reflete a operação real, não os poucos casos extremos.',
     features:['Aging sem outliers/resíduos divergentes'] },
-  { key:'tvconfig', icon:'fa-tv', title:'Monitoramento', desc:'TV Mode em todas as telas com dado + rotação configurável pra espelhar em TV.',
+  { key:'tvconfig', icon:'fa-tv', title:'Monitoramento',
+    desc:'TV Mode em todas as telas com dado + rotação configurável pra espelhar em TV.',
+    detail:'TV Mode: toda página com dado ganhou um botão de tela cheia (esconde menu e filtros) pra espelhar aquela tela sozinha numa TV. Em TV Mode Config dá pra selecionar várias páginas, definir o intervalo de troca entre elas e salvar essa combinação com um nome pra reusar depois. Live SoC (visão aérea/3D da unidade com os carros docando ao vivo) ainda está bloqueada — falta a planta baixa/posição das docas antes de dar pra desenhar.',
     subpages:[ {label:'TV Mode Config', sub:null, target:'tvconfig'}, {label:'Live SoC', sub:null, target:'livesoc', wip:true} ],
     features:['Botão de TV Mode (fullscreen) em cada página com dado','Configurações salvas e nomeadas, com rotação por intervalo'] },
 ];
@@ -8543,6 +8576,19 @@ function jarvisGoTo(sectionKey, subKey, isInbound){
   }
 }
 
+function jarvisThumbHtml(p){
+  if(p.composite){
+    const badge = p.composite.badgeIcon
+      ? `<i class="fas ${p.composite.badgeIcon}" style="font-size:11px"></i>`
+      : pulsoEscHtml(p.composite.badgeText||'');
+    return `<span style="position:relative;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px">
+      <i class="fas ${p.composite.base}" style="font-size:36px;opacity:.4"></i>
+      <span style="position:absolute;bottom:-2px;right:-10px;font-size:10px;font-weight:800;background:var(--orange);color:#fff;border-radius:4px;padding:1px 5px;line-height:16px;border:1px solid var(--surface)">${badge}</span>
+    </span>`;
+  }
+  return `<i class="fas ${p.icon} tool-icon"></i>`;
+}
+
 function renderJarvisCatalog(){
   const grid = document.getElementById('jarvis-catalog-grid');
   if(!grid) return;
@@ -8554,17 +8600,42 @@ function renderJarvisCatalog(){
       return `<span class="jarvis-subpage-pill" onclick="event.stopPropagation();jarvisGoTo('${target}',${sp.sub?`'${sp.sub}'`:'null'},${isInbound})">${pulsoEscHtml(sp.label)}</span>`;
     }).join('');
     return `
-    <div class="tool-card" onclick="jarvisGoTo('${p.key}',null,false)">
-      <div class="tool-card-thumb"><i class="fas ${p.icon} tool-icon"></i></div>
+    <div class="tool-card" onclick="jarvisOpenDetail('${p.key}')">
+      <div class="tool-card-thumb">${jarvisThumbHtml(p)}</div>
       <div class="tool-card-body">
         <div class="tool-card-name">${pulsoEscHtml(p.title)}</div>
         <div class="tool-card-desc">${pulsoEscHtml(p.desc)}</div>
         <ul class="jarvis-feature-list">${(p.features||[]).map(f=>`<li><i class="fas fa-circle"></i>${pulsoEscHtml(f)}</li>`).join('')}</ul>
         ${subpagesHtml ? `<div class="jarvis-subpage-pills">${subpagesHtml}</div>` : ''}
-        <div class="tool-card-link"><i class="fas fa-arrow-right"></i> Acessar</div>
+        <div class="tool-card-link"><i class="fas fa-circle-info"></i> Ver resumo</div>
       </div>
     </div>`;
   }).join('');
+}
+
+/* ── Modal de detalhe: resumo da página + botão(ões) pra ir até lá ── */
+function jarvisOpenDetail(key){
+  const p = JARVIS_CATALOG.find(x => x.key === key);
+  if(!p) return;
+  const isInbound = p.key === 'inbound';
+  document.getElementById('jarvis-detail-icon').innerHTML = jarvisThumbHtml(p);
+  document.getElementById('jarvis-detail-title').textContent = p.title;
+  document.getElementById('jarvis-detail-text').textContent = p.detail || p.desc;
+  document.getElementById('jarvis-detail-features').innerHTML =
+    (p.features||[]).map(f=>`<li><i class="fas fa-circle"></i>${pulsoEscHtml(f)}</li>`).join('');
+  const goBtns = document.getElementById('jarvis-detail-goto');
+  if(p.subpages && p.subpages.length){
+    goBtns.innerHTML = p.subpages.map(sp => sp.wip
+      ? `<button class="btn" disabled style="opacity:.5" title="Em construção">${pulsoEscHtml(sp.label)}</button>`
+      : `<button class="btn btn-primary" onclick="jarvisGoTo('${sp.target||p.key}',${sp.sub?`'${sp.sub}'`:'null'},${isInbound});jarvisCloseDetail()"><i class="fas fa-arrow-right"></i> ${pulsoEscHtml(sp.label)}</button>`
+    ).join('');
+  } else {
+    goBtns.innerHTML = `<button class="btn btn-primary" onclick="jarvisGoTo('${p.key}',null,false);jarvisCloseDetail()"><i class="fas fa-arrow-right"></i> Ir para ${pulsoEscHtml(p.title)}</button>`;
+  }
+  document.getElementById('jarvis-detail-overlay').classList.add('open');
+}
+function jarvisCloseDetail(){
+  document.getElementById('jarvis-detail-overlay').classList.remove('open');
 }
 
 function filterDataMap(type, el){
