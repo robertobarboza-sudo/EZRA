@@ -1720,6 +1720,9 @@
     .jarvis-carousel:fullscreen .jarvis-feedback-qr { width: 280px; height: 280px; }
     .jarvis-catalog-slide-icon { font-size: 44px; color: var(--orange); margin-bottom: 14px; }
     .jarvis-catalog-slide-icon .tool-icon { opacity: 1; }
+    .jarvis-cadence-tag { display: inline-block; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #fff; padding: 2px 8px; border-radius: 20px; vertical-align: middle; white-space: nowrap; }
+    .jarvis-cadence-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
+    .jarvis-cadence-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #fff; opacity: .8; }
 
     /* Guia de reuniões */
     .meetings-grid {
@@ -3898,6 +3901,11 @@
           <div>
             <div style="font-size:16px;font-weight:800;color:#fff">v.1 Jarvis</div>
             <div style="font-size:12px;color:#fff;opacity:.75">Catálogo de apoio ao usuário — um manual do que já está disponível no site, por processo. Clique em qualquer item pra ver o resumo e ir direto pra página.</div>
+            <div class="jarvis-cadence-legend">
+              <span class="jarvis-cadence-legend-item"><span class="jarvis-cadence-tag" style="background:#4f8cff">Hourly</span> atualiza de hora em hora</span>
+              <span class="jarvis-cadence-legend-item"><span class="jarvis-cadence-tag" style="background:#3fae82">On Time</span> atualiza a cada 10 min</span>
+              <span class="jarvis-cadence-legend-item"><span class="jarvis-cadence-tag" style="background:#9497b0">Backoffice</span> atualização de planejamento (Labor Planning, Árvore)</span>
+            </div>
           </div>
         </div>
 
@@ -8618,38 +8626,43 @@ function renderMapaDados(){
    por processo, pra apresentação ao cliente no fechamento da V.1.
    Cada item navega direto pra página real (e subpágina, quando tem).
 ================================================================ */
+/* Cadência de atualização de cada aba pulso, conforme padrão passado pelo
+   Roberto em 2026-08-06: HxH -> 'hourly', 10 Min -> 'ontime', P -> 'backoffice'
+   (P = atualização manual/planejamento, ex: labor_pulso e árvore_pulso — não
+   viram tag em nenhum card porque nenhuma página do catálogo é 100% dessas
+   duas abas, mas entram na legenda). Ver TAG_META pra rótulo/cor. */
 const JARVIS_CATALOG = [
   { key:'gestao', icon:'fa-gauge-high', title:'Overview',
     desc:'Resumo executivo de toda a operação: capacidade vs realizado e detalhamento por área.',
     detail:'Primeiro o bloco Resumo: um card por área (Backlog, Line Haul, First Mile, ASM, Conveyor, Outbound) e o gráfico de Capacidade vs Realizado somando ASM + Conveyor. Abaixo, o Detalhamento — um acordeão fechado por padrão pra cada área, que só carrega o gráfico de planejado vs realizado quando você abre o bloco.',
     features:['Resumo — Capacidade vs Realizado (ASM + Conveyor)','Detalhamento por bloco: Backlog, Line Haul, First Mile, ASM, Conveyor, Outbound'] },
-  { key:'backlog', icon:'fa-layer-group', title:'Backlog',
+  { key:'backlog', icon:'fa-layer-group', title:'Backlog', tag:'hourly',
     desc:'Backlog da última hora atualizada, por perfil e por cluster de aging.',
     detail:'Sempre mostra o backlog da última hora com dado atualizado na planilha (não a hora do relógio), com o horário exibido logo abaixo. Pacotes agrupados por perfil (P, M, G, Bulky+Ração+S/Class, Tinta+Líquido) e por cluster de aging (0-4h, 4-24h, >24h) — a média de aging já exclui outliers estatísticos (acima de Q3 + 1.5×IQR) pra não distorcer o número com resíduo.',
     features:['Aging por cluster (0-4h / 4-24h / >24h), sem outliers','% de cada perfil (P, M, G…) sobre o total','Sinalização visual quando o filtro On Time está ativo'] },
-  { key:'forecast', composite:{base:'fa-chart-column', badgeIcon:'fa-magnifying-glass'}, title:'Forecast',
+  { key:'forecast', composite:{base:'fa-chart-column', badgeIcon:'fa-magnifying-glass'}, title:'Forecast', tag:'hourly',
     desc:'Comparação de volume planejado vs realizado entre dois períodos.',
     detail:'Compara volume planejado vs realizado num intervalo de datas livre — o padrão é mês vigente vs mês anterior, mas dá pra escolher qualquer data de início/fim dos dois lados da comparação (não fica preso a mês fechado).',
     features:['Comparação por intervalo de datas (não só mês fechado)'] },
-  { key:'spr', icon:'fa-truck-fast', title:'Outbound',
+  { key:'spr', icon:'fa-truck-fast', title:'Outbound', tag:'hourly',
     desc:'CPT/ETA de saída, planejamento (SPR) e pacotes remanescentes (Leftover).',
     detail:'Três visões na mesma seção. Outbound: CPT e ETA de saída ao vivo do turno atual, com curva de ETA Destino Hora (planejado vs realizado), % de chegadas antecipadas e tempo médio de fila até o fim da descarga. SPR: planejamento/faturamento por viagem. Leftover: pacotes que sobraram no hub, com a Transportadora cruzada automaticamente pela chave hub + CPT com a base de viagens.',
-    subpages:[ {label:'Outbound', sub:'outbound'}, {label:'SPR', sub:'spr'}, {label:'Leftover', sub:'leftover'} ],
+    subpages:[ {label:'Outbound', sub:'outbound', tag:'hourly'}, {label:'SPR', sub:'spr', tag:'hourly'}, {label:'Leftover', sub:'leftover', tag:'hourly'} ],
     features:['ETA Destino: Hora, Antecipação e Fila de Chegada','Transportadora/Destino cruzado no Leftover'] },
-  { key:'asm', icon:'fa-feather', title:'ASM',
+  { key:'asm', icon:'fa-feather', title:'ASM', tag:'ontime',
     desc:'Indução por zona, mesa e nível, hora a hora.',
     detail:'Três visões de gráfico: Hora (performance da hora selecionada), Acumulado (soma do dia) e Comparativo por Zona (uma linha por zona). Filtro de Dia Todo além da hora, e cards com pico e média de indução por hora, média de zonas e mesas ativas.',
     features:['Performance da hora, acumulado do dia e comparativo por zona','Pico e média de indução, filtro de dia completo'] },
-  { key:'conveyor', icon:'fa-box', title:'Conveyor',
+  { key:'conveyor', icon:'fa-box', title:'Conveyor', tag:'ontime',
     desc:'Performance por grupo de estação (OBC+OBD, esteiras, Tintas, TO-Audit…).',
     detail:'Mesma lógica do ASM, mas por grupo de estação — OBC e OBD somados num grupo só, esteiras (A, B, Tintas, TO-Audit) separadas, e tudo somado apenas na visão Acumulado do dia todo. Também tem os três modos de gráfico (Hora, Acumulado, Comparativo por Workstation) e filtro de dia completo.',
     features:['Performance da hora, acumulado e comparativo por workstation','Filtro de dia completo'] },
   { key:'inbound', composite:{base:'fa-truck', badgeText:'IN'}, title:'Inbound',
     desc:'Recebimento: pontualidade planejado x realizado, chegada e descarga.',
     detail:'Três sub-abas. Line Haul: pontualidade planejado x realizado, Tempo de Fila (chegada até fim da descarga) e Tempo de Descarga, com Sacas/Scuttles por hora do fim da descarga e fila ≥4h destacada como ofensor na tabela. First Mile: chegada/descarga histórico. Triagem: ainda sem dado publicado na planilha, placeholder de "em construção".',
-    subpages:[ {label:'Line Haul', sub:'lh'}, {label:'First Mile', sub:'fm'}, {label:'Triagem', sub:'triagem', wip:true} ],
+    subpages:[ {label:'Line Haul', sub:'lh', tag:'hourly'}, {label:'First Mile', sub:'fm'}, {label:'Triagem', sub:'triagem', wip:true, tag:'hourly'} ],
     features:['Tempo de fila e de descarga, Sacas/Scuttles por hora','Destaque de ofensores de fila (≥4h)'] },
-  { key:'clusterizacao', icon:'fa-circle-nodes', title:'Clusterização',
+  { key:'clusterizacao', icon:'fa-circle-nodes', title:'Clusterização', tag:'ontime',
     desc:'Mapeamento de expedição por status e aging de oportunidade.',
     detail:'Mapeamento de expedição por status. O card de Aging foi revisado pra excluir outliers/resíduos muito divergentes do cálculo da média, então o número reflete a operação real, não os poucos casos extremos.',
     features:['Aging sem outliers/resíduos divergentes'] },
@@ -8680,6 +8693,17 @@ function jarvisGoTo(sectionKey, subKey, isInbound){
   }
 }
 
+const TAG_META = {
+  hourly:     { label:'Hourly',     color:'#4f8cff' },
+  ontime:     { label:'On Time',    color:'#3fae82' },
+  backoffice: { label:'Backoffice', color:'#9497b0' },
+};
+function jarvisTagBadge(tagKey){
+  const t = TAG_META[tagKey];
+  if(!t) return '';
+  return `<span class="jarvis-cadence-tag" style="background:${t.color}">${t.label}</span>`;
+}
+
 function jarvisThumbHtml(p){
   if(p.composite){
     const badge = p.composite.badgeIcon
@@ -8699,15 +8723,15 @@ function renderJarvisCatalog(){
   grid.innerHTML = JARVIS_CATALOG.map(p => {
     const isInbound = p.key === 'inbound';
     const subpagesHtml = (p.subpages||[]).map(sp => {
-      if(sp.wip) return `<span class="jarvis-subpage-pill wip" title="Em construção">${pulsoEscHtml(sp.label)}</span>`;
+      if(sp.wip) return `<span class="jarvis-subpage-pill wip" title="Em construção">${pulsoEscHtml(sp.label)} ${jarvisTagBadge(sp.tag)}</span>`;
       const target = sp.target || p.key;
-      return `<span class="jarvis-subpage-pill" onclick="event.stopPropagation();jarvisGoTo('${target}',${sp.sub?`'${sp.sub}'`:'null'},${isInbound})">${pulsoEscHtml(sp.label)}</span>`;
+      return `<span class="jarvis-subpage-pill" onclick="event.stopPropagation();jarvisGoTo('${target}',${sp.sub?`'${sp.sub}'`:'null'},${isInbound})">${pulsoEscHtml(sp.label)} ${jarvisTagBadge(sp.tag)}</span>`;
     }).join('');
     return `
     <div class="tool-card" onclick="jarvisOpenDetail('${p.key}')">
       <div class="tool-card-thumb">${jarvisThumbHtml(p)}</div>
       <div class="tool-card-body">
-        <div class="tool-card-name">${pulsoEscHtml(p.title)}</div>
+        <div class="tool-card-name">${pulsoEscHtml(p.title)} ${jarvisTagBadge(p.tag)}</div>
         <div class="tool-card-desc">${pulsoEscHtml(p.desc)}</div>
         <ul class="jarvis-feature-list">${(p.features||[]).map(f=>`<li><i class="fas fa-circle"></i>${pulsoEscHtml(f)}</li>`).join('')}</ul>
         ${subpagesHtml ? `<div class="jarvis-subpage-pills">${subpagesHtml}</div>` : ''}
@@ -8725,8 +8749,8 @@ function jarvisCatalogSlideHtml(p){
     goHtml = `<button class="btn btn-primary" onclick="pulsoNavExternal('${p.external}')"><i class="fas fa-arrow-up-right-from-square"></i> Acessar ${pulsoEscHtml(p.title)}</button>`;
   } else if(p.subpages && p.subpages.length){
     goHtml = p.subpages.map(sp => sp.wip
-      ? `<button class="btn" disabled style="opacity:.5" title="Em construção">${pulsoEscHtml(sp.label)}</button>`
-      : `<button class="btn btn-primary" onclick="jarvisGoTo('${sp.target||p.key}',${sp.sub?`'${sp.sub}'`:'null'},${isInbound})"><i class="fas fa-arrow-right"></i> ${pulsoEscHtml(sp.label)}</button>`
+      ? `<button class="btn" disabled style="opacity:.5" title="Em construção">${pulsoEscHtml(sp.label)} ${jarvisTagBadge(sp.tag)}</button>`
+      : `<button class="btn btn-primary" onclick="jarvisGoTo('${sp.target||p.key}',${sp.sub?`'${sp.sub}'`:'null'},${isInbound})"><i class="fas fa-arrow-right"></i> ${pulsoEscHtml(sp.label)} ${jarvisTagBadge(sp.tag)}</button>`
     ).join('');
   } else {
     goHtml = `<button class="btn btn-primary" onclick="jarvisGoTo('${p.key}',null,false)"><i class="fas fa-arrow-right"></i> Ir para ${pulsoEscHtml(p.title)}</button>`;
@@ -8734,7 +8758,7 @@ function jarvisCatalogSlideHtml(p){
   return `
     <div class="jarvis-roadmap-card jarvis-catalog-slide" style="align-items:center;text-align:center">
       <div class="jarvis-catalog-slide-icon">${jarvisThumbHtml(p)}</div>
-      <div class="jarvis-roadmap-title" style="justify-content:center">${pulsoEscHtml(p.title)}</div>
+      <div class="jarvis-roadmap-title" style="justify-content:center">${pulsoEscHtml(p.title)} ${jarvisTagBadge(p.tag)}</div>
       <div class="jarvis-roadmap-text" style="margin:0 auto 12px">${pulsoEscHtml(p.detail || p.desc)}</div>
       <ul class="jarvis-feature-list" style="align-items:center;margin-bottom:16px">${(p.features||[]).map(f=>`<li><i class="fas fa-circle"></i>${pulsoEscHtml(f)}</li>`).join('')}</ul>
       <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${goHtml}</div>
@@ -8789,7 +8813,7 @@ function jarvisOpenDetail(key){
   if(!p) return;
   const isInbound = p.key === 'inbound';
   document.getElementById('jarvis-detail-icon').innerHTML = jarvisThumbHtml(p);
-  document.getElementById('jarvis-detail-title').textContent = p.title;
+  document.getElementById('jarvis-detail-title').innerHTML = `${pulsoEscHtml(p.title)} ${jarvisTagBadge(p.tag)}`;
   document.getElementById('jarvis-detail-text').textContent = p.detail || p.desc;
   document.getElementById('jarvis-detail-features').innerHTML =
     (p.features||[]).map(f=>`<li><i class="fas fa-circle"></i>${pulsoEscHtml(f)}</li>`).join('');
@@ -8798,8 +8822,8 @@ function jarvisOpenDetail(key){
     goBtns.innerHTML = `<button class="btn btn-primary" onclick="pulsoNavExternal('${p.external}');jarvisCloseDetail()"><i class="fas fa-arrow-up-right-from-square"></i> Acessar ${pulsoEscHtml(p.title)}</button>`;
   } else if(p.subpages && p.subpages.length){
     goBtns.innerHTML = p.subpages.map(sp => sp.wip
-      ? `<button class="btn" disabled style="opacity:.5" title="Em construção">${pulsoEscHtml(sp.label)}</button>`
-      : `<button class="btn btn-primary" onclick="jarvisGoTo('${sp.target||p.key}',${sp.sub?`'${sp.sub}'`:'null'},${isInbound});jarvisCloseDetail()"><i class="fas fa-arrow-right"></i> ${pulsoEscHtml(sp.label)}</button>`
+      ? `<button class="btn" disabled style="opacity:.5" title="Em construção">${pulsoEscHtml(sp.label)} ${jarvisTagBadge(sp.tag)}</button>`
+      : `<button class="btn btn-primary" onclick="jarvisGoTo('${sp.target||p.key}',${sp.sub?`'${sp.sub}'`:'null'},${isInbound});jarvisCloseDetail()"><i class="fas fa-arrow-right"></i> ${pulsoEscHtml(sp.label)} ${jarvisTagBadge(sp.tag)}</button>`
     ).join('');
   } else {
     goBtns.innerHTML = `<button class="btn btn-primary" onclick="jarvisGoTo('${p.key}',null,false);jarvisCloseDetail()"><i class="fas fa-arrow-right"></i> Ir para ${pulsoEscHtml(p.title)}</button>`;
