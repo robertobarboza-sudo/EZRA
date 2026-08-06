@@ -1716,6 +1716,10 @@
     .jarvis-carousel:fullscreen .jarvis-version-title { font-size: 20px; }
     .jarvis-carousel:fullscreen .jarvis-version-list li { font-size: 16px; }
     .jarvis-carousel:fullscreen .jarvis-roadmap-pipboy { max-width: 280px; }
+    .jarvis-feedback-qr { width: 180px; height: 180px; margin: 16px auto; display: block; border-radius: var(--radius); background: #fff; padding: 10px; }
+    .jarvis-carousel:fullscreen .jarvis-feedback-qr { width: 280px; height: 280px; }
+    .jarvis-catalog-slide-icon { font-size: 44px; color: var(--orange); margin-bottom: 14px; }
+    .jarvis-catalog-slide-icon .tool-icon { opacity: 1; }
 
     /* Guia de reuniões */
     .meetings-grid {
@@ -2646,7 +2650,7 @@
           <div class="section-subtitle">Retrato acumulado da operação</div>
         </div>
         <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="ovwOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="spr-pipboy-btn" onclick="ovwOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadOverview()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -2775,7 +2779,7 @@
           <div class="section-subtitle" id="pulso-page-subtitle">Acompanhamento de CPT ao vivo · Turno atual</div>
         </div>
         <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy(PULSO_ACTIVE_SUBPAGE)"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy(PULSO_ACTIVE_SUBPAGE)"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <button class="dl-btn dl-btn-csv" onclick="pulsoLoad(PULSO_ACTIVE_SUBPAGE)"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -2795,11 +2799,11 @@
     <div class="modal-overlay" id="pulso-pipboy-overlay" onclick="if(event.target===this) pulsoClosePipboy()">
       <div class="modal" style="max-width:560px">
         <div class="modal-header">
-          <span class="modal-title"><i class="fas fa-satellite-dish" style="color:#3fae82;margin-right:8px"></i>Pipboy — Insights <span id="pulso-pipboy-title"></span></span>
+          <span class="modal-title"><i class="fas fa-satellite-dish" style="color:#3fae82;margin-right:8px"></i>COP Boy — Insights <span id="pulso-pipboy-title"></span></span>
           <button class="modal-close" onclick="pulsoClosePipboy()"><i class="fas fa-xmark"></i></button>
         </div>
         <div id="pulso-pipboy-loading" class="spr-pipboy-loading">
-          <img src="/assets/pipboy.webp" alt="Pipboy"/>
+          <img src="/assets/pipboy.webp" alt="COP Boy"/>
           <div class="spr-pipboy-loading-text"><i class="fas fa-circle-notch fa-spin"></i> Analisando dados…</div>
         </div>
         <div id="pulso-pipboy-body" style="display:none"></div>
@@ -2814,7 +2818,7 @@
           <div class="section-subtitle">Performance de induções por zona, hora a hora</div>
         </div>
         <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="asmOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="spr-pipboy-btn" onclick="asmOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadAsm()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -2884,7 +2888,7 @@
           <div class="section-subtitle">Performance por grupo de estação, hora a hora</div>
         </div>
         <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="cnvOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="spr-pipboy-btn" onclick="cnvOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadConveyor()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -2951,7 +2955,7 @@
           <div class="section-subtitle" id="inbound-subtitle">Pontualidade planejado x realizado · Line Haul</div>
         </div>
         <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="inboundOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="spr-pipboy-btn" onclick="inboundOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <button class="dl-btn dl-btn-csv" onclick="inboundReload()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -3077,7 +3081,7 @@
         </div>
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
           <div class="section-dl-group">
-            <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy('clusterizacao')"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+            <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy('clusterizacao')"><i class="fas fa-satellite-dish"></i> COP Boy</button>
             <button class="dl-btn dl-btn-csv" onclick="pulsoLoad('clusterizacao')"><i class="fas fa-rotate-right"></i> Atualizar</button>
           </div>
           <div id="cluster-last-update" style="font-size:11px;color:var(--text-muted)"></div>
@@ -3095,7 +3099,7 @@
           <div class="section-subtitle">Backlog por faixa de aging, perfil e origem</div>
         </div>
         <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="bklOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="spr-pipboy-btn" onclick="bklOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadBacklog()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -3505,7 +3509,7 @@
           <div class="section-subtitle">Pacotes previstos por canal, clusterizados</div>
         </div>
         <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="fctOpenPipboy()"><i class="fas fa-satellite-dish"></i> Pipboy</button>
+          <button class="spr-pipboy-btn" onclick="fctOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadForecast()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -3901,37 +3905,40 @@
           <button type="button" class="jarvis-carousel-fullscreen" id="jarvis-carousel-fullscreen-btn" onclick="jarvisCarouselFullscreen()" title="Tela cheia"><i class="fas fa-expand"></i></button>
           <div class="jarvis-carousel-viewport">
             <div class="jarvis-carousel-track" id="jarvis-carousel-track">
-              <div class="jarvis-roadmap-card">
+              <div class="jarvis-roadmap-card jarvis-slide-roadmap">
                 <div class="jarvis-roadmap-title"><i class="fas fa-flag-checkered" style="color:var(--orange)"></i> V.1 — Onde estamos</div>
                 <div class="jarvis-roadmap-text">Em julho fechamos a primeira versão do JARVIS: hoje já acompanhamos Backlog, Outbound, Inbound, ASM, Conveyor, Forecast e Clusterização em tempo real, num único lugar — aging tratado sem outlier, filas medidas de ponta a ponta, TV Mode pra espelhar qualquer tela quando quisermos. Deixamos de depender de planilha solta pra enxergar a operação inteira, hora a hora.</div>
               </div>
-              <div class="jarvis-roadmap-card" style="align-items:center;text-align:center">
-                <img src="/assets/pipboy.webp" alt="Pipboy" class="jarvis-roadmap-pipboy"/>
-                <div class="jarvis-roadmap-title" style="justify-content:center">Resumo</div>
-                <div class="jarvis-roadmap-text">O Pipboy já te dá o insight automático de cada página. E isso é só o começo — o que vem por aí eleva a visibilidade da operação pro próximo nível.</div>
+              <div class="jarvis-roadmap-card jarvis-slide-roadmap" style="align-items:center;text-align:center">
+                <img src="/assets/pipboy.webp" alt="COP Boy" class="jarvis-roadmap-pipboy"/>
+                <div class="jarvis-roadmap-title" style="justify-content:center">COP Boy</div>
+                <div class="jarvis-roadmap-text">O COP Boy já te dá o insight automático de cada página. E isso é só o começo — o que vem por aí eleva a visibilidade da operação pro próximo nível.</div>
               </div>
-              <div class="jarvis-roadmap-card">
-                <div class="jarvis-roadmap-title"><i class="fas fa-rocket" style="color:var(--orange)"></i> Próximas Entregas</div>
-                <div class="jarvis-version-block">
-                  <div class="jarvis-version-title">V2 — Aprimorando a visibilidade <span class="jarvis-version-badge">14/08</span></div>
-                  <ul class="jarvis-version-list">
-                    <li><i class="fas fa-circle"></i>Labor Planning — Live</li>
-                    <li><i class="fas fa-circle"></i>Capacidade Planejada x Real por Esteira — Live</li>
-                    <li><i class="fas fa-circle"></i>Dashboard H/H (Inbound, Triagem, Outbound) com Produtividade — Live</li>
-                    <li><i class="fas fa-circle"></i>Visão de Pacotes em Stage In — Live</li>
-                    <li><i class="fas fa-circle"></i>Qualitativos do ASM e também OEE</li>
-                    <li><i class="fas fa-circle"></i>FIFO Broken — Live</li>
-                  </ul>
-                </div>
-                <div class="jarvis-version-block">
-                  <div class="jarvis-version-title">V3 — Inteligência Operacional e Machine Learning <span class="jarvis-version-badge">28/08</span></div>
-                  <ul class="jarvis-version-list">
-                    <li><i class="fas fa-circle"></i>Performance Operacional por Turno e Oferta de Pacotes no DWS — Previsibilidade "Profeta"</li>
-                    <li><i class="fas fa-circle"></i>KPI H/H de Atrelamento</li>
-                    <li><i class="fas fa-circle"></i>Atualização Stage In e Triagem (5 min) com Tráfego de Pacotes</li>
-                    <li><i class="fas fa-circle"></i>TOs sem Atrelamento no Singulator e Unpack por Nível/Zona</li>
-                  </ul>
-                </div>
+              <div class="jarvis-roadmap-card jarvis-slide-roadmap">
+                <div class="jarvis-roadmap-title"><i class="fas fa-rocket" style="color:var(--orange)"></i> V2 — Aprimorando a visibilidade <span class="jarvis-version-badge">14/08</span></div>
+                <ul class="jarvis-version-list">
+                  <li><i class="fas fa-circle"></i>Labor Planning — Live</li>
+                  <li><i class="fas fa-circle"></i>Capacidade Planejada x Real por Esteira — Live</li>
+                  <li><i class="fas fa-circle"></i>Dashboard H/H (Inbound, Triagem, Outbound) com Produtividade — Live</li>
+                  <li><i class="fas fa-circle"></i>Visão de Pacotes em Stage In — Live</li>
+                  <li><i class="fas fa-circle"></i>Qualitativos do ASM e também OEE</li>
+                  <li><i class="fas fa-circle"></i>FIFO Broken — Live</li>
+                </ul>
+              </div>
+              <div class="jarvis-roadmap-card jarvis-slide-roadmap">
+                <div class="jarvis-roadmap-title"><i class="fas fa-brain" style="color:var(--orange)"></i> V3 — Inteligência Operacional e Machine Learning <span class="jarvis-version-badge">28/08</span></div>
+                <ul class="jarvis-version-list">
+                  <li><i class="fas fa-circle"></i>Performance Operacional por Turno e Oferta de Pacotes no DWS — Previsibilidade "Profeta"</li>
+                  <li><i class="fas fa-circle"></i>KPI H/H de Atrelamento</li>
+                  <li><i class="fas fa-circle"></i>Atualização Stage In e Triagem (5 min) com Tráfego de Pacotes</li>
+                  <li><i class="fas fa-circle"></i>TOs sem Atrelamento no Singulator e Unpack por Nível/Zona</li>
+                </ul>
+              </div>
+              <div class="jarvis-roadmap-card jarvis-slide-roadmap" style="align-items:center;text-align:center">
+                <div class="jarvis-roadmap-title" style="justify-content:center"><i class="fas fa-comment-dots" style="color:var(--orange)"></i> Feedback e Sugestões</div>
+                <div class="jarvis-roadmap-text">Esse roadmap é construído junto com quem usa todo dia. Aponte a câmera e deixa sua sugestão — ela pode virar a próxima entrega.</div>
+                <img src="https://api.qrserver.com/v1/create-qr-code/?size=260x260&amp;data=https%3A%2F%2Fdocs.google.com%2Fforms%2Fd%2Fe%2F1FAIpQLScZI7ox-5KNio2yaszc34tyN71PJSS7AigzqymFbN-n1hfGPA%2Fviewform%3Fusp%3Dsharing%26ouid%3D112632266482256141046" alt="QR Code do formulário de feedback" class="jarvis-feedback-qr"/>
+                <a href="https://docs.google.com/forms/d/e/1FAIpQLScZI7ox-5KNio2yaszc34tyN71PJSS7AigzqymFbN-n1hfGPA/viewform?usp=sharing&ouid=112632266482256141046" target="_blank" rel="noopener" class="btn btn-primary" style="margin-top:6px"><i class="fas fa-arrow-up-right-from-square"></i> Abrir formulário</a>
               </div>
             </div>
           </div>
@@ -8599,7 +8606,7 @@ function mapadadosSwitchSubpage(key, el){
   el.classList.add('active');
   document.getElementById('mapadados-panel-datamap').style.display = key==='datamap' ? '' : 'none';
   document.getElementById('mapadados-panel-jarvis').style.display = key==='jarvis' ? '' : 'none';
-  if(key==='jarvis'){ renderJarvisCatalog(); jarvisCarouselRender(); }
+  if(key==='jarvis'){ renderJarvisCatalog(); jarvisCarouselBuildCatalogSlides(); jarvisCarouselRender(); }
 }
 
 function renderMapaDados(){
@@ -8711,6 +8718,34 @@ function renderJarvisCatalog(){
 }
 
 /* ── Carrossel do bloco V.1 / Resumo / Próximas Entregas ── */
+function jarvisCatalogSlideHtml(p){
+  const isInbound = p.key === 'inbound';
+  let goHtml;
+  if(p.external){
+    goHtml = `<button class="btn btn-primary" onclick="pulsoNavExternal('${p.external}')"><i class="fas fa-arrow-up-right-from-square"></i> Acessar ${pulsoEscHtml(p.title)}</button>`;
+  } else if(p.subpages && p.subpages.length){
+    goHtml = p.subpages.map(sp => sp.wip
+      ? `<button class="btn" disabled style="opacity:.5" title="Em construção">${pulsoEscHtml(sp.label)}</button>`
+      : `<button class="btn btn-primary" onclick="jarvisGoTo('${sp.target||p.key}',${sp.sub?`'${sp.sub}'`:'null'},${isInbound})"><i class="fas fa-arrow-right"></i> ${pulsoEscHtml(sp.label)}</button>`
+    ).join('');
+  } else {
+    goHtml = `<button class="btn btn-primary" onclick="jarvisGoTo('${p.key}',null,false)"><i class="fas fa-arrow-right"></i> Ir para ${pulsoEscHtml(p.title)}</button>`;
+  }
+  return `
+    <div class="jarvis-roadmap-card jarvis-catalog-slide" style="align-items:center;text-align:center">
+      <div class="jarvis-catalog-slide-icon">${jarvisThumbHtml(p)}</div>
+      <div class="jarvis-roadmap-title" style="justify-content:center">${pulsoEscHtml(p.title)}</div>
+      <div class="jarvis-roadmap-text" style="margin:0 auto 12px">${pulsoEscHtml(p.detail || p.desc)}</div>
+      <ul class="jarvis-feature-list" style="align-items:center;margin-bottom:16px">${(p.features||[]).map(f=>`<li><i class="fas fa-circle"></i>${pulsoEscHtml(f)}</li>`).join('')}</ul>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">${goHtml}</div>
+    </div>`;
+}
+function jarvisCarouselBuildCatalogSlides(){
+  const track = document.getElementById('jarvis-carousel-track');
+  if(!track || track.querySelector('.jarvis-catalog-slide')) return;
+  track.insertAdjacentHTML('afterbegin', JARVIS_CATALOG.map(jarvisCatalogSlideHtml).join(''));
+}
+
 let JARVIS_CAROUSEL_INDEX = 0;
 function jarvisCarouselRender(){
   const track = document.getElementById('jarvis-carousel-track');
