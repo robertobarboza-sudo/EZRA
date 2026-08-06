@@ -1673,19 +1673,49 @@
     .jarvis-subpage-pill:hover { border-color: var(--orange); color: var(--orange); }
     .jarvis-subpage-pill.wip { opacity: .5; cursor: default; }
     .jarvis-subpage-pill.wip:hover { border-color: var(--border); color: var(--text-muted); }
-    .jarvis-roadmap { display: flex; align-items: stretch; gap: 0; margin-bottom: 28px; flex-wrap: wrap; }
-    .jarvis-roadmap-card { flex: 1; min-width: 260px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: 22px; display: flex; flex-direction: column; }
-    .jarvis-roadmap-arrow { display: flex; align-items: center; justify-content: center; padding: 0 10px; color: var(--orange); font-size: 20px; flex: 0 0 auto; }
-    .jarvis-roadmap-title { font-size: 14px; font-weight: 800; color: var(--text); margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
-    .jarvis-roadmap-text { font-size: 12px; color: var(--text-muted); line-height: 1.7; }
-    .jarvis-roadmap-pipboy { width: 100%; max-width: 170px; margin: 0 auto 14px; display: block; filter: drop-shadow(0 8px 24px rgba(238,77,45,.25)); }
-    .jarvis-version-block { margin-top: 16px; }
-    .jarvis-version-title { font-size: 13px; font-weight: 700; color: var(--text); }
+    .jarvis-roadmap-card { flex: 0 0 100%; width: 100%; box-sizing: border-box; background: var(--surface); padding: 32px 64px; display: flex; flex-direction: column; justify-content: center; min-height: 320px; }
+    .jarvis-roadmap-title { font-size: 16px; font-weight: 800; color: var(--text); margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+    .jarvis-roadmap-text { font-size: 13px; color: var(--text-muted); line-height: 1.8; max-width: 640px; }
+    .jarvis-roadmap-pipboy { width: 100%; max-width: 190px; margin: 0 auto 16px; display: block; filter: drop-shadow(0 8px 24px rgba(238,77,45,.25)); }
+    .jarvis-version-block { margin-top: 18px; }
+    .jarvis-version-title { font-size: 14px; font-weight: 700; color: var(--text); }
     .jarvis-version-badge { display: inline-block; font-size: 10px; font-weight: 800; background: var(--orange); color: #fff; padding: 3px 9px; border-radius: 20px; margin-left: 8px; vertical-align: middle; white-space: nowrap; }
-    .jarvis-version-list { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
-    .jarvis-version-list li { font-size: 11px; color: var(--text-muted); display: flex; align-items: baseline; gap: 6px; }
+    .jarvis-version-list { list-style: none; margin: 10px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+    .jarvis-version-list li { font-size: 12px; color: var(--text-muted); display: flex; align-items: baseline; gap: 6px; }
     .jarvis-version-list li i { color: var(--orange); font-size: 8px; }
-    @media (max-width: 900px) { .jarvis-roadmap-arrow { transform: rotate(90deg); padding: 8px 0; } }
+
+    /* Carrossel do card de roadmap (V.1 / Resumo / Próximas Entregas) */
+    .jarvis-carousel { position: relative; margin-bottom: 28px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius-lg); }
+    .jarvis-carousel-viewport { overflow: hidden; border-radius: var(--radius-lg); }
+    .jarvis-carousel-track { display: flex; transition: transform .35s ease; }
+    .jarvis-carousel-arrow {
+      position: absolute; top: 50%; transform: translateY(-50%); z-index: 3;
+      width: 36px; height: 36px; border-radius: 50%; background: var(--surface);
+      border: 1px solid var(--border); color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: background var(--transition), color var(--transition), border-color var(--transition);
+    }
+    .jarvis-carousel-arrow:hover { background: var(--orange); color: #fff; border-color: var(--orange); }
+    .jarvis-carousel-arrow.left { left: 12px; }
+    .jarvis-carousel-arrow.right { right: 12px; }
+    .jarvis-carousel-fullscreen {
+      position: absolute; top: 12px; right: 12px; z-index: 3;
+      width: 32px; height: 32px; border-radius: var(--radius);
+      background: var(--surface); border: 1px solid var(--border); color: var(--text-muted);
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: background var(--transition), color var(--transition);
+    }
+    .jarvis-carousel-fullscreen:hover { background: var(--orange); color: #fff; }
+    .jarvis-carousel-dots { display: flex; justify-content: center; gap: 8px; padding: 12px 0; }
+    .jarvis-carousel-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--border); cursor: pointer; transition: background var(--transition), width var(--transition); }
+    .jarvis-carousel-dot.active { background: var(--orange); width: 20px; border-radius: 4px; }
+    .jarvis-carousel:fullscreen { display: flex; flex-direction: column; justify-content: center; background: var(--bg); }
+    .jarvis-carousel:fullscreen .jarvis-roadmap-card { min-height: 0; }
+    .jarvis-carousel:fullscreen .jarvis-roadmap-title { font-size: 26px; }
+    .jarvis-carousel:fullscreen .jarvis-roadmap-text { font-size: 18px; max-width: 900px; }
+    .jarvis-carousel:fullscreen .jarvis-version-title { font-size: 20px; }
+    .jarvis-carousel:fullscreen .jarvis-version-list li { font-size: 16px; }
+    .jarvis-carousel:fullscreen .jarvis-roadmap-pipboy { max-width: 280px; }
 
     /* Guia de reuniões */
     .meetings-grid {
@@ -3867,41 +3897,47 @@
           </div>
         </div>
 
-        <div class="jarvis-roadmap">
-          <div class="jarvis-roadmap-card">
-            <div class="jarvis-roadmap-title"><i class="fas fa-flag-checkered" style="color:var(--orange)"></i> V.1 — Onde estamos</div>
-            <div class="jarvis-roadmap-text">Em julho fechamos a primeira versão do JARVIS: hoje já acompanhamos Backlog, Outbound, Inbound, ASM, Conveyor, Forecast e Clusterização em tempo real, num único lugar — aging tratado sem outlier, filas medidas de ponta a ponta, TV Mode pra espelhar qualquer tela quando quisermos. Deixamos de depender de planilha solta pra enxergar a operação inteira, hora a hora.</div>
-          </div>
-          <div class="jarvis-roadmap-arrow"><i class="fas fa-arrow-right"></i></div>
-          <div class="jarvis-roadmap-card" style="align-items:center;text-align:center">
-            <img src="/assets/pipboy.webp" alt="Pipboy" class="jarvis-roadmap-pipboy"/>
-            <div class="jarvis-roadmap-title" style="justify-content:center">Resumo</div>
-            <div class="jarvis-roadmap-text">O Pipboy já te dá o insight automático de cada página. E isso é só o começo — o que vem por aí eleva a visibilidade da operação pro próximo nível.</div>
-          </div>
-          <div class="jarvis-roadmap-arrow"><i class="fas fa-arrow-right"></i></div>
-          <div class="jarvis-roadmap-card">
-            <div class="jarvis-roadmap-title"><i class="fas fa-rocket" style="color:var(--orange)"></i> Próximas Entregas</div>
-            <div class="jarvis-version-block">
-              <div class="jarvis-version-title">V2 — Aprimorando a visibilidade <span class="jarvis-version-badge">14/08</span></div>
-              <ul class="jarvis-version-list">
-                <li><i class="fas fa-circle"></i>Labor Planning — Live</li>
-                <li><i class="fas fa-circle"></i>Capacidade Planejada x Real por Esteira — Live</li>
-                <li><i class="fas fa-circle"></i>Dashboard H/H (Inbound, Triagem, Outbound) com Produtividade — Live</li>
-                <li><i class="fas fa-circle"></i>Visão de Pacotes em Stage In — Live</li>
-                <li><i class="fas fa-circle"></i>Qualitativos do ASM e também OEE</li>
-                <li><i class="fas fa-circle"></i>FIFO Broken — Live</li>
-              </ul>
+        <div class="jarvis-carousel" id="jarvis-carousel">
+          <button type="button" class="jarvis-carousel-fullscreen" id="jarvis-carousel-fullscreen-btn" onclick="jarvisCarouselFullscreen()" title="Tela cheia"><i class="fas fa-expand"></i></button>
+          <div class="jarvis-carousel-viewport">
+            <div class="jarvis-carousel-track" id="jarvis-carousel-track">
+              <div class="jarvis-roadmap-card">
+                <div class="jarvis-roadmap-title"><i class="fas fa-flag-checkered" style="color:var(--orange)"></i> V.1 — Onde estamos</div>
+                <div class="jarvis-roadmap-text">Em julho fechamos a primeira versão do JARVIS: hoje já acompanhamos Backlog, Outbound, Inbound, ASM, Conveyor, Forecast e Clusterização em tempo real, num único lugar — aging tratado sem outlier, filas medidas de ponta a ponta, TV Mode pra espelhar qualquer tela quando quisermos. Deixamos de depender de planilha solta pra enxergar a operação inteira, hora a hora.</div>
+              </div>
+              <div class="jarvis-roadmap-card" style="align-items:center;text-align:center">
+                <img src="/assets/pipboy.webp" alt="Pipboy" class="jarvis-roadmap-pipboy"/>
+                <div class="jarvis-roadmap-title" style="justify-content:center">Resumo</div>
+                <div class="jarvis-roadmap-text">O Pipboy já te dá o insight automático de cada página. E isso é só o começo — o que vem por aí eleva a visibilidade da operação pro próximo nível.</div>
+              </div>
+              <div class="jarvis-roadmap-card">
+                <div class="jarvis-roadmap-title"><i class="fas fa-rocket" style="color:var(--orange)"></i> Próximas Entregas</div>
+                <div class="jarvis-version-block">
+                  <div class="jarvis-version-title">V2 — Aprimorando a visibilidade <span class="jarvis-version-badge">14/08</span></div>
+                  <ul class="jarvis-version-list">
+                    <li><i class="fas fa-circle"></i>Labor Planning — Live</li>
+                    <li><i class="fas fa-circle"></i>Capacidade Planejada x Real por Esteira — Live</li>
+                    <li><i class="fas fa-circle"></i>Dashboard H/H (Inbound, Triagem, Outbound) com Produtividade — Live</li>
+                    <li><i class="fas fa-circle"></i>Visão de Pacotes em Stage In — Live</li>
+                    <li><i class="fas fa-circle"></i>Qualitativos do ASM e também OEE</li>
+                    <li><i class="fas fa-circle"></i>FIFO Broken — Live</li>
+                  </ul>
+                </div>
+                <div class="jarvis-version-block">
+                  <div class="jarvis-version-title">V3 — Inteligência Operacional e Machine Learning <span class="jarvis-version-badge">28/08</span></div>
+                  <ul class="jarvis-version-list">
+                    <li><i class="fas fa-circle"></i>Performance Operacional por Turno e Oferta de Pacotes no DWS — Previsibilidade "Profeta"</li>
+                    <li><i class="fas fa-circle"></i>KPI H/H de Atrelamento</li>
+                    <li><i class="fas fa-circle"></i>Atualização Stage In e Triagem (5 min) com Tráfego de Pacotes</li>
+                    <li><i class="fas fa-circle"></i>TOs sem Atrelamento no Singulator e Unpack por Nível/Zona</li>
+                  </ul>
+                </div>
+              </div>
             </div>
-            <div class="jarvis-version-block">
-              <div class="jarvis-version-title">V3 — Inteligência Operacional e Machine Learning <span class="jarvis-version-badge">28/08</span></div>
-              <ul class="jarvis-version-list">
-                <li><i class="fas fa-circle"></i>Performance Operacional por Turno e Oferta de Pacotes no DWS — Previsibilidade "Profeta"</li>
-                <li><i class="fas fa-circle"></i>KPI H/H de Atrelamento</li>
-                <li><i class="fas fa-circle"></i>Atualização Stage In e Triagem (5 min) com Tráfego de Pacotes</li>
-                <li><i class="fas fa-circle"></i>TOs sem Atrelamento no Singulator e Unpack por Nível/Zona</li>
-              </ul>
-            </div>
           </div>
+          <button type="button" class="jarvis-carousel-arrow left" onclick="jarvisCarouselNav(-1)" title="Anterior"><i class="fas fa-chevron-left"></i></button>
+          <button type="button" class="jarvis-carousel-arrow right" onclick="jarvisCarouselNav(1)" title="Próximo"><i class="fas fa-chevron-right"></i></button>
+          <div class="jarvis-carousel-dots" id="jarvis-carousel-dots"></div>
         </div>
 
         <div class="tools-grid" id="jarvis-catalog-grid" style="grid-template-columns:repeat(auto-fill,minmax(300px,1fr))"></div>
@@ -8563,7 +8599,7 @@ function mapadadosSwitchSubpage(key, el){
   el.classList.add('active');
   document.getElementById('mapadados-panel-datamap').style.display = key==='datamap' ? '' : 'none';
   document.getElementById('mapadados-panel-jarvis').style.display = key==='jarvis' ? '' : 'none';
-  if(key==='jarvis') renderJarvisCatalog();
+  if(key==='jarvis'){ renderJarvisCatalog(); jarvisCarouselRender(); }
 }
 
 function renderMapaDados(){
@@ -8673,6 +8709,44 @@ function renderJarvisCatalog(){
     </div>`;
   }).join('');
 }
+
+/* ── Carrossel do bloco V.1 / Resumo / Próximas Entregas ── */
+let JARVIS_CAROUSEL_INDEX = 0;
+function jarvisCarouselRender(){
+  const track = document.getElementById('jarvis-carousel-track');
+  const dotsWrap = document.getElementById('jarvis-carousel-dots');
+  if(!track) return;
+  const slides = track.children.length;
+  if(dotsWrap && !dotsWrap.children.length){
+    dotsWrap.innerHTML = Array.from({length:slides}, (_,i) =>
+      `<span class="jarvis-carousel-dot" onclick="jarvisCarouselGoTo(${i})"></span>`).join('');
+  }
+  track.style.transform = `translateX(-${JARVIS_CAROUSEL_INDEX * 100}%)`;
+  dotsWrap?.querySelectorAll('.jarvis-carousel-dot').forEach((d,i) => d.classList.toggle('active', i===JARVIS_CAROUSEL_INDEX));
+}
+function jarvisCarouselNav(delta){
+  const track = document.getElementById('jarvis-carousel-track');
+  if(!track) return;
+  const slides = track.children.length;
+  JARVIS_CAROUSEL_INDEX = (JARVIS_CAROUSEL_INDEX + delta + slides) % slides;
+  jarvisCarouselRender();
+}
+function jarvisCarouselGoTo(i){
+  JARVIS_CAROUSEL_INDEX = i;
+  jarvisCarouselRender();
+}
+function jarvisCarouselFullscreen(){
+  const el = document.getElementById('jarvis-carousel');
+  if(!el) return;
+  if(document.fullscreenElement) document.exitFullscreen?.();
+  else el.requestFullscreen?.().catch(()=>{});
+}
+document.addEventListener('fullscreenchange', () => {
+  const btn = document.getElementById('jarvis-carousel-fullscreen-btn');
+  if(!btn) return;
+  const isFs = document.fullscreenElement === document.getElementById('jarvis-carousel');
+  btn.innerHTML = isFs ? '<i class="fas fa-compress"></i>' : '<i class="fas fa-expand"></i>';
+});
 
 /* ── Modal de detalhe: resumo da página + botão(ões) pra ir até lá ── */
 function jarvisOpenDetail(key){
