@@ -4809,6 +4809,48 @@ function tvModeToggle(key){
   else tvModeEnter(key);
 }
 
+/* ── Auto-scroll da grade de Clusterização em TV Mode — 142 ruas não cabem
+   na tela, então a grade fica indo e voltando sozinha, devagar, enquanto
+   a Clusterização estiver em TV Mode (sozinha ou na rotação). Reconsulta
+   o .clst-table-wrap a cada frame porque renderClusterGrid recria esse
+   elemento a cada atualização de dado (não dá pra guardar a referência). ── */
+let CLST_AUTOSCROLL_RAF = null;
+function clstAutoScrollStart(){
+  clstAutoScrollStop();
+  let dir = 1, lastTs = null, pauseUntil = 0;
+  const SPEED = 40, PAUSE_MS = 1200;
+  const step = (ts) => {
+    CLST_AUTOSCROLL_RAF = requestAnimationFrame(step);
+    const wrap = document.querySelector('.clst-table-wrap');
+    if(!wrap){ lastTs = null; return; }
+    if(lastTs === null) lastTs = ts;
+    const dt = (ts - lastTs) / 1000;
+    lastTs = ts;
+    if(ts < pauseUntil) return;
+    const maxScroll = wrap.scrollWidth - wrap.clientWidth;
+    if(maxScroll <= 0) return;
+    wrap.scrollLeft += dir * SPEED * dt;
+    if(dir === 1 && wrap.scrollLeft >= maxScroll - 1){
+      wrap.scrollLeft = maxScroll;
+      dir = -1;
+      pauseUntil = ts + PAUSE_MS;
+    } else if(dir === -1 && wrap.scrollLeft <= 1){
+      wrap.scrollLeft = 0;
+      dir = 1;
+      pauseUntil = ts + PAUSE_MS;
+    }
+  };
+  CLST_AUTOSCROLL_RAF = requestAnimationFrame(step);
+}
+function clstAutoScrollStop(){
+  if(CLST_AUTOSCROLL_RAF) cancelAnimationFrame(CLST_AUTOSCROLL_RAF);
+  CLST_AUTOSCROLL_RAF = null;
+}
+function tvHandleClusterAutoScroll(key){
+  if(key === 'clusterizacao') clstAutoScrollStart();
+  else clstAutoScrollStop();
+}
+
 let TV_PRE_MODE_NIGHT = null;
 function tvModeEnter(key){
   if(!TV_MODE_SECTION && !TV_ROTATION) TV_PRE_MODE_NIGHT = isTvNight();
@@ -4821,6 +4863,7 @@ function tvModeEnter(key){
   document.body.classList.add('tv-mode-active');
   document.querySelectorAll(`#section-${key} .tv-mode-btn`).forEach(b=>b.classList.add('active'));
   tvcfgApplyPageMode(key);
+  tvHandleClusterAutoScroll(key);
   if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
 }
 
@@ -4830,6 +4873,7 @@ function tvModeExit(){
   document.querySelectorAll('.tv-mode-btn').forEach(b=>b.classList.remove('active'));
   if(document.fullscreenElement) document.exitFullscreen?.().catch(()=>{});
   tvRotationStop();
+  clstAutoScrollStop();
   if(TV_PRE_MODE_NIGHT !== null){ setTvNight(TV_PRE_MODE_NIGHT); TV_PRE_MODE_NIGHT = null; }
 }
 
@@ -4855,6 +4899,7 @@ function tvRotationStart(pages, intervalSec){
     if(navItem) navigateTo(key, navItem);
     document.body.classList.add('tv-mode-active');
     tvcfgApplyPageMode(key);
+    tvHandleClusterAutoScroll(key);
     if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
     const label = (TV_ELIGIBLE_PAGES.find(p=>p.key===key)||{}).label || key;
     const b = document.getElementById('tv-rotation-badge');
@@ -4868,6 +4913,7 @@ function tvRotationStop(){
   if(TV_ROTATION?.timer) clearInterval(TV_ROTATION.timer);
   TV_ROTATION = null;
   document.getElementById('tv-rotation-badge')?.remove();
+  clstAutoScrollStop();
 }
 
 /* ================================================================
