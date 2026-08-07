@@ -4818,7 +4818,7 @@ let CLST_AUTOSCROLL_RAF = null;
 function clstAutoScrollStart(){
   clstAutoScrollStop();
   let dir = 1, lastTs = null, pauseUntil = 0;
-  const SPEED = 40, PAUSE_MS = 1200;
+  const SPEED = 40, PAUSE_MS = 5000;
   const step = (ts) => {
     CLST_AUTOSCROLL_RAF = requestAnimationFrame(step);
     const wrap = document.querySelector('.clst-table-wrap');
