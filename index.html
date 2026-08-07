@@ -90,26 +90,6 @@
     [data-theme="light"] input.filter-select::-webkit-calendar-picker-indicator { filter: none; opacity:.6; }
     [data-theme="light"] .clst-table-wrap { box-shadow: 0 2px 8px rgba(0,0,0,.08); }
 
-    /* ── TV NIGHT MODE — template escuro dedicado pra apresentação/TV,
-       independente do tema claro/escuro normal do site. Sobrescreve as
-       mesmas variáveis (por isso todo componente já herda sem CSS extra),
-       com um preto mais profundo e texto quente — feito pra tela grande
-       num galpão à noite, não é só o tema escuro de sempre. ── */
-    [data-tv-night="1"] {
-      --bg:          #060608;
-      --surface:     #0d0e12;
-      --surface-2:   #131419;
-      --surface-3:   #1a1b22;
-      --border:      rgba(255,255,255,.05);
-      --text:        #f0ede8;
-      --text-sub:    #b8b4ac;
-      --text-muted:  #7a766e;
-      --shadow:      0 2px 10px rgba(0,0,0,.6);
-      --shadow-lg:   0 10px 36px rgba(0,0,0,.7);
-    }
-    [data-tv-night="1"] #sidebar { background: #08090c; }
-    [data-tv-night="1"] #header  { background: #08090c; }
-
     /* Theme switch item */
     .theme-switch {
       display: flex; align-items: center; gap: 10px;
@@ -2319,6 +2299,50 @@
     /* O toggle claro/escuro usa uma paleta antiga que não combina com esta
        camada visual — ocultado até o sistema de temas ser refeito pra ela. */
     .theme-switch { display: none; }
+
+    /* ── TV NIGHT MODE — template escuro dedicado pra apresentação/TV,
+       independente do tema claro/escuro normal. Fica por último de
+       propósito: a camada Codex acima é sempre clara (sem gate de tema,
+       várias regras com !important), então cada regra que ela também
+       sobrescreve precisa ser refeita aqui manualmente pra realmente
+       ganhar da cascata — só trocar a variável --bg não bastava. ── */
+    [data-tv-night="1"] {
+      --bg:            #060608;
+      --surface:       #0d0e12;
+      --surface-2:     #131419;
+      --surface-3:     #1a1b22;
+      --border:        rgba(255,255,255,.07);
+      --text:          #f0ede8;
+      --text-sub:      #c7c3ba;
+      --text-muted:    #8a8579;
+      --shadow:        0 2px 10px rgba(0,0,0,.6);
+      --shadow-lg:     0 10px 36px rgba(0,0,0,.7);
+      --surface-solid: #0d0e12;
+      --surface-2-solid: #131419;
+    }
+    [data-tv-night="1"] body { background: #060608; }
+    [data-tv-night="1"] body::before { background: linear-gradient(135deg, rgba(255,255,255,.04), transparent 42%); }
+    [data-tv-night="1"] #sidebar { background: rgba(8,9,12,.92); border-right-color: rgba(255,255,255,.06); }
+    [data-tv-night="1"] #header  { background: rgba(8,9,12,.85); border-bottom-color: rgba(255,255,255,.06); }
+    [data-tv-night="1"] .logo-text { -webkit-text-fill-color: #fff !important; color: #fff !important; }
+    [data-tv-night="1"] .sidebar-logo, [data-tv-night="1"] .sidebar-footer { border-color: rgba(255,255,255,.06); }
+    [data-tv-night="1"] .nav-group-label { color: #6b6f7d; }
+    [data-tv-night="1"] .nav-item { color: #b7bacb; }
+    [data-tv-night="1"] .nav-item:hover { background: rgba(238,77,45,.12); color: var(--orange); }
+    [data-tv-night="1"] .nav-item.active { background: linear-gradient(90deg, rgba(238,77,45,.22), rgba(238,77,45,.04)); color: var(--orange-ll); }
+    [data-tv-night="1"] .digital-clock-wrap { background: rgba(255,255,255,.04); border-color: rgba(255,255,255,.08); }
+    [data-tv-night="1"] .digital-clock { color: #fff; }
+    [data-tv-night="1"] .digital-date  { color: #a8a49c; border-left-color: rgba(255,255,255,.1); }
+    [data-tv-night="1"] .digital-shift { background: rgba(238,77,45,.16); color: #ff9478; }
+    [data-tv-night="1"] .filter-select { background: rgba(255,255,255,.05); border-color: rgba(255,255,255,.1); color: var(--text); }
+    [data-tv-night="1"] .header-toggle:hover, [data-tv-night="1"] .action-btn:hover { background: rgba(255,255,255,.06); color: var(--text); }
+    [data-tv-night="1"] .card, [data-tv-night="1"] .chart-card, [data-tv-night="1"] .table-card,
+    [data-tv-night="1"] .kpi-strip, [data-tv-night="1"] .clst-table-wrap {
+      background: #0d0e12 !important;
+      border-color: rgba(255,255,255,.07) !important;
+    }
+    [data-tv-night="1"] .kpi-strip-item:hover { background: rgba(238,77,45,.08); }
+    [data-tv-night="1"] .dl-btn-csv { background: rgba(255,255,255,.06) !important; border-color: rgba(255,255,255,.1); color: var(--text); }
   </style>
 </head>
 <body>
