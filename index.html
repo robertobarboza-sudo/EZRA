@@ -1469,8 +1469,11 @@
     .tv-mode-active #main-content { padding: 32px 40px !important; }
     .tv-mode-active .section-dl-group, .tv-mode-active .spr-filters, .tv-mode-active .table-search, .tv-mode-active .pdf-menu-wrap { display: none !important; }
     .tv-rotation-badge { position: fixed; top: 16px; right: 16px; z-index: 9999; background: rgba(0,0,0,.55); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
-    .tvcfg-page-check { display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius); margin-bottom:8px; cursor:pointer; }
+    .tvcfg-page-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+    .tvcfg-page-check { flex:1; display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; }
     .tvcfg-page-check.checked { border-color: var(--orange); background: rgba(238,77,45,.06); }
+    .tvcfg-mode-btn { flex:0 0 auto; width:38px; height:38px; border-radius:var(--radius); border:1px solid var(--border); background:var(--surface); color:var(--text-muted); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background var(--transition), color var(--transition); }
+    .tvcfg-mode-btn:hover { border-color: var(--orange); color: var(--orange); }
 
     .spr-ms-wrap { position: relative; display: inline-flex; }
     .spr-ms-btn {
@@ -4067,6 +4070,9 @@
           <div class="section-title">TV Mode Config <span class="ds-badge ok" id="ds-badge-tvconfig" style="margin-left:8px"></span></div>
           <div class="section-subtitle">Escolha as telas e o intervalo de rotação pra espelhar numa TV</div>
         </div>
+        <div class="section-dl-group">
+          <button type="button" class="dl-btn dl-btn-csv" id="tvcfg-global-mode-btn" onclick="tvcfgToggleGlobalMode()" title="Alternar modo normal/noturno do site"><i class="fas fa-sun"></i> Modo Normal</button>
+        </div>
       </div>
       <div class="table-card full" style="padding:20px;max-width:640px">
         <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px">Telas a espelhar</div>
@@ -4745,7 +4751,9 @@ function tvModeToggle(key){
   else tvModeEnter(key);
 }
 
+let TV_PRE_MODE_THEME = null;
 function tvModeEnter(key){
+  if(!TV_MODE_SECTION && !TV_ROTATION) TV_PRE_MODE_THEME = document.documentElement.getAttribute('data-theme') || 'dark';
   if(TV_MODE_SECTION && TV_MODE_SECTION !== key){
     document.querySelectorAll(`.tv-mode-btn`).forEach(b=>b.classList.remove('active'));
   }
@@ -4754,6 +4762,7 @@ function tvModeEnter(key){
   if(navItem) navigateTo(key, navItem);
   document.body.classList.add('tv-mode-active');
   document.querySelectorAll(`#section-${key} .tv-mode-btn`).forEach(b=>b.classList.add('active'));
+  tvcfgApplyPageMode(key);
   if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
 }
 
@@ -4763,6 +4772,7 @@ function tvModeExit(){
   document.querySelectorAll('.tv-mode-btn').forEach(b=>b.classList.remove('active'));
   if(document.fullscreenElement) document.exitFullscreen?.().catch(()=>{});
   tvRotationStop();
+  if(TV_PRE_MODE_THEME){ document.documentElement.setAttribute('data-theme', TV_PRE_MODE_THEME); TV_PRE_MODE_THEME = null; }
 }
 
 document.addEventListener('fullscreenchange', () => {
@@ -4771,6 +4781,7 @@ document.addEventListener('fullscreenchange', () => {
 
 /* ── Rotação (TV Mode Config): cicla entre várias abas num intervalo fixo ── */
 function tvRotationStart(pages, intervalSec){
+  if(!TV_MODE_SECTION && !TV_ROTATION) TV_PRE_MODE_THEME = document.documentElement.getAttribute('data-theme') || 'dark';
   tvRotationStop();
   if(!pages.length) return;
   TV_ROTATION = { pages, intervalSec, idx: 0 };
@@ -4785,6 +4796,7 @@ function tvRotationStart(pages, intervalSec){
     TV_MODE_SECTION = key;
     if(navItem) navigateTo(key, navItem);
     document.body.classList.add('tv-mode-active');
+    tvcfgApplyPageMode(key);
     if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
     const label = (TV_ELIGIBLE_PAGES.find(p=>p.key===key)||{}).label || key;
     const b = document.getElementById('tv-rotation-badge');
@@ -8944,6 +8956,22 @@ function switchCardHtml(a){
 /* ================================================================
    TV MODE CONFIG — escolher várias telas + intervalo de rotação
 ================================================================ */
+/* Modo normal/noturno por tela — decide o data-theme aplicado quando aquela
+   página aparece no TV Mode (sozinha ou na rotação). Persistido à parte da
+   config de rotação, já que é uma preferência por tela, não por preset. */
+let TV_PAGE_MODE = {};
+try { TV_PAGE_MODE = JSON.parse(localStorage.getItem('pulso_tv_page_modes') || '{}'); } catch(e){}
+function tvcfgPageMode(key){ return TV_PAGE_MODE[key] === 'noturno' ? 'noturno' : 'normal'; }
+function tvcfgApplyPageMode(key){
+  document.documentElement.setAttribute('data-theme', tvcfgPageMode(key) === 'noturno' ? 'dark' : 'light');
+}
+function tvcfgToggleMode(key){
+  TV_PAGE_MODE[key] = tvcfgPageMode(key) === 'noturno' ? 'normal' : 'noturno';
+  localStorage.setItem('pulso_tv_page_modes', JSON.stringify(TV_PAGE_MODE));
+  const btn = document.getElementById('tvcfg-mode-'+key);
+  if(btn) btn.innerHTML = tvcfgPageMode(key)==='noturno' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
+}
+
 function renderTvConfig(){
   const list = document.getElementById('tvcfg-page-list');
   if(!list) return;
@@ -8951,18 +8979,32 @@ function renderTvConfig(){
   try { saved = JSON.parse(localStorage.getItem('pulso_tvmode_config') || '{}'); } catch(e){}
   const selecionadas = TV_ROTATION ? TV_ROTATION.pages : (saved.pages || []);
   list.innerHTML = TV_ELIGIBLE_PAGES.map(p => `
-    <label class="tvcfg-page-check ${selecionadas.includes(p.key)?'checked':''}" id="tvcfg-check-${p.key}">
-      <input type="checkbox" value="${p.key}" ${selecionadas.includes(p.key)?'checked':''} onchange="tvcfgToggleCheck('${p.key}',this)"/>
-      ${pulsoEscHtml(p.label)}
-    </label>`).join('');
+    <div class="tvcfg-page-row">
+      <label class="tvcfg-page-check ${selecionadas.includes(p.key)?'checked':''}" id="tvcfg-check-${p.key}">
+        <input type="checkbox" value="${p.key}" ${selecionadas.includes(p.key)?'checked':''} onchange="tvcfgToggleCheck('${p.key}',this)"/>
+        ${pulsoEscHtml(p.label)}
+      </label>
+      <button type="button" class="tvcfg-mode-btn" id="tvcfg-mode-${p.key}" onclick="tvcfgToggleMode('${p.key}')" title="Normal / Noturno para esta tela">${tvcfgPageMode(p.key)==='noturno' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'}</button>
+    </div>`).join('');
   const intervalInput = document.getElementById('tvcfg-interval');
   if(intervalInput) intervalInput.value = TV_ROTATION ? TV_ROTATION.intervalSec : (saved.intervalSec || 30);
   tvcfgUpdateButton();
   tvcfgRenderPresets();
+  tvcfgUpdateGlobalModeBtn();
   setBadge('tvconfig', 'ok', 'Local');
 }
 function tvcfgToggleCheck(key, el){
   document.getElementById('tvcfg-check-'+key)?.classList.toggle('checked', el.checked);
+}
+function tvcfgToggleGlobalMode(){
+  toggleTheme();
+  tvcfgUpdateGlobalModeBtn();
+}
+function tvcfgUpdateGlobalModeBtn(){
+  const btn = document.getElementById('tvcfg-global-mode-btn');
+  if(!btn) return;
+  const noturno = (document.documentElement.getAttribute('data-theme') || 'dark') !== 'light';
+  btn.innerHTML = noturno ? '<i class="fas fa-moon"></i> Modo Noturno' : '<i class="fas fa-sun"></i> Modo Normal';
 }
 function tvcfgSelectedPages(){
   return Array.from(document.querySelectorAll('#tvcfg-page-list input:checked')).map(el=>el.value);
