@@ -2319,6 +2319,17 @@
       --shadow-lg:     0 10px 36px rgba(0,0,0,.7);
       --surface-solid: #0d0e12;
       --surface-2-solid: #131419;
+      /* A camada Codex escurece esses tons de acento pra ficarem legíveis
+         no fundo claro dela — no preto do night mode eles ficam quase
+         invisíveis, então volta pra versão viva (mesma do tema escuro
+         original do site). */
+      --orange-l:  #ff6633;
+      --orange-ll: #ff8c5a;
+      --cyan:      #06b6d4;
+      --cyan-l:    #22d3ee;
+      --green:     #10b981;
+      --amber:     #f59e0b;
+      --red:       #ef4444;
     }
     [data-tv-night="1"] body { background: #060608; }
     [data-tv-night="1"] body::before { background: linear-gradient(135deg, rgba(255,255,255,.04), transparent 42%); }
