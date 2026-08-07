@@ -1723,6 +1723,38 @@
     .jarvis-carousel:fullscreen .jarvis-feedback-qr { width: 280px; height: 280px; }
     .jarvis-catalog-slide-icon { font-size: 44px; color: var(--orange); margin-bottom: 14px; }
     .jarvis-catalog-slide-icon .tool-icon { opacity: 1; }
+
+    /* ── Cubo de Dados (Overview) — cards de performance encaixados tipo
+       quebra-cabeça: grid com altura de linha fixa + auto-flow dense, cada
+       card ocupa 1x1/2x1/2x2 células conforme .size-*, preenchendo os
+       buracos automaticamente independente da ordem de renderização. ── */
+    .cubo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      grid-auto-rows: 108px;
+      grid-auto-flow: dense;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    .cubo-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); box-shadow: var(--shadow);
+      padding: 14px 16px; display: flex; flex-direction: column;
+      justify-content: space-between; overflow: hidden; position: relative;
+    }
+    .cubo-card.size-sm { grid-column: span 1; grid-row: span 1; }
+    .cubo-card.size-md { grid-column: span 2; grid-row: span 1; }
+    .cubo-card.size-lg { grid-column: span 2; grid-row: span 2; }
+    .cubo-card-icon { position: absolute; top: 12px; right: 14px; font-size: 20px; color: var(--orange); opacity: .35; }
+    .cubo-card-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); padding-right: 26px; }
+    .cubo-card-value { font-weight: 800; color: var(--text); line-height: 1.1; }
+    .cubo-card.size-sm .cubo-card-value { font-size: 22px; }
+    .cubo-card.size-md .cubo-card-value { font-size: 28px; }
+    .cubo-card.size-lg .cubo-card-value { font-size: 42px; }
+    .cubo-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .cubo-card.type-success .cubo-card-value { color: var(--green); }
+    .cubo-card.type-warning .cubo-card-value { color: var(--amber); }
+    .cubo-card.type-danger  .cubo-card-value { color: var(--red); }
     .jarvis-cadence-tag { display: inline-block; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #fff; padding: 2px 8px; border-radius: 20px; vertical-align: middle; white-space: nowrap; }
     .jarvis-cadence-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
     .jarvis-cadence-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #fff; opacity: .8; }
@@ -2719,6 +2751,12 @@
         </div>
       </div>
 
+      <div class="bkl-tabs" id="gestao-subpage-tabs" style="margin-bottom:16px">
+        <div class="bkl-tab active" id="subtab-visaogeral" onclick="gestaoSwitchSubpage('visaogeral',this)">Visão Geral</div>
+        <div class="bkl-tab" id="subtab-cubo" onclick="gestaoSwitchSubpage('cubo',this)">Cubo de Dados</div>
+      </div>
+
+      <div id="gestao-panel-visaogeral">
       <div class="table-toolbar-title" style="margin-top:4px">Resumo</div>
       <div id="ovw-resumo-cards" style="margin-top:8px"></div>
       <div class="chart-card full" style="margin-top:12px">
@@ -2784,6 +2822,17 @@
       </details>
 
       <div id="ovw-erros" style="margin-top:12px"></div>
+      </div>
+
+      <div id="gestao-panel-cubo" style="display:none">
+        <div class="spr-filters">
+          <div class="spr-filter-group">
+            <span style="font-size:11px;color:var(--text-muted);align-self:center">Hora</span>
+            <select class="filter-select" id="cubo-hora-input" onchange="cuboRenderGrid()" style="height:34px"></select>
+          </div>
+        </div>
+        <div class="cubo-grid" id="cubo-grid"></div>
+      </div>
     </section>
 
     <!-- PERFORMANCE -->
@@ -6184,6 +6233,16 @@ function mkPie(id,labels,data,colors){
    OVERVIEW — retrato acumulado da operação (api/overview.js)
 ================================================================ */
 let OVERVIEW_DATA = null;
+let GESTAO_SUBPAGE = 'visaogeral';
+
+function gestaoSwitchSubpage(key, el){
+  GESTAO_SUBPAGE = key;
+  document.querySelectorAll('#gestao-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('gestao-panel-visaogeral').style.display = key==='visaogeral' ? '' : 'none';
+  document.getElementById('gestao-panel-cubo').style.display = key==='cubo' ? '' : 'none';
+  if(key==='cubo') cuboRenderGrid();
+}
 
 function renderGestao(){
   loadOverview();
@@ -6198,10 +6257,89 @@ async function loadOverview(){
     setBadge('gestao', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
     OVERVIEW_DATA = j;
     ovwRenderAll();
+    if(GESTAO_SUBPAGE==='cubo') cuboRenderGrid();
   } catch(err){
     setBadge('gestao', 'error', 'Erro: '+err.message);
     console.error('[overview]', err);
   }
+}
+
+/* ================================================================
+   CUBO DE DADOS — mosaico de cards de performance por hora, dentro
+   do Overview. Reusa OVERVIEW_DATA (já carregado pra página normal),
+   sem endpoint próprio — só lê a serieHoraria de cada bloco na hora
+   escolhida no filtro único.
+================================================================ */
+let CUBO_HORA = null; // null = usa a hora atual (Brasília)
+function cuboHoraAgora(){ return new Date(Date.now() - 3*60*60*1000).getUTCHours(); }
+function cuboEffectiveHora(){ return CUBO_HORA===null ? cuboHoraAgora() : CUBO_HORA; }
+
+function cuboPopulateHoras(){
+  const sel = document.getElementById('cubo-hora-input');
+  if(!sel || sel.options.length) return;
+  const horaAgora = cuboHoraAgora();
+  sel.innerHTML = Array.from({length:24}, (_,h) =>
+    `<option value="${h}">${String(h).padStart(2,'0')}h${h===horaAgora?' (agora)':''}</option>`).join('');
+  sel.value = String(horaAgora);
+}
+
+function cuboCardHtml(c){
+  return `
+    <div class="cubo-card size-${c.size} ${c.type||''}">
+      <i class="fas ${c.icon} cubo-card-icon"></i>
+      <div class="cubo-card-label">${c.label}</div>
+      <div>
+        <div class="cubo-card-value">${c.value}</div>
+        ${c.sub ? `<div class="cubo-card-sub">${c.sub}</div>` : ''}
+      </div>
+    </div>`;
+}
+
+function cuboRenderGrid(){
+  cuboPopulateHoras();
+  const sel = document.getElementById('cubo-hora-input');
+  const grid = document.getElementById('cubo-grid');
+  if(!grid) return;
+  const hora = Number(sel.value);
+  CUBO_HORA = hora;
+  const j = OVERVIEW_DATA;
+  if(!j){ grid.innerHTML = ''; return; }
+  const at = (serie, h) => serie && serie[h] !== undefined && serie[h] !== null ? serie[h] : null;
+  const pct = (real, plan) => (real!==null && plan) ? Math.round(real/plan*100) : null;
+  const pctType = p => p===null ? '' : (p>=90?'type-success':(p>=70?'type-warning':'type-danger'));
+  const n = v => v===null ? '—' : v.toLocaleString('pt-BR');
+
+  const cards = [];
+
+  if(j.backlog) cards.push({ size:'lg', icon:'fa-boxes-stacked', label:`Backlog às ${String(hora).padStart(2,'0')}h`,
+    value: n(at(j.backlog.serieHoraria?.realizado, hora)), sub:'pacotes na fila' });
+
+  if(j.lineHaul){
+    cards.push({ size:'sm', icon:'fa-truck', label:'LH Previstos', value: n(at(j.lineHaul.serieHoraria?.previstos, hora)), sub:`às ${String(hora).padStart(2,'0')}h` });
+    cards.push({ size:'sm', icon:'fa-truck', label:'LH Descarregados', value: n(at(j.lineHaul.serieHoraria?.realizado, hora)), sub:`às ${String(hora).padStart(2,'0')}h` });
+  }
+  if(j.firstMile) cards.push({ size:'sm', icon:'fa-truck-ramp-box', label:'FM Descarregados', value: n(at(j.firstMile.serieHoraria?.realizado, hora)), sub:`às ${String(hora).padStart(2,'0')}h` });
+
+  if(j.asm){
+    const plan = at(j.asm.serieHoraria?.planejado, hora), real = at(j.asm.serieHoraria?.realizado, hora);
+    cards.push({ size:'sm', icon:'fa-user-check', label:'ASM Planejado', value: n(plan), sub:`às ${String(hora).padStart(2,'0')}h` });
+    cards.push({ size:'sm', icon:'fa-user-check', label:'ASM Realizado', value: n(real), sub:`às ${String(hora).padStart(2,'0')}h` });
+    const p = pct(real, plan);
+    cards.push({ size:'md', icon:'fa-gauge-high', label:'ASM % Atingimento', value: p===null?'—':p+'%', sub:`às ${String(hora).padStart(2,'0')}h`, type: pctType(p) });
+  }
+  if(j.conveyor){
+    const plan = at(j.conveyor.serieHoraria?.planejado, hora), real = at(j.conveyor.serieHoraria?.realizado, hora);
+    cards.push({ size:'sm', icon:'fa-conveyor-belt', label:'Conveyor Planejado', value: n(plan), sub:`às ${String(hora).padStart(2,'0')}h` });
+    cards.push({ size:'sm', icon:'fa-conveyor-belt', label:'Conveyor Realizado', value: n(real), sub:`às ${String(hora).padStart(2,'0')}h` });
+    const p = pct(real, plan);
+    cards.push({ size:'md', icon:'fa-gauge-high', label:'Conveyor % Atingimento', value: p===null?'—':p+'%', sub:`às ${String(hora).padStart(2,'0')}h`, type: pctType(p) });
+  }
+  if(j.outbound){
+    cards.push({ size:'sm', icon:'fa-truck-loading', label:'Outbound Previstos', value: n(at(j.outbound.serieHoraria?.previstos, hora)), sub:`às ${String(hora).padStart(2,'0')}h` });
+    cards.push({ size:'sm', icon:'fa-truck-loading', label:'Outbound Realizados', value: n(at(j.outbound.serieHoraria?.realizado, hora)), sub:`às ${String(hora).padStart(2,'0')}h` });
+  }
+
+  grid.innerHTML = cards.map(cuboCardHtml).join('');
 }
 
 function ovwRenderAll(){
