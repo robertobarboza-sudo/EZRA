@@ -1752,6 +1752,9 @@
     .cubo-card.size-md .cubo-card-value { font-size: 28px; }
     .cubo-card.size-lg .cubo-card-value { font-size: 42px; }
     .cubo-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+    .cubo-card.type-success { border: 2px solid var(--green); box-shadow: 0 0 16px rgba(16,185,129,.18); }
+    .cubo-card.type-warning { border: 2px solid var(--amber); box-shadow: 0 0 16px rgba(245,158,11,.18); }
+    .cubo-card.type-danger  { border: 2px solid var(--red);   box-shadow: 0 0 16px rgba(239,68,68,.20); }
     .cubo-card.type-success .cubo-card-value { color: var(--green); }
     .cubo-card.type-warning .cubo-card-value { color: var(--amber); }
     .cubo-card.type-danger  .cubo-card-value { color: var(--red); }
@@ -6306,37 +6309,74 @@ function cuboRenderGrid(){
   if(!j){ grid.innerHTML = ''; return; }
   const at = (serie, h) => serie && serie[h] !== undefined && serie[h] !== null ? serie[h] : null;
   const pct = (real, plan) => (real!==null && plan) ? Math.round(real/plan*100) : null;
-  const pctType = p => p===null ? '' : (p>=90?'type-success':(p>=70?'type-warning':'type-danger'));
-  const n = v => v===null ? '—' : v.toLocaleString('pt-BR');
+  const n = v => v===null || v===undefined ? '—' : v.toLocaleString('pt-BR');
+  const hh = String(hora).padStart(2,'0')+'h';
+  // Meta de "quanto maior melhor" (% atingimento, % clusterização…) e de
+  // "quanto menor melhor" (tempo de fila, % de backlog envelhecido…) — pedido
+  // do Roberto em 2026-08-06: vermelho fora da meta, amarelo perto de sair,
+  // verde dentro da meta. Faixas definidas com ele por métrica.
+  const statusHigher = (v, good, warn) => v===null||v===undefined ? '' : (v>=good ? 'type-success' : (v>=warn ? 'type-warning' : 'type-danger'));
+  const statusLower  = (v, good, warn) => v===null||v===undefined ? '' : (v<=good ? 'type-success' : (v<=warn ? 'type-warning' : 'type-danger'));
 
   const cards = [];
 
-  if(j.backlog) cards.push({ size:'lg', icon:'fa-boxes-stacked', label:`Backlog às ${String(hora).padStart(2,'0')}h`,
-    value: n(at(j.backlog.serieHoraria?.realizado, hora)), sub:'pacotes na fila' });
+  if(j.backlog){
+    cards.push({ size:'lg', icon:'fa-boxes-stacked', label:`Backlog às ${hh}`,
+      value: n(at(j.backlog.serieHoraria?.realizado, hora)), sub:'pacotes na fila' });
+    const cluster24 = j.backlog.clusters?.find(c => c.label === '>24h');
+    if(cluster24 && j.backlog.total){
+      const pctAging = Math.round(cluster24.qtd / j.backlog.total * 100);
+      cards.push({ size:'md', icon:'fa-hourglass-end', label:'Backlog >24h', value: pctAging+'%', sub:`${n(cluster24.qtd)} pacotes · meta ≤5%`, type: statusLower(pctAging, 5, 15) });
+    }
+  }
 
   if(j.lineHaul){
-    cards.push({ size:'sm', icon:'fa-truck', label:'LH Previstos', value: n(at(j.lineHaul.serieHoraria?.previstos, hora)), sub:`às ${String(hora).padStart(2,'0')}h` });
-    cards.push({ size:'sm', icon:'fa-truck', label:'LH Descarregados', value: n(at(j.lineHaul.serieHoraria?.realizado, hora)), sub:`às ${String(hora).padStart(2,'0')}h` });
+    cards.push({ size:'sm', icon:'fa-truck', label:'LH Previstos', value: n(at(j.lineHaul.serieHoraria?.previstos, hora)), sub:`às ${hh}` });
+    cards.push({ size:'sm', icon:'fa-truck', label:'LH Descarregados', value: n(at(j.lineHaul.serieHoraria?.realizado, hora)), sub:`às ${hh}` });
+    const comFila = (j.lineHaul.porCanal||[]).filter(c => c.tempoFilaMedioMin !== null);
+    if(comFila.length){
+      const media = Math.round(comFila.reduce((s,c) => s + c.tempoFilaMedioMin*c.carros, 0) / comFila.reduce((s,c) => s + c.carros, 0));
+      cards.push({ size:'sm', icon:'fa-hourglass-half', label:'LH Fila Média', value: media+' min', sub:'meta ≤60 min', type: statusLower(media, 60, 120) });
+    }
   }
-  if(j.firstMile) cards.push({ size:'sm', icon:'fa-truck-ramp-box', label:'FM Descarregados', value: n(at(j.firstMile.serieHoraria?.realizado, hora)), sub:`às ${String(hora).padStart(2,'0')}h` });
+  if(j.firstMile){
+    cards.push({ size:'sm', icon:'fa-truck-ramp-box', label:'FM Descarregados', value: n(at(j.firstMile.serieHoraria?.realizado, hora)), sub:`às ${hh}` });
+    const comFila = (j.firstMile.porCanal||[]).filter(c => c.tempoFilaMedioMin !== null);
+    if(comFila.length){
+      const media = Math.round(comFila.reduce((s,c) => s + c.tempoFilaMedioMin*c.carros, 0) / comFila.reduce((s,c) => s + c.carros, 0));
+      cards.push({ size:'sm', icon:'fa-hourglass-half', label:'FM Fila Média', value: media+' min', sub:'meta ≤60 min', type: statusLower(media, 60, 120) });
+    }
+  }
 
   if(j.asm){
     const plan = at(j.asm.serieHoraria?.planejado, hora), real = at(j.asm.serieHoraria?.realizado, hora);
-    cards.push({ size:'sm', icon:'fa-user-check', label:'ASM Planejado', value: n(plan), sub:`às ${String(hora).padStart(2,'0')}h` });
-    cards.push({ size:'sm', icon:'fa-user-check', label:'ASM Realizado', value: n(real), sub:`às ${String(hora).padStart(2,'0')}h` });
+    cards.push({ size:'sm', icon:'fa-user-check', label:'ASM Planejado', value: n(plan), sub:`às ${hh}` });
+    cards.push({ size:'sm', icon:'fa-user-check', label:'ASM Realizado', value: n(real), sub:`às ${hh}` });
     const p = pct(real, plan);
-    cards.push({ size:'md', icon:'fa-gauge-high', label:'ASM % Atingimento', value: p===null?'—':p+'%', sub:`às ${String(hora).padStart(2,'0')}h`, type: pctType(p) });
+    cards.push({ size:'md', icon:'fa-gauge-high', label:'ASM % Atingimento', value: p===null?'—':p+'%', sub:`às ${hh} · meta ≥95%`, type: statusHigher(p, 95, 85) });
+    if(j.asm.picoInducao) cards.push({ size:'sm', icon:'fa-arrow-trend-up', label:'ASM Pico', value: n(j.asm.picoInducao.total), sub:`às ${String(j.asm.picoInducao.hora).padStart(2,'0')}h` });
   }
   if(j.conveyor){
     const plan = at(j.conveyor.serieHoraria?.planejado, hora), real = at(j.conveyor.serieHoraria?.realizado, hora);
-    cards.push({ size:'sm', icon:'fa-conveyor-belt', label:'Conveyor Planejado', value: n(plan), sub:`às ${String(hora).padStart(2,'0')}h` });
-    cards.push({ size:'sm', icon:'fa-conveyor-belt', label:'Conveyor Realizado', value: n(real), sub:`às ${String(hora).padStart(2,'0')}h` });
+    cards.push({ size:'sm', icon:'fa-conveyor-belt', label:'Conveyor Planejado', value: n(plan), sub:`às ${hh}` });
+    cards.push({ size:'sm', icon:'fa-conveyor-belt', label:'Conveyor Realizado', value: n(real), sub:`às ${hh}` });
     const p = pct(real, plan);
-    cards.push({ size:'md', icon:'fa-gauge-high', label:'Conveyor % Atingimento', value: p===null?'—':p+'%', sub:`às ${String(hora).padStart(2,'0')}h`, type: pctType(p) });
+    cards.push({ size:'md', icon:'fa-gauge-high', label:'Conveyor % Atingimento', value: p===null?'—':p+'%', sub:`às ${hh} · meta ≥95%`, type: statusHigher(p, 95, 85) });
+    if(j.conveyor.picoProcessamento) cards.push({ size:'sm', icon:'fa-arrow-trend-up', label:'Conveyor Pico', value: n(j.conveyor.picoProcessamento.total), sub:`às ${String(j.conveyor.picoProcessamento.hora).padStart(2,'0')}h` });
   }
   if(j.outbound){
-    cards.push({ size:'sm', icon:'fa-truck-loading', label:'Outbound Previstos', value: n(at(j.outbound.serieHoraria?.previstos, hora)), sub:`às ${String(hora).padStart(2,'0')}h` });
-    cards.push({ size:'sm', icon:'fa-truck-loading', label:'Outbound Realizados', value: n(at(j.outbound.serieHoraria?.realizado, hora)), sub:`às ${String(hora).padStart(2,'0')}h` });
+    cards.push({ size:'sm', icon:'fa-truck-loading', label:'Outbound Previstos', value: n(at(j.outbound.serieHoraria?.previstos, hora)), sub:`às ${hh}` });
+    cards.push({ size:'sm', icon:'fa-truck-loading', label:'Outbound Realizados', value: n(at(j.outbound.serieHoraria?.realizado, hora)), sub:`às ${hh}` });
+    if(j.outbound.carrosPrevistos){
+      const taxa = Math.round((j.outbound.carrosRealizados||0) / j.outbound.carrosPrevistos * 100);
+      cards.push({ size:'md', icon:'fa-flag-checkered', label:'Outbound Taxa Conclusão', value: taxa+'%', sub:'meta ≥90%', type: statusHigher(taxa, 90, 75) });
+    }
+    if(j.outbound.pctClusterizacao !== null && j.outbound.pctClusterizacao !== undefined)
+      cards.push({ size:'md', icon:'fa-circle-nodes', label:'% Clusterização', value: j.outbound.pctClusterizacao+'%', sub:'meta ≥95%', type: statusHigher(j.outbound.pctClusterizacao, 95, 85) });
+    if(j.outbound.pacotesNoPiso !== null && j.outbound.pacotesNoPiso !== undefined)
+      cards.push({ size:'sm', icon:'fa-warehouse', label:'Pacotes no Piso', value: n(j.outbound.pacotesNoPiso) });
+    if(j.outbound.saca) cards.push({ size:'sm', icon:'fa-sack-xmark', label:'Sacas Carregadas', value: n(j.outbound.saca.pacotes), sub:`${n(j.outbound.saca.tos)} TO's` });
+    if(j.outbound.scuttle) cards.push({ size:'sm', icon:'fa-dolly', label:'Scuttles Carregados', value: n(j.outbound.scuttle.pacotes), sub:`${n(j.outbound.scuttle.tos)} TO's` });
   }
 
   grid.innerHTML = cards.map(cuboCardHtml).join('');
