@@ -2587,6 +2587,9 @@
       <div class="nav-item" data-section="configuracoes" data-label="Configurações" onclick="navigateTo('configuracoes',this)" style="flex:1">
         <i class="fas fa-gear nav-icon"></i><span class="nav-label">Configurações</span>
       </div>
+      <div class="nav-item nav-item-icon-only" id="sidebar-night-toggle" title="Modo noturno" onclick="toggleTheme()">
+        <i class="fas fa-sun nav-icon" id="sidebar-night-icon"></i>
+      </div>
       <div class="nav-item nav-item-icon-only" data-section="switch" data-label="Switch" title="Switch" onclick="navigateTo('switch',this)">
         <i class="fas fa-sliders nav-icon"></i>
       </div>
@@ -10167,24 +10170,24 @@ function toggleTheme(){
   const next = cur === 'dark' ? 'light' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
   try { localStorage.setItem('jarvis-theme', next); } catch(e){}
-  // Update label
+  updateThemeIcons(next);
+}
+function updateThemeIcons(theme){
   const lbl = document.querySelector('.theme-switch-label');
-  if(lbl) lbl.textContent = next === 'dark' ? 'Tema Claro' : 'Tema Escuro';
+  if(lbl) lbl.textContent = theme === 'dark' ? 'Tema Claro' : 'Tema Escuro';
+  const nightIcon = document.getElementById('sidebar-night-icon');
+  if(nightIcon) nightIcon.className = theme === 'dark' ? 'fas fa-moon nav-icon' : 'fas fa-sun nav-icon';
+  const cfgBtn = document.getElementById('tvcfg-global-mode-btn');
+  if(cfgBtn) cfgBtn.innerHTML = theme === 'dark' ? '<i class="fas fa-moon"></i> Modo Noturno' : '<i class="fas fa-sun"></i> Modo Normal';
 }
 
 // Restore saved theme on load
 (function(){
-  try {
-    const saved = localStorage.getItem('jarvis-theme');
-    if(saved){
-      document.documentElement.setAttribute('data-theme', saved);
-      // Label will be updated after DOM loads
-      window.addEventListener('DOMContentLoaded', () => {
-        const lbl = document.querySelector('.theme-switch-label');
-        if(lbl) lbl.textContent = saved === 'dark' ? 'Tema Claro' : 'Tema Escuro';
-      });
-    }
-  } catch(e){}
+  let saved = null;
+  try { saved = localStorage.getItem('jarvis-theme'); } catch(e){}
+  if(saved) document.documentElement.setAttribute('data-theme', saved);
+  // Ícones só existem depois do DOM montado — sem tema salvo, o padrão é escuro.
+  window.addEventListener('DOMContentLoaded', () => updateThemeIcons(saved || document.documentElement.getAttribute('data-theme') || 'dark'));
 })();
 /* ================================================================
    KEYBOARD
