@@ -2566,8 +2566,13 @@
   <div class="sidebar-nav">
     <div class="nav-group">
       <div class="nav-group-label">Principal</div>
-      <div class="nav-item active" data-section="gestao" data-label="Overview" onclick="navigateTo('gestao',this)">
+      <div class="nav-item active" data-section="gestao" data-label="Overview" onclick="navigateToAndExpand('gestao',this,'navsub-gestao')">
         <i class="fas fa-gauge-high nav-icon"></i><span class="nav-label">Overview</span>
+        <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-gestao', this)"></i>
+      </div>
+      <div class="nav-subgroup" id="navsub-gestao">
+        <div class="nav-subitem active" data-subkey="visaogeral" onclick="navSidebarSubpage(this,'gestao','visaogeral','gestao')">Visão Geral</div>
+        <div class="nav-subitem" data-subkey="cubo" onclick="navSidebarSubpage(this,'gestao','cubo','gestao')">Cubo de Dados</div>
       </div>
       <div class="nav-item nav-item-locked" data-section="performance" data-label="Performance">
         <i class="fas fa-chart-line nav-icon"></i><span class="nav-label">Performance</span><i class="fas fa-lock nav-lock-icon"></i>
@@ -2590,9 +2595,9 @@
         <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-spr', this)"></i>
       </div>
       <div class="nav-subgroup" id="navsub-spr">
-        <div class="nav-subitem active" onclick="navSidebarSubpage(this,'spr','outbound',false)">Outbound</div>
-        <div class="nav-subitem" onclick="navSidebarSubpage(this,'spr','spr',false)">SPR</div>
-        <div class="nav-subitem" onclick="navSidebarSubpage(this,'spr','leftover',false)">Leftover</div>
+        <div class="nav-subitem active" data-subkey="outbound" onclick="navSidebarSubpage(this,'spr','outbound','pulso')">Outbound</div>
+        <div class="nav-subitem" data-subkey="spr" onclick="navSidebarSubpage(this,'spr','spr','pulso')">SPR</div>
+        <div class="nav-subitem" data-subkey="leftover" onclick="navSidebarSubpage(this,'spr','leftover','pulso')">Leftover</div>
       </div>
       <div class="nav-item" data-section="asm" data-label="ASM" onclick="navigateTo('asm',this)">
         <i class="fas fa-feather nav-icon"></i><span class="nav-label">ASM</span>
@@ -2605,8 +2610,9 @@
         <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-inbound', this)"></i>
       </div>
       <div class="nav-subgroup" id="navsub-inbound">
-        <div class="nav-subitem active" onclick="navSidebarSubpage(this,'inbound','lh',true)">Line Haul</div>
-        <div class="nav-subitem" onclick="navSidebarSubpage(this,'inbound','fm',true)">First Mile</div>
+        <div class="nav-subitem active" data-subkey="lh" onclick="navSidebarSubpage(this,'inbound','lh','inbound')">Line Haul</div>
+        <div class="nav-subitem" data-subkey="fm" onclick="navSidebarSubpage(this,'inbound','fm','inbound')">First Mile</div>
+        <div class="nav-subitem" data-subkey="triagem" onclick="navSidebarSubpage(this,'inbound','triagem','inbound')">Triagem</div>
       </div>
       <div class="nav-item" data-section="clusterizacao" data-label="Clusterização" onclick="navigateTo('clusterizacao',this)">
         <i class="fas fa-circle-nodes nav-icon"></i><span class="nav-label">Clusterização</span>
@@ -2663,8 +2669,13 @@
       <div class="nav-item" data-section="matriz" data-label="Matriz" onclick="navigateTo('matriz',this)">
         <i class="fas fa-table-cells-large nav-icon"></i><span class="nav-label">Matriz</span>
       </div>
-      <div class="nav-item" data-section="mapadados" data-label="Mapa de Dados" onclick="navigateTo('mapadados',this)">
+      <div class="nav-item" data-section="mapadados" data-label="Mapa de Dados" onclick="navigateToAndExpand('mapadados',this,'navsub-mapadados')">
         <i class="fas fa-database nav-icon"></i><span class="nav-label">Mapa de Dados</span>
+        <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-mapadados', this)"></i>
+      </div>
+      <div class="nav-subgroup" id="navsub-mapadados">
+        <div class="nav-subitem active" data-subkey="datamap" onclick="navSidebarSubpage(this,'mapadados','datamap','mapadados')">Mapa de Dados</div>
+        <div class="nav-subitem" data-subkey="jarvis" onclick="navSidebarSubpage(this,'mapadados','jarvis','mapadados')">Jarvis</div>
       </div>
       <div class="nav-item" data-section="jornal" data-label="Jornal" onclick="navigateTo('jornal',this)">
         <i class="fas fa-newspaper nav-icon"></i><span class="nav-label">Jornal</span>
@@ -5089,14 +5100,28 @@ function toggleNavSubgroup(subgroupId, caretEl){
 
 // Clique num item do dropdown: navega pro section pai e troca a subpágina
 // ativa, sincronizando tanto o item do sidebar quanto a aba correspondente
-// no topo da página (#subtab-<key>, já usada por pulsoSwitchSubpage/inboundSwitchSubpage).
-function navSidebarSubpage(el, section, key, isInbound){
+// no topo da página (#subtab-<key>). `switcher` escolhe qual *SwitchSubpage
+// chamar — cada página com subpáginas tem a sua própria (pulsoSwitchSubpage,
+// inboundSwitchSubpage, gestaoSwitchSubpage, mapadadosSwitchSubpage).
+const NAV_SUBPAGE_SWITCHERS = {
+  pulso: (...a) => pulsoSwitchSubpage(...a),
+  inbound: (...a) => inboundSwitchSubpage(...a),
+  gestao: (...a) => gestaoSwitchSubpage(...a),
+  mapadados: (...a) => mapadadosSwitchSubpage(...a),
+};
+// Mantém o subitem certo destacado no menu lateral mesmo quando a troca de
+// subpágina acontece pela aba do topo da página (não pelo próprio menu) —
+// chamado no início de toda *SwitchSubpage, pelos dois pontos de entrada.
+function navSyncSidebarSubitem(section, key){
+  document.getElementById('navsub-'+section)?.querySelectorAll('.nav-subitem').forEach(x =>
+    x.classList.toggle('active', x.dataset.subkey === key));
+}
+function navSidebarSubpage(el, section, key, switcher){
   navigateTo(section, document.querySelector(`.nav-item[data-section="${section}"]`));
   el.parentElement.querySelectorAll('.nav-subitem').forEach(x=>x.classList.remove('active'));
   el.classList.add('active');
   const tabEl = document.getElementById('subtab-'+key);
-  if(isInbound) inboundSwitchSubpage(key, tabEl);
-  else pulsoSwitchSubpage(key, tabEl);
+  (NAV_SUBPAGE_SWITCHERS[switcher] || NAV_SUBPAGE_SWITCHERS.pulso)(key, tabEl);
 }
 
 async function renderSection(section){
@@ -5765,6 +5790,7 @@ const PULSO_SUBPAGE_META = {
 
 function pulsoSwitchSubpage(key, el){
   PULSO_ACTIVE_SUBPAGE = key;
+  navSyncSidebarSubitem('spr', key);
   document.querySelectorAll('#pulso-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
 
@@ -6240,6 +6266,7 @@ let GESTAO_SUBPAGE = 'visaogeral';
 
 function gestaoSwitchSubpage(key, el){
   GESTAO_SUBPAGE = key;
+  navSyncSidebarSubitem('gestao', key);
   document.querySelectorAll('#gestao-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('gestao-panel-visaogeral').style.display = key==='visaogeral' ? '' : 'none';
@@ -6640,6 +6667,7 @@ let INBOUND_SUBPAGE = 'lh';
 
 function inboundSwitchSubpage(key, el){
   INBOUND_SUBPAGE = key;
+  navSyncSidebarSubitem('inbound', key);
   document.querySelectorAll('#inbound-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('inbound-lh-panel').style.display = key==='lh' ? '' : 'none';
@@ -8904,6 +8932,7 @@ function confirmAddTool(){
 let MAPADADOS_SUBPAGE = 'datamap';
 function mapadadosSwitchSubpage(key, el){
   MAPADADOS_SUBPAGE = key;
+  navSyncSidebarSubitem('mapadados', key);
   document.querySelectorAll('#mapadados-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('mapadados-panel-datamap').style.display = key==='datamap' ? '' : 'none';
