@@ -3223,6 +3223,7 @@
               <p class="est-eyebrow">Pulso · Balanceamento de esteiras</p>
               <h1>Esteiras SOC &amp; HUB</h1>
               <p class="est-sub">Divisão de destinos entre as 10 bancadas de cada esteira (5 de cada lado), com maior participação nas primeiras bancadas e equilíbrio entre lados e bancadas.</p>
+              <p class="est-sub" id="est-data-ref" style="margin-top:4px"></p>
             </div>
           </div>
           <div id="est-metaStats" style="margin-bottom:16px"></div>
@@ -10166,6 +10167,9 @@ function estRenderAll(){
   if(!DATA) return;
   const grandTotal = DATA.part1.reduce((s,d) => s+d.qty, 0);
   const ct = DATA.classified_totals;
+
+  const dataRefEl = document.getElementById('est-data-ref');
+  if(dataRefEl) dataRefEl.textContent = DATA.dataRef ? `Dado de ${pulsoFmtDataBr(DATA.dataRef)} (balanceamento_pulso, atualização diária)` : '';
 
   buildKPIs('est-metaStats', [
     { label:'Volume Total', value:estFmtInt(grandTotal), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },

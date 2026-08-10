@@ -84,6 +84,11 @@ const { toNum, parseCSV } = require('./_period');
 
 const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
 const CONFIG_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1408724077' };
+// Fonte dedicada da Esteira On-time (confirmado com o Roberto em 2026-08-10)
+// — colunas: pack_name, dest_station_name, total_quantity, turno,
+// data_ajustada, dest_corrigido. Usa dest_corrigido (não dest_station_name)
+// pro fanout — é a coluna que já vem tratada/corrigida da origem.
+const BALANCEAMENTO_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '960444672' };
 
 const SACA_TIPOS = new Set(['Saca Sorter', 'Saca']);
 const SCUTTLE_TIPOS = new Set(['Scuttle']);
@@ -124,8 +129,8 @@ function agingMedioSemOutliers(rows) {
 }
 
 // ── Esteira On-time (balanceamento de bancadas) ─────────────────────────
-// Mesma base (cluster_pulso, comData = pós-resíduo, sem os filtros de
-// UI da Clusterização) reagrupada por destino pra alimentar a visão de
+// Fonte: aba balanceamento_pulso (ver BALANCEAMENTO_SHEET), já pré-agregada
+// por destino/dia — não a base de TOs do cluster_pulso. Alimenta a visão de
 // esteiras SOC/HUB/Termo (mockup do Roberto, "esteira.html" — estrutura
 // preservada 1:1, só a fonte dos dados mudou de um blob estático pra
 // esse endpoint). Esteira SOC = destinos SoC + 3PL; Esteira HUB = LM Hub
@@ -497,10 +502,24 @@ module.exports = async (req, res) => {
     complete_time: r['complete time'],
   }));
 
-  // esteira: só computa quando pedido explicitamente (?esteira=1) — a página
-  // de Clusterização normal não usa esse bloco, não faz sentido pagar o
-  // custo (e o payload extra) em todo load dela.
-  const esteira = req.query.esteira !== undefined ? buildEsteira(comData) : null;
+  // esteira: só busca/computa quando pedido explicitamente (?esteira=1) — a
+  // página de Clusterização normal não usa esse bloco, não faz sentido pagar
+  // o custo (fetch extra + payload) em todo load dela. Fonte própria
+  // (balanceamento_pulso), não cluster_pulso — ver BALANCEAMENTO_SHEET.
+  let esteira = null;
+  if (req.query.esteira !== undefined) {
+    try {
+      const { rows: balRows } = await fetchTabByGid(BALANCEAMENTO_SHEET.spreadsheetId, BALANCEAMENTO_SHEET.gid);
+      const datasDisponiveis = [...new Set(balRows.map(r => r.data_ajustada).filter(Boolean))].sort();
+      const dataRef = datasDisponiveis[datasDisponiveis.length - 1] || null;
+      const doDia = dataRef ? balRows.filter(r => r.data_ajustada === dataRef) : balRows;
+      const esteiraRows = doDia.map(r => ({ destino: r.dest_corrigido, quantity: toNum(r.total_quantity) }));
+      esteira = buildEsteira(esteiraRows);
+      esteira.dataRef = dataRef;
+    } catch (err) {
+      esteira = { erro: err.message };
+    }
+  }
 
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
