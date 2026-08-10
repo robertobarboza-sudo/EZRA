@@ -1761,6 +1761,149 @@
     .cubo-legend { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-left: auto; }
     .cubo-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
     .cubo-legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+
+    /* ── ESTEIRA ON-TIME (Conveyor) — porte do mockup do Roberto
+       ("esteira.html"), estrutura visual preservada 1:1, só trocando a
+       fonte dos dados (era um blob estático, agora /api/cluster?esteira=1).
+       Prefixo est- em tudo e paleta isolada em variáveis --est-* (não
+       var(--bg)/--surface/etc. do site) pra não vazar/colidir com o resto
+       do PULSO — essa aba é intencionalmente um visual à parte (industrial/
+       dark), sem seguir o tema claro/escuro nem a camada Codex. ── */
+    .est-app {
+      --est-bg:#120f0d; --est-panel:#1d1815; --est-panel-2:#241e1a; --est-panel-3:#2c2521;
+      --est-line:#3b332d; --est-line-soft:#2e2721; --est-text:#f6efe9; --est-text-dim:#b9aa9d; --est-text-faint:#7c6c5f;
+      --est-accent-soc:#ee4d2d; --est-accent-hub:#ffb300; --est-accent-termo:#c1440e;
+      --est-kraft:#c68b4f; --est-kraft-dark:#8f5f30;
+      --est-belt-track:#14100d; --est-belt-tread:rgba(255,255,255,.055); --est-belt-edge:#070503;
+      --est-shadow: 0 10px 30px -12px rgba(0,0,0,.55);
+      --est-font-display:"Bahnschrift","DIN Alternate","Arial Narrow",sans-serif;
+      background:
+        radial-gradient(1100px 500px at 15% -8%, color-mix(in srgb, var(--est-accent-soc) 7%, transparent), transparent),
+        radial-gradient(1100px 500px at 85% -8%, color-mix(in srgb, var(--est-accent-hub) 7%, transparent), transparent),
+        var(--est-bg);
+      color: var(--est-text); border-radius: var(--radius-lg); padding: 28px 22px 48px; margin: -6px -6px 0;
+    }
+    .est-masthead{ display:flex; flex-wrap:wrap; gap:24px; justify-content:space-between; align-items:flex-end; margin-bottom:18px; }
+    .est-app h1{ font-family:var(--est-font-display); font-weight:700; text-transform:uppercase; letter-spacing:.02em; font-size:clamp(24px,3.4vw,34px); line-height:1.02; margin:0 0 6px; color:var(--est-text); }
+    .est-eyebrow{ font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--est-text-faint); margin:0 0 8px; }
+    .est-sub{ margin:0; color:var(--est-text-dim); font-size:13.5px; max-width:56ch; }
+    .est-meta-stats{ display:flex; gap:10px; flex-wrap:wrap; }
+    .est-meta-stat{ background:var(--est-panel); border:1px solid var(--est-line); border-radius:var(--radius-md); padding:9px 10px; width:110px; flex:none; box-shadow:var(--est-shadow); }
+    .est-meta-stat .n{ font-family:var(--est-font-display); font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .est-meta-stat .l{ font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--est-text-faint); margin-top:1px; }
+
+    .est-tabs{ display:flex; gap:10px; margin:22px 0 18px; border-bottom:1px solid var(--est-line); }
+    .est-tab-btn{ appearance:none; border:1px solid var(--est-line); border-bottom:none; background:var(--est-panel-2); color:var(--est-text-dim); font-family:var(--est-font-display); font-weight:700; text-transform:uppercase; letter-spacing:.06em; font-size:13px; padding:10px 20px 12px; border-radius:10px 10px 0 0; cursor:pointer; transform:translateY(1px); transition:transform .15s ease, color .15s ease; }
+    .est-tab-btn:hover{ color:var(--est-text); }
+    .est-tab-btn[data-tab="soc"][aria-selected="true"]{ background:var(--est-panel); color:var(--est-accent-soc); transform:translateY(0); box-shadow:inset 0 3px 0 var(--est-accent-soc); }
+    .est-tab-btn[data-tab="hub"][aria-selected="true"]{ background:var(--est-panel); color:var(--est-accent-hub); transform:translateY(0); box-shadow:inset 0 3px 0 var(--est-accent-hub); }
+    .est-tab-btn[data-tab="termo"][aria-selected="true"]{ background:var(--est-panel); color:var(--est-accent-termo); transform:translateY(0); box-shadow:inset 0 3px 0 var(--est-accent-termo); }
+    .est-tab-btn .est-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:8px; vertical-align:middle; }
+    .est-tab-btn[data-tab="soc"] .est-dot{ background:var(--est-accent-soc); }
+    .est-tab-btn[data-tab="hub"] .est-dot{ background:var(--est-accent-hub); }
+    .est-tab-btn[data-tab="termo"] .est-dot{ background:var(--est-accent-termo); }
+
+    .est-stage{ display:none; }
+    .est-stage.active{ display:block; }
+    .est-stage-head{ background:var(--est-panel); border:1px solid var(--est-line); border-radius:var(--radius-lg); padding:16px 20px; margin-bottom:18px; box-shadow:var(--est-shadow); display:flex; flex-wrap:wrap; gap:20px; align-items:center; justify-content:space-between; }
+    .est-title-block h2{ font-family:var(--est-font-display); text-transform:uppercase; letter-spacing:.02em; font-size:18px; margin:0 0 3px; color:var(--est-text); }
+    .est-composition{ font-size:12px; color:var(--est-text-dim); margin:0; }
+    .est-composition b{ color:var(--est-text); font-weight:600; }
+    .est-balance-block{ min-width:260px; flex:1; max-width:400px; }
+    .est-balance-label{ display:flex; justify-content:space-between; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--est-text-faint); margin-bottom:6px; }
+    .est-balance-label span b{ font-variant-numeric:tabular-nums; color:var(--est-text); font-weight:700; }
+    .est-balance-bar{ height:9px; border-radius:6px; overflow:hidden; display:flex; border:1px solid var(--est-line); }
+    .est-balance-seg{ height:100%; }
+    .est-balance-note{ font-size:9.5px; color:var(--est-text-faint); margin-top:6px; }
+
+    .est-stage-body{ overflow-x:auto; padding-bottom:6px; }
+    .est-belt-wrap{ min-width:1040px; display:flex; flex-direction:column; }
+    .est-row{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; padding:0 6px; }
+    .est-row-top{ align-items:end; margin-bottom:2px; }
+    .est-row-bottom{ align-items:start; margin-top:2px; }
+    .est-slot{ display:flex; flex-direction:column; align-items:stretch; }
+    .est-connector{ width:2px; height:14px; background:repeating-linear-gradient(var(--est-line-soft),var(--est-line-soft) 3px,transparent 3px,transparent 7px); margin:0 auto; }
+
+    .est-prod-card{ border:1.5px dashed var(--est-line); border-radius:var(--radius-md); background:var(--est-panel-2); padding:8px 10px; text-align:center; height:66px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+    .est-prod-card .p-eyebrow{ font-size:9.5px; font-weight:700; letter-spacing:.14em; color:var(--est-text-faint); }
+    .est-prod-card .p-value{ font-family:var(--est-font-display); font-size:17px; color:var(--est-text-faint); line-height:1.2; }
+    .est-prod-card .p-hint{ font-size:9px; color:var(--est-text-faint); opacity:.8; }
+    .est-prod-card.est-prod-pending{ border-style:dashed; opacity:.85; }
+    .est-prod-card .p-hint.pending{ color:var(--stage-accent); opacity:1; font-weight:600; }
+
+    .est-bancada-card{ position:relative; background:var(--est-panel); border:1px solid var(--est-line); border-radius:var(--radius-lg); padding:11px 12px 10px; box-shadow:var(--est-shadow); overflow:hidden; height:260px; box-sizing:border-box; display:flex; flex-direction:column; }
+    .est-bancada-card::before{ content:""; position:absolute; inset:0 0 auto 0; height:3px; background:var(--stage-accent); }
+    .est-bancada-top{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:2px; flex:none; }
+    .est-bancada-tag{ font-family:var(--est-font-display); font-weight:700; font-size:12px; letter-spacing:.04em; color:var(--stage-accent); background:color-mix(in srgb, var(--stage-accent) 16%, transparent); padding:2px 7px; border-radius:5px; }
+    .est-bancada-share{ font-family:var(--est-font-display); font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; flex:none; }
+    .est-bancada-qty{ font-size:10.5px; color:var(--est-text-dim); font-variant-numeric:tabular-nums; margin-bottom:6px; flex:none; }
+    .est-bancada-fill-track{ height:5px; border-radius:4px; background:var(--est-panel-3); overflow:hidden; margin-bottom:8px; flex:none; }
+    .est-bancada-fill{ height:100%; width:var(--fill); background:linear-gradient(90deg, color-mix(in srgb, var(--stage-accent) 60%, transparent), var(--stage-accent)); border-radius:4px; }
+
+    .est-dest-list{ list-style:none; margin:0; padding:0; flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+    .est-dest-list li{ display:flex; justify-content:space-between; gap:8px; font-size:11px; padding:3px 0; border-top:1px solid var(--est-line-soft); }
+    .est-dest-list li:first-child{ border-top:none; }
+    .est-dest-name{ color:var(--est-text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .est-dest-qty{ font-variant-numeric:tabular-nums; color:var(--est-text); flex:none; white-space:nowrap; }
+    .est-dest-share{ color:var(--est-text-faint); font-weight:400; }
+    .est-dest-list::-webkit-scrollbar{ width:6px; }
+    .est-dest-list::-webkit-scrollbar-thumb{ background:var(--est-line); border-radius:6px; }
+
+    .est-belt{ position:relative; margin:12px 0; }
+    .est-belt-flags{ display:flex; justify-content:space-between; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--est-text-faint); padding:0 4px 6px; }
+    .est-belt-flags .est-end{ text-align:right; }
+    .est-belt-body{ position:relative; display:flex; align-items:center; }
+    .est-belt-cap{ width:20px; height:50px; background:var(--est-belt-edge); flex:none; }
+    .est-belt-cap.left{ border-radius:10px 0 0 10px; }
+    .est-belt-cap.right{ border-radius:0 10px 10px 0; }
+    .est-belt-track{ position:relative; flex:1; height:50px; background:var(--est-belt-track); overflow:hidden; border-top:2px solid var(--est-belt-edge); border-bottom:2px solid var(--est-belt-edge); }
+    .est-tread{ position:absolute; inset:0; background-image:repeating-linear-gradient(-35deg, var(--est-belt-tread) 0 10px, transparent 10px 26px); background-size:64px 64px; animation:estTreadScroll 5.5s linear infinite; }
+    @keyframes estTreadScroll{ from{ background-position-x:0; } to{ background-position-x:64px; } }
+    .est-diverters{ position:absolute; inset:0; pointer-events:none; }
+    .est-diverter{ position:absolute; top:50%; width:9px; height:9px; transform:translate(-50%,-50%) rotate(45deg); background:var(--stage-accent); opacity:.85; box-shadow:0 0 0 3px color-mix(in srgb, var(--stage-accent) 22%, transparent); animation:estDiverterPulse 2.6s ease-in-out infinite; }
+    @keyframes estDiverterPulse{ 0%,100%{ opacity:.55; } 50%{ opacity:1; } }
+    .est-packages{ position:absolute; inset:0; }
+    .est-pkg{ position:absolute; top:var(--lane); left:-10%; width:var(--w); height:var(--h); background:linear-gradient(160deg, var(--est-kraft), var(--est-kraft-dark)); border:1px solid rgba(0,0,0,.35); border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.08); transform:translateY(-50%); animation-name:var(--anim, estPkgMove); animation-duration:var(--dur); animation-timing-function:linear; animation-iteration-count:infinite; animation-delay:var(--delay); }
+    .est-pkg::after{ content:""; position:absolute; inset:38% 0 auto 0; height:24%; background:rgba(255,255,255,.18); }
+    @keyframes estPkgMove{ from{ left:-10%; } to{ left:106%; } }
+    @keyframes estPkgDivertA{ 0%{ left:-10%; opacity:1; } 52%{ opacity:1; } 60%{ opacity:0; } 100%{ left:106%; opacity:0; } }
+    @keyframes estPkgDivertB{ 0%{ left:-10%; opacity:1; } 68%{ opacity:1; } 76%{ opacity:0; } 100%{ left:106%; opacity:0; } }
+    @keyframes estPkgDivertC{ 0%{ left:-10%; opacity:1; } 36%{ opacity:1; } 44%{ opacity:0; } 100%{ left:106%; opacity:0; } }
+    @media (prefers-reduced-motion: reduce){ .est-tread{ animation:none; } .est-pkg{ animation:none; left:8%; } .est-diverter{ animation:none; } }
+
+    .est-stage[data-esteira="soc"]{ --stage-accent:var(--est-accent-soc); --seg-esq:var(--est-accent-soc); --seg-dir:color-mix(in srgb, var(--est-accent-soc) 45%, var(--est-panel-3)); }
+    .est-stage[data-esteira="hub"]{ --stage-accent:var(--est-accent-hub); --seg-esq:var(--est-accent-hub); --seg-dir:color-mix(in srgb, var(--est-accent-hub) 45%, var(--est-panel-3)); }
+    .est-stage[data-esteira="termo"]{ --stage-accent:var(--est-accent-termo); --seg-esq:var(--est-accent-termo); --seg-dir:color-mix(in srgb, var(--est-accent-termo) 45%, var(--est-panel-3)); }
+    .est-balance-seg.esq{ background:var(--seg-esq); }
+    .est-balance-seg.dir{ background:var(--seg-dir); }
+    .est-side-label{ text-align:center; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--est-text-faint); margin:2px 0 8px; }
+    .est-side-label b{ color:var(--stage-accent); }
+
+    details.est-ranking{ margin-top:28px; background:var(--est-panel); border:1px solid var(--est-line); border-radius:var(--radius-lg); box-shadow:var(--est-shadow); overflow:hidden; }
+    details.est-ranking summary{ cursor:pointer; list-style:none; padding:14px 18px; font-family:var(--est-font-display); text-transform:uppercase; letter-spacing:.04em; font-size:13px; display:flex; align-items:center; justify-content:space-between; color:var(--est-text); }
+    details.est-ranking summary::-webkit-details-marker{ display:none; }
+    details.est-ranking summary .est-arrow{ transition:transform .15s ease; color:var(--est-text-faint); font-size:11px; }
+    details.est-ranking[open] summary .est-arrow{ transform:rotate(90deg); }
+    .est-rank-table-wrap{ overflow-x:auto; border-top:1px solid var(--est-line); }
+    table.est-rank-table{ width:100%; border-collapse:collapse; font-size:12px; min-width:600px; }
+    table.est-rank-table th{ text-align:left; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--est-text-faint); padding:8px 14px; border-bottom:1px solid var(--est-line); }
+    table.est-rank-table td{ padding:6px 14px; border-bottom:1px solid var(--est-line-soft); vertical-align:middle; color:var(--est-text); }
+    table.est-rank-table td.num{ text-align:right; font-variant-numeric:tabular-nums; }
+    table.est-rank-table td.bar-cell{ width:170px; }
+    .est-mini-bar-track{ height:6px; background:var(--est-panel-3); border-radius:4px; overflow:hidden; }
+    .est-mini-bar{ height:100%; background:var(--est-text-faint); border-radius:4px; }
+    tr.est-class-SOC .est-mini-bar{ background:var(--est-accent-soc); }
+    tr.est-class-3PL .est-mini-bar{ background:color-mix(in srgb, var(--est-accent-soc) 45%, var(--est-text-faint)); }
+    tr.est-class-HUB .est-mini-bar{ background:var(--est-accent-hub); }
+    tr.est-class-XPT .est-mini-bar{ background:color-mix(in srgb, var(--est-accent-hub) 45%, var(--est-text-faint)); }
+    .est-tag-chip{ font-size:9px; font-weight:700; letter-spacing:.06em; padding:1.5px 6px; border-radius:4px; }
+    .est-tag-chip.SOC{ background:color-mix(in srgb, var(--est-accent-soc) 20%, transparent); color:var(--est-accent-soc); }
+    .est-tag-chip.est-3PL{ background:var(--est-panel-3); color:var(--est-text-dim); }
+    .est-tag-chip.HUB{ background:color-mix(in srgb, var(--est-accent-hub) 20%, transparent); color:var(--est-accent-hub); }
+    .est-tag-chip.XPT{ background:color-mix(in srgb, var(--est-accent-hub) 12%, transparent); color:var(--est-accent-hub); }
+
+    .est-footnote{ margin-top:14px; font-size:11px; color:var(--est-text-faint); line-height:1.6; max-width:80ch; }
+    .est-footnote code{ background:var(--est-panel-2); padding:1px 5px; border-radius:4px; }
     .jarvis-cadence-tag { display: inline-block; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #fff; padding: 2px 8px; border-radius: 20px; vertical-align: middle; white-space: nowrap; }
     .jarvis-cadence-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
     .jarvis-cadence-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #fff; opacity: .8; }
@@ -2605,8 +2748,13 @@
       <div class="nav-item" data-section="asm" data-label="ASM" onclick="navigateTo('asm',this)">
         <i class="fas fa-feather nav-icon"></i><span class="nav-label">ASM</span>
       </div>
-      <div class="nav-item" data-section="conveyor" data-label="Conveyor" onclick="navigateTo('conveyor',this)">
+      <div class="nav-item" data-section="conveyor" data-label="Conveyor" onclick="navigateToAndExpand('conveyor',this,'navsub-conveyor')">
         <i class="fas fa-box nav-icon"></i><span class="nav-label">Conveyor</span>
+        <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-conveyor', this)"></i>
+      </div>
+      <div class="nav-subgroup" id="navsub-conveyor">
+        <div class="nav-subitem active" data-subkey="performance" onclick="navSidebarSubpage(this,'conveyor','performance','conveyor')">Performance</div>
+        <div class="nav-subitem" data-subkey="esteira" onclick="navSidebarSubpage(this,'conveyor','esteira','conveyor')">Esteira On-time</div>
       </div>
       <div class="nav-item" data-section="inbound" data-label="Inbound" onclick="navigateToAndExpand('inbound',this,'navsub-inbound')">
         <span class="nav-icon-composite"><i class="fas fa-truck icon-base" style="font-size:14px"></i><span class="icon-badge">IN</span></span><span class="nav-label">Inbound</span>
@@ -3028,6 +3176,12 @@
         </div>
       </div>
 
+      <div class="bkl-tabs" id="conveyor-subpage-tabs" style="margin-bottom:16px">
+        <div class="bkl-tab active" id="subtab-performance" onclick="cnvSwitchSubpage('performance',this)">Performance</div>
+        <div class="bkl-tab" id="subtab-esteira" onclick="cnvSwitchSubpage('esteira',this)">Esteira On-time</div>
+      </div>
+
+      <div id="conveyor-panel-performance">
       <div class="switch-hint">
         <i class="fas fa-circle-info"></i>
         Capacidade esperada (meta) por grupo de estação ainda não está disponível — será adicionada aqui futuramente.
@@ -3079,6 +3233,119 @@
           </table>
         </div>
         <div class="pulso-footer" id="cnv-footer" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--text-muted)"></div>
+      </div>
+      </div>
+
+      <div id="conveyor-panel-esteira" style="display:none">
+        <div id="est-app" class="est-app">
+          <div class="est-masthead">
+            <div>
+              <p class="est-eyebrow">Pulso · Balanceamento de esteiras</p>
+              <h1>Esteiras SOC &amp; HUB</h1>
+              <p class="est-sub">Divisão de destinos entre as 10 bancadas de cada esteira (5 de cada lado), com maior participação nas primeiras bancadas e equilíbrio entre lados e bancadas.</p>
+            </div>
+            <div class="est-meta-stats" id="est-metaStats"></div>
+          </div>
+
+          <div class="est-tabs" role="tablist">
+            <button class="est-tab-btn" data-tab="soc" role="tab" aria-selected="true" onclick="estSwitchTab('soc',this)"><span class="est-dot"></span>Esteira SOC</button>
+            <button class="est-tab-btn" data-tab="hub" role="tab" aria-selected="false" onclick="estSwitchTab('hub',this)"><span class="est-dot"></span>Esteira HUB</button>
+            <button class="est-tab-btn" data-tab="termo" role="tab" aria-selected="false" onclick="estSwitchTab('termo',this)"><span class="est-dot"></span>Esteira Termo</button>
+          </div>
+
+          <section class="est-stage active" data-esteira="soc">
+            <div class="est-stage-head">
+              <div class="est-title-block"><h2>Esteira SOC</h2><p class="est-composition">Destinos <b>SoC</b> + <b>3PL</b></p></div>
+              <div class="est-balance-block" id="est-balanceSOC"></div>
+            </div>
+            <div class="est-stage-body">
+              <div class="est-belt-wrap">
+                <p class="est-side-label"><b>Lado Esquerda</b> — bancadas E1–E5</p>
+                <div class="est-row est-row-top" id="est-rowSOCesq"></div>
+                <div class="est-belt">
+                  <div class="est-belt-flags"><span class="est-start">Entrada</span><span class="est-end">Saída</span></div>
+                  <div class="est-belt-body">
+                    <div class="est-belt-cap left"></div>
+                    <div class="est-belt-track" id="est-trackSOC">
+                      <div class="est-tread"></div>
+                      <div class="est-diverters" id="est-divSOC"></div>
+                      <div class="est-packages" id="est-pkgSOC"></div>
+                    </div>
+                    <div class="est-belt-cap right"></div>
+                  </div>
+                </div>
+                <div class="est-row est-row-bottom" id="est-rowSOCdir"></div>
+                <p class="est-side-label"><b>Lado Direita</b> — bancadas D1–D5</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="est-stage" data-esteira="hub">
+            <div class="est-stage-head">
+              <div class="est-title-block"><h2>Esteira HUB</h2><p class="est-composition">Destinos <b>LM Hub</b> + <b>XPT</b></p></div>
+              <div class="est-balance-block" id="est-balanceHUB"></div>
+            </div>
+            <div class="est-stage-body">
+              <div class="est-belt-wrap">
+                <p class="est-side-label"><b>Lado Esquerda</b> — bancadas E1–E5</p>
+                <div class="est-row est-row-top" id="est-rowHUBesq"></div>
+                <div class="est-belt">
+                  <div class="est-belt-flags"><span class="est-start">Entrada</span><span class="est-end">Saída</span></div>
+                  <div class="est-belt-body">
+                    <div class="est-belt-cap left"></div>
+                    <div class="est-belt-track" id="est-trackHUB">
+                      <div class="est-tread"></div>
+                      <div class="est-diverters" id="est-divHUB"></div>
+                      <div class="est-packages" id="est-pkgHUB"></div>
+                    </div>
+                    <div class="est-belt-cap right"></div>
+                  </div>
+                </div>
+                <div class="est-row est-row-bottom" id="est-rowHUBdir"></div>
+                <p class="est-side-label"><b>Lado Direita</b> — bancadas D1–D5</p>
+              </div>
+            </div>
+          </section>
+
+          <section class="est-stage" data-esteira="termo">
+            <div class="est-stage-head">
+              <div class="est-title-block"><h2>Esteira Termo</h2><p class="est-composition">Mesmo balanceamento da <b>Esteira HUB</b> (LM Hub + XPT) · Prod. com fórmula própria — <b>em definição</b></p></div>
+              <div class="est-balance-block" id="est-balanceTERMO"></div>
+            </div>
+            <div class="est-stage-body">
+              <div class="est-belt-wrap">
+                <p class="est-side-label"><b>Lado Esquerda</b> — bancadas E1–E5</p>
+                <div class="est-row est-row-top" id="est-rowTERMOesq"></div>
+                <div class="est-belt">
+                  <div class="est-belt-flags"><span class="est-start">Entrada</span><span class="est-end">Saída</span></div>
+                  <div class="est-belt-body">
+                    <div class="est-belt-cap left"></div>
+                    <div class="est-belt-track" id="est-trackTERMO">
+                      <div class="est-tread"></div>
+                      <div class="est-diverters" id="est-divTERMO"></div>
+                      <div class="est-packages" id="est-pkgTERMO"></div>
+                    </div>
+                    <div class="est-belt-cap right"></div>
+                  </div>
+                </div>
+                <div class="est-row est-row-bottom" id="est-rowTERMOdir"></div>
+                <p class="est-side-label"><b>Lado Direita</b> — bancadas D1–D5</p>
+              </div>
+            </div>
+          </section>
+
+          <details class="est-ranking" id="est-rankingDetails">
+            <summary>Distribuição geral por destino <span class="est-arrow">▶</span></summary>
+            <div class="est-rank-table-wrap">
+              <table class="est-rank-table">
+                <thead><tr><th>#</th><th>Destino</th><th>Classe</th><th style="text-align:right">Volume</th><th style="text-align:right">Share</th><th>Distribuição</th></tr></thead>
+                <tbody id="est-rankBody"></tbody>
+              </table>
+            </div>
+          </details>
+
+          <p class="est-footnote" id="est-footnote"></p>
+        </div>
       </div>
     </section>
 
@@ -5116,6 +5383,7 @@ const NAV_SUBPAGE_SWITCHERS = {
   inbound: (...a) => inboundSwitchSubpage(...a),
   gestao: (...a) => gestaoSwitchSubpage(...a),
   mapadados: (...a) => mapadadosSwitchSubpage(...a),
+  conveyor: (...a) => cnvSwitchSubpage(...a),
 };
 // Mantém o subitem certo destacado no menu lateral mesmo quando a troca de
 // subpágina acontece pela aba do topo da página (não pelo próprio menu) —
@@ -9863,6 +10131,153 @@ let CONVEYOR_DATA = null;
 let CNV_CHART_VIEW = 'hora'; // 'hora' | 'acumulado' | 'comparativo'
 let CNV_ULTIMA_HORA = 23;
 let CNV_PAGE = 0;
+
+let CONVEYOR_SUBPAGE = 'performance';
+function cnvSwitchSubpage(key, el){
+  CONVEYOR_SUBPAGE = key;
+  navSyncSidebarSubitem('conveyor', key);
+  document.querySelectorAll('#conveyor-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('conveyor-panel-performance').style.display = key==='performance' ? '' : 'none';
+  document.getElementById('conveyor-panel-esteira').style.display = key==='esteira' ? '' : 'none';
+  if(key==='esteira' && !ESTEIRA_DATA) estLoad();
+}
+
+/* ================================================================
+   ESTEIRA ON-TIME — porte do mockup do Roberto (esteira.html), lendo
+   dados reais de /api/cluster?esteira=1 em vez do blob estático
+   embutido no original. Estrutura/algoritmo de bins ficam no servidor
+   (api/cluster.js); aqui só desenha exatamente como o mockup desenhava.
+================================================================ */
+let ESTEIRA_DATA = null;
+async function estLoad(){
+  try {
+    const r = await fetch('/api/cluster?esteira=1', { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok || !j.esteira) throw new Error(j.erro || 'resposta inválida');
+    ESTEIRA_DATA = j.esteira;
+    estRenderAll();
+  } catch(err){
+    console.error('[esteira]', err);
+    const wrap = document.getElementById('est-app');
+    if(wrap) wrap.insertAdjacentHTML('afterbegin', `<div class="switch-hint"><i class="fas fa-triangle-exclamation"></i> Erro ao carregar Esteira On-time: ${pulsoEscHtml(err.message)}</div>`);
+  }
+}
+
+function estFmtInt(n){ return Math.round(n).toLocaleString('pt-BR'); }
+function estFmtPct(x, d){ return (x*100).toLocaleString('pt-BR', {minimumFractionDigits:d==null?2:d, maximumFractionDigits:d==null?2:d}) + '%'; }
+function estClassify(dest){
+  const d = String(dest||'');
+  if(/^LM Hub_/i.test(d)) return 'HUB';
+  if(/^XPT_/i.test(d)) return 'XPT';
+  if(/^SoC_/i.test(d)) return 'SOC';
+  return '3PL';
+}
+
+function estSwitchTab(tab, el){
+  document.querySelectorAll('#est-app .est-tab-btn').forEach(b => b.setAttribute('aria-selected','false'));
+  el.setAttribute('aria-selected','true');
+  document.querySelectorAll('#est-app .est-stage').forEach(s => s.classList.remove('active'));
+  document.querySelector(`#est-app .est-stage[data-esteira="${tab}"]`).classList.add('active');
+}
+
+function estRenderAll(){
+  const DATA = ESTEIRA_DATA;
+  if(!DATA) return;
+  const grandTotal = DATA.part1.reduce((s,d) => s+d.qty, 0);
+  const ct = DATA.classified_totals;
+
+  document.getElementById('est-metaStats').innerHTML = [
+    ['Volume total', estFmtInt(grandTotal)], ['Destinos', DATA.part1.length],
+    ['SoC', estFmtInt(ct.SOC)], ['3PL', estFmtInt(ct['3PL'])], ['LM Hub', estFmtInt(ct.HUB)], ['XPT', estFmtInt(ct.XPT)],
+  ].map(s => `<div class="est-meta-stat"><div class="n">${s[1]}</div><div class="l">${s[0]}</div></div>`).join('');
+
+  estBuildStage(DATA.soc_bins, 'SOC', 'E', 'D', grandTotal);
+  estBuildStage(DATA.hub_bins, 'HUB', 'E', 'D', grandTotal);
+  // Esteira Termo reaproveita o balanceamento do HUB (mesmos destinos/bancadas)
+  // até existir uma base própria — igual o mockup original já fazia.
+  estBuildStage(DATA.hub_bins, 'TERMO', 'E', 'D', grandTotal, 'aguardando memória de cálculo');
+
+  const rankBody = document.getElementById('est-rankBody');
+  rankBody.innerHTML = DATA.part1.map((d, i) => {
+    const cls = estClassify(d.dest);
+    const clsCss = cls === '3PL' ? 'est-3PL' : cls;
+    return `<tr class="est-class-${cls}">
+      <td>${i+1}</td>
+      <td>${pulsoEscHtml(d.dest||'(sem nome)')}</td>
+      <td><span class="est-tag-chip ${clsCss}">${cls}</span></td>
+      <td class="num">${estFmtInt(d.qty)}</td>
+      <td class="num">${estFmtPct(d.share,2)}</td>
+      <td class="bar-cell"><div class="est-mini-bar-track"><div class="est-mini-bar" style="width:${Math.max(1,(d.share/DATA.part1[0].share*100)).toFixed(1)}%"></div></div></td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('est-footnote').innerHTML =
+    `Metodologia: <code>share = soma de pacotes do grupo (destino, bancada ou lado) ÷ soma de pacotes de todos os destinos (${estFmtInt(grandTotal)})</code>. `+
+    `Classificação por prefixo do destino — <b>HUB</b> = começa com "LM Hub_", <b>XPT</b> = começa com "XPT_", <b>SOC</b> = começa com "SoC_", <b>3PL</b> = demais. `+
+    `Balanceamento em dois passos: (1) os destinos são distribuídos entre Lado Esquerda e Lado Direita por partição gulosa (o maior volume disponível sempre vai para o lado com menor total acumulado); (2) dentro de cada lado, os destinos são alocados às 5 bancadas contra um perfil de peso decrescente (bancada 1 &gt; 2 &gt; 3 &gt; 4 &gt; 5), priorizando as primeiras bancadas. `+
+    `Cards "Prod." ficam prontos para receber o indicador real de performance de cada bancada.`;
+}
+
+function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, grandTotal, prodHint){
+  prodHint = prodHint || 'vincular indicador real';
+  const prodPendingClass = prefix === 'TERMO' ? ' est-prod-pending' : '';
+  const prodHintClass = prefix === 'TERMO' ? ' pending' : '';
+  const esq = bins.filter(b => b.lado==='Lado A').sort((a,b) => a.posicao-b.posicao);
+  const dir = bins.filter(b => b.lado==='Lado B').sort((a,b) => a.posicao-b.posicao);
+  const total = bins.reduce((s,b) => s+b.total, 0);
+  const totalEsq = esq.reduce((s,b) => s+b.total, 0);
+  const totalDir = dir.reduce((s,b) => s+b.total, 0);
+  const maxBancada = Math.max.apply(null, bins.map(b => b.total)) || 1;
+
+  function slot(bin, letter, isTop){
+    const prod = `<div class="est-prod-card${prodPendingClass}"><div class="p-eyebrow">PROD.</div><div class="p-value">—</div><div class="p-hint${prodHintClass}">${prodHint}</div></div>`;
+    const conn = '<div class="est-connector"></div>';
+    const destItems = bin.destinos.map(d => {
+      const destShare = grandTotal ? d.qty/grandTotal : 0;
+      return `<li><span class="est-dest-name" title="${pulsoEscHtml(d.dest||'(sem nome)')}">${pulsoEscHtml(d.dest||'(sem nome)')}</span><span class="est-dest-qty">${estFmtInt(d.qty)} <span class="est-dest-share">(${estFmtPct(destShare,2)})</span></span></li>`;
+    }).join('');
+    const shareGlobal = grandTotal ? bin.total/grandTotal : 0;
+    const card = `<div class="est-bancada-card" style="--fill:${((bin.total/maxBancada)*100).toFixed(1)}%">
+      <div class="est-bancada-top"><span class="est-bancada-tag">${letter}${bin.posicao}</span></div>
+      <div class="est-bancada-share">${estFmtPct(shareGlobal,2)}</div>
+      <div class="est-bancada-qty">${estFmtInt(bin.total)} vol. · ${bin.destinos.length} destino${bin.destinos.length===1?'':'s'}</div>
+      <div class="est-bancada-fill-track"><div class="est-bancada-fill"></div></div>
+      <ul class="est-dest-list">${destItems}</ul>
+    </div>`;
+    return `<div class="est-slot">${isTop ? prod+conn+card : card+conn+prod}</div>`;
+  }
+
+  document.getElementById('est-row'+prefix+'esq').innerHTML = esq.map(b => slot(b, sideLetterEsq, true)).join('');
+  document.getElementById('est-row'+prefix+'dir').innerHTML = dir.map(b => slot(b, sideLetterDir, false)).join('');
+
+  document.getElementById('est-balance'+prefix).innerHTML =
+    `<div class="est-balance-label"><span>Esquerda <b>${estFmtPct(grandTotal?totalEsq/grandTotal:0,2)}</b></span><span>Direita <b>${estFmtPct(grandTotal?totalDir/grandTotal:0,2)}</b></span></div>`+
+    `<div class="est-balance-bar"><div class="est-balance-seg esq" style="width:${total?((totalEsq/total)*100).toFixed(2):0}%"></div><div class="est-balance-seg dir" style="width:${total?((totalDir/total)*100).toFixed(2):0}%"></div></div>`+
+    `<div class="est-balance-note">% do volume total (${estFmtInt(grandTotal)} pacotes, todos os destinos) · a barra mostra a proporção entre os lados desta esteira</div>`;
+
+  let divHtml = '';
+  for(let i=0;i<5;i++){
+    const x = ((i+0.5)/5*100).toFixed(2)+'%';
+    divHtml += `<div class="est-diverter" style="left:${x}; top:22%; animation-delay:${i*0.25}s"></div>`;
+    divHtml += `<div class="est-diverter" style="left:${x}; top:78%; animation-delay:${i*0.25+0.15}s"></div>`;
+  }
+  document.getElementById('est-div'+prefix).innerHTML = divHtml;
+
+  let pkgHtml = '';
+  const n = 9;
+  const animCycle = ['estPkgMove','estPkgDivertA','estPkgDivertB','estPkgDivertC'];
+  for(let p=0;p<n;p++){
+    const lane = (18 + (p % 4) * 20)+'%';
+    const w = (24 + (p % 3) * 7)+'px';
+    const h = (14 + (p % 3) * 4)+'px';
+    const dur = (16 + (p % 5)*2.5)+'s';
+    const delay = (-p * 2.9)+'s';
+    const anim = (p % 3 === 0) ? 'estPkgMove' : animCycle[1 + (p % 3)];
+    pkgHtml += `<div class="est-pkg" style="--lane:${lane}; --w:${w}; --h:${h}; --dur:${dur}; --delay:${delay}; --anim:${anim}"></div>`;
+  }
+  document.getElementById('est-pkg'+prefix).innerHTML = pkgHtml;
+}
 
 async function loadConveyor(){
   setBadge('conveyor', 'loading');
