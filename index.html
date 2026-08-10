@@ -1808,9 +1808,27 @@
     .est-prod-card .p-hint{ font-size:9px; color:var(--text-muted); opacity:.8; }
     .est-prod-card.est-prod-pending{ border-style:dashed; opacity:.85; }
     .est-prod-card .p-hint.pending{ color:var(--stage-accent); opacity:1; font-weight:600; }
+    .est-prod-card.est-prod-ready{ cursor:pointer; border-style:solid; }
+    .est-prod-card.est-prod-ready .p-value{ color:var(--stage-accent); }
+    .est-prod-card.est-prod-ready:hover{ background:color-mix(in srgb, var(--stage-accent) 10%, var(--surface-2)); }
 
-    .est-bancada-card{ position:relative; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:11px 12px 10px; box-shadow:var(--shadow); overflow:hidden; height:260px; box-sizing:border-box; display:flex; flex-direction:column; }
+    .est-bancada-card{ position:relative; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:11px 12px 10px; box-shadow:var(--shadow); overflow:hidden; height:260px; box-sizing:border-box; display:flex; flex-direction:column; cursor:pointer; transition:transform .12s ease; }
+    .est-bancada-card:hover{ border-color:var(--stage-accent); }
+    .est-bancada-card:active{ transform:scale(.98); }
     .est-bancada-card::before{ content:""; position:absolute; inset:0 0 auto 0; height:3px; background:var(--stage-accent); }
+    .est-bancada-card.est-highlight{ animation:estHighlightPulse 1.4s ease 2; }
+    @keyframes estHighlightPulse{ 0%,100%{ box-shadow:var(--shadow); } 50%{ box-shadow:0 0 0 3px var(--stage-accent); } }
+    .est-bancada-front, .est-bancada-back{ display:flex; flex-direction:column; height:100%; min-height:0; }
+    .est-bancada-card.flipped .est-bancada-front{ display:none; }
+    .est-bancada-back{ display:none; }
+    .est-bancada-card.flipped .est-bancada-back{ display:flex; }
+    .est-bancada-back-title{ font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--stage-accent); margin-bottom:6px; flex:none; }
+    .est-bancada-back-list{ list-style:none; margin:0; padding:0; flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
+    .est-bancada-back-list li{ display:flex; justify-content:space-between; gap:8px; font-size:11px; padding:3px 0; border-top:1px solid var(--border); }
+    .est-bancada-back-list li:first-child{ border-top:none; }
+    .est-bancada-back-name{ color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .est-bancada-back-qty{ font-variant-numeric:tabular-nums; font-weight:600; color:var(--text); flex:none; }
+    .est-bancada-back-note{ font-size:8.5px; color:var(--text-muted); margin-top:6px; flex:none; }
     .est-bancada-top{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:2px; flex:none; }
     .est-bancada-tag{ font-weight:700; font-size:12px; letter-spacing:.04em; color:var(--stage-accent); background:color-mix(in srgb, var(--stage-accent) 16%, transparent); padding:2px 7px; border-radius:5px; }
     .est-bancada-share{ font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; flex:none; color:var(--text); }
@@ -3239,6 +3257,7 @@
               <div class="est-title-block"><h2>Esteira SOC</h2><p class="est-composition">Destinos <b>SoC</b> + <b>3PL</b></p></div>
               <div class="est-balance-block" id="est-balanceSOC"></div>
             </div>
+            <div id="est-perfSOC" style="margin-bottom:16px"></div>
             <div class="est-stage-body">
               <div class="est-belt-wrap">
                 <p class="est-side-label"><b>Lado Esquerda</b> — bancadas E1–E5</p>
@@ -3266,6 +3285,7 @@
               <div class="est-title-block"><h2>Esteira HUB</h2><p class="est-composition">Destinos <b>LM Hub</b> + <b>XPT</b></p></div>
               <div class="est-balance-block" id="est-balanceHUB"></div>
             </div>
+            <div id="est-perfHUB" style="margin-bottom:16px"></div>
             <div class="est-stage-body">
               <div class="est-belt-wrap">
                 <p class="est-side-label"><b>Lado Esquerda</b> — bancadas E1–E5</p>
@@ -3293,6 +3313,7 @@
               <div class="est-title-block"><h2>Esteira Termo</h2><p class="est-composition">Mesmo balanceamento da <b>Esteira HUB</b> (LM Hub + XPT) · Prod. com fórmula própria — <b>em definição</b></p></div>
               <div class="est-balance-block" id="est-balanceTERMO"></div>
             </div>
+            <div id="est-perfTERMO" style="margin-bottom:16px"></div>
             <div class="est-stage-body">
               <div class="est-belt-wrap">
                 <p class="est-side-label"><b>Lado Esquerda</b> — bancadas E1–E5</p>
@@ -10131,18 +10152,73 @@ function cnvSwitchSubpage(key, el){
    (api/cluster.js); aqui só desenha exatamente como o mockup desenhava.
 ================================================================ */
 let ESTEIRA_DATA = null;
+let ESTEIRA_CONVEYOR_ROWS = [];
+// P1/"Esteira A" = HUB, P2/"Esteira B" = SOC, P4/"Termoplástica" = Termo —
+// confirmado com o Roberto em 2026-08-10 (mesma classificação usada nos
+// cards da aba Performance do Conveyor, ver classificarEsteira em api/conveyor.js).
+const ESTEIRA_GRUPO_POR_PREFIX = { SOC:'Esteira B', HUB:'Esteira A', TERMO:'Termoplástica' };
+
 async function estLoad(){
   try {
-    const r = await fetch('/api/cluster?esteira=1', { cache:'no-store' });
-    const j = await r.json();
+    const [clusterRes, cnvRes] = await Promise.all([
+      fetch('/api/cluster?esteira=1', { cache:'no-store' }),
+      fetch('/api/conveyor', { cache:'no-store' }),
+    ]);
+    const j = await clusterRes.json();
     if(!j.ok || !j.esteira) throw new Error(j.erro || 'resposta inválida');
     ESTEIRA_DATA = j.esteira;
+    try {
+      const cj = await cnvRes.json();
+      ESTEIRA_CONVEYOR_ROWS = cj.ok ? cj.rows : [];
+    } catch(e){ ESTEIRA_CONVEYOR_ROWS = []; }
     estRenderAll();
   } catch(err){
     console.error('[esteira]', err);
     const wrap = document.getElementById('est-app');
     if(wrap) wrap.insertAdjacentHTML('afterbegin', `<div class="switch-hint"><i class="fas fa-triangle-exclamation"></i> Erro ao carregar Esteira On-time: ${pulsoEscHtml(err.message)}</div>`);
   }
+}
+
+// Performance real da esteira (grupo P1/P2/P4 em conveyor_pulso, dia
+// operacional atual) — usada pro card "Prod." de cada bancada (total do
+// grupo × share da bancada) e pelos cards de resumo (atual vs hora
+// anterior, acumulada, melhor/pior bancada).
+function estPerfDados(prefix){
+  const grupo = ESTEIRA_GRUPO_POR_PREFIX[prefix];
+  const rows = ESTEIRA_CONVEYOR_ROWS.filter(r => r.grupo === grupo);
+  const total = rows.reduce((s,r) => s+r.totalProcessamento, 0);
+  const horaAtual = cuboHoraAgora();
+  const porHora = new Map();
+  rows.forEach(r => porHora.set(r.hora, (porHora.get(r.hora)||0) + r.totalProcessamento));
+  const atual = porHora.get(horaAtual) || 0;
+  const anterior = porHora.get(horaAtual-1) || 0;
+  const porColab = new Map();
+  rows.forEach(r => {
+    const key = r.opsId || r.colaborador;
+    if(!key) return;
+    const cur = porColab.get(key) || { nome:r.colaborador||key, total:0 };
+    cur.total += r.totalProcessamento;
+    porColab.set(key, cur);
+  });
+  const colaboradores = [...porColab.values()].sort((a,b) => b.total-a.total);
+  return { grupo, total, atual, anterior, colaboradores, temDados: rows.length>0 };
+}
+
+function estHighlightBancada(prefix, lado, posicao){
+  const letter = lado==='Lado A' ? 'E' : 'D';
+  const rowId = 'est-row'+prefix+(lado==='Lado A'?'esq':'dir');
+  const row = document.getElementById(rowId);
+  if(!row) return;
+  const card = [...row.querySelectorAll('.est-bancada-tag')].find(t => t.textContent === letter+posicao)?.closest('.est-bancada-card');
+  if(!card) return;
+  card.scrollIntoView({ behavior:'smooth', block:'center', inline:'center' });
+  card.classList.add('est-highlight');
+  setTimeout(() => card.classList.remove('est-highlight'), 2800);
+}
+
+function estFlipBancada(el, ev){
+  if(ev) ev.stopPropagation();
+  el.classList.toggle('flipped');
 }
 
 function estFmtInt(n){ return Math.round(n).toLocaleString('pt-BR'); }
@@ -10204,13 +10280,17 @@ function estRenderAll(){
     `Metodologia: dentro de cada esteira (SOC ou HUB/Termo), <code>share = pacotes do grupo (destino, bancada ou lado) ÷ pacotes de TODA a esteira</code> — não do volume geral das duas esteiras somadas. A tabela de distribuição geral abaixo é a exceção: ali o share é sobre o total geral (${estFmtInt(grandTotal)} pacotes), porque compara destinos das duas esteiras lado a lado. `+
     `Classificação por prefixo do destino — <b>HUB</b> = começa com "LM Hub_", <b>XPT</b> = começa com "XPT_", <b>SOC</b> = começa com "SoC_", <b>3PL</b> = demais. `+
     `Balanceamento em dois passos: (1) os destinos são distribuídos entre Lado Esquerda e Lado Direita por partição gulosa (o maior volume disponível sempre vai para o lado com menor total acumulado); (2) dentro de cada lado, os destinos são alocados às 5 bancadas contra um perfil de peso decrescente (bancada 1 &gt; 2 &gt; 3 &gt; 4 &gt; 5), priorizando as primeiras bancadas. `+
-    `Cards "Prod." ficam prontos para receber o indicador real de performance de cada bancada.`;
+    `Card "Prod." = performance real da esteira em conveyor_pulso (grupo Esteira A/HUB, Esteira B/SOC ou Termoplástica, dia operacional atual) × share da bancada. Colaborador exibido ao clicar numa bancada é uma estimativa por ranking de produção — a base não vincula colaborador a bancada individualmente.`;
 }
 
 function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint){
+  const semDadosReais = prefix === 'TERMO'; // Termo reaproveita o balanceamento do HUB — fórmula própria em definição
   prodHint = prodHint || 'vincular indicador real';
-  const prodPendingClass = prefix === 'TERMO' ? ' est-prod-pending' : '';
-  const prodHintClass = prefix === 'TERMO' ? ' pending' : '';
+  const perf = estPerfDados(prefix);
+  const temPerf = !semDadosReais && perf.temDados;
+  const prodPendingClass = !temPerf ? ' est-prod-pending' : ' est-prod-ready';
+  const prodHintClass = !temPerf ? ' pending' : '';
+
   const esq = bins.filter(b => b.lado==='Lado A').sort((a,b) => a.posicao-b.posicao);
   const dir = bins.filter(b => b.lado==='Lado B').sort((a,b) => a.posicao-b.posicao);
   const total = bins.reduce((s,b) => s+b.total, 0);
@@ -10218,8 +10298,33 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint){
   const totalDir = dir.reduce((s,b) => s+b.total, 0);
   const maxBancada = Math.max.apply(null, bins.map(b => b.total)) || 1;
 
+  // Cards de resumo: melhor/pior bancada (performance estimada = total
+  // realizado do grupo × share da bancada), atual vs hora anterior e
+  // acumulada — pedido do Roberto em 2026-08-10.
+  const comPerf = bins.map(b => ({ ...b, perfValue: perf.total * b.share }));
+  const melhor = temPerf ? comPerf.reduce((m,b) => (!m || b.perfValue>m.perfValue) ? b : m, null) : null;
+  const pior = temPerf ? comPerf.reduce((m,b) => (!m || b.perfValue<m.perfValue) ? b : m, null) : null;
+  const letraDe = b => (b.lado==='Lado A' ? sideLetterEsq : sideLetterDir) + b.posicao;
+  const deltaHora = perf.anterior ? ((perf.atual-perf.anterior)/perf.anterior*100) : (perf.atual?100:0);
+
+  const perfEl = document.getElementById('est-perf'+prefix);
+  if(perfEl){
+    if(!temPerf){
+      perfEl.innerHTML = `<div class="switch-hint" style="margin:0"><i class="fas fa-circle-info"></i> ${semDadosReais ? 'Performance real em definição para esta esteira.' : 'Sem dados de performance (conveyor_pulso) para o grupo "'+pulsoEscHtml(perf.grupo)+'" hoje.'}</div>`;
+    } else {
+      buildKPIs('est-perf'+prefix, [
+        { label:'Melhor Bancada', value: letraDe(melhor), sub: estFmtInt(melhor.perfValue)+' pac. (est.)', delta:'', trend:'up', type:'success', icon:'fa-trophy', clickable:true, onclickAttr:`estHighlightBancada('${prefix}','${melhor.lado}',${melhor.posicao})` },
+        { label:'Pior Bancada', value: letraDe(pior), sub: estFmtInt(pior.perfValue)+' pac. (est.)', delta:'', trend:'down', type:'danger', icon:'fa-triangle-exclamation', clickable:true, onclickAttr:`estHighlightBancada('${prefix}','${pior.lado}',${pior.posicao})` },
+        { label:'Atual vs Hora Anterior', value: estFmtInt(perf.atual), delta:(deltaHora>=0?'+':'')+deltaHora.toFixed(1)+'% vs hora ant.', trend: deltaHora>=0?'up':'down', type:'', icon:'fa-clock' },
+        { label:'Performance Acumulada (hoje)', value: estFmtInt(perf.total), sub: `${perf.colaboradores.length} colaborador${perf.colaboradores.length===1?'':'es'}`, delta:'', trend:'up', type:'', icon:'fa-chart-line' },
+      ]);
+    }
+  }
+
   function slot(bin, letter, isTop){
-    const prod = `<div class="est-prod-card${prodPendingClass}"><div class="p-eyebrow">PROD.</div><div class="p-value">—</div><div class="p-hint${prodHintClass}">${prodHint}</div></div>`;
+    const perfValue = perf.total * bin.share;
+    const prodValue = temPerf ? estFmtInt(perfValue) : '—';
+    const prod = `<div class="est-prod-card${prodPendingClass}"${temPerf?` onclick="estFlipBancada(this.closest('.est-slot').querySelector('.est-bancada-card'),event)"`:''}><div class="p-eyebrow">PROD.</div><div class="p-value">${prodValue}</div><div class="p-hint${prodHintClass}">${temPerf ? 'pac. (est.) hoje' : prodHint}</div></div>`;
     const conn = '<div class="est-connector"></div>';
     const destItems = bin.destinos.map(d => {
       // Share de cada destino calculado só dentro do total desta esteira
@@ -10229,12 +10334,32 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint){
       const destShare = total ? d.qty/total : 0;
       return `<li><span class="est-dest-name" title="${pulsoEscHtml(d.dest||'(sem nome)')}">${pulsoEscHtml(d.dest||'(sem nome)')}</span><span class="est-dest-qty">${estFmtInt(d.qty)} <span class="est-dest-share">(${estFmtPct(destShare,2)})</span></span></li>`;
     }).join('');
-    const card = `<div class="est-bancada-card" style="--fill:${((bin.total/maxBancada)*100).toFixed(1)}%">
-      <div class="est-bancada-top"><span class="est-bancada-tag">${letter}${bin.posicao}</span></div>
-      <div class="est-bancada-share">${estFmtPct(bin.share,2)}</div>
-      <div class="est-bancada-qty">${estFmtInt(bin.total)} vol. · ${bin.destinos.length} destino${bin.destinos.length===1?'':'s'}</div>
-      <div class="est-bancada-fill-track"><div class="est-bancada-fill"></div></div>
-      <ul class="est-dest-list">${destItems}</ul>
+
+    // Colaboradores não têm vínculo real com uma bancada específica (as
+    // bancadas são bins algorítmicos por destino, não postos físicos
+    // individuais) — aproximação por ranking: bancada 1 pareia com o
+    // colaborador de maior produção do grupo, bancada 2 com o 2º, etc.
+    // (mesma lógica de prioridade decrescente do balanceamento em si).
+    const idx = (letter===sideLetterEsq ? 0 : 5) + (bin.posicao-1);
+    const colab = perf.colaboradores[idx];
+    const backList = perf.colaboradores.length
+      ? `<ul class="est-bancada-back-list">${perf.colaboradores.slice(0,8).map((c,i) => `<li${colab&&c===colab?' style="font-weight:700;color:var(--stage-accent)"':''}><span class="est-bancada-back-name">${i+1}. ${pulsoEscHtml(c.nome||'(sem nome)')}</span><span class="est-bancada-back-qty">${estFmtInt(c.total)}</span></li>`).join('')}</ul>`
+      : `<p class="est-bancada-back-note">Sem colaboradores registrados no grupo hoje.</p>`;
+
+    const card = `<div class="est-bancada-card" style="--fill:${((bin.total/maxBancada)*100).toFixed(1)}%" onclick="estFlipBancada(this,event)">
+      <div class="est-bancada-front">
+        <div class="est-bancada-top"><span class="est-bancada-tag">${letter}${bin.posicao}</span></div>
+        <div class="est-bancada-share">${estFmtPct(bin.share,2)}</div>
+        <div class="est-bancada-qty">${estFmtInt(bin.total)} vol. · ${bin.destinos.length} destino${bin.destinos.length===1?'':'s'}</div>
+        <div class="est-bancada-fill-track"><div class="est-bancada-fill"></div></div>
+        <ul class="est-dest-list">${destItems}</ul>
+      </div>
+      <div class="est-bancada-back">
+        <div class="est-bancada-back-title">${letter}${bin.posicao} · colaborador (estimado)</div>
+        ${colab ? `<div class="est-bancada-qty">${pulsoEscHtml(colab.nome||'(sem nome)')} · <b>${estFmtInt(colab.total)}</b> pac. hoje</div>` : ''}
+        ${backList}
+        <p class="est-bancada-back-note">Pareamento por ranking de produção — a base não vincula colaborador a bancada individualmente.</p>
+      </div>
     </div>`;
     return `<div class="est-slot">${isTop ? prod+conn+card : card+conn+prod}</div>`;
   }
