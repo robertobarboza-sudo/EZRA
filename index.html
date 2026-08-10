@@ -3262,8 +3262,7 @@
               <button type="button" class="est-turno-btn" data-turno="T3" onclick="estSetTurno('T3')">T3</button>
             </div>
             <div class="est-hora-range">
-              <label>De <select id="est-hora-de" class="filter-select" onchange="estSetHoraRange()"></select></label>
-              <label>Até <select id="est-hora-ate" class="filter-select" onchange="estSetHoraRange()"></select></label>
+              <label>Hora <select id="est-hora" class="filter-select" onchange="estSetHora()"></select></label>
             </div>
           </div>
 
@@ -10263,10 +10262,12 @@ function estWsCodigo(prefix, letter, sideLetterEsq, posicao){
   const num = (letter === sideLetterEsq ? posicao : posicao + 5);
   return ESTEIRA_WS_PREFIXO[prefix] + String(num).padStart(2, '0');
 }
-// turno = '' (todos) | 'T1' | 'T2' | 'T3'; horaDe/horaAte = range que filtra
-// os cards de performance (conveyor_pulso) — pedido do Roberto em 2026-08-10,
-// default sempre a hora atual quando a página abre.
-const ESTEIRA_STATE = { turno: '', horaDe: null, horaAte: null };
+// turno = '' (todos) | 'T1' | 'T2' | 'T3'; hora = null (acumulado, dia
+// inteiro) ou 0-23 (hora específica) — pedido do Roberto em 2026-08-11,
+// substituindo o range De/Até por um único seletor. Default = hora atual.
+// Selecionar um turno seta a hora automaticamente pro início daquele turno.
+const ESTEIRA_TURNO_HORA_INICIO = { T1: 6, T2: 14, T3: 22 };
+const ESTEIRA_STATE = { turno: '', hora: null };
 
 async function estLoad(){
   try {
@@ -10283,11 +10284,7 @@ async function estLoad(){
       const cj = await cnvRes.json();
       ESTEIRA_CONVEYOR_ROWS = cj.ok ? cj.rows : [];
     } catch(e){ ESTEIRA_CONVEYOR_ROWS = []; }
-    if(ESTEIRA_STATE.horaDe === null){
-      const horaAtual = cuboHoraAgora();
-      ESTEIRA_STATE.horaDe = horaAtual;
-      ESTEIRA_STATE.horaAte = horaAtual;
-    }
+    if(ESTEIRA_STATE.hora === null && !ESTEIRA_HORA_SELECTS_INIT) ESTEIRA_STATE.hora = cuboHoraAgora();
     estRenderAll();
   } catch(err){
     console.error('[esteira]', err);
@@ -10298,44 +10295,33 @@ async function estLoad(){
 
 function estSetTurno(turno){
   ESTEIRA_STATE.turno = turno;
+  if(turno) ESTEIRA_STATE.hora = ESTEIRA_TURNO_HORA_INICIO[turno]; // seta a hora pro início do turno — pedido do Roberto em 2026-08-11
   document.querySelectorAll('#est-turno-btns .est-turno-btn').forEach(b => b.classList.toggle('active', b.dataset.turno === turno));
   estLoad(); // turno também filtra o balanceamento (balanceamento_pulso tem turno) — precisa recarregar do servidor
 }
 
-// Selecionar "Acumulado" (value vazio) em qualquer um dos dois selects vira
-// modo acumulado (sem filtro de hora, dia inteiro) — pedido do Roberto em
-// 2026-08-11. É o mesmo estado usado pra ranquear colaboradores por
-// eficiência no flip-card (ver estColaboradoresBancada).
-function estSetHoraRange(){
-  const deVal = document.getElementById('est-hora-de').value;
-  const ateVal = document.getElementById('est-hora-ate').value;
-  if(deVal === '' || ateVal === ''){
-    ESTEIRA_STATE.horaDe = null;
-    ESTEIRA_STATE.horaAte = null;
-  } else {
-    const de = Number(deVal), ate = Number(ateVal);
-    ESTEIRA_STATE.horaDe = Math.min(de, ate);
-    ESTEIRA_STATE.horaAte = Math.max(de, ate);
-  }
+function estSetHora(){
+  const val = document.getElementById('est-hora').value;
+  ESTEIRA_STATE.hora = val === '' ? null : Number(val);
   estRenderAll(); // só afeta cards de performance (conveyor_pulso, já carregado) — sem novo fetch
 }
 
 function estInitHoraSelects(){
   if(ESTEIRA_HORA_SELECTS_INIT) return;
   const opts = '<option value="">Acumulado</option>' + Array.from({length:24}, (_,h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
-  ['est-hora-de','est-hora-ate'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = opts; });
+  const el = document.getElementById('est-hora');
+  if(el) el.innerHTML = opts;
   ESTEIRA_HORA_SELECTS_INIT = true;
 }
 
 // Linhas de conveyor_pulso (dia operacional atual) filtradas por turno +
-// range de hora selecionados — alimenta os cards de performance do topo e
-// o "Prod." de cada bancada. Turno também filtrado aqui pro lado da
-// performance (o turno do balanceamento já vem filtrado do servidor).
+// hora selecionados — alimenta os cards de performance do topo e o "Prod."
+// de cada bancada. Turno também filtrado aqui pro lado da performance (o
+// turno do balanceamento já vem filtrado do servidor).
 function estRowsFiltradas(){
   return ESTEIRA_CONVEYOR_ROWS.filter(r =>
     (!ESTEIRA_STATE.turno || r.turno === ESTEIRA_STATE.turno) &&
-    (ESTEIRA_STATE.horaDe === null || r.hora >= ESTEIRA_STATE.horaDe) &&
-    (ESTEIRA_STATE.horaAte === null || r.hora <= ESTEIRA_STATE.horaAte)
+    (ESTEIRA_STATE.hora === null || r.hora === ESTEIRA_STATE.hora)
   );
 }
 
@@ -10464,9 +10450,8 @@ function estRenderAll(){
   if(dataRefEl) dataRefEl.textContent = DATA.dataRef ? `Dado de ${pulsoFmtDataBr(DATA.dataRef)} (balanceamento_pulso, atualização diária)` : '';
 
   estInitHoraSelects();
-  const deEl = document.getElementById('est-hora-de'), ateEl = document.getElementById('est-hora-ate');
-  if(deEl) deEl.value = ESTEIRA_STATE.horaDe === null ? '' : String(ESTEIRA_STATE.horaDe);
-  if(ateEl) ateEl.value = ESTEIRA_STATE.horaAte === null ? '' : String(ESTEIRA_STATE.horaAte);
+  const horaEl = document.getElementById('est-hora');
+  if(horaEl) horaEl.value = ESTEIRA_STATE.hora === null ? '' : String(ESTEIRA_STATE.hora);
   estRenderTopCards();
   estRenderMetaStats();
 
@@ -10533,7 +10518,7 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint, gra
     // 2026-08-11. Com range de hora selecionado: acumulado do período,
     // ranqueado por total mesmo (não faz sentido "eficiência" numa janela
     // já filtrada pelo próprio usuário).
-    const acumulado = ESTEIRA_STATE.horaDe === null;
+    const acumulado = ESTEIRA_STATE.hora === null;
     const colaboradores = wsDados
       ? [...wsDados.colaboradores.values()]
           .map(c => ({ ...c, eficiencia: c.total / (c.horas.size || 1) }))

@@ -483,7 +483,13 @@ module.exports = async (req, res) => {
     const posicoes = acc.outrosTOs + Math.ceil(acc.sacaTOs / SACOS_POR_POSICAO);
     let fanout = null, fanoutMax = 0;
     acc.destinos.forEach((n, destino) => { if (n > fanoutMax) { fanoutMax = n; fanout = destino; } });
-    const clusterCorreto = !clusterEsperado || fanout === clusterEsperado;
+    // Comparação case-insensitive (+ trim) — o mesmo destino aparece com
+    // capitalização diferente entre cluster_pulso (receiver) e a coluna
+    // Cluster da config (ex: "..._PqCidade" vs "..._pqCidade"), o que fazia
+    // ruas com fanout certo caírem como incorretas na comparação exata.
+    // Bug reportado pelo Roberto em 2026-08-11 (RUA 005).
+    const normaliza = s => String(s || '').trim().toLowerCase();
+    const clusterCorreto = !clusterEsperado || normaliza(fanout) === normaliza(clusterEsperado);
     return {
       rua,
       ocupadas: posicoes,
