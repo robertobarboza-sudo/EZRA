@@ -40,11 +40,7 @@ async function getAccessToken() {
   const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const claim = base64url(JSON.stringify({
     iss: email,
-    // Leitura+escrita (não mais só .readonly) — habilitado em 2026-08-11
-    // pro botão "Salvar Balanceamento" da Esteira On-time, que grava na aba
-    // config (ver appendRows). Exige que a Service Account tenha acesso de
-    // Editor garantido na planilha, senão a escrita falha com 403.
-    scope: 'https://www.googleapis.com/auth/spreadsheets',
+    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
     aud: 'https://oauth2.googleapis.com/token',
     iat: now,
     exp: now + 3600,
@@ -123,26 +119,4 @@ async function fetchTabByGid(spreadsheetId, gid) {
   return { title, rows: rowsToObjects(values) };
 }
 
-// Acrescenta linhas no fim de uma coluna (INSERT_ROWS pega a próxima linha
-// livre sozinho — não precisa calcular número de linha). `startColumn` tipo
-// "S" define onde a tabela começa; `rows` é array de arrays já na ordem das
-// colunas. Usado pelo botão "Salvar Balanceamento" da Esteira On-time (grava
-// na aba config a partir da coluna S — confirmado com o Roberto em 2026-08-11).
-async function appendRows(spreadsheetId, gid, startColumn, rows) {
-  const token = await getAccessToken();
-  const title = await resolveTabTitle(token, spreadsheetId, gid);
-  const range = `'${title.replace(/'/g, "''")}'!${startColumn}1`;
-  const r = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`,
-    {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ values: rows }),
-    }
-  );
-  const body = await r.json();
-  if (!r.ok) throw new Error('Sheets append: ' + (body.error?.message || r.status));
-  return body;
-}
-
-module.exports = { fetchTabByGid, fetchTabRawValues, listTabs, appendRows };
+module.exports = { fetchTabByGid, fetchTabRawValues, listTabs };

@@ -3265,23 +3265,6 @@
               <label>De <select id="est-hora-de" class="filter-select" onchange="estSetHoraRange()"></select></label>
               <label>Até <select id="est-hora-ate" class="filter-select" onchange="estSetHoraRange()"></select></label>
             </div>
-            <button type="button" class="btn btn-outline" onclick="estOpenSalvarModal()"><i class="fas fa-floppy-disk"></i> Salvar Balanceamento</button>
-          </div>
-
-          <div class="modal-overlay" id="est-save-overlay" onclick="if(event.target===this) estCloseSalvarModal()">
-            <div class="modal" style="max-width:440px">
-              <div class="modal-header">
-                <span class="modal-title"><i class="fas fa-floppy-disk" style="color:var(--orange);margin-right:8px"></i>Salvar Balanceamento</span>
-                <button class="modal-close" onclick="estCloseSalvarModal()"><i class="fas fa-xmark"></i></button>
-              </div>
-              <p class="est-sub" style="margin:0 0 12px">Baixa um CSV com o balanceamento atual (destino → bancada) e envia esse mesmo snapshot pra aba <b>config</b> da planilha (coluna S), como registro histórico.</p>
-              <div class="form-group"><label class="form-label">Data</label><input class="form-input" id="est-save-data" type="date"/></div>
-              <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="est-save-nome" placeholder="Ex: Semana 33"/></div>
-              <div class="modal-footer">
-                <button class="btn btn-outline" onclick="estCloseSalvarModal()">Cancelar</button>
-                <button class="btn btn-primary" id="est-save-confirm-btn" onclick="estConfirmSalvar()"><i class="fas fa-check"></i> Salvar</button>
-              </div>
-            </div>
           </div>
 
           <div id="est-topCards" style="margin-bottom:16px"></div>
@@ -10332,74 +10315,6 @@ function estInitHoraSelects(){
   const opts = Array.from({length:24}, (_,h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
   ['est-hora-de','est-hora-ate'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = opts; });
   ESTEIRA_HORA_SELECTS_INIT = true;
-}
-
-// Botão "Salvar Balanceamento" — baixa um CSV local (destino → bancada) e
-// envia o mesmo snapshot pra aba config da planilha (coluna S), como
-// histórico semanal. Pedido do Roberto em 2026-08-11.
-function estBuildLinhasBalanceamento(){
-  const linhas = [];
-  if(!ESTEIRA_DATA) return linhas;
-  const addBins = (bins, esteiraLabel) => {
-    bins.forEach(b => {
-      const letter = b.lado === 'Lado A' ? 'E' : 'D';
-      const bancada = letter + b.posicao;
-      b.destinos.forEach(d => {
-        linhas.push({ esteira: esteiraLabel, lado: letter==='E'?'Esquerda':'Direita', bancada, destino: d.dest, qty: d.qty, share: d.share });
-      });
-    });
-  };
-  addBins(ESTEIRA_DATA.soc_bins, 'SOC');
-  addBins(ESTEIRA_DATA.hub_bins, 'HUB'); // Termo reaproveita os bins do HUB — não duplica aqui
-  return linhas;
-}
-function estLinhasToCsv(linhas){
-  const esc = v => { const s = String(v ?? ''); return /[",\n;]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
-  const header = ['Esteira','Lado','Bancada','Destino','Qtd','Share (%)'];
-  const rows = linhas.map(l => [l.esteira, l.lado, l.bancada, l.destino, l.qty, (l.share*100).toFixed(2)]);
-  return [header, ...rows].map(r => r.map(esc).join(';')).join('\n');
-}
-function estOpenSalvarModal(){
-  if(!ESTEIRA_DATA){ showToast('Aguarde o balanceamento carregar.', true); return; }
-  const dataEl = document.getElementById('est-save-data');
-  if(dataEl && !dataEl.value) dataEl.value = new Date().toISOString().slice(0,10);
-  document.getElementById('est-save-overlay').classList.add('open');
-}
-function estCloseSalvarModal(){
-  document.getElementById('est-save-overlay').classList.remove('open');
-}
-async function estConfirmSalvar(){
-  const data = document.getElementById('est-save-data').value;
-  const nome = document.getElementById('est-save-nome').value.trim();
-  if(!data || !nome){ showToast('Preencha data e nome.', true); return; }
-  const linhas = estBuildLinhasBalanceamento();
-  if(!linhas.length){ showToast('Nada pra salvar ainda.', true); return; }
-
-  const csv = estLinhasToCsv(linhas);
-  const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = `balanceamento_${nome.replace(/[^a-z0-9]+/gi,'_')}_${data}.csv`;
-  document.body.appendChild(a); a.click(); a.remove();
-  URL.revokeObjectURL(url);
-
-  const btn = document.getElementById('est-save-confirm-btn');
-  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando…'; }
-  try {
-    const r = await fetch('/api/cluster?salvarBalanceamento=1', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data, nome, linhas }),
-    });
-    const j = await r.json();
-    if(!j.ok) throw new Error(j.erro || 'falha ao salvar');
-    showToast('Balanceamento salvo — CSV baixado e enviado pra aba config.');
-    estCloseSalvarModal();
-  } catch(err){
-    showToast('CSV baixado, mas falhou ao enviar pra planilha: '+err.message, true);
-  } finally {
-    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Salvar'; }
-  }
 }
 
 // Linhas de conveyor_pulso (dia operacional atual) filtradas por turno +
