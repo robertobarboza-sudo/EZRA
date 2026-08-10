@@ -179,7 +179,28 @@ function esteiraAlocarBancadas(destinosLado, totalLado) {
   });
   return bancadas;
 }
-function esteiraBuildBins(rows, categoriasIncluidas, grandTotal) {
+// "Break Share" (só Esteira SOC, confirmado com o Roberto em 2026-08-11):
+// quando o lado tem MENOS destinos do que bancadas (5), o algoritmo normal
+// deixa bancadas ociosas (cada destino é indivisível, então sobra vaga sem
+// volume nenhum). Nesse caso cada destino do lado é dividido igualmente
+// pelas 5 bancadas — a mesma "oferta" aparece em várias bancadas, share
+// dividido por 5. Com 5+ destinos no lado, comporta-se igual ao algoritmo
+// normal (item suficiente pra não precisar quebrar).
+function esteiraAlocarBancadasComBreakShare(destinosLado, totalLado) {
+  if (destinosLado.length === 0 || destinosLado.length >= 5) {
+    return esteiraAlocarBancadas(destinosLado, totalLado);
+  }
+  const bancadas = Array.from({ length: 5 }, () => ({ total: 0, destinos: [] }));
+  destinosLado.forEach(d => {
+    const parte = d.qty / 5;
+    for (let i = 0; i < 5; i++) {
+      bancadas[i].total += parte;
+      bancadas[i].destinos.push({ dest: d.dest, qty: parte });
+    }
+  });
+  return bancadas;
+}
+function esteiraBuildBins(rows, categoriasIncluidas, grandTotal, breakShare) {
   const porDestino = new Map();
   rows.forEach(r => {
     if (!r.destino || !categoriasIncluidas.includes(esteiraDestinoCategoria(r.destino))) return;
@@ -194,9 +215,10 @@ function esteiraBuildBins(rows, categoriasIncluidas, grandTotal) {
     else { ladoB.push(d); totalB += d.qty; }
   });
 
+  const alocar = breakShare ? esteiraAlocarBancadasComBreakShare : esteiraAlocarBancadas;
   const bins = [];
   [['Lado A', ladoA, totalA], ['Lado B', ladoB, totalB]].forEach(([lado, destinosLado, totalLado]) => {
-    esteiraAlocarBancadas(destinosLado, totalLado).forEach((b, i) => {
+    alocar(destinosLado, totalLado).forEach((b, i) => {
       bins.push({
         lado, posicao: i + 1, total: b.total,
         share: grandTotal ? b.total / grandTotal : 0,
@@ -228,7 +250,10 @@ function buildEsteira(rows) {
   // Grupos (espec fechada com o Roberto em 2026-08-11): Esteira SOC = SOC +
   // 3PL · Esteira HUB = HUB + XPT (Termo reaproveita os bins do HUB). Share
   // de bancada/destino sempre sobre o grandTotal (as duas esteiras juntas).
-  const socBins = esteiraBuildBins(rows, ['SoC', '3PL'], grandTotal);
+  // Break Share (só SOC — confirmado com o Roberto): SOC costuma ter poucos
+  // destinos com volume, então sem quebra a maioria das bancadas fica
+  // ociosa; ver esteiraAlocarBancadasComBreakShare.
+  const socBins = esteiraBuildBins(rows, ['SoC', '3PL'], grandTotal, true);
   const hubBins = esteiraBuildBins(rows, ['LM Hub', 'XPT'], grandTotal);
   return { part1, classified_totals: classifiedTotals, soc_bins: socBins, hub_bins: hubBins };
 }
