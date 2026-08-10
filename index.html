@@ -1763,58 +1763,32 @@
     .cubo-legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 
     /* ── ESTEIRA ON-TIME (Conveyor) — porte do mockup do Roberto
-       ("esteira.html"), estrutura visual preservada 1:1, só trocando a
-       fonte dos dados (era um blob estático, agora /api/cluster?esteira=1).
-       Prefixo est- em tudo e paleta isolada em variáveis --est-* (não
-       var(--bg)/--surface/etc. do site) pra não vazar/colidir com o resto
-       do PULSO — essa aba é intencionalmente um visual à parte (industrial/
-       dark), sem seguir o tema claro/escuro nem a camada Codex. ── */
-    .est-app {
-      --est-bg:#120f0d; --est-panel:#1d1815; --est-panel-2:#241e1a; --est-panel-3:#2c2521;
-      --est-line:#3b332d; --est-line-soft:#2e2721; --est-text:#f6efe9; --est-text-dim:#b9aa9d; --est-text-faint:#7c6c5f;
-      --est-accent-soc:#ee4d2d; --est-accent-hub:#ffb300; --est-accent-termo:#c1440e;
-      --est-kraft:#c68b4f; --est-kraft-dark:#8f5f30;
-      --est-belt-track:#14100d; --est-belt-tread:rgba(255,255,255,.055); --est-belt-edge:#070503;
-      --est-shadow: 0 10px 30px -12px rgba(0,0,0,.55);
-      --est-font-display:"Bahnschrift","DIN Alternate","Arial Narrow",sans-serif;
-      background:
-        radial-gradient(1100px 500px at 15% -8%, color-mix(in srgb, var(--est-accent-soc) 7%, transparent), transparent),
-        radial-gradient(1100px 500px at 85% -8%, color-mix(in srgb, var(--est-accent-hub) 7%, transparent), transparent),
-        var(--est-bg);
-      color: var(--est-text); border-radius: var(--radius-lg); padding: 28px 22px 48px; margin: -6px -6px 0;
-    }
-    .est-masthead{ display:flex; flex-wrap:wrap; gap:24px; justify-content:space-between; align-items:flex-end; margin-bottom:18px; }
-    .est-app h1{ font-family:var(--est-font-display); font-weight:700; text-transform:uppercase; letter-spacing:.02em; font-size:clamp(24px,3.4vw,34px); line-height:1.02; margin:0 0 6px; color:var(--est-text); }
-    .est-eyebrow{ font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--est-text-faint); margin:0 0 8px; }
-    .est-sub{ margin:0; color:var(--est-text-dim); font-size:13.5px; max-width:56ch; }
-    .est-meta-stats{ display:flex; gap:10px; flex-wrap:wrap; }
-    .est-meta-stat{ background:var(--est-panel); border:1px solid var(--est-line); border-radius:var(--radius-md); padding:9px 10px; width:110px; flex:none; box-shadow:var(--est-shadow); }
-    .est-meta-stat .n{ font-family:var(--est-font-display); font-size:18px; font-weight:700; font-variant-numeric:tabular-nums; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .est-meta-stat .l{ font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--est-text-faint); margin-top:1px; }
-
-    .est-tabs{ display:flex; gap:10px; margin:22px 0 18px; border-bottom:1px solid var(--est-line); }
-    .est-tab-btn{ appearance:none; border:1px solid var(--est-line); border-bottom:none; background:var(--est-panel-2); color:var(--est-text-dim); font-family:var(--est-font-display); font-weight:700; text-transform:uppercase; letter-spacing:.06em; font-size:13px; padding:10px 20px 12px; border-radius:10px 10px 0 0; cursor:pointer; transform:translateY(1px); transition:transform .15s ease, color .15s ease; }
-    .est-tab-btn:hover{ color:var(--est-text); }
-    .est-tab-btn[data-tab="soc"][aria-selected="true"]{ background:var(--est-panel); color:var(--est-accent-soc); transform:translateY(0); box-shadow:inset 0 3px 0 var(--est-accent-soc); }
-    .est-tab-btn[data-tab="hub"][aria-selected="true"]{ background:var(--est-panel); color:var(--est-accent-hub); transform:translateY(0); box-shadow:inset 0 3px 0 var(--est-accent-hub); }
-    .est-tab-btn[data-tab="termo"][aria-selected="true"]{ background:var(--est-panel); color:var(--est-accent-termo); transform:translateY(0); box-shadow:inset 0 3px 0 var(--est-accent-termo); }
-    .est-tab-btn .est-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:8px; vertical-align:middle; }
-    .est-tab-btn[data-tab="soc"] .est-dot{ background:var(--est-accent-soc); }
-    .est-tab-btn[data-tab="hub"] .est-dot{ background:var(--est-accent-hub); }
-    .est-tab-btn[data-tab="termo"] .est-dot{ background:var(--est-accent-termo); }
+       ("esteira.html"). Reskinned pra usar as MESMAS variáveis/tema do
+       resto do PULSO (var(--surface)/--text/--border/--orange etc., a
+       mesma fonte Inter, os mesmos componentes .bkl-tabs/.kpi-strip) em
+       vez da paleta industrial isolada da v1 — pedido do Roberto em
+       2026-08-06, "ficar no mesmo template do site todo". As 3 esteiras
+       usam os acentos já estabelecidos: SOC=laranja, HUB=âmbar, Termo=
+       vermelho (a mesma ideia de "cada categoria tem uma cor" do resto
+       do PULSO, só que com as cores do tema em vez de hex novos). ── */
+    .est-app { color: var(--text); }
+    .est-eyebrow{ font-size:11px; font-weight:700; letter-spacing:.16em; text-transform:uppercase; color:var(--text-muted); margin:0 0 8px; }
+    .est-sub{ margin:0; color:var(--text-sub); font-size:13px; max-width:56ch; }
+    .est-masthead{ display:flex; flex-wrap:wrap; gap:24px; justify-content:space-between; align-items:flex-end; margin-bottom:16px; }
+    .est-app h1{ font-weight:800; font-size:clamp(20px,2.6vw,26px); line-height:1.15; margin:0 0 4px; color:var(--text); }
 
     .est-stage{ display:none; }
     .est-stage.active{ display:block; }
-    .est-stage-head{ background:var(--est-panel); border:1px solid var(--est-line); border-radius:var(--radius-lg); padding:16px 20px; margin-bottom:18px; box-shadow:var(--est-shadow); display:flex; flex-wrap:wrap; gap:20px; align-items:center; justify-content:space-between; }
-    .est-title-block h2{ font-family:var(--est-font-display); text-transform:uppercase; letter-spacing:.02em; font-size:18px; margin:0 0 3px; color:var(--est-text); }
-    .est-composition{ font-size:12px; color:var(--est-text-dim); margin:0; }
-    .est-composition b{ color:var(--est-text); font-weight:600; }
+    .est-stage-head{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 20px; margin-bottom:16px; box-shadow:var(--shadow); display:flex; flex-wrap:wrap; gap:20px; align-items:center; justify-content:space-between; }
+    .est-title-block h2{ font-size:16px; font-weight:700; margin:0 0 3px; color:var(--text); }
+    .est-composition{ font-size:12px; color:var(--text-sub); margin:0; }
+    .est-composition b{ color:var(--text); font-weight:600; }
     .est-balance-block{ min-width:260px; flex:1; max-width:400px; }
-    .est-balance-label{ display:flex; justify-content:space-between; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--est-text-faint); margin-bottom:6px; }
-    .est-balance-label span b{ font-variant-numeric:tabular-nums; color:var(--est-text); font-weight:700; }
-    .est-balance-bar{ height:9px; border-radius:6px; overflow:hidden; display:flex; border:1px solid var(--est-line); }
+    .est-balance-label{ display:flex; justify-content:space-between; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); margin-bottom:6px; }
+    .est-balance-label span b{ font-variant-numeric:tabular-nums; color:var(--text); font-weight:700; }
+    .est-balance-bar{ height:9px; border-radius:6px; overflow:hidden; display:flex; border:1px solid var(--border); }
     .est-balance-seg{ height:100%; }
-    .est-balance-note{ font-size:9.5px; color:var(--est-text-faint); margin-top:6px; }
+    .est-balance-note{ font-size:9.5px; color:var(--text-muted); margin-top:6px; }
 
     .est-stage-body{ overflow-x:auto; padding-bottom:6px; }
     .est-belt-wrap{ min-width:1040px; display:flex; flex-direction:column; }
@@ -1822,88 +1796,88 @@
     .est-row-top{ align-items:end; margin-bottom:2px; }
     .est-row-bottom{ align-items:start; margin-top:2px; }
     .est-slot{ display:flex; flex-direction:column; align-items:stretch; }
-    .est-connector{ width:2px; height:14px; background:repeating-linear-gradient(var(--est-line-soft),var(--est-line-soft) 3px,transparent 3px,transparent 7px); margin:0 auto; }
+    .est-connector{ width:2px; height:14px; background:repeating-linear-gradient(var(--border),var(--border) 3px,transparent 3px,transparent 7px); margin:0 auto; }
 
-    .est-prod-card{ border:1.5px dashed var(--est-line); border-radius:var(--radius-md); background:var(--est-panel-2); padding:8px 10px; text-align:center; height:66px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
-    .est-prod-card .p-eyebrow{ font-size:9.5px; font-weight:700; letter-spacing:.14em; color:var(--est-text-faint); }
-    .est-prod-card .p-value{ font-family:var(--est-font-display); font-size:17px; color:var(--est-text-faint); line-height:1.2; }
-    .est-prod-card .p-hint{ font-size:9px; color:var(--est-text-faint); opacity:.8; }
+    .est-prod-card{ border:1.5px dashed var(--border); border-radius:var(--radius); background:var(--surface-2); padding:8px 10px; text-align:center; height:66px; box-sizing:border-box; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px; }
+    .est-prod-card .p-eyebrow{ font-size:9.5px; font-weight:700; letter-spacing:.14em; color:var(--text-muted); }
+    .est-prod-card .p-value{ font-size:16px; font-weight:700; color:var(--text-muted); line-height:1.2; }
+    .est-prod-card .p-hint{ font-size:9px; color:var(--text-muted); opacity:.8; }
     .est-prod-card.est-prod-pending{ border-style:dashed; opacity:.85; }
     .est-prod-card .p-hint.pending{ color:var(--stage-accent); opacity:1; font-weight:600; }
 
-    .est-bancada-card{ position:relative; background:var(--est-panel); border:1px solid var(--est-line); border-radius:var(--radius-lg); padding:11px 12px 10px; box-shadow:var(--est-shadow); overflow:hidden; height:260px; box-sizing:border-box; display:flex; flex-direction:column; }
+    .est-bancada-card{ position:relative; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:11px 12px 10px; box-shadow:var(--shadow); overflow:hidden; height:260px; box-sizing:border-box; display:flex; flex-direction:column; }
     .est-bancada-card::before{ content:""; position:absolute; inset:0 0 auto 0; height:3px; background:var(--stage-accent); }
     .est-bancada-top{ display:flex; align-items:baseline; justify-content:space-between; margin-bottom:2px; flex:none; }
-    .est-bancada-tag{ font-family:var(--est-font-display); font-weight:700; font-size:12px; letter-spacing:.04em; color:var(--stage-accent); background:color-mix(in srgb, var(--stage-accent) 16%, transparent); padding:2px 7px; border-radius:5px; }
-    .est-bancada-share{ font-family:var(--est-font-display); font-size:20px; font-weight:700; font-variant-numeric:tabular-nums; flex:none; }
-    .est-bancada-qty{ font-size:10.5px; color:var(--est-text-dim); font-variant-numeric:tabular-nums; margin-bottom:6px; flex:none; }
-    .est-bancada-fill-track{ height:5px; border-radius:4px; background:var(--est-panel-3); overflow:hidden; margin-bottom:8px; flex:none; }
+    .est-bancada-tag{ font-weight:700; font-size:12px; letter-spacing:.04em; color:var(--stage-accent); background:color-mix(in srgb, var(--stage-accent) 16%, transparent); padding:2px 7px; border-radius:5px; }
+    .est-bancada-share{ font-size:19px; font-weight:800; font-variant-numeric:tabular-nums; flex:none; color:var(--text); }
+    .est-bancada-qty{ font-size:10.5px; color:var(--text-sub); font-variant-numeric:tabular-nums; margin-bottom:6px; flex:none; }
+    .est-bancada-fill-track{ height:5px; border-radius:4px; background:var(--surface-3); overflow:hidden; margin-bottom:8px; flex:none; }
     .est-bancada-fill{ height:100%; width:var(--fill); background:linear-gradient(90deg, color-mix(in srgb, var(--stage-accent) 60%, transparent), var(--stage-accent)); border-radius:4px; }
 
     .est-dest-list{ list-style:none; margin:0; padding:0; flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
-    .est-dest-list li{ display:flex; justify-content:space-between; gap:8px; font-size:11px; padding:3px 0; border-top:1px solid var(--est-line-soft); }
+    .est-dest-list li{ display:flex; justify-content:space-between; gap:8px; font-size:11px; padding:3px 0; border-top:1px solid var(--border); }
     .est-dest-list li:first-child{ border-top:none; }
-    .est-dest-name{ color:var(--est-text-dim); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .est-dest-qty{ font-variant-numeric:tabular-nums; color:var(--est-text); flex:none; white-space:nowrap; }
-    .est-dest-share{ color:var(--est-text-faint); font-weight:400; }
+    .est-dest-name{ color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .est-dest-qty{ font-variant-numeric:tabular-nums; color:var(--text); flex:none; white-space:nowrap; }
+    .est-dest-share{ color:var(--text-muted); font-weight:400; }
     .est-dest-list::-webkit-scrollbar{ width:6px; }
-    .est-dest-list::-webkit-scrollbar-thumb{ background:var(--est-line); border-radius:6px; }
+    .est-dest-list::-webkit-scrollbar-thumb{ background:var(--border); border-radius:6px; }
 
     .est-belt{ position:relative; margin:12px 0; }
-    .est-belt-flags{ display:flex; justify-content:space-between; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--est-text-faint); padding:0 4px 6px; }
+    .est-belt-flags{ display:flex; justify-content:space-between; font-size:9.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-muted); padding:0 4px 6px; }
     .est-belt-flags .est-end{ text-align:right; }
     .est-belt-body{ position:relative; display:flex; align-items:center; }
-    .est-belt-cap{ width:20px; height:50px; background:var(--est-belt-edge); flex:none; }
+    .est-belt-cap{ width:20px; height:50px; background:var(--surface-3); flex:none; }
     .est-belt-cap.left{ border-radius:10px 0 0 10px; }
     .est-belt-cap.right{ border-radius:0 10px 10px 0; }
-    .est-belt-track{ position:relative; flex:1; height:50px; background:var(--est-belt-track); overflow:hidden; border-top:2px solid var(--est-belt-edge); border-bottom:2px solid var(--est-belt-edge); }
-    .est-tread{ position:absolute; inset:0; background-image:repeating-linear-gradient(-35deg, var(--est-belt-tread) 0 10px, transparent 10px 26px); background-size:64px 64px; animation:estTreadScroll 5.5s linear infinite; }
+    .est-belt-track{ position:relative; flex:1; height:50px; background:var(--surface-2); overflow:hidden; border-top:2px solid var(--surface-3); border-bottom:2px solid var(--surface-3); }
+    .est-tread{ position:absolute; inset:0; background-image:repeating-linear-gradient(-35deg, var(--border) 0 10px, transparent 10px 26px); background-size:64px 64px; animation:estTreadScroll 5.5s linear infinite; }
     @keyframes estTreadScroll{ from{ background-position-x:0; } to{ background-position-x:64px; } }
     .est-diverters{ position:absolute; inset:0; pointer-events:none; }
     .est-diverter{ position:absolute; top:50%; width:9px; height:9px; transform:translate(-50%,-50%) rotate(45deg); background:var(--stage-accent); opacity:.85; box-shadow:0 0 0 3px color-mix(in srgb, var(--stage-accent) 22%, transparent); animation:estDiverterPulse 2.6s ease-in-out infinite; }
     @keyframes estDiverterPulse{ 0%,100%{ opacity:.55; } 50%{ opacity:1; } }
     .est-packages{ position:absolute; inset:0; }
-    .est-pkg{ position:absolute; top:var(--lane); left:-10%; width:var(--w); height:var(--h); background:linear-gradient(160deg, var(--est-kraft), var(--est-kraft-dark)); border:1px solid rgba(0,0,0,.35); border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.08); transform:translateY(-50%); animation-name:var(--anim, estPkgMove); animation-duration:var(--dur); animation-timing-function:linear; animation-iteration-count:infinite; animation-delay:var(--delay); }
-    .est-pkg::after{ content:""; position:absolute; inset:38% 0 auto 0; height:24%; background:rgba(255,255,255,.18); }
+    .est-pkg{ position:absolute; top:var(--lane); left:-10%; width:var(--w); height:var(--h); background:linear-gradient(160deg, color-mix(in srgb, var(--stage-accent) 55%, var(--text-muted)), var(--text-muted)); border:1px solid rgba(0,0,0,.25); border-radius:2px; box-shadow:0 2px 4px rgba(0,0,0,.25), inset 0 0 0 1px rgba(255,255,255,.08); transform:translateY(-50%); animation-name:var(--anim, estPkgMove); animation-duration:var(--dur); animation-timing-function:linear; animation-iteration-count:infinite; animation-delay:var(--delay); }
+    .est-pkg::after{ content:""; position:absolute; inset:38% 0 auto 0; height:24%; background:rgba(255,255,255,.14); }
     @keyframes estPkgMove{ from{ left:-10%; } to{ left:106%; } }
     @keyframes estPkgDivertA{ 0%{ left:-10%; opacity:1; } 52%{ opacity:1; } 60%{ opacity:0; } 100%{ left:106%; opacity:0; } }
     @keyframes estPkgDivertB{ 0%{ left:-10%; opacity:1; } 68%{ opacity:1; } 76%{ opacity:0; } 100%{ left:106%; opacity:0; } }
     @keyframes estPkgDivertC{ 0%{ left:-10%; opacity:1; } 36%{ opacity:1; } 44%{ opacity:0; } 100%{ left:106%; opacity:0; } }
     @media (prefers-reduced-motion: reduce){ .est-tread{ animation:none; } .est-pkg{ animation:none; left:8%; } .est-diverter{ animation:none; } }
 
-    .est-stage[data-esteira="soc"]{ --stage-accent:var(--est-accent-soc); --seg-esq:var(--est-accent-soc); --seg-dir:color-mix(in srgb, var(--est-accent-soc) 45%, var(--est-panel-3)); }
-    .est-stage[data-esteira="hub"]{ --stage-accent:var(--est-accent-hub); --seg-esq:var(--est-accent-hub); --seg-dir:color-mix(in srgb, var(--est-accent-hub) 45%, var(--est-panel-3)); }
-    .est-stage[data-esteira="termo"]{ --stage-accent:var(--est-accent-termo); --seg-esq:var(--est-accent-termo); --seg-dir:color-mix(in srgb, var(--est-accent-termo) 45%, var(--est-panel-3)); }
+    .est-stage[data-esteira="soc"]{ --stage-accent:var(--orange); --seg-esq:var(--orange); --seg-dir:color-mix(in srgb, var(--orange) 45%, var(--surface-3)); }
+    .est-stage[data-esteira="hub"]{ --stage-accent:var(--amber); --seg-esq:var(--amber); --seg-dir:color-mix(in srgb, var(--amber) 45%, var(--surface-3)); }
+    .est-stage[data-esteira="termo"]{ --stage-accent:var(--red); --seg-esq:var(--red); --seg-dir:color-mix(in srgb, var(--red) 45%, var(--surface-3)); }
     .est-balance-seg.esq{ background:var(--seg-esq); }
     .est-balance-seg.dir{ background:var(--seg-dir); }
-    .est-side-label{ text-align:center; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--est-text-faint); margin:2px 0 8px; }
+    .est-side-label{ text-align:center; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--text-muted); margin:2px 0 8px; }
     .est-side-label b{ color:var(--stage-accent); }
 
-    details.est-ranking{ margin-top:28px; background:var(--est-panel); border:1px solid var(--est-line); border-radius:var(--radius-lg); box-shadow:var(--est-shadow); overflow:hidden; }
-    details.est-ranking summary{ cursor:pointer; list-style:none; padding:14px 18px; font-family:var(--est-font-display); text-transform:uppercase; letter-spacing:.04em; font-size:13px; display:flex; align-items:center; justify-content:space-between; color:var(--est-text); }
+    details.est-ranking{ margin-top:24px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); overflow:hidden; }
+    details.est-ranking summary{ cursor:pointer; list-style:none; padding:14px 18px; font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:space-between; color:var(--text); }
     details.est-ranking summary::-webkit-details-marker{ display:none; }
-    details.est-ranking summary .est-arrow{ transition:transform .15s ease; color:var(--est-text-faint); font-size:11px; }
+    details.est-ranking summary .est-arrow{ transition:transform .15s ease; color:var(--text-muted); font-size:11px; }
     details.est-ranking[open] summary .est-arrow{ transform:rotate(90deg); }
-    .est-rank-table-wrap{ overflow-x:auto; border-top:1px solid var(--est-line); }
+    .est-rank-table-wrap{ overflow-x:auto; border-top:1px solid var(--border); }
     table.est-rank-table{ width:100%; border-collapse:collapse; font-size:12px; min-width:600px; }
-    table.est-rank-table th{ text-align:left; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--est-text-faint); padding:8px 14px; border-bottom:1px solid var(--est-line); }
-    table.est-rank-table td{ padding:6px 14px; border-bottom:1px solid var(--est-line-soft); vertical-align:middle; color:var(--est-text); }
+    table.est-rank-table th{ text-align:left; font-size:9.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-muted); padding:8px 14px; border-bottom:1px solid var(--border); }
+    table.est-rank-table td{ padding:6px 14px; border-bottom:1px solid var(--border); vertical-align:middle; color:var(--text); }
     table.est-rank-table td.num{ text-align:right; font-variant-numeric:tabular-nums; }
     table.est-rank-table td.bar-cell{ width:170px; }
-    .est-mini-bar-track{ height:6px; background:var(--est-panel-3); border-radius:4px; overflow:hidden; }
-    .est-mini-bar{ height:100%; background:var(--est-text-faint); border-radius:4px; }
-    tr.est-class-SOC .est-mini-bar{ background:var(--est-accent-soc); }
-    tr.est-class-3PL .est-mini-bar{ background:color-mix(in srgb, var(--est-accent-soc) 45%, var(--est-text-faint)); }
-    tr.est-class-HUB .est-mini-bar{ background:var(--est-accent-hub); }
-    tr.est-class-XPT .est-mini-bar{ background:color-mix(in srgb, var(--est-accent-hub) 45%, var(--est-text-faint)); }
+    .est-mini-bar-track{ height:6px; background:var(--surface-3); border-radius:4px; overflow:hidden; }
+    .est-mini-bar{ height:100%; background:var(--text-muted); border-radius:4px; }
+    tr.est-class-SOC .est-mini-bar{ background:var(--orange); }
+    tr.est-class-3PL .est-mini-bar{ background:color-mix(in srgb, var(--orange) 45%, var(--text-muted)); }
+    tr.est-class-HUB .est-mini-bar{ background:var(--amber); }
+    tr.est-class-XPT .est-mini-bar{ background:color-mix(in srgb, var(--amber) 45%, var(--text-muted)); }
     .est-tag-chip{ font-size:9px; font-weight:700; letter-spacing:.06em; padding:1.5px 6px; border-radius:4px; }
-    .est-tag-chip.SOC{ background:color-mix(in srgb, var(--est-accent-soc) 20%, transparent); color:var(--est-accent-soc); }
-    .est-tag-chip.est-3PL{ background:var(--est-panel-3); color:var(--est-text-dim); }
-    .est-tag-chip.HUB{ background:color-mix(in srgb, var(--est-accent-hub) 20%, transparent); color:var(--est-accent-hub); }
-    .est-tag-chip.XPT{ background:color-mix(in srgb, var(--est-accent-hub) 12%, transparent); color:var(--est-accent-hub); }
+    .est-tag-chip.SOC{ background:color-mix(in srgb, var(--orange) 20%, transparent); color:var(--orange); }
+    .est-tag-chip.est-3PL{ background:var(--surface-3); color:var(--text-sub); }
+    .est-tag-chip.HUB{ background:color-mix(in srgb, var(--amber) 20%, transparent); color:var(--amber); }
+    .est-tag-chip.XPT{ background:color-mix(in srgb, var(--amber) 12%, transparent); color:var(--amber); }
 
-    .est-footnote{ margin-top:14px; font-size:11px; color:var(--est-text-faint); line-height:1.6; max-width:80ch; }
-    .est-footnote code{ background:var(--est-panel-2); padding:1px 5px; border-radius:4px; }
+    .est-footnote{ margin-top:14px; font-size:11px; color:var(--text-muted); line-height:1.6; max-width:80ch; }
+    .est-footnote code{ background:var(--surface-2); padding:1px 5px; border-radius:4px; }
     .jarvis-cadence-tag { display: inline-block; font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em; color: #fff; padding: 2px 8px; border-radius: 20px; vertical-align: middle; white-space: nowrap; }
     .jarvis-cadence-legend { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px; }
     .jarvis-cadence-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #fff; opacity: .8; }
@@ -3244,13 +3218,13 @@
               <h1>Esteiras SOC &amp; HUB</h1>
               <p class="est-sub">Divisão de destinos entre as 10 bancadas de cada esteira (5 de cada lado), com maior participação nas primeiras bancadas e equilíbrio entre lados e bancadas.</p>
             </div>
-            <div class="est-meta-stats" id="est-metaStats"></div>
           </div>
+          <div id="est-metaStats" style="margin-bottom:16px"></div>
 
-          <div class="est-tabs" role="tablist">
-            <button class="est-tab-btn" data-tab="soc" role="tab" aria-selected="true" onclick="estSwitchTab('soc',this)"><span class="est-dot"></span>Esteira SOC</button>
-            <button class="est-tab-btn" data-tab="hub" role="tab" aria-selected="false" onclick="estSwitchTab('hub',this)"><span class="est-dot"></span>Esteira HUB</button>
-            <button class="est-tab-btn" data-tab="termo" role="tab" aria-selected="false" onclick="estSwitchTab('termo',this)"><span class="est-dot"></span>Esteira Termo</button>
+          <div class="bkl-tabs" role="tablist" style="margin-bottom:16px">
+            <div class="bkl-tab active" data-tab="soc" role="tab" onclick="estSwitchTab('soc',this)">Esteira SOC</div>
+            <div class="bkl-tab" data-tab="hub" role="tab" onclick="estSwitchTab('hub',this)">Esteira HUB</div>
+            <div class="bkl-tab" data-tab="termo" role="tab" onclick="estSwitchTab('termo',this)">Esteira Termo</div>
           </div>
 
           <section class="est-stage active" data-esteira="soc">
@@ -10175,8 +10149,8 @@ function estClassify(dest){
 }
 
 function estSwitchTab(tab, el){
-  document.querySelectorAll('#est-app .est-tab-btn').forEach(b => b.setAttribute('aria-selected','false'));
-  el.setAttribute('aria-selected','true');
+  el.parentElement.querySelectorAll('.bkl-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
   document.querySelectorAll('#est-app .est-stage').forEach(s => s.classList.remove('active'));
   document.querySelector(`#est-app .est-stage[data-esteira="${tab}"]`).classList.add('active');
 }
@@ -10187,10 +10161,14 @@ function estRenderAll(){
   const grandTotal = DATA.part1.reduce((s,d) => s+d.qty, 0);
   const ct = DATA.classified_totals;
 
-  document.getElementById('est-metaStats').innerHTML = [
-    ['Volume total', estFmtInt(grandTotal)], ['Destinos', DATA.part1.length],
-    ['SoC', estFmtInt(ct.SOC)], ['3PL', estFmtInt(ct['3PL'])], ['LM Hub', estFmtInt(ct.HUB)], ['XPT', estFmtInt(ct.XPT)],
-  ].map(s => `<div class="est-meta-stat"><div class="n">${s[1]}</div><div class="l">${s[0]}</div></div>`).join('');
+  buildKPIs('est-metaStats', [
+    { label:'Volume Total', value:estFmtInt(grandTotal), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
+    { label:'Destinos', value:String(DATA.part1.length), delta:'', trend:'up', type:'', icon:'fa-location-dot' },
+    { label:'SoC', value:estFmtInt(ct.SOC), delta:'', trend:'up', type:'', icon:'fa-truck-fast' },
+    { label:'3PL', value:estFmtInt(ct['3PL']), delta:'', trend:'up', type:'', icon:'fa-truck' },
+    { label:'LM Hub', value:estFmtInt(ct.HUB), delta:'', trend:'up', type:'', icon:'fa-warehouse' },
+    { label:'XPT', value:estFmtInt(ct.XPT), delta:'', trend:'up', type:'', icon:'fa-box' },
+  ]);
 
   estBuildStage(DATA.soc_bins, 'SOC', 'E', 'D', grandTotal);
   estBuildStage(DATA.hub_bins, 'HUB', 'E', 'D', grandTotal);
