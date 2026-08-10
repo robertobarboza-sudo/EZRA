@@ -10277,7 +10277,7 @@ async function estLoad(){
       fetch('/api/conveyor', { cache:'no-store' }),
     ]);
     const j = await clusterRes.json();
-    if(!j.ok || !j.esteira) throw new Error(j.erro || 'resposta inválida');
+    if(!j.ok || !j.esteira || !j.esteira.part1) throw new Error(j.esteira?.erro || j.erro || 'resposta inválida');
     ESTEIRA_DATA = j.esteira;
     try {
       const cj = await cnvRes.json();
