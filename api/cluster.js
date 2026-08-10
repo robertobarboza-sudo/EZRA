@@ -133,10 +133,14 @@ function agingMedioSemOutliers(rows) {
 // por destino/dia — não a base de TOs do cluster_pulso. Alimenta a visão de
 // esteiras SOC/HUB/Termo (mockup do Roberto, "esteira.html" — estrutura
 // preservada 1:1, só a fonte dos dados mudou de um blob estático pra
-// esse endpoint). Esteira SOC = destinos SoC + 3PL; Esteira HUB = LM Hub
-// + XPT; Esteira Termo reaproveita os mesmos bins do HUB (mesmo
-// destinos/bancadas) até existir uma base própria — igual o mockup
-// original já fazia.
+// esse endpoint). Só pack_name "Scuttle"/"Pallet" entram no balanceamento
+// (Saca/Volumoso/vazio ficam de fora — confirmado com o Roberto em
+// 2026-08-10, o balanceamento das esteiras é só desses dois unitizadores;
+// ver filtro em module.exports antes de montar esteiraRows). Esteira SOC
+// = destinos SoC; Esteira HUB = LM Hub + XPT + "Else" (3PL — mudou de SOC
+// pra HUB em 2026-08-10, era a causa da divergência reportada); Esteira
+// Termo reaproveita os mesmos bins do HUB (mesmos destinos/bancadas) até
+// existir uma base própria — igual o mockup original já fazia.
 //
 // Balanceamento em 2 passos (confirmado pelo texto do mockup):
 //   1. Partição gulosa entre Lado A/Lado B — o próximo maior destino
@@ -210,8 +214,12 @@ function buildEsteira(rows) {
     classifiedTotals[key] += toNum(r.quantity);
   });
 
-  const socBins = esteiraBuildBins(rows, ['SoC', '3PL']);
-  const hubBins = esteiraBuildBins(rows, ['LM Hub', 'XPT']);
+  // Grupos confirmados com o Roberto em 2026-08-10: SoC -> Esteira SOC/B;
+  // LM Hub + XPT -> Esteira HUB/A (e Termo, que reaproveita os mesmos bins);
+  // "Else" (tudo que não é SoC/LM Hub/XPT, ou seja 3PL) -> Esteira HUB/A,
+  // não SOC como estava antes (essa era a divergência do balanceamento).
+  const socBins = esteiraBuildBins(rows, ['SoC']);
+  const hubBins = esteiraBuildBins(rows, ['LM Hub', 'XPT', '3PL']);
   return { part1, classified_totals: classifiedTotals, soc_bins: socBins, hub_bins: hubBins };
 }
 
@@ -513,7 +521,15 @@ module.exports = async (req, res) => {
       const datasDisponiveis = [...new Set(balRows.map(r => r.data_ajustada).filter(Boolean))].sort();
       const dataRef = datasDisponiveis[datasDisponiveis.length - 1] || null;
       const doDia = dataRef ? balRows.filter(r => r.data_ajustada === dataRef) : balRows;
-      const esteiraRows = doDia.map(r => ({ destino: r.dest_corrigido, quantity: toNum(r.total_quantity) }));
+      // Só Scuttle/Pallet entram no balanceamento das esteiras — Saca/
+      // Volumoso não passam por essas bancadas (confirmado com o Roberto
+      // em 2026-08-10).
+      let doDiaScuttlePallet = doDia.filter(r => r.pack_name === 'Scuttle' || r.pack_name === 'Pallet');
+      // Filtro opcional de turno (balanceamento_pulso tem coluna `turno`) —
+      // pedido do Roberto em 2026-08-10, botões T1/T2/T3 na Esteira On-time.
+      const turnos = parseCSV(req.query.turno);
+      if (turnos.length) doDiaScuttlePallet = doDiaScuttlePallet.filter(r => turnos.includes(r.turno));
+      const esteiraRows = doDiaScuttlePallet.map(r => ({ destino: r.dest_corrigido, quantity: toNum(r.total_quantity) }));
       esteira = buildEsteira(esteiraRows);
       esteira.dataRef = dataRef;
     } catch (err) {

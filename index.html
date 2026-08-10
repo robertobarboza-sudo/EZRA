@@ -1473,6 +1473,7 @@
     .tvcfg-page-check { flex:1; display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; }
     .tvcfg-page-check.checked { border-color: var(--orange); background: rgba(238,77,45,.06); }
     .tvcfg-mode-btn { flex:0 0 auto; width:38px; height:38px; border-radius:var(--radius); border:1px solid var(--border); background:var(--surface); color:var(--text-muted); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background var(--transition), color var(--transition); }
+    .tvcfg-sub-select { flex:0 0 auto; width:150px; }
     .tvcfg-mode-btn:hover { border-color: var(--orange); color: var(--orange); }
 
     .spr-ms-wrap { position: relative; display: inline-flex; }
@@ -1780,6 +1781,14 @@
     .est-stage{ display:none; }
     .est-stage.active{ display:block; }
     .est-stage-head{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 20px; margin-bottom:16px; box-shadow:var(--shadow); display:flex; flex-wrap:wrap; gap:20px; align-items:center; justify-content:space-between; }
+    .est-toolbar{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:12px 16px; margin-bottom:16px; box-shadow:var(--shadow); }
+    .est-turno-btns{ display:flex; gap:6px; flex-wrap:wrap; }
+    .est-turno-btn{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); font-size:12px; font-weight:600; padding:7px 13px; border-radius:var(--radius); cursor:pointer; transition:background var(--transition), color var(--transition), border-color var(--transition); }
+    .est-turno-btn:hover{ border-color:var(--orange); }
+    .est-turno-btn.active{ background:var(--orange); border-color:var(--orange); color:#fff; }
+    .est-hora-range{ display:flex; align-items:center; gap:14px; }
+    .est-hora-range label{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-sub); font-weight:600; }
+    .est-hora-range select{ width:80px; }
     .est-title-block h2{ font-size:16px; font-weight:700; margin:0 0 3px; color:var(--text); }
     .est-composition{ font-size:12px; color:var(--text-sub); margin:0; }
     .est-composition b{ color:var(--text); font-weight:600; }
@@ -3244,6 +3253,20 @@
               <p class="est-sub" id="est-data-ref" style="margin-top:4px"></p>
             </div>
           </div>
+
+          <div class="est-toolbar">
+            <div class="est-turno-btns" id="est-turno-btns">
+              <button type="button" class="est-turno-btn active" data-turno="" onclick="estSetTurno('')">Todos os turnos</button>
+              <button type="button" class="est-turno-btn" data-turno="T1" onclick="estSetTurno('T1')">T1</button>
+              <button type="button" class="est-turno-btn" data-turno="T2" onclick="estSetTurno('T2')">T2</button>
+              <button type="button" class="est-turno-btn" data-turno="T3" onclick="estSetTurno('T3')">T3</button>
+            </div>
+            <div class="est-hora-range">
+              <label>De <select id="est-hora-de" class="filter-select" onchange="estSetHoraRange()"></select></label>
+              <label>Até <select id="est-hora-ate" class="filter-select" onchange="estSetHoraRange()"></select></label>
+            </div>
+          </div>
+          <div id="est-topCards" style="margin-bottom:16px"></div>
           <div id="est-metaStats" style="margin-bottom:16px"></div>
 
           <div class="bkl-tabs" role="tablist" style="margin-bottom:16px">
@@ -3254,10 +3277,9 @@
 
           <section class="est-stage active" data-esteira="soc">
             <div class="est-stage-head">
-              <div class="est-title-block"><h2>Esteira SOC</h2><p class="est-composition">Destinos <b>SoC</b> + <b>3PL</b></p></div>
+              <div class="est-title-block"><h2>Esteira SOC</h2><p class="est-composition">Destinos <b>SoC</b></p></div>
               <div class="est-balance-block" id="est-balanceSOC"></div>
             </div>
-            <div id="est-perfSOC" style="margin-bottom:16px"></div>
             <div class="est-stage-body">
               <div class="est-belt-wrap">
                 <p class="est-side-label"><b>Lado Esquerda</b> — bancadas E1–E5</p>
@@ -3282,10 +3304,9 @@
 
           <section class="est-stage" data-esteira="hub">
             <div class="est-stage-head">
-              <div class="est-title-block"><h2>Esteira HUB</h2><p class="est-composition">Destinos <b>LM Hub</b> + <b>XPT</b></p></div>
+              <div class="est-title-block"><h2>Esteira HUB</h2><p class="est-composition">Destinos <b>LM Hub</b> + <b>XPT</b> + <b>3PL</b></p></div>
               <div class="est-balance-block" id="est-balanceHUB"></div>
             </div>
-            <div id="est-perfHUB" style="margin-bottom:16px"></div>
             <div class="est-stage-body">
               <div class="est-belt-wrap">
                 <p class="est-side-label"><b>Lado Esquerda</b> — bancadas E1–E5</p>
@@ -3313,7 +3334,6 @@
               <div class="est-title-block"><h2>Esteira Termo</h2><p class="est-composition">Mesmo balanceamento da <b>Esteira HUB</b> (LM Hub + XPT) · Prod. com fórmula própria — <b>em definição</b></p></div>
               <div class="est-balance-block" id="est-balanceTERMO"></div>
             </div>
-            <div id="est-perfTERMO" style="margin-bottom:16px"></div>
             <div class="est-stage-body">
               <div class="est-belt-wrap">
                 <p class="est-side-label"><b>Lado Esquerda</b> — bancadas E1–E5</p>
@@ -5130,7 +5150,23 @@ const TV_ELIGIBLE_PAGES = [
   { key:'clusterizacao', label:'Clusterização' },
 ];
 let TV_MODE_SECTION = null;   // seção em TV Mode simples (1 aba)
-let TV_ROTATION = null;       // { pages, intervalSec, idx, timer } quando a rotação do TV Mode Config está ativa
+let TV_ROTATION = null;       // { pages, intervalSec, idx, timer, subpages } quando a rotação do TV Mode Config está ativa
+
+// Páginas com subpáginas — pra rotação do TV Mode poder abrir a subpágina
+// certa de cada uma (pedido do Roberto em 2026-08-10), não só a seção.
+const TV_SUBPAGES = {
+  gestao:   { tabsId:'gestao-subpage-tabs',   switcher:'gestaoSwitchSubpage', options:[{key:'visaogeral',label:'Visão Geral'},{key:'cubo',label:'Cubo de Dados'}] },
+  spr:      { tabsId:'pulso-subpage-tabs',    switcher:'pulsoSwitchSubpage',  options:[{key:'outbound',label:'Outbound'},{key:'spr',label:'SPR'},{key:'leftover',label:'Leftover'}] },
+  conveyor: { tabsId:'conveyor-subpage-tabs', switcher:'cnvSwitchSubpage',    options:[{key:'performance',label:'Performance'},{key:'esteira',label:'Esteira On-time'}] },
+  inbound:  { tabsId:'inbound-subpage-tabs',  switcher:'inboundSwitchSubpage',options:[{key:'lh',label:'Line Haul'},{key:'fm',label:'First Mile'},{key:'triagem',label:'Triagem'}] },
+};
+function tvApplySubpage(sectionKey, subKey){
+  const cfg = TV_SUBPAGES[sectionKey];
+  if(!cfg || !subKey) return;
+  const el = document.getElementById('subtab-'+subKey);
+  if(!el || !document.getElementById(cfg.tabsId)?.contains(el)) return;
+  window[cfg.switcher](subKey, el);
+}
 
 function tvModeInit(){
   TV_ELIGIBLE_PAGES.forEach(p => {
@@ -5222,12 +5258,12 @@ document.addEventListener('fullscreenchange', () => {
 });
 
 /* ── Rotação (TV Mode Config): cicla entre várias abas num intervalo fixo ── */
-function tvRotationStart(pages, intervalSec){
+function tvRotationStart(pages, intervalSec, subpages){
   if(!TV_MODE_SECTION && !TV_ROTATION) TV_PRE_MODE_NIGHT = isTvNight();
   tvRotationStop();
   if(!pages.length) return;
-  TV_ROTATION = { pages, intervalSec, idx: 0 };
-  localStorage.setItem('pulso_tvmode_config', JSON.stringify({ pages, intervalSec }));
+  TV_ROTATION = { pages, intervalSec, idx: 0, subpages: subpages || {} };
+  localStorage.setItem('pulso_tvmode_config', JSON.stringify({ pages, intervalSec, subpages: TV_ROTATION.subpages }));
   const badge = document.createElement('div');
   badge.className = 'tv-rotation-badge';
   badge.id = 'tv-rotation-badge';
@@ -5240,17 +5276,31 @@ function tvRotationStart(pages, intervalSec){
     document.body.classList.add('tv-mode-active');
     tvcfgApplyPageMode(key);
     tvHandleClusterAutoScroll(key);
+    tvApplySubpage(key, TV_ROTATION.subpages[key]);
     if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
-    const label = (TV_ELIGIBLE_PAGES.find(p=>p.key===key)||{}).label || key;
-    const b = document.getElementById('tv-rotation-badge');
-    if(b) b.innerHTML = `<i class="fas fa-tv"></i> ${pulsoEscHtml(label)} · próxima em ${intervalSec}s`;
+    TV_ROTATION.currentLabel = (TV_ELIGIBLE_PAGES.find(p=>p.key===key)||{}).label || key;
+    TV_ROTATION.nextTickAt = Date.now() + intervalSec * 1000;
+    tvRotationUpdateBadge();
     TV_ROTATION.idx++;
   };
   tick();
   TV_ROTATION.timer = setInterval(tick, intervalSec * 1000);
+  TV_ROTATION.badgeTimer = setInterval(tvRotationUpdateBadge, 1000);
+}
+// Cronômetro + hora atual no balão de rotação — pedido do Roberto em
+// 2026-08-10: "Overview · próxima em 10s - 10/08/2026 - 14:30".
+function tvRotationUpdateBadge(){
+  const b = document.getElementById('tv-rotation-badge');
+  if(!b || !TV_ROTATION) return;
+  const remain = Math.max(0, Math.ceil((TV_ROTATION.nextTickAt - Date.now()) / 1000));
+  const now = new Date();
+  const dataStr = now.toLocaleDateString('pt-BR');
+  const horaStr = now.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' });
+  b.innerHTML = `<i class="fas fa-tv"></i> ${pulsoEscHtml(TV_ROTATION.currentLabel||'')} · próxima em ${remain}s - ${dataStr} - ${horaStr}`;
 }
 function tvRotationStop(){
   if(TV_ROTATION?.timer) clearInterval(TV_ROTATION.timer);
+  if(TV_ROTATION?.badgeTimer) clearInterval(TV_ROTATION.badgeTimer);
   TV_ROTATION = null;
   document.getElementById('tv-rotation-badge')?.remove();
   clstAutoScrollStop();
@@ -9593,14 +9643,23 @@ function renderTvConfig(){
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('pulso_tvmode_config') || '{}'); } catch(e){}
   const selecionadas = TV_ROTATION ? TV_ROTATION.pages : (saved.pages || []);
-  list.innerHTML = TV_ELIGIBLE_PAGES.map(p => `
+  const subpagesSalvas = TV_ROTATION ? TV_ROTATION.subpages : (saved.subpages || {});
+  list.innerHTML = TV_ELIGIBLE_PAGES.map(p => {
+    const sub = TV_SUBPAGES[p.key];
+    const subSelect = sub ? `
+      <select class="filter-select tvcfg-sub-select" id="tvcfg-sub-${p.key}" title="Subpágina a abrir para ${pulsoEscHtml(p.label)}">
+        ${sub.options.map(o => `<option value="${o.key}" ${subpagesSalvas[p.key]===o.key?'selected':''}>${pulsoEscHtml(o.label)}</option>`).join('')}
+      </select>` : '';
+    return `
     <div class="tvcfg-page-row">
       <label class="tvcfg-page-check ${selecionadas.includes(p.key)?'checked':''}" id="tvcfg-check-${p.key}">
         <input type="checkbox" value="${p.key}" ${selecionadas.includes(p.key)?'checked':''} onchange="tvcfgToggleCheck('${p.key}',this)"/>
         ${pulsoEscHtml(p.label)}
       </label>
+      ${subSelect}
       <button type="button" class="tvcfg-mode-btn" id="tvcfg-mode-${p.key}" onclick="tvcfgToggleMode('${p.key}')" title="Normal / Noturno para esta tela">${tvcfgPageMode(p.key)==='noturno' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'}</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   const intervalInput = document.getElementById('tvcfg-interval');
   if(intervalInput) intervalInput.value = TV_ROTATION ? TV_ROTATION.intervalSec : (saved.intervalSec || 30);
   tvcfgUpdateButton();
@@ -9610,6 +9669,14 @@ function renderTvConfig(){
 }
 function tvcfgToggleCheck(key, el){
   document.getElementById('tvcfg-check-'+key)?.classList.toggle('checked', el.checked);
+}
+function tvcfgSelectedSubpages(){
+  const out = {};
+  Object.keys(TV_SUBPAGES).forEach(key => {
+    const sel = document.getElementById('tvcfg-sub-'+key);
+    if(sel) out[key] = sel.value;
+  });
+  return out;
 }
 function tvcfgToggleGlobalMode(){
   toggleTvNight();
@@ -9632,7 +9699,7 @@ function tvcfgToggleRotation(){
   const pages = tvcfgSelectedPages();
   if(!pages.length){ showToast('Selecione ao menos uma tela pra espelhar.', true); return; }
   const intervalSec = Math.max(5, Number(document.getElementById('tvcfg-interval').value) || 30);
-  tvRotationStart(pages, intervalSec);
+  tvRotationStart(pages, intervalSec, tvcfgSelectedSubpages());
   tvcfgUpdateButton();
 }
 
@@ -9647,8 +9714,9 @@ function tvcfgSavePreset(){
   const pages = tvcfgSelectedPages();
   if(!pages.length){ showToast('Selecione ao menos uma tela pra espelhar.', true); return; }
   const intervalSec = Math.max(5, Number(document.getElementById('tvcfg-interval').value) || 30);
+  const subpages = tvcfgSelectedSubpages();
   const presets = tvcfgPresets().filter(p => p.name !== name);
-  presets.push({ name, pages, intervalSec });
+  presets.push({ name, pages, intervalSec, subpages });
   localStorage.setItem('pulso_tvmode_presets', JSON.stringify(presets));
   nameInput.value = '';
   tvcfgRenderPresets();
@@ -9673,7 +9741,7 @@ function tvcfgRenderPresets(){
 function tvcfgLoadPreset(name){
   const preset = tvcfgPresets().find(p => p.name === name);
   if(!preset) return;
-  tvRotationStart(preset.pages, preset.intervalSec);
+  tvRotationStart(preset.pages, preset.intervalSec, preset.subpages || {});
 }
 function tvcfgDeletePreset(name){
   localStorage.setItem('pulso_tvmode_presets', JSON.stringify(tvcfgPresets().filter(p => p.name !== name)));
@@ -10153,15 +10221,22 @@ function cnvSwitchSubpage(key, el){
 ================================================================ */
 let ESTEIRA_DATA = null;
 let ESTEIRA_CONVEYOR_ROWS = [];
+let ESTEIRA_HORA_SELECTS_INIT = false;
 // P1/"Esteira A" = HUB, P2/"Esteira B" = SOC, P4/"Termoplástica" = Termo —
 // confirmado com o Roberto em 2026-08-10 (mesma classificação usada nos
 // cards da aba Performance do Conveyor, ver classificarEsteira em api/conveyor.js).
 const ESTEIRA_GRUPO_POR_PREFIX = { SOC:'Esteira B', HUB:'Esteira A', TERMO:'Termoplástica' };
+// turno = '' (todos) | 'T1' | 'T2' | 'T3'; horaDe/horaAte = range que filtra
+// os cards de performance (conveyor_pulso) — pedido do Roberto em 2026-08-10,
+// default sempre a hora atual quando a página abre.
+const ESTEIRA_STATE = { turno: '', horaDe: null, horaAte: null };
 
 async function estLoad(){
   try {
+    const p = new URLSearchParams({ esteira: '1' });
+    if(ESTEIRA_STATE.turno) p.set('turno', ESTEIRA_STATE.turno);
     const [clusterRes, cnvRes] = await Promise.all([
-      fetch('/api/cluster?esteira=1', { cache:'no-store' }),
+      fetch('/api/cluster?'+p.toString(), { cache:'no-store' }),
       fetch('/api/conveyor', { cache:'no-store' }),
     ]);
     const j = await clusterRes.json();
@@ -10171,6 +10246,11 @@ async function estLoad(){
       const cj = await cnvRes.json();
       ESTEIRA_CONVEYOR_ROWS = cj.ok ? cj.rows : [];
     } catch(e){ ESTEIRA_CONVEYOR_ROWS = []; }
+    if(ESTEIRA_STATE.horaDe === null){
+      const horaAtual = cuboHoraAgora();
+      ESTEIRA_STATE.horaDe = horaAtual;
+      ESTEIRA_STATE.horaAte = horaAtual;
+    }
     estRenderAll();
   } catch(err){
     console.error('[esteira]', err);
@@ -10179,19 +10259,46 @@ async function estLoad(){
   }
 }
 
-// Performance real da esteira (grupo P1/P2/P4 em conveyor_pulso, dia
-// operacional atual) — usada pro card "Prod." de cada bancada (total do
-// grupo × share da bancada) e pelos cards de resumo (atual vs hora
-// anterior, acumulada, melhor/pior bancada).
+function estSetTurno(turno){
+  ESTEIRA_STATE.turno = turno;
+  document.querySelectorAll('#est-turno-btns .est-turno-btn').forEach(b => b.classList.toggle('active', b.dataset.turno === turno));
+  estLoad(); // turno também filtra o balanceamento (balanceamento_pulso tem turno) — precisa recarregar do servidor
+}
+
+function estSetHoraRange(){
+  const de = Number(document.getElementById('est-hora-de').value);
+  const ate = Number(document.getElementById('est-hora-ate').value);
+  ESTEIRA_STATE.horaDe = Math.min(de, ate);
+  ESTEIRA_STATE.horaAte = Math.max(de, ate);
+  estRenderAll(); // só afeta cards de performance (conveyor_pulso, já carregado) — sem novo fetch
+}
+
+function estInitHoraSelects(){
+  if(ESTEIRA_HORA_SELECTS_INIT) return;
+  const opts = Array.from({length:24}, (_,h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
+  ['est-hora-de','est-hora-ate'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = opts; });
+  ESTEIRA_HORA_SELECTS_INIT = true;
+}
+
+// Linhas de conveyor_pulso (dia operacional atual) filtradas por turno +
+// range de hora selecionados — alimenta os cards de performance do topo e
+// o "Prod." de cada bancada. Turno também filtrado aqui pro lado da
+// performance (o turno do balanceamento já vem filtrado do servidor).
+function estRowsFiltradas(){
+  return ESTEIRA_CONVEYOR_ROWS.filter(r =>
+    (!ESTEIRA_STATE.turno || r.turno === ESTEIRA_STATE.turno) &&
+    (ESTEIRA_STATE.horaDe === null || r.hora >= ESTEIRA_STATE.horaDe) &&
+    (ESTEIRA_STATE.horaAte === null || r.hora <= ESTEIRA_STATE.horaAte)
+  );
+}
+
+// Performance real da esteira (grupo P1/P2/P4 em conveyor_pulso), já
+// filtrada pelo turno/range de hora selecionados — usada pro card "Prod."
+// de cada bancada (total do grupo no período × share da bancada).
 function estPerfDados(prefix){
   const grupo = ESTEIRA_GRUPO_POR_PREFIX[prefix];
-  const rows = ESTEIRA_CONVEYOR_ROWS.filter(r => r.grupo === grupo);
+  const rows = estRowsFiltradas().filter(r => r.grupo === grupo);
   const total = rows.reduce((s,r) => s+r.totalProcessamento, 0);
-  const horaAtual = cuboHoraAgora();
-  const porHora = new Map();
-  rows.forEach(r => porHora.set(r.hora, (porHora.get(r.hora)||0) + r.totalProcessamento));
-  const atual = porHora.get(horaAtual) || 0;
-  const anterior = porHora.get(horaAtual-1) || 0;
   const porColab = new Map();
   rows.forEach(r => {
     const key = r.opsId || r.colaborador;
@@ -10201,19 +10308,42 @@ function estPerfDados(prefix){
     porColab.set(key, cur);
   });
   const colaboradores = [...porColab.values()].sort((a,b) => b.total-a.total);
-  return { grupo, total, atual, anterior, colaboradores, temDados: rows.length>0 };
+  return { grupo, total, colaboradores, temDados: rows.length>0 };
 }
 
-function estHighlightBancada(prefix, lado, posicao){
-  const letter = lado==='Lado A' ? 'E' : 'D';
-  const rowId = 'est-row'+prefix+(lado==='Lado A'?'esq':'dir');
-  const row = document.getElementById(rowId);
-  if(!row) return;
-  const card = [...row.querySelectorAll('.est-bancada-tag')].find(t => t.textContent === letter+posicao)?.closest('.est-bancada-card');
-  if(!card) return;
-  card.scrollIntoView({ behavior:'smooth', block:'center', inline:'center' });
-  card.classList.add('est-highlight');
-  setTimeout(() => card.classList.remove('est-highlight'), 2800);
+// Os 8 cards do topo, nessa ordem — pedido do Roberto em 2026-08-10.
+// "Vol. Acumulado" e "Vol. Processado Atual" são âncoras fixas (sempre
+// 6h-agora / hora atual, das 3 esteiras somadas), não mudam com o filtro
+// de turno/hora — os outros 6 refletem o período selecionado no filtro.
+function estRenderTopCards(){
+  const el = document.getElementById('est-topCards');
+  if(!el) return;
+  const horaAtual = cuboHoraAgora();
+  const todasRows = ESTEIRA_CONVEYOR_ROWS;
+  const somaGrupos = rows => rows.reduce((s,r) => s+r.totalProcessamento, 0);
+
+  const volAcumulado = somaGrupos(todasRows.filter(r => r.hora >= 6 && r.hora <= horaAtual));
+  const volProcessadoAtual = somaGrupos(todasRows.filter(r => r.hora === horaAtual));
+
+  const filtradas = estRowsFiltradas();
+  const volA = somaGrupos(filtradas.filter(r => r.grupo === 'Esteira A'));
+  const volB = somaGrupos(filtradas.filter(r => r.grupo === 'Esteira B'));
+  const volTermo = somaGrupos(filtradas.filter(r => r.grupo === 'Termoplástica'));
+  const horasComDado = new Set(filtradas.map(r => r.hora)).size || 1;
+  const mediaProcessamento = (volA+volB+volTermo) / horasComDado;
+  const volHub = volTermo + volA;
+  const volSoC = volB;
+
+  buildKPIs('est-topCards', [
+    { label:'Vol. Acumulado', value:estFmtInt(volAcumulado), sub:'6h de hoje até agora', delta:'', trend:'up', type:'', icon:'fa-layer-group' },
+    { label:'Vol. Processado Atual', value:estFmtInt(volProcessadoAtual), sub:`${String(horaAtual).padStart(2,'0')}h · 3 esteiras`, delta:'', trend:'up', type:'', icon:'fa-bolt' },
+    { label:'Vol. Total Esteira A', value:estFmtInt(volA), delta:'', trend:'up', type:'', icon:'fa-conveyor-belt' },
+    { label:'Vol. Total Esteira B', value:estFmtInt(volB), delta:'', trend:'up', type:'', icon:'fa-conveyor-belt' },
+    { label:'Vol. Total Esteira Termo', value:estFmtInt(volTermo), delta:'', trend:'up', type:'', icon:'fa-fire' },
+    { label:'Média Processamento', value:estFmtInt(mediaProcessamento), sub:'por hora, no período', delta:'', trend:'up', type:'', icon:'fa-gauge-high' },
+    { label:'Vol. Processado Hub', value:estFmtInt(volHub), sub:'Termo + Esteira A', delta:'', trend:'up', type:'', icon:'fa-warehouse' },
+    { label:'Vol. Processado SoC', value:estFmtInt(volSoC), sub:'Esteira B', delta:'', trend:'up', type:'', icon:'fa-truck-fast' },
+  ]);
 }
 
 function estFlipBancada(el, ev){
@@ -10247,6 +10377,12 @@ function estRenderAll(){
   const dataRefEl = document.getElementById('est-data-ref');
   if(dataRefEl) dataRefEl.textContent = DATA.dataRef ? `Dado de ${pulsoFmtDataBr(DATA.dataRef)} (balanceamento_pulso, atualização diária)` : '';
 
+  estInitHoraSelects();
+  const deEl = document.getElementById('est-hora-de'), ateEl = document.getElementById('est-hora-ate');
+  if(deEl) deEl.value = String(ESTEIRA_STATE.horaDe);
+  if(ateEl) ateEl.value = String(ESTEIRA_STATE.horaAte);
+  estRenderTopCards();
+
   buildKPIs('est-metaStats', [
     { label:'Volume Total', value:estFmtInt(grandTotal), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
     { label:'Destinos', value:String(DATA.part1.length), delta:'', trend:'up', type:'', icon:'fa-location-dot' },
@@ -10278,7 +10414,7 @@ function estRenderAll(){
 
   document.getElementById('est-footnote').innerHTML =
     `Metodologia: dentro de cada esteira (SOC ou HUB/Termo), <code>share = pacotes do grupo (destino, bancada ou lado) ÷ pacotes de TODA a esteira</code> — não do volume geral das duas esteiras somadas. A tabela de distribuição geral abaixo é a exceção: ali o share é sobre o total geral (${estFmtInt(grandTotal)} pacotes), porque compara destinos das duas esteiras lado a lado. `+
-    `Classificação por prefixo do destino — <b>HUB</b> = começa com "LM Hub_", <b>XPT</b> = começa com "XPT_", <b>SOC</b> = começa com "SoC_", <b>3PL</b> = demais. `+
+    `Classificação por prefixo do destino — <b>HUB</b> = começa com "LM Hub_", <b>XPT</b> = começa com "XPT_", <b>SOC</b> = começa com "SoC_", <b>3PL</b> = demais. Balanceamento considera só pacotes <b>Scuttle</b>/<b>Pallet</b> (Saca/Volumoso ficam de fora); <b>3PL</b> entra na Esteira HUB, não na SOC. `+
     `Balanceamento em dois passos: (1) os destinos são distribuídos entre Lado Esquerda e Lado Direita por partição gulosa (o maior volume disponível sempre vai para o lado com menor total acumulado); (2) dentro de cada lado, os destinos são alocados às 5 bancadas contra um perfil de peso decrescente (bancada 1 &gt; 2 &gt; 3 &gt; 4 &gt; 5), priorizando as primeiras bancadas. `+
     `Card "Prod." = performance real da esteira em conveyor_pulso (grupo Esteira A/HUB, Esteira B/SOC ou Termoplástica, dia operacional atual) × share da bancada. Colaborador exibido ao clicar numa bancada é uma estimativa por ranking de produção — a base não vincula colaborador a bancada individualmente.`;
 }
@@ -10297,29 +10433,6 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint){
   const totalEsq = esq.reduce((s,b) => s+b.total, 0);
   const totalDir = dir.reduce((s,b) => s+b.total, 0);
   const maxBancada = Math.max.apply(null, bins.map(b => b.total)) || 1;
-
-  // Cards de resumo: melhor/pior bancada (performance estimada = total
-  // realizado do grupo × share da bancada), atual vs hora anterior e
-  // acumulada — pedido do Roberto em 2026-08-10.
-  const comPerf = bins.map(b => ({ ...b, perfValue: perf.total * b.share }));
-  const melhor = temPerf ? comPerf.reduce((m,b) => (!m || b.perfValue>m.perfValue) ? b : m, null) : null;
-  const pior = temPerf ? comPerf.reduce((m,b) => (!m || b.perfValue<m.perfValue) ? b : m, null) : null;
-  const letraDe = b => (b.lado==='Lado A' ? sideLetterEsq : sideLetterDir) + b.posicao;
-  const deltaHora = perf.anterior ? ((perf.atual-perf.anterior)/perf.anterior*100) : (perf.atual?100:0);
-
-  const perfEl = document.getElementById('est-perf'+prefix);
-  if(perfEl){
-    if(!temPerf){
-      perfEl.innerHTML = `<div class="switch-hint" style="margin:0"><i class="fas fa-circle-info"></i> ${semDadosReais ? 'Performance real em definição para esta esteira.' : 'Sem dados de performance (conveyor_pulso) para o grupo "'+pulsoEscHtml(perf.grupo)+'" hoje.'}</div>`;
-    } else {
-      buildKPIs('est-perf'+prefix, [
-        { label:'Melhor Bancada', value: letraDe(melhor), sub: estFmtInt(melhor.perfValue)+' pac. (est.)', delta:'', trend:'up', type:'success', icon:'fa-trophy', clickable:true, onclickAttr:`estHighlightBancada('${prefix}','${melhor.lado}',${melhor.posicao})` },
-        { label:'Pior Bancada', value: letraDe(pior), sub: estFmtInt(pior.perfValue)+' pac. (est.)', delta:'', trend:'down', type:'danger', icon:'fa-triangle-exclamation', clickable:true, onclickAttr:`estHighlightBancada('${prefix}','${pior.lado}',${pior.posicao})` },
-        { label:'Atual vs Hora Anterior', value: estFmtInt(perf.atual), delta:(deltaHora>=0?'+':'')+deltaHora.toFixed(1)+'% vs hora ant.', trend: deltaHora>=0?'up':'down', type:'', icon:'fa-clock' },
-        { label:'Performance Acumulada (hoje)', value: estFmtInt(perf.total), sub: `${perf.colaboradores.length} colaborador${perf.colaboradores.length===1?'':'es'}`, delta:'', trend:'up', type:'', icon:'fa-chart-line' },
-      ]);
-    }
-  }
 
   function slot(bin, letter, isTop){
     const perfValue = perf.total * bin.share;
