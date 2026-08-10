@@ -123,6 +123,93 @@ function agingMedioSemOutliers(rows) {
   return +(usar.reduce((s, v) => s + v, 0) / usar.length).toFixed(1);
 }
 
+// ── Esteira On-time (balanceamento de bancadas) ─────────────────────────
+// Mesma base (cluster_pulso, comData = pós-resíduo, sem os filtros de
+// UI da Clusterização) reagrupada por destino pra alimentar a visão de
+// esteiras SOC/HUB/Termo (mockup do Roberto, "esteira.html" — estrutura
+// preservada 1:1, só a fonte dos dados mudou de um blob estático pra
+// esse endpoint). Esteira SOC = destinos SoC + 3PL; Esteira HUB = LM Hub
+// + XPT; Esteira Termo reaproveita os mesmos bins do HUB (mesmo
+// destinos/bancadas) até existir uma base própria — igual o mockup
+// original já fazia.
+//
+// Balanceamento em 2 passos (confirmado pelo texto do mockup):
+//   1. Partição gulosa entre Lado A/Lado B — o próximo maior destino
+//      sempre vai pro lado com menor total acumulado, equilibrando os
+//      lados por volume.
+//   2. Dentro de cada lado, aloca aos 5 bancadas contra um perfil de
+//      peso decrescente (bancada 1 > 2 > 3 > 4 > 5): pra cada destino
+//      (do maior pro menor), escolhe a bancada com menor total/peso —
+//      isso deixa a bancada 1 acumular mais antes das outras "pesarem
+//      igual", concentrando volume nas primeiras posições como o
+//      mockup pede. Pesos [5,4,3,2,1] — não há uma fórmula original
+//      documentada, assumido pra reproduzir o perfil descrito.
+const ESTEIRA_PESOS_BANCADA = [5, 4, 3, 2, 1];
+function esteiraAlocarBancadas(destinosLado) {
+  const bancadas = Array.from({ length: 5 }, () => ({ total: 0, destinos: [] }));
+  destinosLado.forEach(d => {
+    let melhor = 0, melhorScore = Infinity;
+    for (let i = 0; i < 5; i++) {
+      const score = bancadas[i].total / ESTEIRA_PESOS_BANCADA[i];
+      if (score < melhorScore) { melhorScore = score; melhor = i; }
+    }
+    bancadas[melhor].total += d.qty;
+    bancadas[melhor].destinos.push(d);
+  });
+  return bancadas;
+}
+function esteiraBuildBins(rows, categoriasIncluidas) {
+  const porDestino = new Map();
+  rows.forEach(r => {
+    if (!r.destino || !categoriasIncluidas.includes(destinoCategoria(r.destino))) return;
+    porDestino.set(r.destino, (porDestino.get(r.destino) || 0) + toNum(r.quantity));
+  });
+  const destinos = [...porDestino.entries()].map(([dest, qty]) => ({ dest, qty })).sort((a, b) => b.qty - a.qty);
+  const total = destinos.reduce((s, d) => s + d.qty, 0);
+
+  let totalA = 0, totalB = 0;
+  const ladoA = [], ladoB = [];
+  destinos.forEach(d => {
+    if (totalA <= totalB) { ladoA.push(d); totalA += d.qty; }
+    else { ladoB.push(d); totalB += d.qty; }
+  });
+
+  const bins = [];
+  [['Lado A', ladoA], ['Lado B', ladoB]].forEach(([lado, destinosLado]) => {
+    esteiraAlocarBancadas(destinosLado).forEach((b, i) => {
+      bins.push({
+        lado, posicao: i + 1, total: b.total,
+        share: total ? b.total / total : 0,
+        destinos: b.destinos.map(d => ({ dest: d.dest, qty: d.qty })),
+      });
+    });
+  });
+  return bins;
+}
+function buildEsteira(rows) {
+  const porDestino = new Map();
+  rows.forEach(r => {
+    if (!r.destino) return;
+    porDestino.set(r.destino, (porDestino.get(r.destino) || 0) + toNum(r.quantity));
+  });
+  const grandTotal = [...porDestino.values()].reduce((s, q) => s + q, 0);
+  const part1 = [...porDestino.entries()]
+    .map(([dest, qty]) => ({ dest, qty, share: grandTotal ? qty / grandTotal : 0 }))
+    .sort((a, b) => b.qty - a.qty);
+
+  const classifiedTotals = { SOC: 0, HUB: 0, XPT: 0, '3PL': 0 };
+  rows.forEach(r => {
+    if (!r.destino) return;
+    const cat = destinoCategoria(r.destino);
+    const key = cat === 'SoC' ? 'SOC' : cat === 'LM Hub' ? 'HUB' : cat === 'XPT' ? 'XPT' : '3PL';
+    classifiedTotals[key] += toNum(r.quantity);
+  });
+
+  const socBins = esteiraBuildBins(rows, ['SoC', '3PL']);
+  const hubBins = esteiraBuildBins(rows, ['LM Hub', 'XPT']);
+  return { part1, classified_totals: classifiedTotals, soc_bins: socBins, hub_bins: hubBins };
+}
+
 function aggregate(rows) {
   const totalRegistros = rows.length;
   const pacotesTotal = rows.reduce((s, r) => s + toNum(r.quantity), 0);
@@ -410,6 +497,11 @@ module.exports = async (req, res) => {
     complete_time: r['complete time'],
   }));
 
+  // esteira: só computa quando pedido explicitamente (?esteira=1) — a página
+  // de Clusterização normal não usa esse bloco, não faz sentido pagar o
+  // custo (e o payload extra) em todo load dela.
+  const esteira = req.query.esteira !== undefined ? buildEsteira(comData) : null;
+
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
     ok: true,
@@ -422,5 +514,6 @@ module.exports = async (req, res) => {
       destino: uniqDe(comData, 'destino'),
       rua: uniqDe(comData, 'rua').filter(r => r !== 'Pendente'),
     },
+    esteira,
   });
 };
