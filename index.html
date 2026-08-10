@@ -5312,6 +5312,7 @@ function tvRotationStop(){
 document.addEventListener('DOMContentLoaded', () => {
   enterPortal(PORTAL_USER);
   tvModeInit();
+  jarvisApplyPageTags();
 });
 
 /* ================================================================
@@ -9332,7 +9333,8 @@ const JARVIS_CATALOG = [
     features:['Performance da hora, acumulado do dia e comparativo por zona','Pico e média de indução, filtro de dia completo'] },
   { key:'conveyor', icon:'fa-box', title:'Conveyor', tag:'ontime',
     desc:'Performance por grupo de estação (OBC+OBD, esteiras, Tintas, TO-Audit…).',
-    detail:'Mesma lógica do ASM, mas por grupo de estação — OBC e OBD somados num grupo só, esteiras (A, B, Tintas, TO-Audit) separadas, e tudo somado apenas na visão Acumulado do dia todo. Também tem os três modos de gráfico (Hora, Acumulado, Comparativo por Workstation) e filtro de dia completo.',
+    detail:'Mesma lógica do ASM, mas por grupo de estação — OBC e OBD somados num grupo só, esteiras (A, B, Tintas, TO-Audit) separadas, e tudo somado apenas na visão Acumulado do dia todo. Também tem os três modos de gráfico (Hora, Acumulado, Comparativo por Workstation) e filtro de dia completo. Esteira On-time: balanceamento de bancadas em tempo real.',
+    subpages:[ {label:'Performance', sub:'performance', tag:'ontime'}, {label:'Esteira On-time', sub:'esteira', tag:'ontime'} ],
     features:['Performance da hora, acumulado e comparativo por workstation','Filtro de dia completo'] },
   { key:'inbound', composite:{base:'fa-truck', badgeText:'IN'}, title:'Inbound',
     desc:'Recebimento: pontualidade planejado x realizado, chegada e descarga.',
@@ -9379,6 +9381,30 @@ function jarvisTagBadge(tagKey){
   const t = TAG_META[tagKey];
   if(!t) return '';
   return `<span class="jarvis-cadence-tag" style="background:${t.color}">${t.label}</span>`;
+}
+
+// Aplica a mesma tag de cadência (Hourly/On Time/Backoffice) do catálogo
+// Jarvis direto nas páginas e subpáginas reais — pedido do Roberto em
+// 2026-08-10 (antes só aparecia dentro do card do catálogo). Roda uma vez
+// na carga do portal: cabeçalhos/subtabs são markup estático, não precisa
+// reaplicar a cada navegação.
+function jarvisApplyPageTags(){
+  JARVIS_CATALOG.forEach(p => {
+    if(p.external) return; // sem página própria no site — tag não se aplica
+    if(p.tag){
+      const titleEl = document.querySelector(`#section-${p.key} .section-title`);
+      if(titleEl && !titleEl.querySelector('.jarvis-page-tag')){
+        titleEl.insertAdjacentHTML('beforeend', ` <span class="jarvis-cadence-tag jarvis-page-tag" style="background:${TAG_META[p.tag].color};margin-left:8px">${TAG_META[p.tag].label}</span>`);
+      }
+    }
+    (p.subpages||[]).forEach(sp => {
+      if(!sp.tag || !sp.sub) return;
+      const tabEl = document.getElementById('subtab-'+sp.sub);
+      if(tabEl && !tabEl.querySelector('.jarvis-page-tag')){
+        tabEl.insertAdjacentHTML('beforeend', ` <span class="jarvis-cadence-tag jarvis-page-tag" style="background:${TAG_META[sp.tag].color};margin-left:6px">${TAG_META[sp.tag].label}</span>`);
+      }
+    });
+  });
 }
 
 function jarvisThumbHtml(p){
@@ -10414,7 +10440,7 @@ function estRenderAll(){
 
   document.getElementById('est-footnote').innerHTML =
     `Metodologia: dentro de cada esteira (SOC ou HUB/Termo), <code>share = pacotes do grupo (destino, bancada ou lado) ÷ pacotes de TODA a esteira</code> — não do volume geral das duas esteiras somadas. A tabela de distribuição geral abaixo é a exceção: ali o share é sobre o total geral (${estFmtInt(grandTotal)} pacotes), porque compara destinos das duas esteiras lado a lado. `+
-    `Classificação por prefixo do destino — <b>HUB</b> = começa com "LM Hub_", <b>XPT</b> = começa com "XPT_", <b>SOC</b> = começa com "SoC_", <b>3PL</b> = demais. Balanceamento considera só pacotes <b>Scuttle</b>/<b>Pallet</b> (Saca/Volumoso ficam de fora); <b>3PL</b> entra na Esteira HUB, não na SOC. `+
+    `Classificação por prefixo do destino — <b>HUB</b> = começa com "LM Hub_", <b>XPT</b> = começa com "XPT_", <b>SOC</b> = começa com "SoC_", <b>3PL</b> = demais. Balanceamento (Fanout) = <code>total_quantity de cada dest_corrigido ÷ total de pacotes Scuttle/Pallet/Volumoso</code> (Saca fica de fora); <b>3PL</b> entra na Esteira HUB, não na SOC. `+
     `Balanceamento em dois passos: (1) os destinos são distribuídos entre Lado Esquerda e Lado Direita por partição gulosa (o maior volume disponível sempre vai para o lado com menor total acumulado); (2) dentro de cada lado, os destinos são alocados às 5 bancadas contra um perfil de peso decrescente (bancada 1 &gt; 2 &gt; 3 &gt; 4 &gt; 5), priorizando as primeiras bancadas. `+
     `Card "Prod." = performance real da esteira em conveyor_pulso (grupo Esteira A/HUB, Esteira B/SOC ou Termoplástica, dia operacional atual) × share da bancada. Colaborador exibido ao clicar numa bancada é uma estimativa por ranking de produção — a base não vincula colaborador a bancada individualmente.`;
 }

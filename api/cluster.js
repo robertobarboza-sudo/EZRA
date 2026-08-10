@@ -133,10 +133,9 @@ function agingMedioSemOutliers(rows) {
 // por destino/dia — não a base de TOs do cluster_pulso. Alimenta a visão de
 // esteiras SOC/HUB/Termo (mockup do Roberto, "esteira.html" — estrutura
 // preservada 1:1, só a fonte dos dados mudou de um blob estático pra
-// esse endpoint). Só pack_name "Scuttle"/"Pallet" entram no balanceamento
-// (Saca/Volumoso/vazio ficam de fora — confirmado com o Roberto em
-// 2026-08-10, o balanceamento das esteiras é só desses dois unitizadores;
-// ver filtro em module.exports antes de montar esteiraRows). Esteira SOC
+// esse endpoint). Só pack_name "Scuttle"/"Pallet"/"Volumoso" entram no
+// balanceamento (Saca/vazio ficam de fora — confirmado com o Roberto em
+// 2026-08-10; ver filtro em module.exports antes de montar esteiraRows). Esteira SOC
 // = destinos SoC; Esteira HUB = LM Hub + XPT + "Else" (3PL — mudou de SOC
 // pra HUB em 2026-08-10, era a causa da divergência reportada); Esteira
 // Termo reaproveita os mesmos bins do HUB (mesmos destinos/bancadas) até
@@ -524,12 +523,15 @@ module.exports = async (req, res) => {
       // Só Scuttle/Pallet entram no balanceamento das esteiras — Saca/
       // Volumoso não passam por essas bancadas (confirmado com o Roberto
       // em 2026-08-10).
-      let doDiaScuttlePallet = doDia.filter(r => r.pack_name === 'Scuttle' || r.pack_name === 'Pallet');
+      // Fanout do balanceamento = total_quantity de dest_corrigido dividido
+      // pelo total de pack_name Scuttle/Pallet/Volumoso (corrigido com o
+      // Roberto em 2026-08-10 — Volumoso também entra, só Saca fica de fora).
+      let doDiaBalanceaveis = doDia.filter(r => r.pack_name === 'Scuttle' || r.pack_name === 'Pallet' || r.pack_name === 'Volumoso');
       // Filtro opcional de turno (balanceamento_pulso tem coluna `turno`) —
       // pedido do Roberto em 2026-08-10, botões T1/T2/T3 na Esteira On-time.
       const turnos = parseCSV(req.query.turno);
-      if (turnos.length) doDiaScuttlePallet = doDiaScuttlePallet.filter(r => turnos.includes(r.turno));
-      const esteiraRows = doDiaScuttlePallet.map(r => ({ destino: r.dest_corrigido, quantity: toNum(r.total_quantity) }));
+      if (turnos.length) doDiaBalanceaveis = doDiaBalanceaveis.filter(r => turnos.includes(r.turno));
+      const esteiraRows = doDiaBalanceaveis.map(r => ({ destino: r.dest_corrigido, quantity: toNum(r.total_quantity) }));
       esteira = buildEsteira(esteiraRows);
       esteira.dataRef = dataRef;
     } catch (err) {
