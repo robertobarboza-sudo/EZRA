@@ -102,12 +102,26 @@ function toPackGrupo(tp) {
 
 // SoC_ / XPT_ / "LM Hub_" identificam quem efetivamente recebe endereço de
 // rua; qualquer outro prefixo (3PL, ex: "J&TNewLM") vai pra uma área que não
-// é endereçada.
+// é endereçada. Usado pra Clusterização (cluster_pulso, coluna `destino`).
 function destinoCategoria(destino) {
   const d = String(destino || '');
   if (/^SoC_/i.test(d)) return 'SoC';
   if (/^XPT_/i.test(d)) return 'XPT';
   if (/^LM Hub_/i.test(d)) return 'LM Hub';
+  return '3PL';
+}
+
+// Classificação da Esteira On-time (dest_corrigido, balanceamento_pulso) —
+// espec fechada com o Roberto em 2026-08-10: HUB = começa com "LM", XPT =
+// começa com "XPT", SOC = começa com "SoC", resto = 3PL. Prefixo mais solto
+// que destinoCategoria (que exige "LM Hub_"/"SoC_" com underscore) — usar
+// função própria em vez de reaproveitar destinoCategoria pra não acoplar as
+// duas páginas por engano caso uma mude de regra sem a outra.
+function esteiraDestinoCategoria(destino) {
+  const d = String(destino || '');
+  if (/^LM/i.test(d)) return 'LM Hub';
+  if (/^XPT/i.test(d)) return 'XPT';
+  if (/^SoC/i.test(d)) return 'SoC';
   return '3PL';
 }
 
@@ -132,33 +146,32 @@ function agingMedioSemOutliers(rows) {
 // Fonte: aba balanceamento_pulso (ver BALANCEAMENTO_SHEET), já pré-agregada
 // por destino/dia — não a base de TOs do cluster_pulso. Alimenta a visão de
 // esteiras SOC/HUB/Termo (mockup do Roberto, "esteira.html" — estrutura
-// preservada 1:1, só a fonte dos dados mudou de um blob estático pra
-// esse endpoint). Só pack_name "Scuttle"/"Pallet"/"Volumoso" entram no
-// balanceamento (Saca/vazio ficam de fora — confirmado com o Roberto em
-// 2026-08-10; ver filtro em module.exports antes de montar esteiraRows). Esteira SOC
-// = destinos SoC; Esteira HUB = LM Hub + XPT + "Else" (3PL — mudou de SOC
-// pra HUB em 2026-08-10, era a causa da divergência reportada); Esteira
-// Termo reaproveita os mesmos bins do HUB (mesmos destinos/bancadas) até
-// existir uma base própria — igual o mockup original já fazia.
+// preservada 1:1, só a fonte dos dados mudou de um blob estático pra esse
+// endpoint). Só pack_name "Scuttle"/"Pallet"/"Volumoso" entram no
+// balanceamento (Saca/vazio ficam de fora). Espec fechada com o Roberto em
+// 2026-08-11 ("Lógica de balanceamento das esteiras (SOC e HUB)"):
+//   Esteira SOC = destinos SOC + 3PL · Esteira HUB = destinos HUB + XPT.
+//   Esteira Termo reaproveita os mesmos bins do HUB até existir base própria.
 //
-// Balanceamento em 2 passos (confirmado pelo texto do mockup):
-//   1. Partição gulosa entre Lado A/Lado B — o próximo maior destino
-//      sempre vai pro lado com menor total acumulado, equilibrando os
-//      lados por volume.
-//   2. Dentro de cada lado, aloca aos 5 bancadas contra um perfil de
-//      peso decrescente (bancada 1 > 2 > 3 > 4 > 5): pra cada destino
-//      (do maior pro menor), escolhe a bancada com menor total/peso —
-//      isso deixa a bancada 1 acumular mais antes das outras "pesarem
-//      igual", concentrando volume nas primeiras posições como o
-//      mockup pede. Pesos [5,4,3,2,1] — não há uma fórmula original
-//      documentada, assumido pra reproduzir o perfil descrito.
-const ESTEIRA_PESOS_BANCADA = [5, 4, 3, 2, 1];
-function esteiraAlocarBancadas(destinosLado) {
+// share (usado em TODO o resultado — destino, bancada e lado) é sempre
+// sobre o total GERAL das duas esteiras juntas, não o total só da esteira
+// — ver grandTotal abaixo.
+//
+// Balanceamento em 2 etapas, aplicado dentro de cada esteira:
+//   1. Partição gulosa entre Lado Esquerda/Direita — cada destino (do maior
+//      pro menor volume) vai inteiro pro lado com menor soma acumulada.
+//   2. Dentro do lado, aloca às 5 bancadas contra um perfil de peso-alvo
+//      decrescente [1.15, 1.06, 1.00, 0.94, 0.85]: pra cada destino (do
+//      maior pro menor), escolhe a bancada cujo (total atual da bancada ÷
+//      total do lado) ÷ peso-alvo da posição for o menor — a mais "carente"
+//      em relação à sua meta proporcional.
+const ESTEIRA_PESO_ALVO_BANCADA = [1.15, 1.06, 1.00, 0.94, 0.85];
+function esteiraAlocarBancadas(destinosLado, totalLado) {
   const bancadas = Array.from({ length: 5 }, () => ({ total: 0, destinos: [] }));
   destinosLado.forEach(d => {
     let melhor = 0, melhorScore = Infinity;
     for (let i = 0; i < 5; i++) {
-      const score = bancadas[i].total / ESTEIRA_PESOS_BANCADA[i];
+      const score = (totalLado ? bancadas[i].total / totalLado : 0) / ESTEIRA_PESO_ALVO_BANCADA[i];
       if (score < melhorScore) { melhorScore = score; melhor = i; }
     }
     bancadas[melhor].total += d.qty;
@@ -166,14 +179,13 @@ function esteiraAlocarBancadas(destinosLado) {
   });
   return bancadas;
 }
-function esteiraBuildBins(rows, categoriasIncluidas) {
+function esteiraBuildBins(rows, categoriasIncluidas, grandTotal) {
   const porDestino = new Map();
   rows.forEach(r => {
-    if (!r.destino || !categoriasIncluidas.includes(destinoCategoria(r.destino))) return;
+    if (!r.destino || !categoriasIncluidas.includes(esteiraDestinoCategoria(r.destino))) return;
     porDestino.set(r.destino, (porDestino.get(r.destino) || 0) + toNum(r.quantity));
   });
   const destinos = [...porDestino.entries()].map(([dest, qty]) => ({ dest, qty })).sort((a, b) => b.qty - a.qty);
-  const total = destinos.reduce((s, d) => s + d.qty, 0);
 
   let totalA = 0, totalB = 0;
   const ladoA = [], ladoB = [];
@@ -183,12 +195,12 @@ function esteiraBuildBins(rows, categoriasIncluidas) {
   });
 
   const bins = [];
-  [['Lado A', ladoA], ['Lado B', ladoB]].forEach(([lado, destinosLado]) => {
-    esteiraAlocarBancadas(destinosLado).forEach((b, i) => {
+  [['Lado A', ladoA, totalA], ['Lado B', ladoB, totalB]].forEach(([lado, destinosLado, totalLado]) => {
+    esteiraAlocarBancadas(destinosLado, totalLado).forEach((b, i) => {
       bins.push({
         lado, posicao: i + 1, total: b.total,
-        share: total ? b.total / total : 0,
-        destinos: b.destinos.map(d => ({ dest: d.dest, qty: d.qty })),
+        share: grandTotal ? b.total / grandTotal : 0,
+        destinos: b.destinos.map(d => ({ dest: d.dest, qty: d.qty, share: grandTotal ? d.qty / grandTotal : 0 })),
       });
     });
   });
@@ -208,17 +220,16 @@ function buildEsteira(rows) {
   const classifiedTotals = { SOC: 0, HUB: 0, XPT: 0, '3PL': 0 };
   rows.forEach(r => {
     if (!r.destino) return;
-    const cat = destinoCategoria(r.destino);
+    const cat = esteiraDestinoCategoria(r.destino);
     const key = cat === 'SoC' ? 'SOC' : cat === 'LM Hub' ? 'HUB' : cat === 'XPT' ? 'XPT' : '3PL';
     classifiedTotals[key] += toNum(r.quantity);
   });
 
-  // Grupos confirmados com o Roberto em 2026-08-10: SoC -> Esteira SOC/B;
-  // LM Hub + XPT -> Esteira HUB/A (e Termo, que reaproveita os mesmos bins);
-  // "Else" (tudo que não é SoC/LM Hub/XPT, ou seja 3PL) -> Esteira HUB/A,
-  // não SOC como estava antes (essa era a divergência do balanceamento).
-  const socBins = esteiraBuildBins(rows, ['SoC']);
-  const hubBins = esteiraBuildBins(rows, ['LM Hub', 'XPT', '3PL']);
+  // Grupos (espec fechada com o Roberto em 2026-08-11): Esteira SOC = SOC +
+  // 3PL · Esteira HUB = HUB + XPT (Termo reaproveita os bins do HUB). Share
+  // de bancada/destino sempre sobre o grandTotal (as duas esteiras juntas).
+  const socBins = esteiraBuildBins(rows, ['SoC', '3PL'], grandTotal);
+  const hubBins = esteiraBuildBins(rows, ['LM Hub', 'XPT'], grandTotal);
   return { part1, classified_totals: classifiedTotals, soc_bins: socBins, hub_bins: hubBins };
 }
 
