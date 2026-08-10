@@ -1878,9 +1878,9 @@
     @keyframes estPkgDivertC{ 0%{ left:-10%; opacity:1; } 36%{ opacity:1; } 44%{ opacity:0; } 100%{ left:106%; opacity:0; } }
     @media (prefers-reduced-motion: reduce){ .est-tread{ animation:none; } .est-pkg{ animation:none; left:8%; } .est-diverter{ animation:none; } }
 
-    .est-stage[data-esteira="soc"]{ --stage-accent:var(--orange); --seg-esq:var(--orange); --seg-dir:color-mix(in srgb, var(--orange) 45%, var(--surface-3)); }
+    .est-stage[data-esteira="soc"]{ --stage-accent:var(--cyan); --seg-esq:var(--cyan); --seg-dir:color-mix(in srgb, var(--cyan) 45%, var(--surface-3)); }
     .est-stage[data-esteira="hub"]{ --stage-accent:var(--amber); --seg-esq:var(--amber); --seg-dir:color-mix(in srgb, var(--amber) 45%, var(--surface-3)); }
-    .est-stage[data-esteira="termo"]{ --stage-accent:var(--red); --seg-esq:var(--red); --seg-dir:color-mix(in srgb, var(--red) 45%, var(--surface-3)); }
+    .est-stage[data-esteira="termo"]{ --stage-accent:var(--orange); --seg-esq:var(--orange); --seg-dir:color-mix(in srgb, var(--orange) 45%, var(--surface-3)); }
     .est-balance-seg.esq{ background:var(--seg-esq); }
     .est-balance-seg.dir{ background:var(--seg-dir); }
     .est-side-label{ text-align:center; font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:rgba(0,0,0,.55); margin:2px 0 8px; }
@@ -10302,17 +10302,27 @@ function estSetTurno(turno){
   estLoad(); // turno também filtra o balanceamento (balanceamento_pulso tem turno) — precisa recarregar do servidor
 }
 
+// Selecionar "Acumulado" (value vazio) em qualquer um dos dois selects vira
+// modo acumulado (sem filtro de hora, dia inteiro) — pedido do Roberto em
+// 2026-08-11. É o mesmo estado usado pra ranquear colaboradores por
+// eficiência no flip-card (ver estColaboradoresBancada).
 function estSetHoraRange(){
-  const de = Number(document.getElementById('est-hora-de').value);
-  const ate = Number(document.getElementById('est-hora-ate').value);
-  ESTEIRA_STATE.horaDe = Math.min(de, ate);
-  ESTEIRA_STATE.horaAte = Math.max(de, ate);
+  const deVal = document.getElementById('est-hora-de').value;
+  const ateVal = document.getElementById('est-hora-ate').value;
+  if(deVal === '' || ateVal === ''){
+    ESTEIRA_STATE.horaDe = null;
+    ESTEIRA_STATE.horaAte = null;
+  } else {
+    const de = Number(deVal), ate = Number(ateVal);
+    ESTEIRA_STATE.horaDe = Math.min(de, ate);
+    ESTEIRA_STATE.horaAte = Math.max(de, ate);
+  }
   estRenderAll(); // só afeta cards de performance (conveyor_pulso, já carregado) — sem novo fetch
 }
 
 function estInitHoraSelects(){
   if(ESTEIRA_HORA_SELECTS_INIT) return;
-  const opts = Array.from({length:24}, (_,h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
+  const opts = '<option value="">Acumulado</option>' + Array.from({length:24}, (_,h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
   ['est-hora-de','est-hora-ate'].forEach(id => { const el = document.getElementById(id); if(el) el.innerHTML = opts; });
   ESTEIRA_HORA_SELECTS_INIT = true;
 }
@@ -10334,7 +10344,9 @@ function estRowsFiltradas(){
 // (coluna real da planilha) pra alimentar o card "Prod." de cada bancada
 // com o total PRODUZIDO NAQUELA BANCADA, não mais uma estimativa por share
 // (pedido do Roberto em 2026-08-11). `porWs` também guarda os colaboradores
-// reais de cada WS, pro flip-card deixar de ser uma aproximação.
+// reais de cada WS (com as horas em que bateram, pra eficiência no modo
+// acumulado — ver estColaboradoresOrdenados), pro flip-card deixar de ser
+// uma aproximação.
 function estPerfDados(prefix){
   const grupo = ESTEIRA_GRUPO_POR_PREFIX[prefix];
   const rows = estRowsFiltradas().filter(r => r.grupo === grupo);
@@ -10347,8 +10359,9 @@ function estPerfDados(prefix){
     acc.total += r.totalProcessamento;
     const key = r.opsId || r.colaborador;
     if(key){
-      const cur = acc.colaboradores.get(key) || { nome:r.colaborador||key, total:0 };
+      const cur = acc.colaboradores.get(key) || { nome:r.colaborador||key, total:0, horas:new Set() };
       cur.total += r.totalProcessamento;
+      cur.horas.add(r.hora);
       acc.colaboradores.set(key, cur);
     }
   });
@@ -10405,36 +10418,57 @@ function estClassify(dest){
   return '3PL';
 }
 
+let ESTEIRA_ACTIVE_TAB = 'soc';
 function estSwitchTab(tab, el){
+  ESTEIRA_ACTIVE_TAB = tab;
   el.parentElement.querySelectorAll('.bkl-tab').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
   document.querySelectorAll('#est-app .est-stage').forEach(s => s.classList.remove('active'));
   document.querySelector(`#est-app .est-stage[data-esteira="${tab}"]`).classList.add('active');
+  estRenderMetaStats();
+}
+
+// Cards do topo (Volume Total/Fanouts/subgrupos) reagem à esteira ativa —
+// pedido do Roberto em 2026-08-11: "Fanouts" = quantidade de destinos
+// únicos nesse universo (SOC+3PL pra esteira SOC, HUB+XPT pra HUB/Termo).
+function estRenderMetaStats(){
+  const DATA = ESTEIRA_DATA;
+  if(!DATA) return;
+  const ct = DATA.classified_totals;
+  const contagem = { SOC:0, HUB:0, XPT:0, '3PL':0 };
+  DATA.part1.forEach(d => { contagem[estClassify(d.dest)]++; });
+
+  if(ESTEIRA_ACTIVE_TAB === 'soc'){
+    buildKPIs('est-metaStats', [
+      { label:'Volume Total', value:estFmtInt(ct.SOC+ct['3PL']), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
+      { label:'Fanouts', value:String(contagem.SOC+contagem['3PL']), delta:'', trend:'up', type:'', icon:'fa-location-dot' },
+      { label:'Fanouts SOC', value:String(contagem.SOC), sub:estFmtInt(ct.SOC)+' pac.', delta:'', trend:'up', type:'', icon:'fa-truck-fast' },
+      { label:'Fanouts 3PL', value:String(contagem['3PL']), sub:estFmtInt(ct['3PL'])+' pac.', delta:'', trend:'up', type:'', icon:'fa-truck' },
+    ]);
+  } else {
+    buildKPIs('est-metaStats', [
+      { label:'Volume Total', value:estFmtInt(ct.HUB+ct.XPT), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
+      { label:'Fanouts', value:String(contagem.HUB+contagem.XPT), delta:'', trend:'up', type:'', icon:'fa-location-dot' },
+      { label:'Fanouts LM Hub', value:String(contagem.HUB), sub:estFmtInt(ct.HUB)+' pac.', delta:'', trend:'up', type:'', icon:'fa-warehouse' },
+      { label:'Fanouts XPT', value:String(contagem.XPT), sub:estFmtInt(ct.XPT)+' pac.', delta:'', trend:'up', type:'', icon:'fa-box' },
+    ]);
+  }
 }
 
 function estRenderAll(){
   const DATA = ESTEIRA_DATA;
   if(!DATA) return;
   const grandTotal = DATA.part1.reduce((s,d) => s+d.qty, 0);
-  const ct = DATA.classified_totals;
 
   const dataRefEl = document.getElementById('est-data-ref');
   if(dataRefEl) dataRefEl.textContent = DATA.dataRef ? `Dado de ${pulsoFmtDataBr(DATA.dataRef)} (balanceamento_pulso, atualização diária)` : '';
 
   estInitHoraSelects();
   const deEl = document.getElementById('est-hora-de'), ateEl = document.getElementById('est-hora-ate');
-  if(deEl) deEl.value = String(ESTEIRA_STATE.horaDe);
-  if(ateEl) ateEl.value = String(ESTEIRA_STATE.horaAte);
+  if(deEl) deEl.value = ESTEIRA_STATE.horaDe === null ? '' : String(ESTEIRA_STATE.horaDe);
+  if(ateEl) ateEl.value = ESTEIRA_STATE.horaAte === null ? '' : String(ESTEIRA_STATE.horaAte);
   estRenderTopCards();
-
-  buildKPIs('est-metaStats', [
-    { label:'Volume Total', value:estFmtInt(grandTotal), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
-    { label:'Destinos', value:String(DATA.part1.length), delta:'', trend:'up', type:'', icon:'fa-location-dot' },
-    { label:'SoC', value:estFmtInt(ct.SOC), delta:'', trend:'up', type:'', icon:'fa-truck-fast' },
-    { label:'3PL', value:estFmtInt(ct['3PL']), delta:'', trend:'up', type:'', icon:'fa-truck' },
-    { label:'LM Hub', value:estFmtInt(ct.HUB), delta:'', trend:'up', type:'', icon:'fa-warehouse' },
-    { label:'XPT', value:estFmtInt(ct.XPT), delta:'', trend:'up', type:'', icon:'fa-box' },
-  ]);
+  estRenderMetaStats();
 
   estBuildStage(DATA.soc_bins, 'SOC', 'E', 'D', null, grandTotal);
   estBuildStage(DATA.hub_bins, 'HUB', 'E', 'D', null, grandTotal);
@@ -10494,9 +10528,19 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint, gra
     }).join('');
 
     // Colaboradores reais que bateram naquele Nome WS (não é mais estimativa).
-    const colaboradores = wsDados ? [...wsDados.colaboradores.values()].sort((a,b) => b.total-a.total) : [];
+    // Modo acumulado (sem hora selecionada): ranqueia por EFICIÊNCIA
+    // (pacotes ÷ horas distintas trabalhadas) — pedido do Roberto em
+    // 2026-08-11. Com range de hora selecionado: acumulado do período,
+    // ranqueado por total mesmo (não faz sentido "eficiência" numa janela
+    // já filtrada pelo próprio usuário).
+    const acumulado = ESTEIRA_STATE.horaDe === null;
+    const colaboradores = wsDados
+      ? [...wsDados.colaboradores.values()]
+          .map(c => ({ ...c, eficiencia: c.total / (c.horas.size || 1) }))
+          .sort((a,b) => acumulado ? (b.eficiencia-a.eficiencia) : (b.total-a.total))
+      : [];
     const backList = colaboradores.length
-      ? `<ul class="est-bancada-back-list">${colaboradores.slice(0,8).map(c => `<li><span class="est-bancada-back-name">${pulsoEscHtml(c.nome||'(sem nome)')}</span><span class="est-bancada-back-qty">${estFmtInt(c.total)}</span></li>`).join('')}</ul>`
+      ? `<ul class="est-bancada-back-list">${colaboradores.slice(0,8).map(c => `<li><span class="est-bancada-back-name">${pulsoEscHtml(c.nome||'(sem nome)')}</span><span class="est-bancada-back-qty">${acumulado ? estFmtInt(c.eficiencia)+' pac./h' : estFmtInt(c.total)}</span></li>`).join('')}</ul>`
       : `<p class="est-bancada-back-note">Sem colaboradores registrados nesta bancada no período.</p>`;
 
     const card = `<div class="est-bancada-card" style="--fill:${((bin.total/maxBancada)*100).toFixed(1)}%" onclick="estFlipBancada(this,event)">
