@@ -10176,11 +10176,11 @@ function estRenderAll(){
     { label:'XPT', value:estFmtInt(ct.XPT), delta:'', trend:'up', type:'', icon:'fa-box' },
   ]);
 
-  estBuildStage(DATA.soc_bins, 'SOC', 'E', 'D', grandTotal);
-  estBuildStage(DATA.hub_bins, 'HUB', 'E', 'D', grandTotal);
+  estBuildStage(DATA.soc_bins, 'SOC', 'E', 'D');
+  estBuildStage(DATA.hub_bins, 'HUB', 'E', 'D');
   // Esteira Termo reaproveita o balanceamento do HUB (mesmos destinos/bancadas)
   // até existir uma base própria — igual o mockup original já fazia.
-  estBuildStage(DATA.hub_bins, 'TERMO', 'E', 'D', grandTotal, 'aguardando memória de cálculo');
+  estBuildStage(DATA.hub_bins, 'TERMO', 'E', 'D', 'aguardando memória de cálculo');
 
   const rankBody = document.getElementById('est-rankBody');
   rankBody.innerHTML = DATA.part1.map((d, i) => {
@@ -10197,13 +10197,13 @@ function estRenderAll(){
   }).join('');
 
   document.getElementById('est-footnote').innerHTML =
-    `Metodologia: <code>share = soma de pacotes do grupo (destino, bancada ou lado) ÷ soma de pacotes de todos os destinos (${estFmtInt(grandTotal)})</code>. `+
+    `Metodologia: dentro de cada esteira (SOC ou HUB/Termo), <code>share = pacotes do grupo (destino, bancada ou lado) ÷ pacotes de TODA a esteira</code> — não do volume geral das duas esteiras somadas. A tabela de distribuição geral abaixo é a exceção: ali o share é sobre o total geral (${estFmtInt(grandTotal)} pacotes), porque compara destinos das duas esteiras lado a lado. `+
     `Classificação por prefixo do destino — <b>HUB</b> = começa com "LM Hub_", <b>XPT</b> = começa com "XPT_", <b>SOC</b> = começa com "SoC_", <b>3PL</b> = demais. `+
     `Balanceamento em dois passos: (1) os destinos são distribuídos entre Lado Esquerda e Lado Direita por partição gulosa (o maior volume disponível sempre vai para o lado com menor total acumulado); (2) dentro de cada lado, os destinos são alocados às 5 bancadas contra um perfil de peso decrescente (bancada 1 &gt; 2 &gt; 3 &gt; 4 &gt; 5), priorizando as primeiras bancadas. `+
     `Cards "Prod." ficam prontos para receber o indicador real de performance de cada bancada.`;
 }
 
-function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, grandTotal, prodHint){
+function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint){
   prodHint = prodHint || 'vincular indicador real';
   const prodPendingClass = prefix === 'TERMO' ? ' est-prod-pending' : '';
   const prodHintClass = prefix === 'TERMO' ? ' pending' : '';
@@ -10218,13 +10218,16 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, grandTotal, p
     const prod = `<div class="est-prod-card${prodPendingClass}"><div class="p-eyebrow">PROD.</div><div class="p-value">—</div><div class="p-hint${prodHintClass}">${prodHint}</div></div>`;
     const conn = '<div class="est-connector"></div>';
     const destItems = bin.destinos.map(d => {
-      const destShare = grandTotal ? d.qty/grandTotal : 0;
+      // Share de cada destino calculado só dentro do total desta esteira
+      // (SOC/HUB/Termo), não do volume geral — pedido do Roberto em
+      // 2026-08-10: "a divisão de share de Intersoc deve ser calculada
+      // apenas entre os destinos dentro da cluster de Intersoc".
+      const destShare = total ? d.qty/total : 0;
       return `<li><span class="est-dest-name" title="${pulsoEscHtml(d.dest||'(sem nome)')}">${pulsoEscHtml(d.dest||'(sem nome)')}</span><span class="est-dest-qty">${estFmtInt(d.qty)} <span class="est-dest-share">(${estFmtPct(destShare,2)})</span></span></li>`;
     }).join('');
-    const shareGlobal = grandTotal ? bin.total/grandTotal : 0;
     const card = `<div class="est-bancada-card" style="--fill:${((bin.total/maxBancada)*100).toFixed(1)}%">
       <div class="est-bancada-top"><span class="est-bancada-tag">${letter}${bin.posicao}</span></div>
-      <div class="est-bancada-share">${estFmtPct(shareGlobal,2)}</div>
+      <div class="est-bancada-share">${estFmtPct(bin.share,2)}</div>
       <div class="est-bancada-qty">${estFmtInt(bin.total)} vol. · ${bin.destinos.length} destino${bin.destinos.length===1?'':'s'}</div>
       <div class="est-bancada-fill-track"><div class="est-bancada-fill"></div></div>
       <ul class="est-dest-list">${destItems}</ul>
@@ -10235,10 +10238,12 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, grandTotal, p
   document.getElementById('est-row'+prefix+'esq').innerHTML = esq.map(b => slot(b, sideLetterEsq, true)).join('');
   document.getElementById('est-row'+prefix+'dir').innerHTML = dir.map(b => slot(b, sideLetterDir, false)).join('');
 
+  // Esquerda/Direita também relativos só ao total desta esteira (não ao
+  // volume geral de todas as esteiras) — mesma correção do destShare acima.
   document.getElementById('est-balance'+prefix).innerHTML =
-    `<div class="est-balance-label"><span>Esquerda <b>${estFmtPct(grandTotal?totalEsq/grandTotal:0,2)}</b></span><span>Direita <b>${estFmtPct(grandTotal?totalDir/grandTotal:0,2)}</b></span></div>`+
+    `<div class="est-balance-label"><span>Esquerda <b>${estFmtPct(total?totalEsq/total:0,2)}</b></span><span>Direita <b>${estFmtPct(total?totalDir/total:0,2)}</b></span></div>`+
     `<div class="est-balance-bar"><div class="est-balance-seg esq" style="width:${total?((totalEsq/total)*100).toFixed(2):0}%"></div><div class="est-balance-seg dir" style="width:${total?((totalDir/total)*100).toFixed(2):0}%"></div></div>`+
-    `<div class="est-balance-note">% do volume total (${estFmtInt(grandTotal)} pacotes, todos os destinos) · a barra mostra a proporção entre os lados desta esteira</div>`;
+    `<div class="est-balance-note">% do volume desta esteira (${estFmtInt(total)} pacotes) · a barra mostra a proporção entre os lados</div>`;
 
   let divHtml = '';
   for(let i=0;i<5;i++){
