@@ -79,7 +79,7 @@
  *   destino, rua          listas separadas por vírgula
  *   q                     busca livre em "to number" + destino
  */
-const { fetchTabByGid } = require('./_google');
+const { fetchTabByGid, appendRows } = require('./_google');
 const { toNum, parseCSV } = require('./_period');
 
 const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
@@ -299,7 +299,38 @@ function aggregate(rows) {
   };
 }
 
+// Botão "Salvar Balanceamento" (Esteira On-time) — grava o snapshot atual
+// do balanceamento na aba config, a partir da coluna S (confirmado com o
+// Roberto em 2026-08-11). Cada save vira um bloco auto-descritivo (título +
+// cabeçalho + linhas), sempre acrescentado no fim — não sobrescreve saves
+// anteriores, então funciona como um histórico semanal.
+async function salvarBalanceamento(req, res) {
+  const { data, nome, linhas } = req.body || {};
+  if (!data || !nome || !Array.isArray(linhas) || !linhas.length) {
+    res.status(400).json({ ok: false, erro: 'Parâmetros inválidos: data, nome e linhas são obrigatórios.' });
+    return;
+  }
+  const nomeSeguro = String(nome).slice(0, 120);
+  const bloco = [
+    [`Balanceamento — ${nomeSeguro} — ${data} — salvo em ${new Date().toISOString()}`],
+    ['Esteira', 'Lado', 'Bancada', 'Destino', 'Qtd', 'Share (%)'],
+    ...linhas.map(l => [l.esteira || '', l.lado || '', l.bancada || '', l.destino || '', Number(l.qty) || 0, (Number(l.share) * 100).toFixed(2)]),
+    [],
+  ];
+  try {
+    await appendRows(CONFIG_SHEET.spreadsheetId, CONFIG_SHEET.gid, 'S', bloco);
+    res.status(200).json({ ok: true });
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+  }
+}
+
 module.exports = async (req, res) => {
+  if (req.method === 'POST' && req.query.salvarBalanceamento !== undefined) {
+    await salvarBalanceamento(req, res);
+    return;
+  }
+
   let rows, configRows;
   try {
     ({ rows } = await fetchTabByGid(CLUSTER_SHEET.spreadsheetId, CLUSTER_SHEET.gid));

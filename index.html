@@ -3265,7 +3265,25 @@
               <label>De <select id="est-hora-de" class="filter-select" onchange="estSetHoraRange()"></select></label>
               <label>Até <select id="est-hora-ate" class="filter-select" onchange="estSetHoraRange()"></select></label>
             </div>
+            <button type="button" class="btn btn-outline" onclick="estOpenSalvarModal()"><i class="fas fa-floppy-disk"></i> Salvar Balanceamento</button>
           </div>
+
+          <div class="modal-overlay" id="est-save-overlay" onclick="if(event.target===this) estCloseSalvarModal()">
+            <div class="modal" style="max-width:440px">
+              <div class="modal-header">
+                <span class="modal-title"><i class="fas fa-floppy-disk" style="color:var(--orange);margin-right:8px"></i>Salvar Balanceamento</span>
+                <button class="modal-close" onclick="estCloseSalvarModal()"><i class="fas fa-xmark"></i></button>
+              </div>
+              <p class="est-sub" style="margin:0 0 12px">Baixa um CSV com o balanceamento atual (destino → bancada) e envia esse mesmo snapshot pra aba <b>config</b> da planilha (coluna S), como registro histórico.</p>
+              <div class="form-group"><label class="form-label">Data</label><input class="form-input" id="est-save-data" type="date"/></div>
+              <div class="form-group"><label class="form-label">Nome</label><input class="form-input" id="est-save-nome" placeholder="Ex: Semana 33"/></div>
+              <div class="modal-footer">
+                <button class="btn btn-outline" onclick="estCloseSalvarModal()">Cancelar</button>
+                <button class="btn btn-primary" id="est-save-confirm-btn" onclick="estConfirmSalvar()"><i class="fas fa-check"></i> Salvar</button>
+              </div>
+            </div>
+          </div>
+
           <div id="est-topCards" style="margin-bottom:16px"></div>
           <div id="est-metaStats" style="margin-bottom:16px"></div>
 
@@ -10252,6 +10270,16 @@ let ESTEIRA_HORA_SELECTS_INIT = false;
 // confirmado com o Roberto em 2026-08-10 (mesma classificação usada nos
 // cards da aba Performance do Conveyor, ver classificarEsteira em api/conveyor.js).
 const ESTEIRA_GRUPO_POR_PREFIX = { SOC:'Esteira B', HUB:'Esteira A', TERMO:'Termoplástica' };
+// Nome WS de cada bancada física, ex: "P2_AU03" (SOC), "P1_AU06" (HUB),
+// "P4_TE09" (Termo) — prefixo + número. Mapeamento número→bancada
+// confirmado com o Roberto em 2026-08-11: numeração sequencial, 01-05 =
+// Lado Esquerda (E1-E5), 06-10 = Lado Direita (D1-D5) — sujeito a ajuste
+// depois que o Roberto confirmar o "De > Para" real de cada bancada.
+const ESTEIRA_WS_PREFIXO = { SOC:'P2_AU', HUB:'P1_AU', TERMO:'P4_TE' };
+function estWsCodigo(prefix, letter, sideLetterEsq, posicao){
+  const num = (letter === sideLetterEsq ? posicao : posicao + 5);
+  return ESTEIRA_WS_PREFIXO[prefix] + String(num).padStart(2, '0');
+}
 // turno = '' (todos) | 'T1' | 'T2' | 'T3'; horaDe/horaAte = range que filtra
 // os cards de performance (conveyor_pulso) — pedido do Roberto em 2026-08-10,
 // default sempre a hora atual quando a página abre.
@@ -10306,6 +10334,74 @@ function estInitHoraSelects(){
   ESTEIRA_HORA_SELECTS_INIT = true;
 }
 
+// Botão "Salvar Balanceamento" — baixa um CSV local (destino → bancada) e
+// envia o mesmo snapshot pra aba config da planilha (coluna S), como
+// histórico semanal. Pedido do Roberto em 2026-08-11.
+function estBuildLinhasBalanceamento(){
+  const linhas = [];
+  if(!ESTEIRA_DATA) return linhas;
+  const addBins = (bins, esteiraLabel) => {
+    bins.forEach(b => {
+      const letter = b.lado === 'Lado A' ? 'E' : 'D';
+      const bancada = letter + b.posicao;
+      b.destinos.forEach(d => {
+        linhas.push({ esteira: esteiraLabel, lado: letter==='E'?'Esquerda':'Direita', bancada, destino: d.dest, qty: d.qty, share: d.share });
+      });
+    });
+  };
+  addBins(ESTEIRA_DATA.soc_bins, 'SOC');
+  addBins(ESTEIRA_DATA.hub_bins, 'HUB'); // Termo reaproveita os bins do HUB — não duplica aqui
+  return linhas;
+}
+function estLinhasToCsv(linhas){
+  const esc = v => { const s = String(v ?? ''); return /[",\n;]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  const header = ['Esteira','Lado','Bancada','Destino','Qtd','Share (%)'];
+  const rows = linhas.map(l => [l.esteira, l.lado, l.bancada, l.destino, l.qty, (l.share*100).toFixed(2)]);
+  return [header, ...rows].map(r => r.map(esc).join(';')).join('\n');
+}
+function estOpenSalvarModal(){
+  if(!ESTEIRA_DATA){ showToast('Aguarde o balanceamento carregar.', true); return; }
+  const dataEl = document.getElementById('est-save-data');
+  if(dataEl && !dataEl.value) dataEl.value = new Date().toISOString().slice(0,10);
+  document.getElementById('est-save-overlay').classList.add('open');
+}
+function estCloseSalvarModal(){
+  document.getElementById('est-save-overlay').classList.remove('open');
+}
+async function estConfirmSalvar(){
+  const data = document.getElementById('est-save-data').value;
+  const nome = document.getElementById('est-save-nome').value.trim();
+  if(!data || !nome){ showToast('Preencha data e nome.', true); return; }
+  const linhas = estBuildLinhasBalanceamento();
+  if(!linhas.length){ showToast('Nada pra salvar ainda.', true); return; }
+
+  const csv = estLinhasToCsv(linhas);
+  const blob = new Blob(['﻿'+csv], { type:'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `balanceamento_${nome.replace(/[^a-z0-9]+/gi,'_')}_${data}.csv`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+
+  const btn = document.getElementById('est-save-confirm-btn');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando…'; }
+  try {
+    const r = await fetch('/api/cluster?salvarBalanceamento=1', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ data, nome, linhas }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao salvar');
+    showToast('Balanceamento salvo — CSV baixado e enviado pra aba config.');
+    estCloseSalvarModal();
+  } catch(err){
+    showToast('CSV baixado, mas falhou ao enviar pra planilha: '+err.message, true);
+  } finally {
+    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> Salvar'; }
+  }
+}
+
 // Linhas de conveyor_pulso (dia operacional atual) filtradas por turno +
 // range de hora selecionados — alimenta os cards de performance do topo e
 // o "Prod." de cada bancada. Turno também filtrado aqui pro lado da
@@ -10319,22 +10415,29 @@ function estRowsFiltradas(){
 }
 
 // Performance real da esteira (grupo P1/P2/P4 em conveyor_pulso), já
-// filtrada pelo turno/range de hora selecionados — usada pro card "Prod."
-// de cada bancada (total do grupo no período × share da bancada).
+// filtrada pelo turno/range de hora selecionados — agrupada por Nome WS
+// (coluna real da planilha) pra alimentar o card "Prod." de cada bancada
+// com o total PRODUZIDO NAQUELA BANCADA, não mais uma estimativa por share
+// (pedido do Roberto em 2026-08-11). `porWs` também guarda os colaboradores
+// reais de cada WS, pro flip-card deixar de ser uma aproximação.
 function estPerfDados(prefix){
   const grupo = ESTEIRA_GRUPO_POR_PREFIX[prefix];
   const rows = estRowsFiltradas().filter(r => r.grupo === grupo);
   const total = rows.reduce((s,r) => s+r.totalProcessamento, 0);
-  const porColab = new Map();
+  const porWs = new Map(); // wsCodigo -> { total, colaboradores: Map }
   rows.forEach(r => {
+    const ws = r.nomeEstacao || '';
+    if(!porWs.has(ws)) porWs.set(ws, { total:0, colaboradores: new Map() });
+    const acc = porWs.get(ws);
+    acc.total += r.totalProcessamento;
     const key = r.opsId || r.colaborador;
-    if(!key) return;
-    const cur = porColab.get(key) || { nome:r.colaborador||key, total:0 };
-    cur.total += r.totalProcessamento;
-    porColab.set(key, cur);
+    if(key){
+      const cur = acc.colaboradores.get(key) || { nome:r.colaborador||key, total:0 };
+      cur.total += r.totalProcessamento;
+      acc.colaboradores.set(key, cur);
+    }
   });
-  const colaboradores = [...porColab.values()].sort((a,b) => b.total-a.total);
-  return { grupo, total, colaboradores, temDados: rows.length>0 };
+  return { grupo, total, porWs, temDados: rows.length>0 };
 }
 
 // Os 8 cards do topo, nessa ordem — pedido do Roberto em 2026-08-10.
@@ -10442,14 +10545,13 @@ function estRenderAll(){
     `Metodologia: <code>share = pacotes do grupo (destino, bancada ou lado) ÷ pacotes de TODAS as esteiras juntas</code> (${estFmtInt(grandTotal)} pacotes) — usado em todo o resultado, inclusive na tabela de distribuição geral abaixo. `+
     `Classificação por prefixo do destino — <b>HUB</b> = começa com "LM", <b>XPT</b> = começa com "XPT", <b>SOC</b> = começa com "SoC", <b>3PL</b> = demais. Esteira SOC = destinos SOC + 3PL · Esteira HUB = destinos HUB + XPT. Fanout = <code>total_quantity de cada dest_corrigido ÷ total de pacotes Scuttle/Pallet/Volumoso</code> (Saca fica de fora). `+
     `Balanceamento em dois passos: (1) os destinos são distribuídos entre Lado Esquerda e Lado Direita por partição gulosa (o maior volume disponível sempre vai para o lado com menor total acumulado); (2) dentro de cada lado, os destinos são alocados às 5 bancadas contra um perfil de peso-alvo decrescente [1.15, 1.06, 1.00, 0.94, 0.85] — cada destino vai pra bancada mais "carente" em relação à sua meta proporcional. `+
-    `Card "Prod." = performance real da esteira em conveyor_pulso (grupo Esteira A/HUB, Esteira B/SOC ou Termoplástica, dia operacional atual) × share da bancada. Colaborador exibido ao clicar numa bancada é uma estimativa por ranking de produção — a base não vincula colaborador a bancada individualmente.`;
+    `Card "Prod." = total real produzido na bancada, lido de conveyor_pulso pela coluna Nome WS (ex: "P2_AU03") — não é mais estimativa por share. Mapeamento número→bancada (01-05 = Esquerda E1-E5, 06-10 = Direita D1-D5) confirmado com o Roberto em 2026-08-11, sujeito a ajuste. Colaboradores exibidos ao clicar numa bancada são os reais daquele Nome WS.`;
 }
 
 function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint, grandTotal){
-  const semDadosReais = prefix === 'TERMO'; // Termo reaproveita o balanceamento do HUB — fórmula própria em definição
-  prodHint = prodHint || 'vincular indicador real';
+  prodHint = prodHint || 'sem dado no período';
   const perf = estPerfDados(prefix);
-  const temPerf = !semDadosReais && perf.temDados;
+  const temPerf = perf.temDados;
   const prodPendingClass = !temPerf ? ' est-prod-pending' : ' est-prod-ready';
   const prodHintClass = !temPerf ? ' pending' : '';
 
@@ -10461,9 +10563,13 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint, gra
   const maxBancada = Math.max.apply(null, bins.map(b => b.total)) || 1;
 
   function slot(bin, letter, isTop){
-    const perfValue = perf.total * bin.share;
-    const prodValue = temPerf ? estFmtInt(perfValue) : '—';
-    const prod = `<div class="est-prod-card${prodPendingClass}"${temPerf?` onclick="estFlipBancada(this.closest('.est-slot').querySelector('.est-bancada-card'),event)"`:''}><div class="p-eyebrow">PROD.</div><div class="p-value">${prodValue}</div><div class="p-hint${prodHintClass}">${temPerf ? 'pac. (est.) hoje' : prodHint}</div></div>`;
+    // Prod. real por bancada — pega direto o Nome WS correspondente
+    // (P1/P2/P4_AU|TEnn), não mais uma estimativa por share (pedido do
+    // Roberto em 2026-08-11).
+    const wsCodigo = estWsCodigo(prefix, letter, sideLetterEsq, bin.posicao);
+    const wsDados = perf.porWs.get(wsCodigo);
+    const prodValue = wsDados ? estFmtInt(wsDados.total) : (temPerf ? '0' : '—');
+    const prod = `<div class="est-prod-card${prodPendingClass}" onclick="estFlipBancada(this.closest('.est-slot').querySelector('.est-bancada-card'),event)"><div class="p-eyebrow">PROD.</div><div class="p-value">${prodValue}</div><div class="p-hint${prodHintClass}">${temPerf ? wsCodigo : prodHint}</div></div>`;
     const conn = '<div class="est-connector"></div>';
     // Share de cada destino sobre o total GERAL (as duas esteiras juntas) —
     // espec fechada com o Roberto em 2026-08-11, já vem calculado do
@@ -10472,16 +10578,11 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint, gra
       return `<li><span class="est-dest-name" title="${pulsoEscHtml(d.dest||'(sem nome)')}">${pulsoEscHtml(d.dest||'(sem nome)')}</span><span class="est-dest-qty">${estFmtInt(d.qty)} <span class="est-dest-share">(${estFmtPct(d.share,2)})</span></span></li>`;
     }).join('');
 
-    // Colaboradores não têm vínculo real com uma bancada específica (as
-    // bancadas são bins algorítmicos por destino, não postos físicos
-    // individuais) — aproximação por ranking: bancada 1 pareia com o
-    // colaborador de maior produção do grupo, bancada 2 com o 2º, etc.
-    // (mesma lógica de prioridade decrescente do balanceamento em si).
-    const idx = (letter===sideLetterEsq ? 0 : 5) + (bin.posicao-1);
-    const colab = perf.colaboradores[idx];
-    const backList = perf.colaboradores.length
-      ? `<ul class="est-bancada-back-list">${perf.colaboradores.slice(0,8).map((c,i) => `<li${colab&&c===colab?' style="font-weight:700;color:var(--stage-accent)"':''}><span class="est-bancada-back-name">${i+1}. ${pulsoEscHtml(c.nome||'(sem nome)')}</span><span class="est-bancada-back-qty">${estFmtInt(c.total)}</span></li>`).join('')}</ul>`
-      : `<p class="est-bancada-back-note">Sem colaboradores registrados no grupo hoje.</p>`;
+    // Colaboradores reais que bateram naquele Nome WS (não é mais estimativa).
+    const colaboradores = wsDados ? [...wsDados.colaboradores.values()].sort((a,b) => b.total-a.total) : [];
+    const backList = colaboradores.length
+      ? `<ul class="est-bancada-back-list">${colaboradores.slice(0,8).map(c => `<li><span class="est-bancada-back-name">${pulsoEscHtml(c.nome||'(sem nome)')}</span><span class="est-bancada-back-qty">${estFmtInt(c.total)}</span></li>`).join('')}</ul>`
+      : `<p class="est-bancada-back-note">Sem colaboradores registrados nesta bancada no período.</p>`;
 
     const card = `<div class="est-bancada-card" style="--fill:${((bin.total/maxBancada)*100).toFixed(1)}%" onclick="estFlipBancada(this,event)">
       <div class="est-bancada-front">
@@ -10492,10 +10593,8 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint, gra
         <ul class="est-dest-list">${destItems}</ul>
       </div>
       <div class="est-bancada-back">
-        <div class="est-bancada-back-title">${letter}${bin.posicao} · colaborador (estimado)</div>
-        ${colab ? `<div class="est-bancada-qty">${pulsoEscHtml(colab.nome||'(sem nome)')} · <b>${estFmtInt(colab.total)}</b> pac. hoje</div>` : ''}
+        <div class="est-bancada-back-title">${letter}${bin.posicao} (${wsCodigo}) · colaboradores</div>
         ${backList}
-        <p class="est-bancada-back-note">Pareamento por ranking de produção — a base não vincula colaborador a bancada individualmente.</p>
       </div>
     </div>`;
     return `<div class="est-slot">${isTop ? prod+conn+card : card+conn+prod}</div>`;
