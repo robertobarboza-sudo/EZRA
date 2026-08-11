@@ -10747,7 +10747,6 @@ function estRenderTopCards(){
   const somaGrupos = rows => rows.reduce((s,r) => s+r.totalProcessamento, 0);
 
   const volAcumulado = somaGrupos(todasRows.filter(r => r.hora >= 6 && r.hora <= horaAtual));
-  const volProcessadoAtual = somaGrupos(todasRows.filter(r => r.hora === horaAtual));
 
   const filtradas = estRowsFiltradas();
   const volA = somaGrupos(filtradas.filter(r => r.grupo === 'Esteira A'));
@@ -10757,10 +10756,15 @@ function estRenderTopCards(){
   const mediaProcessamento = (volA+volB+volTermo) / horasComDado;
   const volHub = volTermo + volA;
   const volSoC = volB;
+  // Vol. Processado = soma dos 3 cards de esteira (A+B+Termo), respeitando
+  // o filtro de hora selecionado (não mais uma âncora fixa na hora atual)
+  // — pedido do Roberto em 2026-08-13.
+  const volProcessado = volA + volB + volTermo;
+  const horaLabel = ESTEIRA_STATE.hora === null ? 'acumulado' : `${String(ESTEIRA_STATE.hora).padStart(2,'0')}h`;
 
   buildKPIs('est-topCards', [
     { label:'Vol. Acumulado', value:estFmtInt(volAcumulado), sub:'6h de hoje até agora', delta:'', trend:'up', type:'', icon:'fa-layer-group' },
-    { label:'Vol. Processado Atual', value:estFmtInt(volProcessadoAtual), sub:`${String(horaAtual).padStart(2,'0')}h · 3 esteiras`, delta:'', trend:'up', type:'', icon:'fa-bolt' },
+    { label:'Vol. Processado', value:estFmtInt(volProcessado), sub:`${horaLabel} · A + B + Termo`, delta:'', trend:'up', type:'', icon:'fa-bolt' },
     { label:'Vol. Total Esteira A', value:estFmtInt(volA), delta:'', trend:'up', type:'', icon:'fa-conveyor-belt' },
     { label:'Vol. Total Esteira B', value:estFmtInt(volB), delta:'', trend:'up', type:'', icon:'fa-conveyor-belt' },
     { label:'Vol. Total Esteira Termo', value:estFmtInt(volTermo), delta:'', trend:'up', type:'', icon:'fa-fire' },
@@ -10870,14 +10874,12 @@ function estRenderMetaStats(){
 
   if(ESTEIRA_ACTIVE_TAB === 'soc'){
     buildKPIs('est-metaStats', [
-      { label:'Volume Total', value:estFmtInt(ct.SOC+ct['3PL']), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
       { label:'Fanouts', value:String(contagem.SOC+contagem['3PL']), delta:'', trend:'up', type:'', icon:'fa-location-dot' },
       { label:'Fanouts SOC', value:String(contagem.SOC), sub:estFmtInt(ct.SOC)+' pac.', delta:'', trend:'up', type:'', icon:'fa-truck-fast' },
       { label:'Fanouts 3PL', value:String(contagem['3PL']), sub:estFmtInt(ct['3PL'])+' pac.', delta:'', trend:'up', type:'', icon:'fa-truck' },
     ]);
   } else {
     buildKPIs('est-metaStats', [
-      { label:'Volume Total', value:estFmtInt(ct.HUB+ct.XPT), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
       { label:'Fanouts', value:String(contagem.HUB+contagem.XPT), delta:'', trend:'up', type:'', icon:'fa-location-dot' },
       { label:'Fanouts LM Hub', value:String(contagem.HUB), sub:estFmtInt(ct.HUB)+' pac.', delta:'', trend:'up', type:'', icon:'fa-warehouse' },
       { label:'Fanouts XPT', value:String(contagem.XPT), sub:estFmtInt(ct.XPT)+' pac.', delta:'', trend:'up', type:'', icon:'fa-box' },
