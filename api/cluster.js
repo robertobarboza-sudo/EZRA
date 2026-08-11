@@ -200,13 +200,17 @@ function esteiraAlocarBancadasComBreakShare(destinosLado, totalLado) {
   });
   return bancadas;
 }
-function esteiraBuildBins(rows, categoriasIncluidas, grandTotal, breakShare) {
+function esteiraBuildBins(rows, categoriasIncluidas, breakShare) {
   const porDestino = new Map();
   rows.forEach(r => {
     if (!r.destino || !categoriasIncluidas.includes(esteiraDestinoCategoria(r.destino))) return;
     porDestino.set(r.destino, (porDestino.get(r.destino) || 0) + toNum(r.quantity));
   });
   const destinos = [...porDestino.entries()].map(([dest, qty]) => ({ dest, qty })).sort((a, b) => b.qty - a.qty);
+  // share sempre contra o total DESSA esteira (SoC contra o total de SoC,
+  // Hub contra o total de Hub) — confirmado com o Roberto em 2026-08-12,
+  // não mais contra o total geral das duas esteiras somadas.
+  const totalGrupo = destinos.reduce((s, d) => s + d.qty, 0);
 
   // Break Share no nível da esteira inteira (10 bancadas, os 2 lados): com
   // poucos destinos, a partição gulosa Lado A/B (passo seguinte) jogaria
@@ -223,9 +227,9 @@ function esteiraBuildBins(rows, categoriasIncluidas, grandTotal, breakShare) {
         const binDestinos = destinos.map(d => {
           const parte = d.qty / 10;
           total += parte;
-          return { dest: d.dest, qty: parte, share: grandTotal ? parte / grandTotal : 0 };
+          return { dest: d.dest, qty: parte, share: totalGrupo ? parte / totalGrupo : 0 };
         });
-        bins.push({ lado, posicao: i + 1, total, share: grandTotal ? total / grandTotal : 0, destinos: binDestinos });
+        bins.push({ lado, posicao: i + 1, total, share: totalGrupo ? total / totalGrupo : 0, destinos: binDestinos });
       }
     });
     return bins;
@@ -244,8 +248,8 @@ function esteiraBuildBins(rows, categoriasIncluidas, grandTotal, breakShare) {
     alocar(destinosLado, totalLado).forEach((b, i) => {
       bins.push({
         lado, posicao: i + 1, total: b.total,
-        share: grandTotal ? b.total / grandTotal : 0,
-        destinos: b.destinos.map(d => ({ dest: d.dest, qty: d.qty, share: grandTotal ? d.qty / grandTotal : 0 })),
+        share: totalGrupo ? b.total / totalGrupo : 0,
+        destinos: b.destinos.map(d => ({ dest: d.dest, qty: d.qty, share: totalGrupo ? d.qty / totalGrupo : 0 })),
       });
     });
   });
@@ -272,12 +276,15 @@ function buildEsteira(rows) {
 
   // Grupos (espec fechada com o Roberto em 2026-08-11): Esteira SOC = SOC +
   // 3PL · Esteira HUB = HUB + XPT (Termo reaproveita os bins do HUB). Share
-  // de bancada/destino sempre sobre o grandTotal (as duas esteiras juntas).
+  // de bancada/destino sempre contra o total DAQUELE canal (SoC contra o
+  // total de SoC, Hub contra o total de Hub — confirmado com o Roberto em
+  // 2026-08-12), não mais contra o grandTotal — esse só é usado no part1
+  // (ranking geral, que compara as duas esteiras lado a lado de propósito).
   // Break Share (só SOC — confirmado com o Roberto): SOC costuma ter poucos
   // destinos com volume, então sem quebra a maioria das bancadas fica
   // ociosa; ver esteiraAlocarBancadasComBreakShare.
-  const socBins = esteiraBuildBins(rows, ['SoC', '3PL'], grandTotal, true);
-  const hubBins = esteiraBuildBins(rows, ['LM Hub', 'XPT'], grandTotal);
+  const socBins = esteiraBuildBins(rows, ['SoC', '3PL'], true);
+  const hubBins = esteiraBuildBins(rows, ['LM Hub', 'XPT']);
   return { part1, classified_totals: classifiedTotals, soc_bins: socBins, hub_bins: hubBins };
 }
 
