@@ -1724,44 +1724,6 @@
     .jarvis-catalog-slide-icon { font-size: 44px; color: var(--orange); margin-bottom: 14px; }
     .jarvis-catalog-slide-icon .tool-icon { opacity: 1; }
 
-    /* ── Cubo de Dados (Overview) — cards de performance encaixados tipo
-       quebra-cabeça: grid com altura de linha fixa + auto-flow dense, cada
-       card ocupa 1x1/2x1/2x2 células conforme .size-*, preenchendo os
-       buracos automaticamente independente da ordem de renderização. ── */
-    .cubo-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-      grid-auto-rows: 108px;
-      grid-auto-flow: dense;
-      gap: 12px;
-      margin-top: 16px;
-    }
-    .cubo-card {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius-lg); box-shadow: var(--shadow);
-      padding: 14px 16px; display: flex; flex-direction: column;
-      justify-content: space-between; overflow: hidden; position: relative;
-    }
-    .cubo-card.size-sm { grid-column: span 1; grid-row: span 1; }
-    .cubo-card.size-md { grid-column: span 2; grid-row: span 1; }
-    .cubo-card.size-lg { grid-column: span 2; grid-row: span 2; }
-    .cubo-card-icon { position: absolute; top: 12px; right: 14px; font-size: 20px; color: var(--orange); opacity: .35; }
-    .cubo-card-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-muted); padding-right: 26px; }
-    .cubo-card-value { font-weight: 800; color: var(--text); line-height: 1.1; }
-    .cubo-card.size-sm .cubo-card-value { font-size: 22px; }
-    .cubo-card.size-md .cubo-card-value { font-size: 28px; }
-    .cubo-card.size-lg .cubo-card-value { font-size: 42px; }
-    .cubo-card-sub { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
-    .cubo-card.type-success { border: 2px solid var(--green); box-shadow: 0 0 16px rgba(16,185,129,.18); }
-    .cubo-card.type-warning { border: 2px solid var(--amber); box-shadow: 0 0 16px rgba(245,158,11,.18); }
-    .cubo-card.type-danger  { border: 2px solid var(--red);   box-shadow: 0 0 16px rgba(239,68,68,.20); }
-    .cubo-card.type-success .cubo-card-value { color: var(--green); }
-    .cubo-card.type-warning .cubo-card-value { color: var(--amber); }
-    .cubo-card.type-danger  .cubo-card-value { color: var(--red); }
-    .cubo-legend { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-left: auto; }
-    .cubo-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
-    .cubo-legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
-
     /* ── ÁRVORE (DAILY) — porte do arvore_kpis_daily_pulso.html enviado
        pelo Roberto em 2026-08-13. Espelho estático real da planilha Daily
        (KPI_CATALOG/BASE_COLUMNS/SHEET_MIRROR, ~24.800 células, somente
@@ -1949,7 +1911,7 @@
     .est-bancada-card.flipped .est-bancada-front{ display:none; }
     .est-bancada-back{ display:none; }
     .est-bancada-card.flipped .est-bancada-back{ display:flex; }
-    .est-bancada-back-title{ font-size:10px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--stage-accent); margin-bottom:6px; flex:none; }
+    .est-bancada-front-label{ font-size:9px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--text-muted); }
     .est-bancada-back-list{ list-style:none; margin:0; padding:0; flex:1 1 auto; min-height:0; overflow-y:auto; display:flex; flex-direction:column; gap:4px; }
     .est-bancada-back-list li{ display:flex; justify-content:space-between; gap:8px; font-size:11px; padding:3px 0; border-top:1px solid var(--border); }
     .est-bancada-back-list li:first-child{ border-top:none; }
@@ -2843,7 +2805,6 @@
       </div>
       <div class="nav-subgroup" id="navsub-gestao">
         <div class="nav-subitem active" data-subkey="visaogeral" onclick="navSidebarSubpage(this,'gestao','visaogeral','gestao')">Visão Geral</div>
-        <div class="nav-subitem" data-subkey="cubo" onclick="navSidebarSubpage(this,'gestao','cubo','gestao')">Cubo de Dados</div>
       </div>
       <div class="nav-item nav-item-locked" data-section="performance" data-label="Performance">
         <i class="fas fa-chart-line nav-icon"></i><span class="nav-label">Performance</span><i class="fas fa-lock nav-lock-icon"></i>
@@ -3041,11 +3002,6 @@
         </div>
       </div>
 
-      <div class="bkl-tabs" id="gestao-subpage-tabs" style="margin-bottom:16px">
-        <div class="bkl-tab active" id="subtab-visaogeral" onclick="gestaoSwitchSubpage('visaogeral',this)">Visão Geral</div>
-        <div class="bkl-tab" id="subtab-cubo" onclick="gestaoSwitchSubpage('cubo',this)">Cubo de Dados</div>
-      </div>
-
       <div id="gestao-panel-visaogeral">
       <div class="table-toolbar-title" style="margin-top:4px">Resumo</div>
       <div id="ovw-resumo-cards" style="margin-top:8px"></div>
@@ -3114,20 +3070,6 @@
       <div id="ovw-erros" style="margin-top:12px"></div>
       </div>
 
-      <div id="gestao-panel-cubo" style="display:none">
-        <div class="spr-filters">
-          <div class="spr-filter-group">
-            <span style="font-size:11px;color:var(--text-muted);align-self:center">Hora</span>
-            <select class="filter-select" id="cubo-hora-input" onchange="cuboRenderGrid()" style="height:34px"></select>
-          </div>
-          <div class="cubo-legend">
-            <span class="cubo-legend-item"><span class="cubo-legend-dot" style="background:var(--green)"></span>Dentro da meta</span>
-            <span class="cubo-legend-item"><span class="cubo-legend-dot" style="background:var(--amber)"></span>Perto de sair</span>
-            <span class="cubo-legend-item"><span class="cubo-legend-dot" style="background:var(--red)"></span>Fora da meta</span>
-          </div>
-        </div>
-        <div class="cubo-grid" id="cubo-grid"></div>
-      </div>
     </section>
 
     <!-- PERFORMANCE -->
@@ -3384,6 +3326,20 @@
               <label>Hora <select id="est-hora" class="filter-select" onchange="estSetHora()"></select></label>
             </div>
           </div>
+
+          <div class="est-toolbar">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <button type="button" class="btn btn-outline" id="est-flip-all-btn" onclick="estToggleFlipAll()"><i class="fas fa-diagram-project"></i> Ver Balanceamento (todos os cards)</button>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub);font-weight:600">Colaborador
+                <select id="est-colab-input" class="filter-select" onchange="estSetColab(this.value)" style="min-width:220px"><option value="">Selecione um colaborador...</option></select>
+              </label>
+            </div>
+            <div class="est-turno-btns" id="est-colab-mode-btns">
+              <button type="button" class="est-turno-btn active" data-mode="acumulado" onclick="estSetColabMode('acumulado')">Acumulado</button>
+              <button type="button" class="est-turno-btn" data-mode="hora" onclick="estSetColabMode('hora')">Hora</button>
+            </div>
+          </div>
+          <div id="est-colab-panel" style="margin-bottom:16px;display:none"></div>
 
           <div id="est-topCards" style="margin-bottom:16px"></div>
           <div id="est-metaStats" style="margin-bottom:16px"></div>
@@ -5283,7 +5239,6 @@ let TV_ROTATION = null;       // { pages, intervalSec, idx, timer, subpages } qu
 // Páginas com subpáginas — pra rotação do TV Mode poder abrir a subpágina
 // certa de cada uma (pedido do Roberto em 2026-08-10), não só a seção.
 const TV_SUBPAGES = {
-  gestao:   { tabsId:'gestao-subpage-tabs',   switcher:'gestaoSwitchSubpage', options:[{key:'visaogeral',label:'Visão Geral'},{key:'cubo',label:'Cubo de Dados'}] },
   spr:      { tabsId:'pulso-subpage-tabs',    switcher:'pulsoSwitchSubpage',  options:[{key:'outbound',label:'Outbound'},{key:'spr',label:'SPR'},{key:'leftover',label:'Leftover'}] },
   conveyor: { tabsId:'conveyor-subpage-tabs', switcher:'cnvSwitchSubpage',    options:[{key:'performance',label:'Performance'},{key:'esteira',label:'Esteira On-time'}] },
   inbound:  { tabsId:'inbound-subpage-tabs',  switcher:'inboundSwitchSubpage',options:[{key:'lh',label:'Line Haul'},{key:'fm',label:'First Mile'},{key:'triagem',label:'Triagem'}] },
@@ -6737,14 +6692,12 @@ function mkPie(id,labels,data,colors){
 let OVERVIEW_DATA = null;
 let GESTAO_SUBPAGE = 'visaogeral';
 
+// Overview só tem uma subpágina (Visão Geral) desde que o Cubo de Dados
+// saiu do ar em 2026-08-13 — função mantida só pra bater com a assinatura
+// genérica de NAV_SUBPAGE_SWITCHERS (ver navSidebarSubpage).
 function gestaoSwitchSubpage(key, el){
   GESTAO_SUBPAGE = key;
   navSyncSidebarSubitem('gestao', key);
-  document.querySelectorAll('#gestao-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('gestao-panel-visaogeral').style.display = key==='visaogeral' ? '' : 'none';
-  document.getElementById('gestao-panel-cubo').style.display = key==='cubo' ? '' : 'none';
-  if(key==='cubo') cuboRenderGrid();
 }
 
 function renderGestao(){
@@ -6760,153 +6713,15 @@ async function loadOverview(){
     setBadge('gestao', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
     OVERVIEW_DATA = j;
     ovwRenderAll();
-    if(GESTAO_SUBPAGE==='cubo') cuboRenderGrid();
   } catch(err){
     setBadge('gestao', 'error', 'Erro: '+err.message);
     console.error('[overview]', err);
   }
 }
 
-/* ================================================================
-   CUBO DE DADOS — mosaico de cards de performance por hora, dentro
-   do Overview. Reusa OVERVIEW_DATA (já carregado pra página normal),
-   sem endpoint próprio — só lê a serieHoraria de cada bloco na hora
-   escolhida no filtro único.
-================================================================ */
-let CUBO_HORA = null; // null = usa a hora atual (Brasília)
+// Hora atual em Brasília (UTC-3) — usada em várias páginas (Esteira
+// On-time, etc.), não só na antiga Cubo de Dados.
 function cuboHoraAgora(){ return new Date(Date.now() - 3*60*60*1000).getUTCHours(); }
-function cuboEffectiveHora(){ return CUBO_HORA===null ? cuboHoraAgora() : CUBO_HORA; }
-
-function cuboPopulateHoras(){
-  const sel = document.getElementById('cubo-hora-input');
-  if(!sel || sel.options.length) return;
-  const horaAgora = cuboHoraAgora();
-  sel.innerHTML = Array.from({length:24}, (_,h) =>
-    `<option value="${h}">${String(h).padStart(2,'0')}h${h===horaAgora?' (agora)':''}</option>`).join('');
-  sel.value = String(horaAgora);
-}
-
-function cuboCardHtml(c){
-  return `
-    <div class="cubo-card size-${c.size} ${c.type||''}">
-      <i class="fas ${c.icon} cubo-card-icon"></i>
-      <div class="cubo-card-label">${c.label}</div>
-      <div>
-        <div class="cubo-card-value">${c.value}</div>
-        ${c.sub ? `<div class="cubo-card-sub">${c.sub}</div>` : ''}
-      </div>
-    </div>`;
-}
-
-function cuboRenderGrid(){
-  cuboPopulateHoras();
-  const sel = document.getElementById('cubo-hora-input');
-  const grid = document.getElementById('cubo-grid');
-  if(!grid) return;
-  const hora = Number(sel.value);
-  CUBO_HORA = hora;
-  const j = OVERVIEW_DATA;
-  if(!j){ grid.innerHTML = ''; return; }
-  const at = (serie, h) => serie && serie[h] !== undefined && serie[h] !== null ? serie[h] : null;
-  const pct = (real, plan) => (real!==null && plan) ? Math.round(real/plan*100) : null;
-  const n = v => v===null || v===undefined ? '—' : v.toLocaleString('pt-BR');
-  const hh = String(hora).padStart(2,'0')+'h';
-  // Meta de "quanto maior melhor" (% atingimento, % clusterização…) e de
-  // "quanto menor melhor" (tempo de fila, % de backlog envelhecido…) — pedido
-  // do Roberto em 2026-08-06: vermelho fora da meta, amarelo perto de sair,
-  // verde dentro da meta. Faixas definidas com ele por métrica.
-  const statusHigher = (v, good, warn) => v===null||v===undefined ? '' : (v>=good ? 'type-success' : (v>=warn ? 'type-warning' : 'type-danger'));
-  const statusLower  = (v, good, warn) => v===null||v===undefined ? '' : (v<=good ? 'type-success' : (v<=warn ? 'type-warning' : 'type-danger'));
-
-  const cards = [];
-
-  if(j.backlog){
-    cards.push({ size:'lg', icon:'fa-boxes-stacked', label:`Backlog às ${hh}`,
-      value: n(at(j.backlog.serieHoraria?.realizado, hora)), sub:'pacotes na fila' });
-    j.backlog.clusters?.forEach(c => {
-      if(c.label === '>24h' && j.backlog.total){
-        const pctAging = Math.round(c.qtd / j.backlog.total * 100);
-        cards.push({ size:'md', icon:'fa-hourglass-end', label:'Backlog >24h', value: pctAging+'%', sub:`${n(c.qtd)} pacotes · meta ≤5%`, type: statusLower(pctAging, 5, 15) });
-      } else {
-        cards.push({ size:'sm', icon:'fa-hourglass', label:'Backlog '+c.label, value: n(c.qtd), sub:'pacotes' });
-      }
-    });
-    j.backlog.perfis?.forEach(p => cards.push({ size:'sm', icon:'fa-box', label:'Perfil '+p.label, value: n(p.qtd), sub:'pacotes' }));
-  }
-
-  if(j.lineHaul){
-    cards.push({ size:'sm', icon:'fa-truck', label:'LH Previstos', value: n(at(j.lineHaul.serieHoraria?.previstos, hora)), sub:`às ${hh}` });
-    cards.push({ size:'sm', icon:'fa-truck', label:'LH Descarregados', value: n(at(j.lineHaul.serieHoraria?.realizado, hora)), sub:`às ${hh}` });
-    cards.push({ size:'sm', icon:'fa-truck-arrow-right', label:'LH Em Andamento', value: n(j.lineHaul.andamento) });
-    const comFila = (j.lineHaul.porCanal||[]).filter(c => c.tempoFilaMedioMin !== null);
-    if(comFila.length){
-      const media = Math.round(comFila.reduce((s,c) => s + c.tempoFilaMedioMin*c.carros, 0) / comFila.reduce((s,c) => s + c.carros, 0));
-      cards.push({ size:'sm', icon:'fa-hourglass-half', label:'LH Fila Média', value: media+' min', sub:'meta ≤60 min', type: statusLower(media, 60, 120) });
-    }
-  }
-  if(j.firstMile){
-    cards.push({ size:'sm', icon:'fa-truck-ramp-box', label:'FM Descarregados', value: n(at(j.firstMile.serieHoraria?.realizado, hora)), sub:`às ${hh}` });
-    cards.push({ size:'sm', icon:'fa-truck-arrow-right', label:'FM Em Andamento', value: n(j.firstMile.andamento) });
-    const comFila = (j.firstMile.porCanal||[]).filter(c => c.tempoFilaMedioMin !== null);
-    if(comFila.length){
-      const media = Math.round(comFila.reduce((s,c) => s + c.tempoFilaMedioMin*c.carros, 0) / comFila.reduce((s,c) => s + c.carros, 0));
-      cards.push({ size:'sm', icon:'fa-hourglass-half', label:'FM Fila Média', value: media+' min', sub:'meta ≤60 min', type: statusLower(media, 60, 120) });
-    }
-  }
-
-  if(j.asm){
-    const plan = at(j.asm.serieHoraria?.planejado, hora), real = at(j.asm.serieHoraria?.realizado, hora);
-    cards.push({ size:'sm', icon:'fa-user-check', label:'ASM Planejado', value: n(plan), sub:`às ${hh}` });
-    cards.push({ size:'sm', icon:'fa-user-check', label:'ASM Realizado', value: n(real), sub:`às ${hh}` });
-    const p = pct(real, plan);
-    cards.push({ size:'md', icon:'fa-gauge-high', label:'ASM % Atingimento', value: p===null?'—':p+'%', sub:`às ${hh} · meta ≥95%`, type: statusHigher(p, 95, 85) });
-    if(j.asm.picoInducao) cards.push({ size:'sm', icon:'fa-arrow-trend-up', label:'ASM Pico', value: n(j.asm.picoInducao.total), sub:`às ${String(j.asm.picoInducao.hora).padStart(2,'0')}h` });
-    if(j.asm.mediaInducaoPorHora !== null && j.asm.mediaInducaoPorHora !== undefined) cards.push({ size:'sm', icon:'fa-chart-simple', label:'ASM Média/Hora', value: n(j.asm.mediaInducaoPorHora) });
-    if(j.asm.mediaZonasAtivas !== null && j.asm.mediaZonasAtivas !== undefined) cards.push({ size:'sm', icon:'fa-map-location-dot', label:'ASM Zonas Ativas', value: j.asm.mediaZonasAtivas, sub:'média/hora' });
-  }
-  if(j.conveyor){
-    const plan = at(j.conveyor.serieHoraria?.planejado, hora), real = at(j.conveyor.serieHoraria?.realizado, hora);
-    cards.push({ size:'sm', icon:'fa-conveyor-belt', label:'Conveyor Planejado', value: n(plan), sub:`às ${hh}` });
-    cards.push({ size:'sm', icon:'fa-conveyor-belt', label:'Conveyor Realizado', value: n(real), sub:`às ${hh}` });
-    const p = pct(real, plan);
-    cards.push({ size:'md', icon:'fa-gauge-high', label:'Conveyor % Atingimento', value: p===null?'—':p+'%', sub:`às ${hh} · meta ≥95%`, type: statusHigher(p, 95, 85) });
-    if(j.conveyor.picoProcessamento) cards.push({ size:'sm', icon:'fa-arrow-trend-up', label:'Conveyor Pico', value: n(j.conveyor.picoProcessamento.total), sub:`às ${String(j.conveyor.picoProcessamento.hora).padStart(2,'0')}h` });
-    if(j.conveyor.mediaProcessamentoPorHora !== null && j.conveyor.mediaProcessamentoPorHora !== undefined) cards.push({ size:'sm', icon:'fa-chart-simple', label:'Conveyor Média/Hora', value: n(j.conveyor.mediaProcessamentoPorHora) });
-  }
-  if(j.outbound){
-    cards.push({ size:'sm', icon:'fa-truck-loading', label:'Outbound Previstos', value: n(at(j.outbound.serieHoraria?.previstos, hora)), sub:`às ${hh}` });
-    cards.push({ size:'sm', icon:'fa-truck-loading', label:'Outbound Realizados', value: n(at(j.outbound.serieHoraria?.realizado, hora)), sub:`às ${hh}` });
-    if(j.outbound.carrosPrevistos){
-      const taxa = Math.round((j.outbound.carrosRealizados||0) / j.outbound.carrosPrevistos * 100);
-      cards.push({ size:'md', icon:'fa-flag-checkered', label:'Outbound Taxa Conclusão', value: taxa+'%', sub:'meta ≥90%', type: statusHigher(taxa, 90, 75) });
-    }
-    if(j.outbound.pctClusterizacao !== null && j.outbound.pctClusterizacao !== undefined)
-      cards.push({ size:'md', icon:'fa-circle-nodes', label:'% Clusterização', value: j.outbound.pctClusterizacao+'%', sub:'meta ≥95%', type: statusHigher(j.outbound.pctClusterizacao, 95, 85) });
-    if(j.outbound.pacotesNoPiso !== null && j.outbound.pacotesNoPiso !== undefined)
-      cards.push({ size:'sm', icon:'fa-warehouse', label:'Pacotes no Piso', value: n(j.outbound.pacotesNoPiso) });
-    if(j.outbound.saca) cards.push({ size:'sm', icon:'fa-sack-xmark', label:'Sacas Carregadas', value: n(j.outbound.saca.pacotes), sub:`${n(j.outbound.saca.tos)} TO's` });
-    if(j.outbound.scuttle) cards.push({ size:'sm', icon:'fa-dolly', label:'Scuttles Carregados', value: n(j.outbound.scuttle.pacotes), sub:`${n(j.outbound.scuttle.tos)} TO's` });
-  }
-
-  // "Saúde Geral" — card de resumo no topo, contando quantos dos indicadores
-  // com meta definida estão dentro/perto/fora, pra dar uma leitura rápida
-  // antes de entrar card por card (pedido do Roberto em 2026-08-06, "adicione
-  // o que acha pertinente").
-  const comMeta = cards.filter(c => c.type);
-  if(comMeta.length){
-    const okCount = comMeta.filter(c => c.type==='type-success').length;
-    const warnCount = comMeta.filter(c => c.type==='type-warning').length;
-    const dangerCount = comMeta.filter(c => c.type==='type-danger').length;
-    cards.unshift({
-      size:'lg', icon:'fa-heart-pulse', label:'Saúde Geral',
-      value: `${okCount}/${comMeta.length}`,
-      sub: `${okCount} na meta · ${warnCount} perto de sair · ${dangerCount} fora`,
-      type: dangerCount>0 ? 'type-danger' : (warnCount>0 ? 'type-warning' : 'type-success'),
-    });
-  }
-
-  grid.innerHTML = cards.map(cuboCardHtml).join('');
-}
 
 function ovwRenderAll(){
   const j = OVERVIEW_DATA;
@@ -10848,6 +10663,8 @@ async function estLoad(){
       const horasComDado = [...new Set(ESTEIRA_CONVEYOR_ROWS.map(r => r.hora))].filter(h => h >= 0 && h <= 23);
       ESTEIRA_STATE.hora = horasComDado.length ? Math.max(...horasComDado) : cuboHoraAgora();
     }
+    estInitColabSelect();
+    estRenderColabPanel();
     estRenderAll();
   } catch(err){
     console.error('[esteira]', err);
@@ -10956,6 +10773,69 @@ function estRenderTopCards(){
 function estFlipBancada(el, ev){
   if(ev) ev.stopPropagation();
   el.classList.toggle('flipped');
+}
+
+// Botão "virar todos" — alterna TODAS as bancadas de uma vez entre
+// colaboradores (padrão) e balanceamento — pedido do Roberto em
+// 2026-08-13. O estado fica em ESTEIRA_FLIP_ALL pra sobreviver a um
+// re-render (troca de hora/turno não deve resetar a visão escolhida).
+let ESTEIRA_FLIP_ALL = false;
+function estToggleFlipAll(){
+  ESTEIRA_FLIP_ALL = !ESTEIRA_FLIP_ALL;
+  document.querySelectorAll('#est-app .est-bancada-card').forEach(c => c.classList.toggle('flipped', ESTEIRA_FLIP_ALL));
+  const btn = document.getElementById('est-flip-all-btn');
+  if(btn) btn.innerHTML = ESTEIRA_FLIP_ALL
+    ? '<i class="fas fa-users"></i> Ver Colaboradores (todos os cards)'
+    : '<i class="fas fa-diagram-project"></i> Ver Balanceamento (todos os cards)';
+}
+
+// Filtro por colaborador — busca em TODAS as linhas de conveyor_pulso do
+// dia (não só de uma bancada), pra achar a produtividade de uma pessoa
+// específica. Botão Acumulado/Hora alterna entre total do dia e
+// detalhamento hora a hora — pedido do Roberto em 2026-08-13.
+let ESTEIRA_COLAB_SELECIONADO = '';
+let ESTEIRA_COLAB_MODE = 'acumulado';
+function estInitColabSelect(){
+  const el = document.getElementById('est-colab-input');
+  if(!el) return;
+  const nomes = [...new Set(ESTEIRA_CONVEYOR_ROWS.map(r => r.colaborador).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
+  el.innerHTML = '<option value="">Selecione um colaborador...</option>' + nomes.map(n => `<option value="${pulsoEscHtml(n)}">${pulsoEscHtml(n)}</option>`).join('');
+  el.value = ESTEIRA_COLAB_SELECIONADO;
+}
+function estSetColab(nome){
+  ESTEIRA_COLAB_SELECIONADO = nome;
+  estRenderColabPanel();
+}
+function estSetColabMode(mode){
+  ESTEIRA_COLAB_MODE = mode;
+  document.querySelectorAll('#est-colab-mode-btns .est-turno-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+  estRenderColabPanel();
+}
+function estRenderColabPanel(){
+  const panel = document.getElementById('est-colab-panel');
+  if(!panel) return;
+  if(!ESTEIRA_COLAB_SELECIONADO){ panel.style.display = 'none'; panel.innerHTML = ''; return; }
+  panel.style.display = '';
+  const rows = ESTEIRA_CONVEYOR_ROWS.filter(r => r.colaborador === ESTEIRA_COLAB_SELECIONADO);
+  if(!rows.length){ panel.innerHTML = '<div class="switch-hint">Sem dados de produtividade pra esse colaborador hoje.</div>'; return; }
+  const grupos = [...new Set(rows.map(r => r.grupo))].join(', ');
+  const postos = [...new Set(rows.map(r => r.nomeEstacao).filter(Boolean))].join(', ') || '—';
+  if(ESTEIRA_COLAB_MODE === 'acumulado'){
+    const total = rows.reduce((s,r) => s+r.totalProcessamento, 0);
+    buildKPIs('est-colab-panel', [
+      { label:pulsoEscHtml(ESTEIRA_COLAB_SELECIONADO), value:estFmtInt(total), sub:`${grupos} · posto(s): ${postos}`, delta:'', trend:'up', type:'', icon:'fa-user' },
+    ]);
+  } else {
+    const porHora = new Map();
+    rows.forEach(r => porHora.set(r.hora, (porHora.get(r.hora)||0) + r.totalProcessamento));
+    const horas = [...porHora.keys()].sort((a,b) => a-b);
+    panel.innerHTML = `<div class="table-card full" style="margin-top:4px">
+      <div class="table-toolbar-title">${pulsoEscHtml(ESTEIRA_COLAB_SELECIONADO)} <span style="font-weight:400;color:var(--text-muted)">— ${grupos} · posto(s): ${postos}</span></div>
+      <table><thead><tr><th>Hora</th><th class="num">Pacotes</th></tr></thead><tbody>
+        ${horas.map(h => `<tr><td>${String(h).padStart(2,'0')}h</td><td class="num">${estFmtInt(porHora.get(h))}</td></tr>`).join('')}
+      </tbody></table>
+    </div>`;
+  }
 }
 
 function estFmtInt(n){ return Math.round(n).toLocaleString('pt-BR'); }
@@ -11097,17 +10977,20 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint){
       ? `<ul class="est-bancada-back-list">${colaboradores.slice(0,8).map(c => `<li><span class="est-bancada-back-name">${pulsoEscHtml(c.nome||'(sem nome)')}</span><span class="est-bancada-back-qty">${acumulado ? estFmtInt(c.eficiencia)+' pac./h' : estFmtInt(c.total)}</span></li>`).join('')}</ul>`
       : `<p class="est-bancada-back-note">Sem colaboradores registrados nesta bancada no período.</p>`;
 
-    const card = `<div class="est-bancada-card" style="--fill:${((bin.total/maxBancada)*100).toFixed(1)}%" onclick="estFlipBancada(this,event)">
+    // Colaboradores aparecem como padrão (front) — balanceamento/destinos
+    // fica no verso (back) — pedido do Roberto em 2026-08-13. Preserva o
+    // estado do botão "virar todos" (ESTEIRA_FLIP_ALL) ao re-renderizar.
+    const card = `<div class="est-bancada-card${ESTEIRA_FLIP_ALL?' flipped':''}" style="--fill:${((bin.total/maxBancada)*100).toFixed(1)}%" onclick="estFlipBancada(this,event)">
       <div class="est-bancada-front">
+        <div class="est-bancada-top"><span class="est-bancada-tag">${letter}${bin.posicao}</span><span class="est-bancada-front-label">Colaboradores</span></div>
+        ${backList}
+      </div>
+      <div class="est-bancada-back">
         <div class="est-bancada-top"><span class="est-bancada-tag">${letter}${bin.posicao}</span></div>
         <div class="est-bancada-share">${estFmtPct(bin.share,2)}</div>
         <div class="est-bancada-qty">${estFmtInt(bin.total)} vol. · ${bin.destinos.length} destino${bin.destinos.length===1?'':'s'}</div>
         <div class="est-bancada-fill-track"><div class="est-bancada-fill"></div></div>
         <ul class="est-dest-list">${destItems}</ul>
-      </div>
-      <div class="est-bancada-back">
-        <div class="est-bancada-back-title">${letter}${bin.posicao} (${wsCodigo}) · colaboradores</div>
-        ${backList}
       </div>
     </div>`;
     return `<div class="est-slot">${isTop ? prod+conn+card : card+conn+prod}</div>`;
