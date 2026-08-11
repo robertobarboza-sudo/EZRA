@@ -582,22 +582,23 @@ module.exports = async (req, res) => {
   if (req.query.esteira !== undefined) {
     try {
       const { rows: balRows } = await fetchTabByGid(BALANCEAMENTO_SHEET.spreadsheetId, BALANCEAMENTO_SHEET.gid);
+      // Usa TODO o dado disponível na aba, não só o dia mais recente — a
+      // aba tem atualização diária e o dia corrente costuma vir com poucas
+      // linhas (só o que já foi extraído até o momento), o que deixava
+      // esteiras com menos volume (SOC) com pouquíssimos destinos pra
+      // balancear. Confirmado com o Roberto em 2026-08-11: o correto é
+      // agregar todo o histórico disponível, não filtrar por dia.
+      // Só Scuttle/Pallet/Volumoso entram no balanceamento das esteiras —
+      // Saca fica de fora (confirmado com o Roberto em 2026-08-10). Turno
+      // NÃO entra em nenhum filtro/métrica da Esteira On-time (pedido do
+      // Roberto em 2026-08-11 — a coluna `turno` do balanceamento_pulso não
+      // deve influenciar o balanceamento nem nada mais nessa página).
       const datasDisponiveis = [...new Set(balRows.map(r => r.data_ajustada).filter(Boolean))].sort();
-      const dataRef = datasDisponiveis[datasDisponiveis.length - 1] || null;
-      const doDia = dataRef ? balRows.filter(r => r.data_ajustada === dataRef) : balRows;
-      // Só Scuttle/Pallet entram no balanceamento das esteiras — Saca/
-      // Volumoso não passam por essas bancadas (confirmado com o Roberto
-      // em 2026-08-10).
-      // Fanout do balanceamento = total_quantity de dest_corrigido dividido
-      // pelo total de pack_name Scuttle/Pallet/Volumoso (corrigido com o
-      // Roberto em 2026-08-10 — Volumoso também entra, só Saca fica de fora).
-      // Turno NÃO entra em nenhum filtro/métrica da Esteira On-time (pedido
-      // do Roberto em 2026-08-11 — a coluna `turno` do balanceamento_pulso
-      // não deve influenciar o balanceamento nem nada mais nessa página).
-      const doDiaBalanceaveis = doDia.filter(r => r.pack_name === 'Scuttle' || r.pack_name === 'Pallet' || r.pack_name === 'Volumoso');
+      const doDiaBalanceaveis = balRows.filter(r => r.pack_name === 'Scuttle' || r.pack_name === 'Pallet' || r.pack_name === 'Volumoso');
       const esteiraRows = doDiaBalanceaveis.map(r => ({ destino: r.dest_corrigido, quantity: toNum(r.total_quantity) }));
       esteira = buildEsteira(esteiraRows);
-      esteira.dataRef = dataRef;
+      esteira.dataRef = datasDisponiveis[datasDisponiveis.length - 1] || null;
+      esteira.periodo = datasDisponiveis.length ? { inicio: datasDisponiveis[0], fim: datasDisponiveis[datasDisponiveis.length - 1] } : null;
     } catch (err) {
       esteira = { erro: err.message };
     }
