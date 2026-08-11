@@ -1772,6 +1772,9 @@
     .kov-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 14px 12px; box-shadow:var(--shadow); position:relative; overflow:hidden; }
     .kov-card::before{ content:""; position:absolute; inset:0 auto 0 0; width:3px; background:var(--kov-tone); }
     .kov-name{ font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--text-muted); }
+    .kov-info-btn{ cursor:pointer; color:var(--text-muted); opacity:.7; font-size:10.5px; transition:opacity var(--transition), color var(--transition); }
+    .kov-info-btn:hover{ opacity:1; color:var(--orange); }
+    .kov-col-divider{ border-left:1px solid var(--border); }
     .kov-row{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-top:8px; }
     .kov-val{ font-size:28px; font-weight:800; letter-spacing:-.02em; line-height:1; color:var(--kov-tone); }
     .kov-chip{ font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:var(--kov-tone-bg); color:var(--kov-tone); white-space:nowrap; flex:none; }
@@ -3739,8 +3742,7 @@
 
       <div class="spr-filters">
         <div class="spr-filter-group">
-          <select class="filter-select" id="kov-soc-input" onchange="kovSetFilter('soc',this.value)" style="height:34px"></select>
-          <input type="text" class="filter-select" id="kov-q-input" placeholder="Filtrar KPI (ex: SPR)" oninput="kovSetFilter('q',this.value)" style="height:34px;min-width:220px"/>
+          <select class="filter-select" id="kov-kpi-input" onchange="kovSetFilter('kpi',this.value)" style="height:34px;min-width:220px"><option value="">Todos os KPIs</option></select>
         </div>
         <div style="display:flex;gap:10px">
           <div class="pdf-menu-wrap">
@@ -3769,6 +3771,16 @@
         </table>
       </div>
     </section>
+
+    <div class="modal-overlay" id="kov-info-overlay" onclick="if(event.target===this) kovCloseInfo()">
+      <div class="modal" style="max-width:440px">
+        <div class="modal-header">
+          <span class="modal-title" id="kov-info-title"></span>
+          <button class="modal-close" onclick="kovCloseInfo()"><i class="fas fa-xmark"></i></button>
+        </div>
+        <p class="est-sub" id="kov-info-body" style="margin:0"></p>
+      </div>
+    </div>
 
 
     <!-- SCORE CARD -->
@@ -8370,8 +8382,32 @@ const KOV_MOCK = {
     ],
   },
 };
-const KOV_STATE = { soc: null, q: '' };
+const KOV_STATE = { kpi: '' };
 const KOV_TONE = { bad:'red', warn:'amber', ok:'green' };
+// Descrições dos KPIs pro botão (i) — rascunho inicial pra preencher o
+// modal, ainda não validado com o Roberto; ajustar quando confirmado.
+const KOV_KPI_INFO = {
+  'PRODUTIVIDADE PACKED': 'Quantidade de pacotes finalizados (packed) por colaborador, por hora trabalhada.',
+  'PRODUTIVIDADE PACKING': 'Quantidade de pacotes processados na etapa de packing por colaborador, por hora trabalhada.',
+  'REC TO PACK': 'Tempo médio, em horas, entre o recebimento do pacote e a conclusão do packing.',
+  'REC TO HAND': 'Tempo médio, em horas, entre o recebimento do pacote e o handover (repasse) para a próxima etapa.',
+  'SPR': 'Volume de pacotes processados via SPR (Solicitação de Programação de Rota) no período.',
+  'LMH CAP FULFILLMENT': '% de cumprimento da capacidade planejada de recebimento no Last Mile Hub.',
+  'MIS-ROUTING': '% de pacotes roteados incorretamente sobre o total processado no período.',
+  'MIS-SCANNING': '% de pacotes com erro ou ausência de bipagem sobre o total processado.',
+  'QUEBRA DE FIFO': '% de pacotes processados fora da ordem de chegada (First In, First Out).',
+  'LOSS RATE': '% de pacotes extraviados ou perdidos sobre o volume total processado.',
+  'ÍNDICE DE SACAS': 'Proporção de sacas por volume processado — indicador de unitização do fluxo.',
+  'ABSENTEÍSMO': '% de colaboradores ausentes sobre o headcount escalado no período.',
+};
+function kovOpenInfo(nome){
+  document.getElementById('kov-info-title').textContent = nome;
+  document.getElementById('kov-info-body').textContent = KOV_KPI_INFO[nome] || 'Descrição ainda não cadastrada para este KPI.';
+  document.getElementById('kov-info-overlay').classList.add('open');
+}
+function kovCloseInfo(){
+  document.getElementById('kov-info-overlay').classList.remove('open');
+}
 
 // Parser de número pt-BR ("1.001" milhar, "2,7" decimal, "-9,2%") — porte
 // de fmt.num do format.js original (não veio junto com o dashboard.html).
@@ -8394,11 +8430,10 @@ function kovSetFilter(campo, valor){
 }
 
 function kovRenderAll(){
-  const base = KOV_MOCK[KOV_STATE.soc];
+  const base = KOV_MOCK[Object.keys(KOV_MOCK)[0]];
   if(!base) return;
-  const termo = KOV_STATE.q.trim().toUpperCase();
-  const kpis = termo ? base.kpis.filter(k => k.name.includes(termo)) : base.kpis;
-  const detail = termo ? base.detail.filter(b => b.kpi.includes(termo)) : base.detail;
+  const kpis = KOV_STATE.kpi ? base.kpis.filter(k => k.name === KOV_STATE.kpi) : base.kpis;
+  const detail = KOV_STATE.kpi ? base.detail.filter(b => b.kpi === KOV_STATE.kpi) : base.detail;
   const fora = base.kpis.filter(k => !k.good).length;
 
   document.getElementById('kov-summary').textContent = `Performance D-1 · ${base.date} · ${fora} de ${base.kpis.length} KPIs fora do target`;
@@ -8411,8 +8446,9 @@ function kovRenderCards(kpis){
   if(!kpis.length){ el.innerHTML = '<div class="switch-hint">Nenhum KPI encontrado.</div>'; return; }
   el.innerHTML = kpis.map(k => {
     const tone = k.good ? 'green' : 'red';
+    const nomeAttr = pulsoEscHtml(k.name).replace(/'/g, '&#39;');
     return `<article class="kov-card" style="--kov-tone:var(--${tone});--kov-tone-bg:color-mix(in srgb, var(--${tone}) 14%, transparent)">
-      <div class="kov-name">${pulsoEscHtml(k.name)}</div>
+      <div class="kov-name">${pulsoEscHtml(k.name)} <i class="fas fa-circle-info kov-info-btn" onclick="kovOpenInfo('${nomeAttr}')" title="O que é este KPI?"></i></div>
       <div class="kov-row">
         <div class="kov-val">${pulsoEscHtml(k.d1)}</div>
         <span class="kov-chip">${k.good ? 'no target' : 'fora do target'}</span>
@@ -8426,7 +8462,11 @@ function kovRenderCards(kpis){
 function kovRenderTable(days, weeks, detail){
   const thead = document.getElementById('kov-thead');
   const tbody = document.getElementById('kov-tbody');
-  thead.innerHTML = `<tr><th>KPI</th><th>Target</th><th>Tend.</th>${days.map(d=>`<th>${d}</th>`).join('')}${weeks.map(w=>`<th>${w}</th>`).join('')}<th>vs. Meta</th><th>WoW</th><th>Status</th><th>Score</th></tr>`;
+  // Linha de grade fina entre as colunas de data (dias e semanas) — só
+  // estética, separa visualmente cada data — pedido do Roberto em 2026-08-13.
+  const thDay = d => `<th class="kov-col-divider">${d}</th>`;
+  const tdDay = (v,j,i) => `<td class="kov-col-divider"${!i&&!j?' style="font-weight:650"':''}>${pulsoEscHtml(v)}</td>`;
+  thead.innerHTML = `<tr><th>KPI</th><th>Target</th><th>Tend.</th>${days.map(thDay).join('')}${weeks.map(thDay).join('')}<th>vs. Meta</th><th>WoW</th><th>Status</th><th>Score</th></tr>`;
   if(!detail.length){ tbody.innerHTML = `<tr><td colspan="${3+days.length+weeks.length+4}" class="switch-hint" style="text-align:center">Nenhum KPI encontrado.</td></tr>`; return; }
   tbody.innerHTML = detail.map((block, bi) => block.rows.map((r, i) => {
     const tone = KOV_TONE[r[7]] || 'amber';
@@ -8437,8 +8477,8 @@ function kovRenderTable(days, weeks, detail){
       <td>${pulsoEscHtml(i===0 ? block.kpi : r[0])}</td>
       <td>${pulsoEscHtml(block.target)}</td>
       <td>${path ? `<svg class="kov-spark" width="56" height="16" viewBox="0 0 56 16"><path d="${path}" fill="none" stroke="var(--${tone})" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/></svg>` : ''}</td>
-      ${r[1].map((v,j) => `<td${!i&&!j?' style="font-weight:650"':''}>${pulsoEscHtml(v)}</td>`).join('')}
-      ${r[2].map(v => `<td>${pulsoEscHtml(v)}</td>`).join('')}
+      ${r[1].map((v,j) => tdDay(v,j,i)).join('')}
+      ${r[2].map(v => `<td class="kov-col-divider">${pulsoEscHtml(v)}</td>`).join('')}
       <td class="kov-delta ${kovNum(r[3])>=0?'up':'down'}">${pulsoEscHtml(r[3])}</td>
       <td class="kov-delta ${kovNum(r[4])>=0?'up':'down'}">${pulsoEscHtml(r[4])}</td>
       <td><span class="kov-pill">${pulsoEscHtml(r[5])}</span></td>
@@ -8448,15 +8488,12 @@ function kovRenderTable(days, weeks, detail){
 }
 
 function renderKpioverview(){
-  const socs = Object.keys(KOV_MOCK);
-  if(!KOV_STATE.soc) KOV_STATE.soc = socs[0];
-  const socEl = document.getElementById('kov-soc-input');
-  if(socEl){
-    socEl.innerHTML = socs.map(s => `<option value="${s}">${s}</option>`).join('');
-    socEl.value = KOV_STATE.soc;
+  const base = KOV_MOCK[Object.keys(KOV_MOCK)[0]];
+  const kpiEl = document.getElementById('kov-kpi-input');
+  if(kpiEl){
+    kpiEl.innerHTML = '<option value="">Todos os KPIs</option>' + base.kpis.map(k => `<option value="${pulsoEscHtml(k.name)}">${pulsoEscHtml(k.name)}</option>`).join('');
+    kpiEl.value = KOV_STATE.kpi;
   }
-  const qEl = document.getElementById('kov-q-input');
-  if(qEl) qEl.value = KOV_STATE.q;
   kovRenderAll();
   setBadge('kpioverview','ok','Mock — aguardando planilha');
 }
