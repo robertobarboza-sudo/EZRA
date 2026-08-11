@@ -591,11 +591,10 @@ module.exports = async (req, res) => {
       // Fanout do balanceamento = total_quantity de dest_corrigido dividido
       // pelo total de pack_name Scuttle/Pallet/Volumoso (corrigido com o
       // Roberto em 2026-08-10 — Volumoso também entra, só Saca fica de fora).
-      let doDiaBalanceaveis = doDia.filter(r => r.pack_name === 'Scuttle' || r.pack_name === 'Pallet' || r.pack_name === 'Volumoso');
-      // Filtro opcional de turno (balanceamento_pulso tem coluna `turno`) —
-      // pedido do Roberto em 2026-08-10, botões T1/T2/T3 na Esteira On-time.
-      const turnos = parseCSV(req.query.turno);
-      if (turnos.length) doDiaBalanceaveis = doDiaBalanceaveis.filter(r => turnos.includes(r.turno));
+      // Turno NÃO entra em nenhum filtro/métrica da Esteira On-time (pedido
+      // do Roberto em 2026-08-11 — a coluna `turno` do balanceamento_pulso
+      // não deve influenciar o balanceamento nem nada mais nessa página).
+      const doDiaBalanceaveis = doDia.filter(r => r.pack_name === 'Scuttle' || r.pack_name === 'Pallet' || r.pack_name === 'Volumoso');
       const esteiraRows = doDiaBalanceaveis.map(r => ({ destino: r.dest_corrigido, quantity: toNum(r.total_quantity) }));
       esteira = buildEsteira(esteiraRows);
       esteira.dataRef = dataRef;

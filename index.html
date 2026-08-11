@@ -1782,10 +1782,6 @@
     .est-stage.active{ display:block; }
     .est-stage-head{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 20px; margin-bottom:16px; box-shadow:var(--shadow); display:flex; flex-wrap:wrap; gap:20px; align-items:center; justify-content:space-between; }
     .est-toolbar{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:12px 16px; margin-bottom:16px; box-shadow:var(--shadow); }
-    .est-turno-btns{ display:flex; gap:6px; flex-wrap:wrap; }
-    .est-turno-btn{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); font-size:12px; font-weight:600; padding:7px 13px; border-radius:var(--radius); cursor:pointer; transition:background var(--transition), color var(--transition), border-color var(--transition); }
-    .est-turno-btn:hover{ border-color:var(--orange); }
-    .est-turno-btn.active{ background:var(--orange); border-color:var(--orange); color:#fff; }
     .est-hora-range{ display:flex; align-items:center; gap:14px; }
     .est-hora-range label{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-sub); font-weight:600; }
     .est-hora-range select{ width:80px; }
@@ -3255,12 +3251,6 @@
           </div>
 
           <div class="est-toolbar">
-            <div class="est-turno-btns" id="est-turno-btns">
-              <button type="button" class="est-turno-btn active" data-turno="" onclick="estSetTurno('')">Todos os turnos</button>
-              <button type="button" class="est-turno-btn" data-turno="T1" onclick="estSetTurno('T1')">T1</button>
-              <button type="button" class="est-turno-btn" data-turno="T2" onclick="estSetTurno('T2')">T2</button>
-              <button type="button" class="est-turno-btn" data-turno="T3" onclick="estSetTurno('T3')">T3</button>
-            </div>
             <div class="est-hora-range">
               <label>Hora <select id="est-hora" class="filter-select" onchange="estSetHora()"></select></label>
             </div>
@@ -10262,19 +10252,17 @@ function estWsCodigo(prefix, letter, sideLetterEsq, posicao){
   const num = (letter === sideLetterEsq ? posicao : posicao + 5);
   return ESTEIRA_WS_PREFIXO[prefix] + String(num).padStart(2, '0');
 }
-// turno = '' (todos) | 'T1' | 'T2' | 'T3'; hora = null (acumulado, dia
-// inteiro) ou 0-23 (hora específica) — pedido do Roberto em 2026-08-11,
-// substituindo o range De/Até por um único seletor. Default = hora atual.
-// Selecionar um turno seta a hora automaticamente pro início daquele turno.
-const ESTEIRA_TURNO_HORA_INICIO = { T1: 6, T2: 14, T3: 22 };
-const ESTEIRA_STATE = { turno: '', hora: null };
+// hora = null (acumulado, dia inteiro) ou 0-23 (hora específica) — pedido
+// do Roberto em 2026-08-11, substituindo o range De/Até por um único
+// seletor. Default = hora atual. Turno NÃO entra em nenhum filtro/métrica
+// da Esteira On-time (pedido do Roberto em 2026-08-11 — a coluna `turno`
+// não deve influenciar nada aqui, nem balanceamento nem performance).
+const ESTEIRA_STATE = { hora: null };
 
 async function estLoad(){
   try {
-    const p = new URLSearchParams({ esteira: '1' });
-    if(ESTEIRA_STATE.turno) p.set('turno', ESTEIRA_STATE.turno);
     const [clusterRes, cnvRes] = await Promise.all([
-      fetch('/api/cluster?'+p.toString(), { cache:'no-store' }),
+      fetch('/api/cluster?esteira=1', { cache:'no-store' }),
       fetch('/api/conveyor', { cache:'no-store' }),
     ]);
     const j = await clusterRes.json();
@@ -10301,13 +10289,6 @@ async function estLoad(){
   }
 }
 
-function estSetTurno(turno){
-  ESTEIRA_STATE.turno = turno;
-  if(turno) ESTEIRA_STATE.hora = ESTEIRA_TURNO_HORA_INICIO[turno]; // seta a hora pro início do turno — pedido do Roberto em 2026-08-11
-  document.querySelectorAll('#est-turno-btns .est-turno-btn').forEach(b => b.classList.toggle('active', b.dataset.turno === turno));
-  estLoad(); // turno também filtra o balanceamento (balanceamento_pulso tem turno) — precisa recarregar do servidor
-}
-
 function estSetHora(){
   const val = document.getElementById('est-hora').value;
   ESTEIRA_STATE.hora = val === '' ? null : Number(val);
@@ -10322,19 +10303,15 @@ function estInitHoraSelects(){
   ESTEIRA_HORA_SELECTS_INIT = true;
 }
 
-// Linhas de conveyor_pulso (dia operacional atual) filtradas por turno +
-// hora selecionados — alimenta os cards de performance do topo e o "Prod."
-// de cada bancada. Turno também filtrado aqui pro lado da performance (o
-// turno do balanceamento já vem filtrado do servidor).
+// Linhas de conveyor_pulso (dia operacional atual) filtradas pela hora
+// selecionada — alimenta os cards de performance do topo e o "Prod." de
+// cada bancada.
 function estRowsFiltradas(){
-  return ESTEIRA_CONVEYOR_ROWS.filter(r =>
-    (!ESTEIRA_STATE.turno || r.turno === ESTEIRA_STATE.turno) &&
-    (ESTEIRA_STATE.hora === null || r.hora === ESTEIRA_STATE.hora)
-  );
+  return ESTEIRA_CONVEYOR_ROWS.filter(r => ESTEIRA_STATE.hora === null || r.hora === ESTEIRA_STATE.hora);
 }
 
 // Performance real da esteira (grupo P1/P2/P4 em conveyor_pulso), já
-// filtrada pelo turno/range de hora selecionados — agrupada por Nome WS
+// filtrada pela hora selecionada — agrupada por Nome WS
 // (coluna real da planilha) pra alimentar o card "Prod." de cada bancada
 // com o total PRODUZIDO NAQUELA BANCADA, não mais uma estimativa por share
 // (pedido do Roberto em 2026-08-11). `porWs` também guarda os colaboradores
@@ -10365,7 +10342,7 @@ function estPerfDados(prefix){
 // Os 8 cards do topo, nessa ordem — pedido do Roberto em 2026-08-10.
 // "Vol. Acumulado" e "Vol. Processado Atual" são âncoras fixas (sempre
 // 6h-agora / hora atual, das 3 esteiras somadas), não mudam com o filtro
-// de turno/hora — os outros 6 refletem o período selecionado no filtro.
+// de hora — os outros 6 refletem a hora selecionada no filtro.
 function estRenderTopCards(){
   const el = document.getElementById('est-topCards');
   if(!el) return;
