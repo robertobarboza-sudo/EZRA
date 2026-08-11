@@ -3198,6 +3198,7 @@
         <div class="spr-filter-group">
           <input type="date" class="filter-select pulso-date-input" id="cnv-date-input" onchange="cnvSetFilter('date',this.value)" style="color-scheme:dark"/>
           <select class="filter-select" id="cnv-hora-input" onchange="cnvSetFilter('hora',this.value)" style="height:34px"></select>
+          <select class="filter-select" id="cnv-turno-input" onchange="cnvSetFilter('turno',this.value)" style="height:34px"><option value="">Todos os turnos</option><option value="T1">T1</option><option value="T2">T2</option><option value="T3">T3</option></select>
           <select class="filter-select" id="cnv-grupo-input" onchange="cnvSetFilter('grupo',this.value)" style="height:34px"><option value="">Todos os grupos</option></select>
           <select class="filter-select" id="cnv-estacao-input" onchange="cnvSetFilter('estacao',this.value)" style="height:34px"><option value="">Todos os postos</option></select>
         </div>
@@ -3277,7 +3278,7 @@
 
           <section class="est-stage active" data-esteira="soc">
             <div class="est-stage-head">
-              <div class="est-title-block"><h2>Esteira SOC</h2><p class="est-composition">Destinos <b>SoC</b></p></div>
+              <div class="est-title-block"><h2>Esteira SOC</h2><p class="est-composition">Destinos <b>SoC</b> + <b>3PL</b></p></div>
               <div class="est-balance-block" id="est-balanceSOC"></div>
             </div>
             <div class="est-stage-body">
@@ -3304,7 +3305,7 @@
 
           <section class="est-stage" data-esteira="hub">
             <div class="est-stage-head">
-              <div class="est-title-block"><h2>Esteira HUB</h2><p class="est-composition">Destinos <b>LM Hub</b> + <b>XPT</b> + <b>3PL</b></p></div>
+              <div class="est-title-block"><h2>Esteira HUB</h2><p class="est-composition">Destinos <b>LM Hub</b> + <b>XPT</b></p></div>
               <div class="est-balance-block" id="est-balanceHUB"></div>
             </div>
             <div class="est-stage-body">
@@ -10219,7 +10220,7 @@ function asmOpenPipboy(){
 /* ================================================================
    CONVEYOR — performance por grupo de estação, hora a hora (aba conveyor_pulso)
 ================================================================ */
-const CONVEYOR_STATE = { date: null, hora: null, grupo: '', estacao: '', tableMode: 'acumulado' };
+const CONVEYOR_STATE = { date: null, hora: null, grupo: '', estacao: '', turno: '', tableMode: 'acumulado' };
 const CNV_GROUP_COLORS = { 'OBA/OBB': '#ee4d2d', 'OBC/OBD': '#f5a623', 'Termoplástica': '#5d8dff', 'Esteira A': '#10b981', 'Esteira B': '#06b6d4', 'Tintas': '#ec4899', 'TO-Audit': '#eab308', 'Non-TO': '#a855f7' };
 const CNV_SORT_COLS = ['opsId','colaborador','grupo','estacao','turno','totalProcessamento'];
 const CNV_SORT = { key: 'totalProcessamento', dir: -1 }; // default: maior pro menor
@@ -10681,7 +10682,10 @@ function cnvRenderAll(){
 // não o próprio filtro de grupo (cada grupo sempre aparece, clicável).
 function cnvRowsForGroupCards(){
   if(!CONVEYOR_DATA) return [];
-  return CONVEYOR_DATA.rows.filter(r => !CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao);
+  return CONVEYOR_DATA.rows.filter(r =>
+    (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao) &&
+    (!CONVEYOR_STATE.turno || r.turno === CONVEYOR_STATE.turno)
+  );
 }
 
 // Tabela: modo "acumulado" soma hora <= h; modo "hora" pega só a hora h;
@@ -10693,7 +10697,8 @@ function cnvFilteredRows(){
   return CONVEYOR_DATA.rows.filter(r =>
     (diaTodo || (CONVEYOR_STATE.tableMode === 'hora' ? r.hora === h : r.hora <= h)) &&
     (!CONVEYOR_STATE.grupo || r.grupo === CONVEYOR_STATE.grupo) &&
-    (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao)
+    (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao) &&
+    (!CONVEYOR_STATE.turno || r.turno === CONVEYOR_STATE.turno)
   );
 }
 
@@ -10702,7 +10707,8 @@ function cnvRowsForChart(){
   if(!CONVEYOR_DATA) return [];
   return CONVEYOR_DATA.rows.filter(r =>
     (!CONVEYOR_STATE.grupo || r.grupo === CONVEYOR_STATE.grupo) &&
-    (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao)
+    (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao) &&
+    (!CONVEYOR_STATE.turno || r.turno === CONVEYOR_STATE.turno)
   );
 }
 
