@@ -1762,6 +1762,42 @@
     .cubo-legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-muted); }
     .cubo-legend-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
 
+    /* ── OVERVIEW KPIS — porte do dashboard.html (React) enviado pelo
+       Roberto em 2026-08-12, reescrito em JS puro (sem dependência de
+       React/Babel via CDN, fora do padrão do resto do site) e reskinned
+       pra usar as mesmas variáveis de tema (var(--surface)/--text/--border
+       etc.) em vez da paleta laranja isolada do mockup original. Dados
+       ainda mock (embutidos em KOV_MOCK) — aguardando a planilha real. */
+    .kov-cards{ display:grid; gap:12px; grid-template-columns:repeat(auto-fill, minmax(228px, 1fr)); }
+    .kov-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:14px 14px 12px; box-shadow:var(--shadow); position:relative; overflow:hidden; }
+    .kov-card::before{ content:""; position:absolute; inset:0 auto 0 0; width:3px; background:var(--kov-tone); }
+    .kov-name{ font-size:11px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--text-muted); }
+    .kov-row{ display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin-top:8px; }
+    .kov-val{ font-size:28px; font-weight:800; letter-spacing:-.02em; line-height:1; color:var(--kov-tone); }
+    .kov-chip{ font-size:11px; font-weight:700; padding:3px 8px; border-radius:999px; background:var(--kov-tone-bg); color:var(--kov-tone); white-space:nowrap; flex:none; }
+    .kov-meta{ display:flex; justify-content:space-between; gap:8px; margin-top:10px; padding-top:9px; border-top:1px solid var(--border); font-size:12px; color:var(--text-muted); }
+    .kov-meta b{ color:var(--text); font-weight:600; }
+    .kov-turnos{ margin-top:9px; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+    .kov-turnos div{ display:flex; justify-content:space-between; align-items:baseline; gap:8px; padding:4px 9px; font-size:12px; font-weight:600; background:var(--surface-2); }
+    .kov-turnos div+div{ border-top:1px solid var(--border); }
+    .kov-turnos span{ color:var(--text-muted); font-size:10px; font-weight:700; letter-spacing:.06em; }
+    .kov-table-wrap{ overflow:auto; max-height:70vh; }
+    .kov-table{ border-collapse:separate; border-spacing:0; width:100%; font-size:12.5px; }
+    .kov-table th, .kov-table td{ padding:8px 11px; text-align:right; white-space:nowrap; border-bottom:1px solid var(--border); }
+    .kov-table th{ position:sticky; top:0; z-index:2; background:var(--surface-2); color:var(--text-muted); font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; }
+    .kov-table th:first-child, .kov-table td:first-child{ text-align:left; position:sticky; left:0; z-index:1; background:var(--surface); }
+    .kov-table th:first-child{ z-index:3; background:var(--surface-2); }
+    .kov-table tbody tr:hover td{ background:var(--surface-2); }
+    .kov-table tr.kov-lead td:first-child{ font-weight:650; color:var(--text); }
+    .kov-table tr.kov-child td:first-child{ color:var(--text-muted); padding-left:24px; font-size:11.5px; }
+    .kov-table tr.kov-group td{ border-top:2px solid var(--border); }
+    .kov-pill{ display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:999px; background:var(--kov-tone-bg); color:var(--kov-tone); }
+    .kov-delta.up{ color:var(--red); } .kov-delta.down{ color:var(--green); }
+    .kov-score{ display:flex; align-items:center; gap:7px; justify-content:flex-end; }
+    .kov-bar{ width:40px; height:5px; border-radius:3px; background:var(--surface-3); overflow:hidden; }
+    .kov-bar i{ display:block; height:100%; background:var(--kov-tone); }
+    .kov-spark{ display:block; }
+
     /* ── ESTEIRA ON-TIME (Conveyor) — porte do mockup do Roberto
        ("esteira.html"). Reskinned pra usar as MESMAS variáveis/tema do
        resto do PULSO (var(--surface)/--text/--border/--orange etc., a
@@ -2806,8 +2842,8 @@
       <div class="nav-item nav-item-locked" data-section="arvore" data-label="Árvore (daily)">
         <i class="fas fa-tree nav-icon"></i><span class="nav-label">Árvore (daily)</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
-      <div class="nav-item nav-item-locked" data-section="kpioverview" data-label="Overview KPIs">
-        <span class="nav-icon-composite"><i class="fas fa-gauge-simple-high icon-base" style="font-size:14px"></i><span class="icon-badge" style="font-size:6px;padding:0 1.5px">KPI</span></span><span class="nav-label">Overview KPIs</span><i class="fas fa-lock nav-lock-icon"></i>
+      <div class="nav-item" data-section="kpioverview" data-label="Overview KPIs" onclick="navigateTo('kpioverview',this)">
+        <span class="nav-icon-composite"><i class="fas fa-gauge-simple-high icon-base" style="font-size:14px"></i><span class="icon-badge" style="font-size:6px;padding:0 1.5px">KPI</span></span><span class="nav-label">Overview KPIs</span>
       </div>
     </div>
 
@@ -3692,31 +3728,19 @@
     </section>
 
     <!-- OVERVIEW KPIs -->
-        <section id="section-kpioverview" class="section">
+    <section id="section-kpioverview" class="section">
       <div class="section-header" id="section-kpioverview-header">
         <!-- header restored below by JS -->
       </div>
-      <div id="section-kpioverview-wip" style="
-        display:flex;flex-direction:column;align-items:center;justify-content:center;
-        min-height:420px;text-align:center;gap:20px;padding:40px">
-        <div style="
-          width:90px;height:90px;border-radius:50%;
-          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
-          display:flex;align-items:center;justify-content:center;font-size:36px">
-          🚧
-        </div>
-        <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Overview KPIs</div>
-          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
-            Esta seção está em construção.<br/>
-            Os dados reais serão integrados via Google Sheets.
-          </div>
-        </div>
-        <div style="display:flex;align-items:center;gap:10px;
-          background:var(--surface);border:1px solid var(--border);
-          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
-          <i class="fas fa-database" style="color:var(--orange)"></i>
-          Aguardando conexão com a fonte de dados
+      <div class="switch-hint">
+        <i class="fas fa-circle-info"></i>
+        Dados mock para demonstração — integração com a planilha real ainda pendente.
+      </div>
+
+      <div class="spr-filters">
+        <div class="spr-filter-group">
+          <select class="filter-select" id="kov-soc-input" onchange="kovSetFilter('soc',this.value)" style="height:34px"></select>
+          <input type="text" class="filter-select" id="kov-q-input" placeholder="Filtrar KPI (ex: SPR)" oninput="kovSetFilter('q',this.value)" style="height:34px;min-width:220px"/>
         </div>
         <div style="display:flex;gap:10px">
           <div class="pdf-menu-wrap">
@@ -3732,6 +3756,17 @@
           </div>
           <button class="dl-btn dl-btn-csv" onclick="downloadCSV('kpioverview')"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
+      </div>
+
+      <div class="table-toolbar-title" id="kov-summary" style="margin-top:16px"></div>
+      <div class="kov-cards" id="kov-cards" style="margin-top:12px"></div>
+
+      <div class="table-toolbar-title" style="margin-top:24px">Histórico e comparativos</div>
+      <div class="table-card full kov-table-wrap" style="margin-top:12px">
+        <table class="kov-table">
+          <thead id="kov-thead"></thead>
+          <tbody id="kov-tbody"></tbody>
+        </table>
       </div>
     </section>
 
@@ -8278,8 +8313,152 @@ function renderArvore(){
   setBadge('arvore','ok','Em Construção');
 }
 
+/* ================================================================
+   OVERVIEW KPIS — porte do dashboard.html (React) enviado pelo Roberto
+   em 2026-08-12, reescrito em JS puro (ver nota no CSS acima). Dados
+   ainda MOCK — sem fonte real conectada ainda.
+================================================================ */
+const KOV_MOCK = {
+  'SOC-RJ1': {
+    date: '22/07/2025',
+    kpis: [
+      { name:'PRODUTIVIDADE PACKED', target:'820',   w0:'210',   d1:'789',   good:false, t:['1.001','921','721'] },
+      { name:'REC TO PACK',          target:'2,7',   w0:'4,0',   d1:'2,3',   good:true,  t:['2,1','2,5','2,3'] },
+      { name:'REC TO HAND',          target:'15,6',  w0:'17,1',  d1:'11,2',  good:true,  t:['14,9','10,0','10,9'] },
+      { name:'SPR',                  target:'5.500', w0:'3.839', d1:'4.094', good:false, t:['4.408','5.229','3.011'] },
+      { name:'LMH CAP FULFILLMENT',  target:'99,0%', w0:'93,7%', d1:'82,4%', good:false, t:['43,1%','88,7%','110,7%'] },
+      { name:'MIS-ROUTING',          target:'0,1%',  w0:'0,5%',  d1:'0,63%', good:false, t:['0,58%','0,48%','0,76%'] },
+      { name:'MIS-SCANNING',         target:'0,3%',  w0:'0,6%',  d1:'0,41%', good:false, t:['0,54%','0,03%','0,22%'] },
+      { name:'QUEBRA DE FIFO',       target:'1,0%',  w0:'0,6%',  d1:'0,24%', good:true,  t:['0,41%','0,67%','0,06%'] },
+      { name:'LOSS RATE',            target:'0,017%',w0:'0,04%', d1:'0,04%', good:true,  t:['0,04%','0,03%','0,07%'] },
+      { name:'ÍNDICE DE SACAS',      target:'3,0',   w0:'1,6',   d1:'2,01',  good:false, t:['1,66','2,82','1,32'] },
+      { name:'ABSENTEÍSMO',          target:'5,3%',  w0:'6,0%',  d1:'4,94%', good:true,  t:['5,36%','7,66%','2,58%'] },
+    ],
+    days: ['22/7','21/7','20/7','19/7','18/7','17/7','16/7'],
+    weeks: ['W30','W29','W28'],
+    detail: [
+      { kpi:'PRODUTIVIDADE PACKED', target:'820', rows:[
+        ['', ['789','468','797','658','743','804','767'], ['210','434','418'], '-74,4%','-51,7%','FORA DO TARGET, PIORANDO','0,6','bad'],
+        ['T1', ['1.001','389','18.710','808','1.078','1.129','1.133'], ['356','606','579'], '-56,6%','-41,3%','FORA DO TARGET, PIORANDO','1,0','bad'],
+        ['T2', ['921','461','393','744','751','828','820'], ['158','444','395'], '-80,8%','-64,5%','FORA DO TARGET, PIORANDO','0,4','bad'],
+        ['T3', ['721','532','1.856','656','694','718','666'], ['198','400','423'], '-75,9%','-50,6%','FORA DO TARGET, PIORANDO','0,5','bad'],
+      ]},
+      { kpi:'PRODUTIVIDADE PACKING', target:'820', rows:[
+        ['', ['656','392','724','584','627','679','635'], ['174','367','354'], '-78,8%','-52,6%','FORA DO TARGET, PIORANDO','0,0','bad'],
+        ['T1', ['842','388','16.105','757','940','947','984'], ['300','533','487'], '-63,4%','-43,7%','FORA DO TARGET, PIORANDO','0,0','bad'],
+        ['T2', ['738','417','321','646','618','723','610'], ['130','362','334'], '-84,2%','-64,2%','FORA DO TARGET, PIORANDO','0,0','bad'],
+        ['T3', ['615','371','1.882','568','585','588','586'], ['160','336','360'], '-80,5%','-52,4%','FORA DO TARGET, PIORANDO','0,0','bad'],
+      ]},
+      { kpi:'REC TO PACK', target:'2,7', rows:[
+        ['', ['2,3','11,6','6,5','4,2','2,6','2,8','2,5'], ['4,0','3,4','3,4'], '48,5%','16,3%','FORA DO TARGET, PIORANDO','1,2','bad'],
+        ['T1', ['2,1','10,5','6,3','3,9','2,2','2,2','2,2'], ['3,0','2,9','3,1'], '12,8%','6,2%','FORA DO TARGET, PIORANDO','2,0','bad'],
+        ['T2', ['2,5','14,6','5,3','3,9','2,4','2,9','2,6'], ['5,4','3,1','3,7'], '98,5%','70,3%','FORA DO TARGET, PIORANDO','0,0','bad'],
+        ['T3', ['2,3','9,3','7,6','4,8','3,4','3,4','2,9'], ['4,0','4,4','3,4'], '48,7%','-9,2%','FORA DO TARGET, MELHORANDO','1,1','warn'],
+      ]},
+      { kpi:'REC TO HAND', target:'15,58', rows:[
+        ['', ['11,2','34,6','27,2','13,8','11,9','11,7','12,6'], ['17,1','14,4','13,2'], '10,0%','19,3%','FORA DO TARGET, PIORANDO','0,7','bad'],
+        ['T1', ['14,9','24,4','24,9','12,0','10,8','10,7','10,3'], ['13,9','8,9','10,8'], '-10,5%','56,5%','NO TARGET, PIORANDO','0,7','warn'],
+        ['T2', ['10,0','30,2','25,2','12,8','11,5','9,9','12,0'], ['15,3','15,3','15,7'], '-1,9%','0,2%','NO TARGET, PIORANDO','0,7','warn'],
+        ['T3', ['10,9','41,5','29,5','17,0','12,7','13,6','13,9'], ['21,1','27,5','20,3'], '35,4%','-23,3%','FORA DO TARGET, MELHORANDO','0,5','warn'],
+      ]},
+      { kpi:'SPR', target:'5.500', rows:[
+        ['', ['4.094','3.134','3.792','4.314','4.605','4.959','5.072'], ['3.839','4.440','4.866'], '-30,2%','-13,5%','FORA DO TARGET, PIORANDO','0,5','bad'],
+        ['T1', ['4.408','3.348','4.137','5.554','5.280','5.528','6.081'], ['4.023','4.974','5.524'], '-26,9%','-19,1%','FORA DO TARGET, PIORANDO','0,5','bad'],
+        ['T2', ['5.229','2.952','3.694','4.120','4.691','5.102','5.299'], ['4.253','4.611','5.071'], '-22,7%','-7,8%','FORA DO TARGET, PIORANDO','0,6','bad'],
+        ['T3', ['3.011','3.215','3.843','4.136','4.321','4.636','4.564'], ['3.531','4.112','4.409'], '-35,8%','-14,1%','FORA DO TARGET, PIORANDO','0,5','bad'],
+      ]},
+    ],
+  },
+};
+const KOV_STATE = { soc: null, q: '' };
+const KOV_TONE = { bad:'red', warn:'amber', ok:'green' };
+
+// Parser de número pt-BR ("1.001" milhar, "2,7" decimal, "-9,2%") — porte
+// de fmt.num do format.js original (não veio junto com o dashboard.html).
+function kovNum(s){
+  if(s == null) return NaN;
+  return parseFloat(String(s).replace(/\./g,'').replace(',','.').replace('%','').trim());
+}
+// Sparkline SVG path a partir de uma série — porte de fmt.spark.
+function kovSparkPath(series, w, h){
+  const nums = series.map(kovNum).filter(n => !isNaN(n));
+  if(nums.length < 2) return '';
+  const min = Math.min(...nums), max = Math.max(...nums), range = (max-min) || 1;
+  const stepX = w / (nums.length-1);
+  return nums.map((n,i) => `${i===0?'M':'L'}${(i*stepX).toFixed(1)},${(h-((n-min)/range)*h).toFixed(1)}`).join(' ');
+}
+
+function kovSetFilter(campo, valor){
+  KOV_STATE[campo] = valor;
+  kovRenderAll();
+}
+
+function kovRenderAll(){
+  const base = KOV_MOCK[KOV_STATE.soc];
+  if(!base) return;
+  const termo = KOV_STATE.q.trim().toUpperCase();
+  const kpis = termo ? base.kpis.filter(k => k.name.includes(termo)) : base.kpis;
+  const detail = termo ? base.detail.filter(b => b.kpi.includes(termo)) : base.detail;
+  const fora = base.kpis.filter(k => !k.good).length;
+
+  document.getElementById('kov-summary').textContent = `Performance D-1 · ${base.date} · ${fora} de ${base.kpis.length} KPIs fora do target`;
+  kovRenderCards(kpis);
+  kovRenderTable(base.days, base.weeks, detail);
+}
+
+function kovRenderCards(kpis){
+  const el = document.getElementById('kov-cards');
+  if(!kpis.length){ el.innerHTML = '<div class="switch-hint">Nenhum KPI encontrado.</div>'; return; }
+  el.innerHTML = kpis.map(k => {
+    const tone = k.good ? 'green' : 'red';
+    return `<article class="kov-card" style="--kov-tone:var(--${tone});--kov-tone-bg:color-mix(in srgb, var(--${tone}) 14%, transparent)">
+      <div class="kov-name">${pulsoEscHtml(k.name)}</div>
+      <div class="kov-row">
+        <div class="kov-val">${pulsoEscHtml(k.d1)}</div>
+        <span class="kov-chip">${k.good ? 'no target' : 'fora do target'}</span>
+      </div>
+      <div class="kov-meta"><span>Target <b>${pulsoEscHtml(k.target)}</b></span><span>W-0 <b>${pulsoEscHtml(k.w0)}</b></span></div>
+      <div class="kov-turnos">${k.t.map((v,i) => `<div><span>T${i+1}</span>${pulsoEscHtml(v)}</div>`).join('')}</div>
+    </article>`;
+  }).join('');
+}
+
+function kovRenderTable(days, weeks, detail){
+  const thead = document.getElementById('kov-thead');
+  const tbody = document.getElementById('kov-tbody');
+  thead.innerHTML = `<tr><th>KPI</th><th>Target</th><th>Tend.</th>${days.map(d=>`<th>${d}</th>`).join('')}${weeks.map(w=>`<th>${w}</th>`).join('')}<th>vs. Meta</th><th>WoW</th><th>Status</th><th>Score</th></tr>`;
+  if(!detail.length){ tbody.innerHTML = `<tr><td colspan="${3+days.length+weeks.length+4}" class="switch-hint" style="text-align:center">Nenhum KPI encontrado.</td></tr>`; return; }
+  tbody.innerHTML = detail.map((block, bi) => block.rows.map((r, i) => {
+    const tone = KOV_TONE[r[7]] || 'amber';
+    const score = kovNum(r[6]) || 0;
+    const cls = [i ? 'kov-child' : 'kov-lead', (!i && bi) ? 'kov-group' : ''].join(' ');
+    const path = kovSparkPath(r[1], 56, 16);
+    return `<tr class="${cls}" style="--kov-tone:var(--${tone});--kov-tone-bg:color-mix(in srgb, var(--${tone}) 14%, transparent)">
+      <td>${pulsoEscHtml(i===0 ? block.kpi : r[0])}</td>
+      <td>${pulsoEscHtml(block.target)}</td>
+      <td>${path ? `<svg class="kov-spark" width="56" height="16" viewBox="0 0 56 16"><path d="${path}" fill="none" stroke="var(--${tone})" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" opacity=".85"/></svg>` : ''}</td>
+      ${r[1].map((v,j) => `<td${!i&&!j?' style="font-weight:650"':''}>${pulsoEscHtml(v)}</td>`).join('')}
+      ${r[2].map(v => `<td>${pulsoEscHtml(v)}</td>`).join('')}
+      <td class="kov-delta ${kovNum(r[3])>=0?'up':'down'}">${pulsoEscHtml(r[3])}</td>
+      <td class="kov-delta ${kovNum(r[4])>=0?'up':'down'}">${pulsoEscHtml(r[4])}</td>
+      <td><span class="kov-pill">${pulsoEscHtml(r[5])}</span></td>
+      <td><div class="kov-score"><div class="kov-bar"><i style="width:${Math.min(score/2*100,100)}%"></i></div>${pulsoEscHtml(r[6])}</div></td>
+    </tr>`;
+  }).join('')).join('');
+}
+
 function renderKpioverview(){
-  setBadge('kpioverview','ok','Em Construção');
+  const socs = Object.keys(KOV_MOCK);
+  if(!KOV_STATE.soc) KOV_STATE.soc = socs[0];
+  const socEl = document.getElementById('kov-soc-input');
+  if(socEl){
+    socEl.innerHTML = socs.map(s => `<option value="${s}">${s}</option>`).join('');
+    socEl.value = KOV_STATE.soc;
+  }
+  const qEl = document.getElementById('kov-q-input');
+  if(qEl) qEl.value = KOV_STATE.q;
+  kovRenderAll();
+  setBadge('kpioverview','ok','Mock — aguardando planilha');
 }
 
 function renderScorecard(){
