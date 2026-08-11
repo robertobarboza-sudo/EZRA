@@ -1473,7 +1473,6 @@
     .tvcfg-page-check { flex:1; display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; }
     .tvcfg-page-check.checked { border-color: var(--orange); background: rgba(238,77,45,.06); }
     .tvcfg-mode-btn { flex:0 0 auto; width:38px; height:38px; border-radius:var(--radius); border:1px solid var(--border); background:var(--surface); color:var(--text-muted); display:flex; align-items:center; justify-content:center; cursor:pointer; transition:background var(--transition), color var(--transition); }
-    .tvcfg-sub-select { flex:0 0 auto; width:150px; }
     .tvcfg-mode-btn:hover { border-color: var(--orange); color: var(--orange); }
 
     .spr-ms-wrap { position: relative; display: inline-flex; }
@@ -2743,14 +2742,14 @@
 
     <div class="nav-group">
       <div class="nav-group-label">Operações</div>
-      <div class="nav-item" data-section="spr" data-label="Outbound" onclick="navigateToAndExpand('spr',this,'navsub-spr')">
-        <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">Outbound</span>
-        <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-spr', this)"></i>
+      <div class="nav-item" data-section="inbound" data-label="Inbound" onclick="navigateToAndExpand('inbound',this,'navsub-inbound')">
+        <span class="nav-icon-composite"><i class="fas fa-truck icon-base" style="font-size:14px"></i><span class="icon-badge">IN</span></span><span class="nav-label">Inbound</span>
+        <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-inbound', this)"></i>
       </div>
-      <div class="nav-subgroup" id="navsub-spr">
-        <div class="nav-subitem active" data-subkey="outbound" onclick="navSidebarSubpage(this,'spr','outbound','pulso')">Outbound</div>
-        <div class="nav-subitem" data-subkey="spr" onclick="navSidebarSubpage(this,'spr','spr','pulso')">SPR</div>
-        <div class="nav-subitem" data-subkey="leftover" onclick="navSidebarSubpage(this,'spr','leftover','pulso')">Leftover</div>
+      <div class="nav-subgroup" id="navsub-inbound">
+        <div class="nav-subitem active" data-subkey="lh" onclick="navSidebarSubpage(this,'inbound','lh','inbound')">Line Haul</div>
+        <div class="nav-subitem" data-subkey="fm" onclick="navSidebarSubpage(this,'inbound','fm','inbound')">First Mile</div>
+        <div class="nav-subitem" data-subkey="triagem" onclick="navSidebarSubpage(this,'inbound','triagem','inbound')">Triagem</div>
       </div>
       <div class="nav-item" data-section="asm" data-label="ASM" onclick="navigateTo('asm',this)">
         <i class="fas fa-feather nav-icon"></i><span class="nav-label">ASM</span>
@@ -2763,14 +2762,14 @@
         <div class="nav-subitem active" data-subkey="performance" onclick="navSidebarSubpage(this,'conveyor','performance','conveyor')">Performance</div>
         <div class="nav-subitem" data-subkey="esteira" onclick="navSidebarSubpage(this,'conveyor','esteira','conveyor')">Esteira On-time</div>
       </div>
-      <div class="nav-item" data-section="inbound" data-label="Inbound" onclick="navigateToAndExpand('inbound',this,'navsub-inbound')">
-        <span class="nav-icon-composite"><i class="fas fa-truck icon-base" style="font-size:14px"></i><span class="icon-badge">IN</span></span><span class="nav-label">Inbound</span>
-        <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-inbound', this)"></i>
+      <div class="nav-item" data-section="spr" data-label="Outbound" onclick="navigateToAndExpand('spr',this,'navsub-spr')">
+        <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">Outbound</span>
+        <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-spr', this)"></i>
       </div>
-      <div class="nav-subgroup" id="navsub-inbound">
-        <div class="nav-subitem active" data-subkey="lh" onclick="navSidebarSubpage(this,'inbound','lh','inbound')">Line Haul</div>
-        <div class="nav-subitem" data-subkey="fm" onclick="navSidebarSubpage(this,'inbound','fm','inbound')">First Mile</div>
-        <div class="nav-subitem" data-subkey="triagem" onclick="navSidebarSubpage(this,'inbound','triagem','inbound')">Triagem</div>
+      <div class="nav-subgroup" id="navsub-spr">
+        <div class="nav-subitem active" data-subkey="outbound" onclick="navSidebarSubpage(this,'spr','outbound','pulso')">Outbound</div>
+        <div class="nav-subitem" data-subkey="spr" onclick="navSidebarSubpage(this,'spr','spr','pulso')">SPR</div>
+        <div class="nav-subitem" data-subkey="leftover" onclick="navSidebarSubpage(this,'spr','leftover','pulso')">Leftover</div>
       </div>
       <div class="nav-item" data-section="clusterizacao" data-label="Clusterização" onclick="navigateTo('clusterizacao',this)">
         <i class="fas fa-circle-nodes nav-icon"></i><span class="nav-label">Clusterização</span>
@@ -5169,6 +5168,21 @@ function tvApplySubpage(sectionKey, subKey){
   window[cfg.switcher](subKey, el);
 }
 
+// Lista achatada pro TV Mode Config: cada subpágina vira o próprio item
+// selecionável (não uma subpágina aninhada dentro do item pai) — pedido do
+// Roberto em 2026-08-12. Página sem subpágina = 1 item; com subpágina =
+// 1 item por subpágina, cada um podendo entrar/sair da rotação sozinho.
+function tvFlatItems(){
+  const items = [];
+  TV_ELIGIBLE_PAGES.forEach(p => {
+    const sub = TV_SUBPAGES[p.key];
+    if(sub) sub.options.forEach(o => items.push({ key:p.key, sub:o.key, label:`${p.label} - ${o.label}` }));
+    else items.push({ key:p.key, sub:null, label:p.label });
+  });
+  return items;
+}
+function tvItemId(item){ return item.sub ? `${item.key}::${item.sub}` : item.key; }
+
 function tvModeInit(){
   TV_ELIGIBLE_PAGES.forEach(p => {
     const group = document.querySelector(`#section-${p.key} .section-dl-group`);
@@ -5258,28 +5272,29 @@ document.addEventListener('fullscreenchange', () => {
   if(!document.fullscreenElement && (TV_MODE_SECTION || TV_ROTATION)) tvModeExit();
 });
 
-/* ── Rotação (TV Mode Config): cicla entre várias abas num intervalo fixo ── */
-function tvRotationStart(pages, intervalSec, subpages){
+/* ── Rotação (TV Mode Config): cicla entre vários itens (página ou
+   subpágina específica) num intervalo fixo ── */
+function tvRotationStart(items, intervalSec){
   if(!TV_MODE_SECTION && !TV_ROTATION) TV_PRE_MODE_NIGHT = isTvNight();
   tvRotationStop();
-  if(!pages.length) return;
-  TV_ROTATION = { pages, intervalSec, idx: 0, subpages: subpages || {} };
-  localStorage.setItem('pulso_tvmode_config', JSON.stringify({ pages, intervalSec, subpages: TV_ROTATION.subpages }));
+  if(!items.length) return;
+  TV_ROTATION = { items, intervalSec, idx: 0 };
+  localStorage.setItem('pulso_tvmode_config', JSON.stringify({ items, intervalSec }));
   const badge = document.createElement('div');
   badge.className = 'tv-rotation-badge';
   badge.id = 'tv-rotation-badge';
   document.body.appendChild(badge);
   const tick = () => {
-    const key = TV_ROTATION.pages[TV_ROTATION.idx % TV_ROTATION.pages.length];
-    const navItem = document.querySelector(`.nav-item[data-section="${key}"]`);
-    TV_MODE_SECTION = key;
-    if(navItem) navigateTo(key, navItem);
+    const item = TV_ROTATION.items[TV_ROTATION.idx % TV_ROTATION.items.length];
+    const navItem = document.querySelector(`.nav-item[data-section="${item.key}"]`);
+    TV_MODE_SECTION = item.key;
+    if(navItem) navigateTo(item.key, navItem);
     document.body.classList.add('tv-mode-active');
-    tvcfgApplyPageMode(key);
-    tvHandleClusterAutoScroll(key);
-    tvApplySubpage(key, TV_ROTATION.subpages[key]);
+    tvcfgApplyPageMode(item.key);
+    tvHandleClusterAutoScroll(item.key);
+    tvApplySubpage(item.key, item.sub);
     if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
-    TV_ROTATION.currentLabel = (TV_ELIGIBLE_PAGES.find(p=>p.key===key)||{}).label || key;
+    TV_ROTATION.currentLabel = item.label;
     TV_ROTATION.nextTickAt = Date.now() + intervalSec * 1000;
     tvRotationUpdateBadge();
     TV_ROTATION.idx++;
@@ -9669,22 +9684,17 @@ function renderTvConfig(){
   if(!list) return;
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('pulso_tvmode_config') || '{}'); } catch(e){}
-  const selecionadas = TV_ROTATION ? TV_ROTATION.pages : (saved.pages || []);
-  const subpagesSalvas = TV_ROTATION ? TV_ROTATION.subpages : (saved.subpages || {});
-  list.innerHTML = TV_ELIGIBLE_PAGES.map(p => {
-    const sub = TV_SUBPAGES[p.key];
-    const subSelect = sub ? `
-      <select class="filter-select tvcfg-sub-select" id="tvcfg-sub-${p.key}" title="Subpágina a abrir para ${pulsoEscHtml(p.label)}">
-        ${sub.options.map(o => `<option value="${o.key}" ${subpagesSalvas[p.key]===o.key?'selected':''}>${pulsoEscHtml(o.label)}</option>`).join('')}
-      </select>` : '';
+  const selecionados = (TV_ROTATION ? TV_ROTATION.items : (saved.items || [])).map(tvItemId);
+  list.innerHTML = tvFlatItems().map(item => {
+    const id = tvItemId(item);
+    const checked = selecionados.includes(id);
     return `
     <div class="tvcfg-page-row">
-      <label class="tvcfg-page-check ${selecionadas.includes(p.key)?'checked':''}" id="tvcfg-check-${p.key}">
-        <input type="checkbox" value="${p.key}" ${selecionadas.includes(p.key)?'checked':''} onchange="tvcfgToggleCheck('${p.key}',this)"/>
-        ${pulsoEscHtml(p.label)}
+      <label class="tvcfg-page-check ${checked?'checked':''}" id="tvcfg-check-${id}">
+        <input type="checkbox" value="${id}" ${checked?'checked':''} onchange="tvcfgToggleCheck('${id}',this)"/>
+        ${pulsoEscHtml(item.label)}
       </label>
-      ${subSelect}
-      <button type="button" class="tvcfg-mode-btn" id="tvcfg-mode-${p.key}" onclick="tvcfgToggleMode('${p.key}')" title="Normal / Noturno para esta tela">${tvcfgPageMode(p.key)==='noturno' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'}</button>
+      <button type="button" class="tvcfg-mode-btn" id="tvcfg-mode-${item.key}" onclick="tvcfgToggleMode('${item.key}')" title="Normal / Noturno para esta tela">${tvcfgPageMode(item.key)==='noturno' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'}</button>
     </div>`;
   }).join('');
   const intervalInput = document.getElementById('tvcfg-interval');
@@ -9694,16 +9704,8 @@ function renderTvConfig(){
   tvcfgUpdateGlobalModeBtn();
   setBadge('tvconfig', 'ok', 'Local');
 }
-function tvcfgToggleCheck(key, el){
-  document.getElementById('tvcfg-check-'+key)?.classList.toggle('checked', el.checked);
-}
-function tvcfgSelectedSubpages(){
-  const out = {};
-  Object.keys(TV_SUBPAGES).forEach(key => {
-    const sel = document.getElementById('tvcfg-sub-'+key);
-    if(sel) out[key] = sel.value;
-  });
-  return out;
+function tvcfgToggleCheck(id, el){
+  document.getElementById('tvcfg-check-'+id)?.classList.toggle('checked', el.checked);
 }
 function tvcfgToggleGlobalMode(){
   toggleTvNight();
@@ -9711,8 +9713,10 @@ function tvcfgToggleGlobalMode(){
 function tvcfgUpdateGlobalModeBtn(){
   updateTvNightIcons(isTvNight());
 }
-function tvcfgSelectedPages(){
-  return Array.from(document.querySelectorAll('#tvcfg-page-list input:checked')).map(el=>el.value);
+function tvcfgSelectedItems(){
+  const ids = Array.from(document.querySelectorAll('#tvcfg-page-list input:checked')).map(el=>el.value);
+  const all = tvFlatItems();
+  return ids.map(id => all.find(it => tvItemId(it)===id)).filter(Boolean);
 }
 function tvcfgUpdateButton(){
   const btn = document.getElementById('tvcfg-start-btn');
@@ -9723,10 +9727,10 @@ function tvcfgUpdateButton(){
 }
 function tvcfgToggleRotation(){
   if(TV_ROTATION){ tvRotationStop(); tvcfgUpdateButton(); return; }
-  const pages = tvcfgSelectedPages();
-  if(!pages.length){ showToast('Selecione ao menos uma tela pra espelhar.', true); return; }
+  const items = tvcfgSelectedItems();
+  if(!items.length){ showToast('Selecione ao menos uma tela pra espelhar.', true); return; }
   const intervalSec = Math.max(5, Number(document.getElementById('tvcfg-interval').value) || 30);
-  tvRotationStart(pages, intervalSec, tvcfgSelectedSubpages());
+  tvRotationStart(items, intervalSec);
   tvcfgUpdateButton();
 }
 
@@ -9738,12 +9742,11 @@ function tvcfgSavePreset(){
   const nameInput = document.getElementById('tvcfg-preset-name');
   const name = (nameInput.value || '').trim();
   if(!name){ showToast('Dê um nome pra essa configuração.', true); return; }
-  const pages = tvcfgSelectedPages();
-  if(!pages.length){ showToast('Selecione ao menos uma tela pra espelhar.', true); return; }
+  const items = tvcfgSelectedItems();
+  if(!items.length){ showToast('Selecione ao menos uma tela pra espelhar.', true); return; }
   const intervalSec = Math.max(5, Number(document.getElementById('tvcfg-interval').value) || 30);
-  const subpages = tvcfgSelectedSubpages();
   const presets = tvcfgPresets().filter(p => p.name !== name);
-  presets.push({ name, pages, intervalSec, subpages });
+  presets.push({ name, items, intervalSec });
   localStorage.setItem('pulso_tvmode_presets', JSON.stringify(presets));
   nameInput.value = '';
   tvcfgRenderPresets();
@@ -9759,7 +9762,7 @@ function tvcfgRenderPresets(){
       <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px">
         <div style="flex:1">
           <div style="font-size:13px;font-weight:600;color:var(--text)">${pulsoEscHtml(p.name)}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${p.pages.map(k=>pulsoEscHtml((TV_ELIGIBLE_PAGES.find(x=>x.key===k)||{}).label||k)).join(', ')} · a cada ${p.intervalSec}s</div>
+          <div style="font-size:11px;color:var(--text-muted)">${p.items.map(it=>pulsoEscHtml(it.label)).join(', ')} · a cada ${p.intervalSec}s</div>
         </div>
         <button class="spr-ms-action-btn" onclick="tvcfgLoadPreset('${p.name.replace(/'/g,"\\'")}')"><i class="fas fa-play"></i> Usar</button>
         <button class="spr-ms-action-btn" onclick="tvcfgDeletePreset('${p.name.replace(/'/g,"\\'")}')"><i class="fas fa-trash"></i></button>
@@ -9768,7 +9771,7 @@ function tvcfgRenderPresets(){
 function tvcfgLoadPreset(name){
   const preset = tvcfgPresets().find(p => p.name === name);
   if(!preset) return;
-  tvRotationStart(preset.pages, preset.intervalSec, preset.subpages || {});
+  tvRotationStart(preset.items, preset.intervalSec);
 }
 function tvcfgDeletePreset(name){
   localStorage.setItem('pulso_tvmode_presets', JSON.stringify(tvcfgPresets().filter(p => p.name !== name)));
