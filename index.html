@@ -1782,6 +1782,10 @@
     .est-stage.active{ display:block; }
     .est-stage-head{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:16px 20px; margin-bottom:16px; box-shadow:var(--shadow); display:flex; flex-wrap:wrap; gap:20px; align-items:center; justify-content:space-between; }
     .est-toolbar{ display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:12px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:12px 16px; margin-bottom:16px; box-shadow:var(--shadow); }
+    .est-turno-btns{ display:flex; gap:6px; flex-wrap:wrap; }
+    .est-turno-btn{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); font-size:12px; font-weight:600; padding:7px 13px; border-radius:var(--radius); cursor:pointer; transition:background var(--transition), color var(--transition), border-color var(--transition); }
+    .est-turno-btn:hover{ border-color:var(--orange); }
+    .est-turno-btn.active{ background:var(--orange); border-color:var(--orange); color:#fff; }
     .est-hora-range{ display:flex; align-items:center; gap:14px; }
     .est-hora-range label{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--text-sub); font-weight:600; }
     .est-hora-range select{ width:80px; }
@@ -3251,6 +3255,12 @@
           </div>
 
           <div class="est-toolbar">
+            <div class="est-turno-btns" id="est-turno-btns">
+              <button type="button" class="est-turno-btn active" data-turno="" onclick="estSetTurno('')">Todos os turnos</button>
+              <button type="button" class="est-turno-btn" data-turno="T1" onclick="estSetTurno('T1')">T1</button>
+              <button type="button" class="est-turno-btn" data-turno="T2" onclick="estSetTurno('T2')">T2</button>
+              <button type="button" class="est-turno-btn" data-turno="T3" onclick="estSetTurno('T3')">T3</button>
+            </div>
             <div class="est-hora-range">
               <label>Hora <select id="est-hora" class="filter-select" onchange="estSetHora()"></select></label>
             </div>
@@ -10254,10 +10264,11 @@ function estWsCodigo(prefix, letter, sideLetterEsq, posicao){
 }
 // hora = null (acumulado, dia inteiro) ou 0-23 (hora específica) — pedido
 // do Roberto em 2026-08-11, substituindo o range De/Até por um único
-// seletor. Default = hora atual. Turno NÃO entra em nenhum filtro/métrica
-// da Esteira On-time (pedido do Roberto em 2026-08-11 — a coluna `turno`
-// não deve influenciar nada aqui, nem balanceamento nem performance).
-const ESTEIRA_STATE = { hora: null };
+// seletor. Default = hora atual. Turno = '' (todos) | 'T1' | 'T2' | 'T3' —
+// filtra só o lado de PERFORMANCE (conveyor_pulso, ver estRowsFiltradas);
+// o balanceamento (balanceamento_pulso, /api/cluster?esteira=1) NUNCA usa
+// turno (confirmado com o Roberto em 2026-08-11 — mantém só no Conveyor).
+const ESTEIRA_STATE = { hora: null, turno: '' };
 
 async function estLoad(){
   try {
@@ -10295,6 +10306,14 @@ function estSetHora(){
   estRenderAll(); // só afeta cards de performance (conveyor_pulso, já carregado) — sem novo fetch
 }
 
+// Turno só filtra o lado de performance (conveyor_pulso) — não recarrega
+// do servidor, já que o balanceamento (balanceamento_pulso) não usa turno.
+function estSetTurno(turno){
+  ESTEIRA_STATE.turno = turno;
+  document.querySelectorAll('#est-turno-btns .est-turno-btn').forEach(b => b.classList.toggle('active', b.dataset.turno === turno));
+  estRenderAll();
+}
+
 function estInitHoraSelects(){
   if(ESTEIRA_HORA_SELECTS_INIT) return;
   const opts = '<option value="">Acumulado</option>' + Array.from({length:24}, (_,h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
@@ -10303,11 +10322,15 @@ function estInitHoraSelects(){
   ESTEIRA_HORA_SELECTS_INIT = true;
 }
 
-// Linhas de conveyor_pulso (dia operacional atual) filtradas pela hora
-// selecionada — alimenta os cards de performance do topo e o "Prod." de
-// cada bancada.
+// Linhas de conveyor_pulso (dia operacional atual) filtradas por hora +
+// turno — alimenta os cards de performance do topo e o "Prod." de cada
+// bancada. Turno só se aplica aqui (conveyor_pulso); o balanceamento
+// (balanceamento_pulso) nunca é filtrado por turno.
 function estRowsFiltradas(){
-  return ESTEIRA_CONVEYOR_ROWS.filter(r => ESTEIRA_STATE.hora === null || r.hora === ESTEIRA_STATE.hora);
+  return ESTEIRA_CONVEYOR_ROWS.filter(r =>
+    (ESTEIRA_STATE.hora === null || r.hora === ESTEIRA_STATE.hora) &&
+    (!ESTEIRA_STATE.turno || r.turno === ESTEIRA_STATE.turno)
+  );
 }
 
 // Performance real da esteira (grupo P1/P2/P4 em conveyor_pulso), já
