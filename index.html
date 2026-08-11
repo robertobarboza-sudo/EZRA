@@ -10284,7 +10284,15 @@ async function estLoad(){
       const cj = await cnvRes.json();
       ESTEIRA_CONVEYOR_ROWS = cj.ok ? cj.rows : [];
     } catch(e){ ESTEIRA_CONVEYOR_ROWS = []; }
-    if(ESTEIRA_STATE.hora === null && !ESTEIRA_HORA_SELECTS_INIT) ESTEIRA_STATE.hora = cuboHoraAgora();
+    if(ESTEIRA_STATE.hora === null && !ESTEIRA_HORA_SELECTS_INIT){
+      // "Hora atual" (relógio de parede) costuma cair numa hora ainda sem
+      // dado no conveyor_pulso (extração tem atraso/intermitência) — o card
+      // Prod. ficava sempre vazio. Default agora é a ÚLTIMA hora que
+      // realmente tem dado (mesmo padrão do Conveyor Performance,
+      // CNV_ULTIMA_HORA) — bug reportado pelo Roberto em 2026-08-11.
+      const horasComDado = [...new Set(ESTEIRA_CONVEYOR_ROWS.map(r => r.hora))].filter(h => h >= 0 && h <= 23);
+      ESTEIRA_STATE.hora = horasComDado.length ? Math.max(...horasComDado) : cuboHoraAgora();
+    }
     estRenderAll();
   } catch(err){
     console.error('[esteira]', err);

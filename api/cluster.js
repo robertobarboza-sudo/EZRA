@@ -208,6 +208,29 @@ function esteiraBuildBins(rows, categoriasIncluidas, grandTotal, breakShare) {
   });
   const destinos = [...porDestino.entries()].map(([dest, qty]) => ({ dest, qty })).sort((a, b) => b.qty - a.qty);
 
+  // Break Share no nível da esteira inteira (10 bancadas, os 2 lados): com
+  // poucos destinos, a partição gulosa Lado A/B (passo seguinte) jogaria
+  // tudo pra um lado só, deixando o outro inteiro vazio — mesmo problema do
+  // "só uma bancada balanceada" só que um nível acima. Quando tem menos de
+  // 10 destinos no total, pula a partição e divide cada destino igualmente
+  // pelas 10 bancadas (5 de cada lado) — bug reportado pelo Roberto em
+  // 2026-08-11 ("SOC ainda divergente" mesmo após o Break Share por lado).
+  if (breakShare && destinos.length > 0 && destinos.length < 10) {
+    const bins = [];
+    ['Lado A', 'Lado B'].forEach(lado => {
+      for (let i = 0; i < 5; i++) {
+        let total = 0;
+        const binDestinos = destinos.map(d => {
+          const parte = d.qty / 10;
+          total += parte;
+          return { dest: d.dest, qty: parte, share: grandTotal ? parte / grandTotal : 0 };
+        });
+        bins.push({ lado, posicao: i + 1, total, share: grandTotal ? total / grandTotal : 0, destinos: binDestinos });
+      }
+    });
+    return bins;
+  }
+
   let totalA = 0, totalB = 0;
   const ladoA = [], ladoB = [];
   destinos.forEach(d => {
