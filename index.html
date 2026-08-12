@@ -773,13 +773,21 @@
       display: none; position: fixed; inset: 0;
       background: rgba(0,0,0,.65); backdrop-filter: blur(4px);
       z-index: 900; align-items: center; justify-content: center;
+      padding: 20px;
     }
     .modal-overlay.open { display: flex; }
+    /* max-height/overflow-y (bug real, achado revisando o site pra mobile em
+       2026-08-13): sem isso, um modal com mais conteúdo que a viewport
+       (comum em tela curta de celular) transbordava pros dois lados —
+       título e botão de fechar ficavam acima da tela, sem scroll pra
+       alcançar. Afeta TODOS os modais do site (classe compartilhada), não só
+       o drawer do Monitor - Live. */
     .modal {
       background: var(--surface-2);
       border: 1px solid var(--border);
       border-radius: var(--radius-xl);
       padding: 28px; width: 100%; max-width: 500px;
+      max-height: 90vh; overflow-y: auto;
       box-shadow: var(--shadow-lg);
       animation: slideIn .22s ease;
     }
@@ -835,6 +843,16 @@
     }
     @media(max-width:480px){
       .kpi-strip { grid-template-columns: 1fr; }
+    }
+    /* Header transbordava no celular (~74px fora da tela em 375px) — os
+       botões de notificação/sync/avatar ficavam inacessíveis, sem scroll
+       horizontal pra alcançar (body tem overflow:hidden). Relógio digital e
+       subtítulo somem, só o essencial (menu, saudação curta, ações) fica. */
+    @media(max-width:640px){
+      #header{ padding:0 12px; gap:8px; }
+      .digital-clock-wrap{ display:none !important; }
+      .header-greeting .greet-sub{ display:none; }
+      .header-greeting .greet-line{ font-size:13px; }
     }
 
     .vehicle-waiting { background: rgba(245,158,11,.04); }
