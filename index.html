@@ -6609,7 +6609,13 @@ function monBuildHours(){
   let html = '';
   for(let i=0;i<25;i++){
     const d = new Date(MON_DAY_START.getTime() + i*3600000);
-    html += `<div class="mon-hour-label" style="left:${i*60}px">${String(d.getHours()).padStart(2,'0')}h</div>`;
+    // 1º rótulo (06h, no limite com a coluna sticky) não centraliza como os
+    // demais — o translateX(-50%) padrão sangrava ~9px pra esquerda, por
+    // baixo do card (visível depois que o badge de TO que ficava ali saiu,
+    // pedido do Roberto em 2026-08-13). Só esse fica alinhado à esquerda
+    // com uma folguinha; os outros continuam centralizados no marco da hora.
+    const style = i === 0 ? 'left:6px; transform:none;' : `left:${i*60}px`;
+    html += `<div class="mon-hour-label" style="${style}">${String(d.getHours()).padStart(2,'0')}h</div>`;
   }
   el.innerHTML = html;
 }
