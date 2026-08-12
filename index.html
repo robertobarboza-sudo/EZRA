@@ -2158,10 +2158,11 @@
     .mon-row-dot{ width:8px; height:8px; border-radius:50%; flex:none; }
     .mon-row-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mon-row-text b{ color:var(--text); font-weight:700; }
-    .mon-row-sub{ color:var(--text-muted); font-size:10.5px; }
+    .mon-row-sub{ color:var(--text-muted); font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mon-row-ender{ color:var(--cyan); font-size:10px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
     .mon-row-ender i{ margin-right:3px; opacity:.8; }
     .mon-track{ position:relative; flex:1; height:40px; cursor:pointer; }
+    .mon-track-total{ position:absolute; left:4px; top:50%; transform:translateY(-50%); font-size:10px; font-weight:700; color:var(--text-sub); background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:1px 6px; white-space:nowrap; z-index:1; pointer-events:none; }
     .mon-bar{ position:absolute; top:14px; height:12px; border-radius:6px; opacity:.9; }
     .mon-bar:hover{ opacity:1; filter:brightness(1.08); }
     .mon-atd{ position:absolute; top:8px; width:2px; height:24px; background:var(--green); }
@@ -6374,7 +6375,12 @@ function monBuildHTML(){
         <option>Realizada</option>
       </select>
       <select class="filter-select" id="mon-f-destino" onchange="monRenderAll()"><option value="">Destino: Todos</option></select>
-      <select class="filter-select" id="mon-f-veiculo" onchange="monRenderAll()"><option value="">Veículo: Todos</option></select>
+      <select class="filter-select" id="mon-f-veiculo-tipo" onchange="monRenderAll()">
+        <option value="">Tipo de Veículo: Todos</option>
+        <option value="truck">Truck</option>
+        <option value="carreta">Carreta</option>
+        <option value="outro">Outro</option>
+      </select>
       <input class="filter-select" type="text" id="mon-f-busca" placeholder="Buscar LT, placa, destino…" oninput="monRenderAll()"/>
       <div class="mon-view-switcher">
         <div class="mon-view-btn active" data-view="todas" onclick="monSetView('todas',this)">Todas</div>
@@ -6522,12 +6528,20 @@ function monFillSelect(id, values, allLabel){
   sel.innerHTML = `<option value="">${allLabel}</option>` + values.map(v => `<option value="${pulsoEscHtml(v)}">${pulsoEscHtml(v)}</option>`).join('');
   if(values.includes(current)) sel.value = current;
 }
+// Truck/Carreta/Outro (pedido do Roberto em 2026-08-13): agrupa veiculo_tipo
+// (6 valores reais na planilha — TRUCK, TRUCK - EXPRESSA, CARRETA, CARRETA -
+// EXPRESSA, 3/4, TOCO, verificado via debug-meta) em 3 baldes pro filtro do
+// topo, mesmo padrão de agrupamento do toPackGrupo (api/cluster.js).
+function monVeiculoGrupo(tipo){
+  const t = String(tipo||'').toUpperCase();
+  if(t.startsWith('TRUCK')) return 'truck';
+  if(t.startsWith('CARRETA')) return 'carreta';
+  return 'outro';
+}
 function monPopulateFilterOptions(){
   const front = monTripsFront();
   const destinos = [...new Set(front.map(t => t.destino).filter(Boolean))].sort();
-  const veiculos = [...new Set(front.map(t => t.veiculo_placa).filter(Boolean))].sort();
   monFillSelect('mon-f-destino', destinos, 'Destino: Todos');
-  monFillSelect('mon-f-veiculo', veiculos, 'Veículo: Todos');
 }
 function monBuildHours(){
   const el = document.getElementById('mon-hours');
@@ -6563,13 +6577,13 @@ function monScrollToNow(){
 function monFilteredTrips(now){
   const status = document.getElementById('mon-f-status')?.value || '';
   const destino = document.getElementById('mon-f-destino')?.value || '';
-  const veiculo = document.getElementById('mon-f-veiculo')?.value || '';
+  const veiculoTipo = document.getElementById('mon-f-veiculo-tipo')?.value || '';
   const busca = (document.getElementById('mon-f-busca')?.value || '').trim().toLowerCase();
 
   return monTripsFront().map(t => ({ ...t, ...monDerive(t, now) })).filter(t => {
     if(status && t.status !== status) return false;
     if(destino && t.destino !== destino) return false;
-    if(veiculo && t.veiculo_placa !== veiculo) return false;
+    if(veiculoTipo && monVeiculoGrupo(t.veiculo_tipo) !== veiculoTipo) return false;
     if(MON_VIEW === 'andamento' && !['Em operação','Próxima do fechamento','Aguardando apresentação'].includes(t.status)) return false;
     if(MON_VIEW === 'planejadas' && t.status !== 'Planejada') return false;
     if(MON_VIEW === 'finalizadas' && t.status !== 'Realizada') return false;
@@ -6635,11 +6649,12 @@ function monRowHtml(t){
         <span class="mon-row-dot" style="background:${color}"></span>
         <div style="overflow:hidden">
           <div class="mon-row-text" title="${pulsoEscHtml(`${t.destino||''} · ${t.destino_codigo||''}`)}"><b>${pulsoEscHtml(t.destino||'—')}</b> · ${pulsoEscHtml(t.destino_codigo||'')}</div>
-          <div class="mon-row-sub">${pulsoEscHtml(t.veiculo_placa||'—')} · ${pulsoEscHtml(t.trip_number||'—')}</div>
+          <div class="mon-row-sub">${pulsoEscHtml(t.veiculo_tipo||'—')} · ${pulsoEscHtml(t.veiculo_placa||'—')} · ${pulsoEscHtml(t.trip_number||'—')}</div>
           ${ender ? `<div class="mon-row-ender" title="Endereçamento: ${pulsoEscHtml(ender)}"><i class="fas fa-location-dot"></i>${pulsoEscHtml(ender)}</div>` : ''}
         </div>
       </div>
       <div class="mon-track" title="${pulsoEscHtml(tip)}">
+        <div class="mon-track-total" title="Total Order: ${(t.staged_to||0).toLocaleString('pt-BR')}">${(t.staged_to||0).toLocaleString('pt-BR')} TO</div>
         <div class="mon-bar" style="left:${left}px;width:${width}px;background:${color}"></div>
         ${atdLeft!=null ? `<div class="mon-atd" style="left:${atdLeft}px"></div>` : ''}
       </div>
