@@ -2206,7 +2206,28 @@
     .mon-tag-chip:hover{ border-color:var(--orange); }
     .mon-tag-chip.active{ color:#fff; border-color:transparent; }
     .mon-tag-meta{ width:100%; font-size:10.5px; color:var(--text-muted); margin-top:2px; }
-    @media(max-width:900px){ .mon-toolbar{ flex-direction:column; align-items:stretch; } .mon-detail-grid{ grid-template-columns:1fr; } }
+
+    /* Painel de ruas de endereçamento do destino (botão de clusterização no
+       header do drawer, pedido do Roberto em 2026-08-13) — amostragem das
+       ruas com volume desse destino + as configuradas pra ele na config. */
+    .mon-cluster-panel{ display:none; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+    .mon-cluster-panel.open{ display:block; }
+    #mon-cluster-btn.active{ background:var(--orange); color:#fff; }
+    .mon-cluster-head{ font-size:10px; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:.06em; margin-bottom:8px; }
+    .mon-rua-card{ background:var(--surface-3); border-radius:var(--radius); padding:10px 12px; margin-bottom:8px; }
+    .mon-rua-top{ display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+    .mon-rua-nome{ font-size:13px; font-weight:800; color:var(--text); }
+    .mon-rua-flag{ font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:2px 6px; border-radius:7px; background:color-mix(in srgb, var(--cyan) 18%, transparent); color:var(--cyan); }
+    .mon-rua-ocup{ margin-left:auto; font-size:11px; font-weight:700; color:var(--text-sub); white-space:nowrap; }
+    .mon-rua-bar{ height:4px; border-radius:2px; background:var(--surface); overflow:hidden; margin-bottom:8px; }
+    .mon-rua-bar i{ display:block; height:100%; border-radius:2px; background:var(--cyan); }
+    .mon-rua-bar i[data-cheia="1"]{ background:var(--red); }
+    .mon-rua-stats{ display:grid; grid-template-columns:repeat(4,1fr); gap:7px; }
+    .mon-rua-stat{ text-align:center; }
+    .mon-rua-stat b{ display:block; font-size:12.5px; font-weight:800; color:var(--text); line-height:1.25; }
+    .mon-rua-stat span{ font-size:8.5px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.03em; }
+    .mon-cluster-empty{ font-size:12px; color:var(--text-muted); padding:10px 2px; }
+    @media(max-width:900px){ .mon-toolbar{ flex-direction:column; align-items:stretch; } .mon-detail-grid{ grid-template-columns:1fr; } .mon-rua-stats{ grid-template-columns:repeat(2,1fr); } }
 
     /* ── PERFORMANCE EXECUTIVA ───────────────────────────────── */
     .perf-score-card {
@@ -3263,9 +3284,13 @@
       <div class="modal" style="max-width:520px">
         <div class="modal-header">
           <span class="modal-title" id="mon-detail-title"><i class="fas fa-truck-fast" style="color:var(--orange);margin-right:8px"></i>Detalhe da viagem</span>
-          <button class="modal-close" onclick="monCloseDetail()"><i class="fas fa-xmark"></i></button>
+          <div style="display:flex;align-items:center;gap:4px;flex:none">
+            <button class="modal-close" id="mon-cluster-btn" onclick="monToggleCluster()" title="Ruas de endereçamento desse destino"><i class="fas fa-circle-nodes"></i></button>
+            <button class="modal-close" onclick="monCloseDetail()"><i class="fas fa-xmark"></i></button>
+          </div>
         </div>
         <div id="mon-detail-tags" class="mon-tag-picker"></div>
+        <div id="mon-cluster-panel" class="mon-cluster-panel"></div>
         <div id="mon-detail-body" class="mon-detail-grid"></div>
       </div>
     </div>
@@ -6614,7 +6639,7 @@ function monBuildHours(){
     // baixo do card (visível depois que o badge de TO que ficava ali saiu,
     // pedido do Roberto em 2026-08-13). Só esse fica alinhado à esquerda
     // com uma folguinha; os outros continuam centralizados no marco da hora.
-    const style = i === 0 ? 'left:6px; transform:none;' : `left:${i*60}px`;
+    const style = i === 0 ? 'left:20px; transform:none;' : `left:${i*60}px`;
     html += `<div class="mon-hour-label" style="${style}">${String(d.getHours()).padStart(2,'0')}h</div>`;
   }
   el.innerHTML = html;
@@ -6831,10 +6856,60 @@ function monOpenDetail(idx){
   document.getElementById('mon-detail-body').innerHTML = rows.map(([label,value]) => `
     <div class="mon-detail-item"><div class="mon-detail-label">${pulsoEscHtml(label)}</div><div class="mon-detail-value">${value}</div></div>
   `).join('');
+
+  // Painel de ruas começa fechado a cada abertura do drawer, mas já vem
+  // montado pro destino da viagem (ver monToggleCluster).
+  monRenderClusterPanel(t.destino);
+  document.getElementById('mon-cluster-panel').classList.remove('open');
+  document.getElementById('mon-cluster-btn').classList.remove('active');
+
   document.getElementById('mon-detail-overlay').classList.add('open');
 }
 function monCloseDetail(){
   document.getElementById('mon-detail-overlay').classList.remove('open');
+}
+
+// Amostragem das ruas de endereçamento do destino (botão de clusterização no
+// header do drawer, pedido do Roberto em 2026-08-13). Mostra as ruas com
+// volume desse destino + as que estão configuradas pra ele na aba config,
+// com o mesmo cálculo da página de Clusterização (10 sacos = 1 posição,
+// resíduo filtrado, aging corrigido pelo fuso BR) — ver
+// buildEnderecamentoPorDestino em api/outbound.js.
+function monToggleCluster(){
+  const panel = document.getElementById('mon-cluster-panel');
+  const aberto = panel.classList.toggle('open');
+  document.getElementById('mon-cluster-btn').classList.toggle('active', aberto);
+}
+function monRenderClusterPanel(destino){
+  const panel = document.getElementById('mon-cluster-panel');
+  if(!panel) return;
+  const ruas = MON_ENDER[destino] || [];
+  if(!ruas.length){
+    panel.innerHTML = `<div class="mon-cluster-empty">Nenhuma rua com volume ou configurada para <b>${pulsoEscHtml(destino||'—')}</b>.</div>`;
+    return;
+  }
+  const totalPacotes = ruas.reduce((s,r) => s + (r.pacotes||0), 0);
+  const totalTOs = ruas.reduce((s,r) => s + (r.qtd||0), 0);
+  panel.innerHTML =
+    `<div class="mon-cluster-head"><i class="fas fa-circle-nodes" style="margin-right:5px"></i>${ruas.length} rua(s) · ${totalTOs} TO(s) · ${totalPacotes.toLocaleString('pt-BR')} pacotes</div>` +
+    ruas.map(r => {
+      const pct = Math.min(100, r.ocupacaoPct || 0);
+      return `
+      <div class="mon-rua-card">
+        <div class="mon-rua-top">
+          <span class="mon-rua-nome">${pulsoEscHtml(r.rua)}</span>
+          ${r.configurada ? '<span class="mon-rua-flag">Cluster</span>' : ''}
+          <span class="mon-rua-ocup">${(r.ocupacaoPct||0).toLocaleString('pt-BR')}% · ${r.ocupadas||0}/${r.capacidade||0}</span>
+        </div>
+        <div class="mon-rua-bar"><i style="width:${pct}%" data-cheia="${pct >= 90 ? '1' : '0'}"></i></div>
+        <div class="mon-rua-stats">
+          <div class="mon-rua-stat"><b>${(r.sacaTOs||0)}</b><span>Sacas · ${(r.sacas||0).toLocaleString('pt-BR')} pac</span></div>
+          <div class="mon-rua-stat"><b>${(r.scuttleTOs||0)}</b><span>Scuttle · ${(r.scuttle||0).toLocaleString('pt-BR')} pac</span></div>
+          <div class="mon-rua-stat"><b>${(r.pacotes||0).toLocaleString('pt-BR')}</b><span>Pacotes</span></div>
+          <div class="mon-rua-stat"><b>${r.agingMedio != null ? r.agingMedio.toLocaleString('pt-BR')+'h' : '—'}</b><span>Aging méd.</span></div>
+        </div>
+      </div>`;
+    }).join('');
 }
 
 // Marca/remove a tag da LT (tagLabel='' remove) — grava na aba

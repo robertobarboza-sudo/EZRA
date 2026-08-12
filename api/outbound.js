@@ -36,29 +36,127 @@ const MONITOR_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL
 const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
 const CLUSTER_CONFIG_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1408724077' };
 
+// Mesmas convenções da Clusterização (api/cluster.js) — replicadas aqui pra
+// os números do Monitor baterem 1:1 com os daquela página: 10 sacos = 1
+// posição física, resíduo operacional (qtd<15 E aging>15d) fora de tudo,
+// aging em horas desde `create time` corrigindo o fuso BR (+3h), roster
+// físico só até a RUA 142 (+ RESERVAs).
+const SACA_TIPOS = new Set(['Saca Sorter', 'Saca']);
+const SACOS_POR_POSICAO = 10;
+const RESIDUO_QTD_MAX = 15;
+const RESIDUO_AGING_HORAS_MIN = 15 * 24;
+const BR_PARA_UTC_MS = 3 * 60 * 60 * 1000;
+
 async function buildEnderecamentoPorDestino() {
   const [{ rows: clusterRows }, { rows: configRows }] = await Promise.all([
     fetchTabByGid(CLUSTER_SHEET.spreadsheetId, CLUSTER_SHEET.gid),
     fetchTabByGid(CLUSTER_CONFIG_SHEET.spreadsheetId, CLUSTER_CONFIG_SHEET.gid),
   ]);
-  const staginDepara = new Map(); // staging area id -> staging area name (rua)
+
+  // OBS: a aba `config` também tem colunas de credenciais (e-mail/senha) nas
+  // primeiras colunas — nada dela é devolvido ao cliente aqui, só o de-para
+  // de rua/capacidade/cluster das colunas H-K, igual api/cluster.js.
+  const staginDepara = new Map();      // staging area id -> rua
+  const capacidadePorRua = new Map();  // rua -> capacidade
+  const clusterEsperado = new Map();   // rua -> destino configurado pra ela
   configRows.forEach(r => {
     const id = r['staging area id'];
     const rua = r['staging area name'];
-    if (id && rua) staginDepara.set(id, rua);
+    if (!id || !rua) return;
+    const numRua = (rua.match(/^RUA (\d+)$/) || [])[1];
+    const dentroDoMapa = numRua ? Number(numRua) <= 142 : /^RESERVA/i.test(rua);
+    if (!dentroDoMapa) return;
+    staginDepara.set(id, rua);
+    capacidadePorRua.set(rua, toNum(r.capacity));
+    if (r.cluster) clusterEsperado.set(rua, r.cluster);
   });
-  const porDestino = new Map(); // destino (receiver) -> Map(rua -> qtd de TOs)
+
+  const agoraMs = Date.now();
+  const agingHoras = v => {
+    if (!v) return null;
+    const ms = new Date(String(v).replace(' ', 'T') + 'Z').getTime();
+    return isNaN(ms) ? null : (agoraMs - (ms + BR_PARA_UTC_MS)) / 3600000;
+  };
+
+  // 1ª passada: ocupação total de cada rua (todos os destinos juntos) — é o
+  // que a Clusterização mostra como "% de ocupação da rua", propriedade da
+  // rua e não do destino.
+  const posicoesPorRua = new Map(); // rua -> { sacaTOs, outrosTOs }
+  // 2ª: quebra por destino+rua (sacas/scuttle/pacotes/aging DAQUELE destino).
+  const porDestino = new Map();
   clusterRows.forEach(r => {
     const codigo = r['staging area'];
     const rua = (codigo && codigo !== '-') ? staginDepara.get(codigo) : null;
-    if (!rua || !r.receiver) return;
+    if (!rua) return;
+    const qtd = toNum(r.quantity);
+    const aging = agingHoras(r['create time']);
+    if (qtd < RESIDUO_QTD_MAX && aging !== null && aging > RESIDUO_AGING_HORAS_MIN) return; // resíduo
+    const isSaca = SACA_TIPOS.has(r['to pack']);
+    const isScuttle = r['to pack'] === 'Scuttle';
+
+    if (!posicoesPorRua.has(rua)) posicoesPorRua.set(rua, { sacaTOs: 0, outrosTOs: 0 });
+    const pos = posicoesPorRua.get(rua);
+    if (isSaca) pos.sacaTOs++; else pos.outrosTOs++;
+
+    if (!r.receiver) return;
     if (!porDestino.has(r.receiver)) porDestino.set(r.receiver, new Map());
-    const m = porDestino.get(r.receiver);
-    m.set(rua, (m.get(rua) || 0) + 1);
+    const ruasDoDestino = porDestino.get(r.receiver);
+    if (!ruasDoDestino.has(rua)) ruasDoDestino.set(rua, { qtd: 0, sacas: 0, sacaTOs: 0, scuttle: 0, scuttleTOs: 0, pacotes: 0, agingSoma: 0, agingCount: 0 });
+    const acc = ruasDoDestino.get(rua);
+    acc.qtd++;
+    acc.pacotes += qtd;
+    if (isSaca) { acc.sacas += qtd; acc.sacaTOs++; }
+    else if (isScuttle) { acc.scuttle += qtd; acc.scuttleTOs++; }
+    if (aging !== null) { acc.agingSoma += aging; acc.agingCount++; }
   });
+
+  const ocupacaoDaRua = rua => {
+    const pos = posicoesPorRua.get(rua);
+    const capacidade = capacidadePorRua.get(rua) || 0;
+    const ocupadas = pos ? pos.outrosTOs + Math.ceil(pos.sacaTOs / SACOS_POR_POSICAO) : 0;
+    return { ocupadas, capacidade, pct: capacidade ? +(ocupadas / capacidade * 100).toFixed(1) : 0 };
+  };
+
+  // Ruas configuradas pra cada destino na aba config (coluna Cluster), mesmo
+  // que estejam vazias agora — o Roberto quer ver pra onde o destino DEVE ir,
+  // não só onde já tem volume. Comparação normalizada (trim+lowercase): o
+  // mesmo destino aparece com capitalização diferente entre as duas abas.
+  const normaliza = s => String(s || '').trim().toLowerCase();
+  const ruasConfiguradasPorDestino = new Map();
+  clusterEsperado.forEach((destino, rua) => {
+    const chave = normaliza(destino);
+    if (!ruasConfiguradasPorDestino.has(chave)) ruasConfiguradasPorDestino.set(chave, []);
+    ruasConfiguradasPorDestino.get(chave).push(rua);
+  });
+
   const out = {};
-  porDestino.forEach((ruas, destino) => {
-    out[destino] = [...ruas.entries()].sort((a, b) => b[1] - a[1]).map(([rua, qtd]) => ({ rua, qtd }));
+  const destinos = new Set([...porDestino.keys()]);
+  // Destino que só existe na config (configurado mas ainda sem volume) também
+  // precisa aparecer — por isso o merge pelas duas pontas.
+  clusterEsperado.forEach(destino => destinos.add(destino));
+
+  destinos.forEach(destino => {
+    const comVolume = porDestino.get(destino) || new Map();
+    const configuradas = ruasConfiguradasPorDestino.get(normaliza(destino)) || [];
+    const todasAsRuas = new Set([...comVolume.keys(), ...configuradas]);
+    const configuradasSet = new Set(configuradas);
+
+    const lista = [...todasAsRuas].map(rua => {
+      const acc = comVolume.get(rua) || { qtd: 0, sacas: 0, sacaTOs: 0, scuttle: 0, scuttleTOs: 0, pacotes: 0, agingSoma: 0, agingCount: 0 };
+      const ocup = ocupacaoDaRua(rua);
+      return {
+        rua,
+        qtd: acc.qtd,                 // TOs desse destino nessa rua
+        sacas: acc.sacas, sacaTOs: acc.sacaTOs,
+        scuttle: acc.scuttle, scuttleTOs: acc.scuttleTOs,
+        pacotes: acc.pacotes,
+        agingMedio: acc.agingCount ? +(acc.agingSoma / acc.agingCount).toFixed(1) : null,
+        ocupadas: ocup.ocupadas, capacidade: ocup.capacidade, ocupacaoPct: ocup.pct,
+        configurada: configuradasSet.has(rua),
+      };
+    }).sort((a, b) => b.qtd - a.qtd || a.rua.localeCompare(b.rua));
+
+    if (lista.length) out[destino] = lista;
   });
   return out;
 }
