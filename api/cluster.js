@@ -131,8 +131,14 @@ function esteiraDestinoCategoria(destino) {
 // há muito tempo sem bater o critério de resíduo) que puxam a média pra
 // cima e escondem a "oportunidade" real. Cerca IQR (Q3 + 1.5×IQR) — método
 // estatístico padrão pra outlier, não um corte arbitrário.
+// `aging` NÃO passa por toNum aqui (nem nos outros pontos deste arquivo):
+// ele já é um Number calculado logo acima (+(...).toFixed(1)), e toNum é
+// feito pra string em formato BR ("1.234,56") — ele remove o ponto, então
+// toNum(88.9) devolvia 889, inflando o aging em 10x sempre que havia casa
+// decimal. Bug encontrado em 2026-08-13 comparando o painel de ruas do
+// Monitor - Live (que calcula certo) com esta página.
 function agingMedioSemOutliers(rows) {
-  const valores = rows.map(r => toNum(r.aging)).sort((a, b) => a - b);
+  const valores = rows.map(r => r.aging).sort((a, b) => a - b);
   if (!valores.length) return 0;
   const q1 = valores[Math.floor(valores.length * 0.25)];
   const q3 = valores[Math.floor(valores.length * 0.75)];
@@ -492,7 +498,7 @@ module.exports = async (req, res) => {
     acc.pacotes += q;
     if (isSaca) acc.saca += q;
     else if (SCUTTLE_TIPOS.has(r['to pack'])) acc.scuttle += q;
-    acc.agingSoma += toNum(r.aging);
+    acc.agingSoma += r.aging; // já é Number — ver agingMedioSemOutliers
     acc.agingCount++;
     if (r.destino) acc.destinos.set(r.destino, (acc.destinos.get(r.destino) || 0) + 1);
   });
@@ -575,7 +581,7 @@ module.exports = async (req, res) => {
     origem: r.origem,
     classificacao: r.classificacao,
     quantity: toNum(r.quantity),
-    aging: toNum(r.aging),
+    aging: r.aging, // já é Number — ver agingMedioSemOutliers
     stage: r.stage,
     rua: r.rua,
     complete_time: r['complete time'],
