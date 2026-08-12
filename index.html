@@ -2166,13 +2166,13 @@
     .mon-timeline-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); overflow:hidden; margin-bottom:14px; }
     .mon-scroll{ overflow-x:auto; }
     .mon-timehead{ display:flex; min-width:1800px; border-bottom:1px solid var(--border); background:var(--surface-2); position:sticky; top:0; z-index:4; }
-    .mon-timehead-meta{ width:280px; flex:none; position:sticky; left:0; z-index:5; background:var(--surface-2); }
+    .mon-timehead-meta{ width:340px; flex:none; position:sticky; left:0; z-index:5; background:var(--surface-2); }
     .mon-hours{ position:relative; flex:1; height:28px; }
     .mon-hour-label{ position:absolute; top:0; font-size:10px; color:var(--text-muted); transform:translateX(-50%); padding-top:6px; }
     .mon-rows{ position:relative; min-width:1800px; }
     .mon-row{ display:flex; align-items:center; border-bottom:1px solid var(--border); }
     .mon-row:hover .mon-row-meta{ background:var(--surface-2); }
-    .mon-row-meta{ width:280px; flex:none; padding:8px 12px; display:flex; align-items:center; gap:8px; font-size:12px; overflow:hidden; position:sticky; left:0; z-index:3; background:var(--surface); }
+    .mon-row-meta{ width:340px; flex:none; padding:8px 12px; display:flex; align-items:center; gap:8px; font-size:12px; overflow:hidden; position:sticky; left:0; z-index:3; background:var(--surface); }
     .mon-row-tag{ position:absolute; top:4px; right:6px; font-size:9px; font-weight:800; color:#fff; padding:1px 7px; border-radius:8px; text-transform:uppercase; letter-spacing:.02em; z-index:4; white-space:nowrap; max-width:120px; overflow:hidden; text-overflow:ellipsis; }
     .mon-row-dot{ width:8px; height:8px; border-radius:50%; flex:none; }
     .mon-row-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
@@ -2180,8 +2180,11 @@
     .mon-row-sub{ color:var(--text-muted); font-size:10.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mon-row-ender{ color:var(--cyan); font-size:10px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
     .mon-row-ender i{ margin-right:3px; opacity:.8; }
-    .mon-track{ position:relative; flex:1; height:40px; cursor:pointer; }
-    .mon-track-total{ position:absolute; left:4px; top:50%; transform:translateY(-50%); font-size:10px; font-weight:700; color:var(--text-sub); background:var(--surface-2); border:1px solid var(--border); border-radius:8px; padding:1px 6px; white-space:nowrap; z-index:1; pointer-events:none; }
+    .mon-track{ position:relative; flex:1; height:40px; cursor:pointer; border-radius:var(--radius); }
+    /* Viagem com tag ativa (pedido do Roberto em 2026-08-13): contorno azul
+       na linha do tempo inteira, não só o chip do nome — dá pra notar o
+       andamento sem precisar ler o texto. */
+    .mon-track.mon-track-tagged{ box-shadow:inset 0 0 0 2px var(--cyan); background:color-mix(in srgb, var(--cyan) 6%, transparent); }
     .mon-bar{ position:absolute; top:14px; height:12px; border-radius:6px; opacity:.9; }
     .mon-bar:hover{ opacity:1; filter:brightness(1.08); }
     .mon-atd{ position:absolute; top:8px; width:2px; height:24px; background:var(--green); }
@@ -6628,7 +6631,7 @@ function monToggleAlerts(){
 function monScrollToNow(){
   const wrap = document.querySelector('#pulso-root-monitor .mon-scroll');
   if(!wrap) return;
-  wrap.scrollLeft = Math.max(0, 280 + monPos(new Date()) - wrap.clientWidth/2);
+  wrap.scrollLeft = Math.max(0, 340 + monPos(new Date()) - wrap.clientWidth/2);
 }
 
 function monFilteredTrips(now){
@@ -6722,8 +6725,7 @@ function monRowHtml(t){
           ${ender ? `<div class="mon-row-ender" title="Endereçamento: ${pulsoEscHtml(ender)}"><i class="fas fa-location-dot"></i>${pulsoEscHtml(ender)}</div>` : ''}
         </div>
       </div>
-      <div class="mon-track" title="${pulsoEscHtml(tip)}">
-        <div class="mon-track-total" title="Total Order: ${(t.staged_to||0).toLocaleString('pt-BR')}">${(t.staged_to||0).toLocaleString('pt-BR')} TO</div>
+      <div class="mon-track${tagInfo ? ' mon-track-tagged' : ''}" title="${pulsoEscHtml(tip)}">
         <div class="mon-bar" style="left:${left}px;width:${width}px;background:${color}"></div>
         ${atdLeft!=null ? `<div class="mon-atd" style="left:${atdLeft}px"></div>` : ''}
       </div>
@@ -6758,7 +6760,7 @@ function monRenderRows(list, nowLeft){
     }
     html += monRowHtml(t);
   });
-  html += `<div class="mon-now-line" style="left:${280 + nowLeft}px"></div>`;
+  html += `<div class="mon-now-line" style="left:${340 + nowLeft}px"></div>`;
   el.innerHTML = html;
 }
 
@@ -6814,6 +6816,7 @@ function monOpenDetail(idx){
     ['STD', monFmtHM(t.stdD)],
     ['ATD', t.atdD ? monFmtHM(t.atdD) : 'Pendente'],
     ['Endereçamento (Rua)', ruas.length ? pulsoEscHtml(ruas.map(r => `${r.rua} (${r.qtd})`).join(', ')) : 'Sem TO endereçado'],
+    ['Total Order', (t.staged_to||0).toLocaleString('pt-BR')],
     ['Pacotes Endereçados (destino)', (t.staged_pacotes||0).toLocaleString('pt-BR')],
     ['Sacas / Scuttle / Outros', `${t.u.sacas} / ${t.u.scuttle} / ${t.u.outros}`],
     ['Capacidade da Viagem', (t.capacidade_pct||0) + '%'],
