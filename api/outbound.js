@@ -20,12 +20,76 @@
  *   q                        busca livre em lh_trips
  */
 const { fetchTabByGid } = require('./_google');
-const { parseCSV, hojeOperacionalIso } = require('./_period');
+const { parseCSV, hojeOperacionalIso, dataOperacionalDe, toNum } = require('./_period');
 const { enrich, pertenceAoTurno, aggregate, toCarroRow } = require('./_outbound');
 
 const OUTBOUND_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '0' };
+// Monitor - Live (subaba nova dentro de Outbound, pedido do Roberto em
+// 2026-08-13) — timeline ao vivo de viagens (STA/STD/ATD por trip), fonte
+// própria (outbound_monitor_pulso), não a rawdata_out_pulso de cima.
+const MONITOR_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1386791246' };
+
+// Monitor - Live: só busca/computa quando pedido explicitamente (?monitor=1)
+// — a página normal de Outbound não usa esse bloco. Curto-circuita antes do
+// fetch de OUTBOUND_SHEET (planilha diferente, não precisa das duas).
+async function buildMonitor(req, res) {
+  let monRows;
+  try {
+    ({ rows: monRows } = await fetchTabByGid(MONITOR_SHEET.spreadsheetId, MONITOR_SHEET.gid));
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  }
+  const comDia = monRows.filter(r => r.sta).map(r => ({ ...r, __dia: dataOperacionalDe(r.sta) })).filter(r => r.__dia);
+  const diasDisponiveis = [...new Set(comDia.map(r => r.__dia))].sort();
+  const hojeIso = hojeOperacionalIso();
+  // "Hoje" se tiver viagem hoje, senão o dia mais recente disponível (mesmo
+  // padrão de api/inbound-lh.js — a fonte pode estar um pouco atrasada).
+  const dia = diasDisponiveis.includes(hojeIso) ? hojeIso : (diasDisponiveis[diasDisponiveis.length - 1] || hojeIso);
+  const doDia = comDia.filter(r => r.__dia === dia);
+
+  const viagens = doDia.map(r => ({
+    destino: r.destino || '',
+    destino_codigo: r.destino_codigo || '',
+    staged_pacotes: toNum(r.staged_pacotes),
+    staged_to: toNum(r.staged_to),
+    staged_peso_kg: r.staged_peso_kg || '',
+    embalagens: r.embalagens || '',
+    alerta_destino: r.alerta_destino || '',
+    trip_number: r.trip_number || '',
+    trip_name: r.trip_name || '',
+    transportadora: r.transportadora || '',
+    veiculo_tipo: r.veiculo_tipo || '',
+    veiculo_placa: r.veiculo_placa || '',
+    trip_status: r.trip_status || '',
+    trip_station_status: r.trip_station_status || '',
+    trip_operate_type: r.trip_operate_type || '',
+    sta: r.sta || '',
+    std: r.std || '',
+    ata: r.ata || '',
+    atd: r.atd || '',
+    capacidade_pct: toNum(r.capacidade_pct),
+    carga_qtd: toNum(r.carga_qtd),
+    carga_pct: toNum(r.carga_pct),
+    doca: r.doca || '',
+    alerta_trip: r.alerta_trip || '',
+  }));
+
+  res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=180');
+  res.status(200).json({
+    ok: true,
+    dia,
+    cobertura: { inicio: diasDisponiveis[0] || null, fim: diasDisponiveis[diasDisponiveis.length - 1] || null },
+    viagens,
+  });
+}
 
 module.exports = async (req, res) => {
+  if (req.query.monitor !== undefined) {
+    await buildMonitor(req, res);
+    return;
+  }
+
   let rows;
   try {
     ({ rows } = await fetchTabByGid(OUTBOUND_SHEET.spreadsheetId, OUTBOUND_SHEET.gid));
