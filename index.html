@@ -5637,7 +5637,7 @@ async function renderSection(section){
     const {data,source} = await DataService.load(section);
     setBadge(section,'ok',source);
     const fn = {gestao:renderGestao, performance:renderPerformance, asm:()=>loadAsm(),
-      backlog:()=>loadBacklog(), spr:()=>pulsoRender(PULSO_ACTIVE_SUBPAGE),
+      backlog:()=>loadBacklog(), spr:()=>PULSO_ACTIVE_SUBPAGE==='monitor' ? monRender() : pulsoRender(PULSO_ACTIVE_SUBPAGE),
       conveyor:()=>loadConveyor(), inbound:()=>loadInbound(), tratativas:renderTratativas,
       laborplan:renderLaborplan, arvore:renderArvore, kpioverview:renderKpioverview,
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
