@@ -39,6 +39,7 @@
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
+const { buildArvore } = require('./_arvore');
 
 // Planejamento de capacidade (labor_pulso) — inline em vez de um endpoint
 // próprio (api/labor.js): Overview é o único consumidor hoje, e o limite de
@@ -143,6 +144,21 @@ async function getJson(base, path) {
 }
 
 module.exports = async (req, res) => {
+  // Árvore de KPI's (?arvore=1) — fonte própria (árvore_pulso), nada a ver
+  // com o fan-out do Overview abaixo, então curto-circuita antes dele. Mora
+  // aqui e não num endpoint próprio por causa do teto de 12 funções do plano
+  // Hobby da Vercel (ver api/_arvore.js).
+  if (req.query.arvore !== undefined) {
+    try {
+      const dados = await buildArvore();
+      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+      res.status(200).json({ ok: true, ...dados });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const base = `${proto}://${req.headers.host}`;
   const erros = {};
