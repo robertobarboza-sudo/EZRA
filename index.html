@@ -2159,10 +2159,12 @@
     .mon-row-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mon-row-text b{ color:var(--text); font-weight:700; }
     .mon-row-sub{ color:var(--text-muted); font-size:10.5px; }
+    .mon-row-ender{ color:var(--cyan); font-size:10px; font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; margin-top:1px; }
+    .mon-row-ender i{ margin-right:3px; opacity:.8; }
     .mon-track{ position:relative; flex:1; height:40px; cursor:pointer; }
-    .mon-bar{ position:absolute; top:9px; height:22px; border-radius:11px; opacity:.9; }
+    .mon-bar{ position:absolute; top:14px; height:12px; border-radius:6px; opacity:.9; }
     .mon-bar:hover{ opacity:1; filter:brightness(1.08); }
-    .mon-atd{ position:absolute; top:5px; width:2px; height:30px; background:var(--green); }
+    .mon-atd{ position:absolute; top:8px; width:2px; height:24px; background:var(--green); }
     .mon-now-line{ position:absolute; top:0; width:2px; height:100%; background:var(--amber); z-index:5; }
     .mon-now-line::after{ content:"AGORA"; position:absolute; top:-14px; left:3px; font-size:9px; font-weight:800; color:var(--amber); white-space:nowrap; }
     .mon-group-row{ background:var(--surface-3); font-size:11px; font-weight:700; color:var(--text-sub); padding:6px 12px; text-transform:uppercase; letter-spacing:.05em; }
@@ -6341,6 +6343,8 @@ let MON_DAY_START = null; // Date às 06:00 do dia mostrado — origem do eixo d
 let MON_LOADING = false;
 let MON_GROUP_BY_DESTINO = false;
 let MON_VIEW = 'todas';   // todas | andamento | planejadas | finalizadas
+let MON_FRONT = 'intersoc'; // intersoc (SoC) | hub (LM Hub + XPT) — pedido do Roberto em 2026-08-13
+let MON_ENDER = {};       // destino -> [{rua,qtd}] — local de endereçamento dos unitizadores (aba de clusterização)
 let MON_TICK_STARTED = false;
 const MON_STATUS_ORDER = ['Atrasada','Próxima do fechamento','Em operação','Aguardando apresentação','Planejada','Realizada'];
 const MON_STATUS_COLOR = {
@@ -6354,6 +6358,11 @@ const MON_STATUS_COLOR = {
 
 function monBuildHTML(){
   return `
+    <div class="bkl-tabs" id="mon-front-tabs" role="tablist" style="margin-bottom:14px">
+      <div class="bkl-tab active" data-front="intersoc" role="tab" onclick="monSetFront('intersoc',this)">Intersoc <span style="opacity:.6;font-weight:500">· SoC</span></div>
+      <div class="bkl-tab" data-front="hub" role="tab" onclick="monSetFront('hub',this)">HUB <span style="opacity:.6;font-weight:500">· HUB + XPT</span></div>
+    </div>
+
     <div class="mon-toolbar">
       <select class="filter-select" id="mon-f-status" onchange="monRenderAll()">
         <option value="">Status: Todos</option>
@@ -6432,6 +6441,7 @@ async function monLoad(){
     MON_DIA = j.dia;
     MON_DAY_START = new Date(j.dia + 'T06:00:00');
     MON_TRIPS = (j.viagens || []).map(monParse).map((t,i) => ({ ...t, idx:i }));
+    MON_ENDER = j.enderecamento || {};
     monPopulateFilterOptions();
     monBuildHours();
     monRenderAll();
@@ -6488,6 +6498,23 @@ function monFmtDate(iso){
   return `${d}/${m}/${y}`;
 }
 
+// Classificação Intersoc/HUB (pedido do Roberto em 2026-08-13): mesma
+// convenção de prefixo usada em Esteira On-time (esteiraDestinoCategoria,
+// api/cluster.js) — SoC_ = Intersoc, LM Hub_/XPT_ = HUB.
+function monFrontOf(destino){
+  return /^SoC_/i.test(String(destino||'')) ? 'intersoc' : 'hub';
+}
+function monTripsFront(){
+  return MON_TRIPS.filter(t => monFrontOf(t.destino) === MON_FRONT);
+}
+function monSetFront(front, el){
+  MON_FRONT = front;
+  document.querySelectorAll('#mon-front-tabs .bkl-tab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  monPopulateFilterOptions();
+  monRenderAll();
+}
+
 function monFillSelect(id, values, allLabel){
   const sel = document.getElementById(id);
   if(!sel) return;
@@ -6496,8 +6523,9 @@ function monFillSelect(id, values, allLabel){
   if(values.includes(current)) sel.value = current;
 }
 function monPopulateFilterOptions(){
-  const destinos = [...new Set(MON_TRIPS.map(t => t.destino).filter(Boolean))].sort();
-  const veiculos = [...new Set(MON_TRIPS.map(t => t.veiculo_placa).filter(Boolean))].sort();
+  const front = monTripsFront();
+  const destinos = [...new Set(front.map(t => t.destino).filter(Boolean))].sort();
+  const veiculos = [...new Set(front.map(t => t.veiculo_placa).filter(Boolean))].sort();
   monFillSelect('mon-f-destino', destinos, 'Destino: Todos');
   monFillSelect('mon-f-veiculo', veiculos, 'Veículo: Todos');
 }
@@ -6538,7 +6566,7 @@ function monFilteredTrips(now){
   const veiculo = document.getElementById('mon-f-veiculo')?.value || '';
   const busca = (document.getElementById('mon-f-busca')?.value || '').trim().toLowerCase();
 
-  return MON_TRIPS.map(t => ({ ...t, ...monDerive(t, now) })).filter(t => {
+  return monTripsFront().map(t => ({ ...t, ...monDerive(t, now) })).filter(t => {
     if(status && t.status !== status) return false;
     if(destino && t.destino !== destino) return false;
     if(veiculo && t.veiculo_placa !== veiculo) return false;
@@ -6565,7 +6593,7 @@ function monRenderAll(){
 }
 
 function monRenderKpis(now){
-  const all = MON_TRIPS.map(t => ({ ...t, ...monDerive(t, now) }));
+  const all = monTripsFront().map(t => ({ ...t, ...monDerive(t, now) }));
   const vistoDestino = new Set();
   let pacotes = 0;
   all.forEach(t => {
@@ -6584,19 +6612,31 @@ function monRenderKpis(now){
   ]);
 }
 
+// Local de endereçamento (rua) dos unitizadores disponíveis pro destino da
+// viagem — vem da Clusterização (MON_ENDER, ver enderecamento em
+// api/outbound.js). Mostra até 2 ruas (a com mais TOs primeiro) + contador
+// do resto, pra não estourar a linha.
+function monEnderecamentoLabel(destino){
+  const ruas = MON_ENDER[destino];
+  if(!ruas || !ruas.length) return '';
+  const top = ruas.slice(0,2).map(r => r.rua).join(', ');
+  return ruas.length > 2 ? `${top} +${ruas.length-2}` : top;
+}
 function monRowHtml(t){
   const color = MON_STATUS_COLOR[t.status] || 'var(--text-muted)';
   const left = monPos(t.staD), right = monPos(t.stdD);
   const width = Math.max(4, right - left);
   const atdLeft = t.atdD ? monPos(t.atdD) : null;
   const tip = `STA ${monFmtHM(t.staD)} · STD ${monFmtHM(t.stdD)}${t.atdD ? (' · ATD ' + monFmtHM(t.atdD)) : ''}`;
+  const ender = monEnderecamentoLabel(t.destino);
   return `
     <div class="mon-row" onclick="monOpenDetail(${t.idx})">
       <div class="mon-row-meta">
         <span class="mon-row-dot" style="background:${color}"></span>
         <div style="overflow:hidden">
-          <div class="mon-row-text"><b>${pulsoEscHtml(t.trip_number||'—')}</b> · ${pulsoEscHtml(t.destino_codigo||'')}</div>
-          <div class="mon-row-sub">${pulsoEscHtml(t.veiculo_placa||'—')} · ${pulsoEscHtml(t.status)}</div>
+          <div class="mon-row-text" title="${pulsoEscHtml(`${t.destino||''} · ${t.destino_codigo||''}`)}"><b>${pulsoEscHtml(t.destino||'—')}</b> · ${pulsoEscHtml(t.destino_codigo||'')}</div>
+          <div class="mon-row-sub">${pulsoEscHtml(t.veiculo_placa||'—')} · ${pulsoEscHtml(t.trip_number||'—')}</div>
+          ${ender ? `<div class="mon-row-ender" title="Endereçamento: ${pulsoEscHtml(ender)}"><i class="fas fa-location-dot"></i>${pulsoEscHtml(ender)}</div>` : ''}
         </div>
       </div>
       <div class="mon-track" title="${pulsoEscHtml(tip)}">
@@ -6630,7 +6670,7 @@ function monRenderRows(list, nowLeft){
     if(MON_GROUP_BY_DESTINO && t.destino_codigo !== lastGroup){
       lastGroup = t.destino_codigo;
       const count = sorted.filter(x => x.destino_codigo === lastGroup).length;
-      html += `<div class="mon-group-row">${pulsoEscHtml(lastGroup || '—')} · ${pulsoEscHtml(t.destino||'')} (${count})</div>`;
+      html += `<div class="mon-group-row">${pulsoEscHtml(t.destino||'—')} · ${pulsoEscHtml(lastGroup||'')} (${count})</div>`;
     }
     html += monRowHtml(t);
   });
@@ -6639,7 +6679,7 @@ function monRenderRows(list, nowLeft){
 }
 
 function monRenderAlerts(now){
-  const critical = MON_TRIPS
+  const critical = monTripsFront()
     .map(t => ({ ...t, ...monDerive(t, now) }))
     .filter(t => t.status==='Atrasada' || t.status==='Próxima do fechamento')
     .sort((a,b) => (b.late||0) - (a.late||0))
@@ -6659,7 +6699,7 @@ function monRenderAlerts(now){
     const msg = t.status==='Atrasada' ? `atrasada há ${Math.round(t.late)} min` : `fecha em ${Math.round(t.to)} min`;
     return `<div class="mon-alert-item" onclick="monOpenDetail(${t.idx})">
       <span>${icon}</span>
-      <span><b>${pulsoEscHtml(t.trip_number||'—')}</b> · ${pulsoEscHtml(t.destino_codigo||'')} — ${msg}</span>
+      <span><b>${pulsoEscHtml(t.destino||'—')}</b> · ${pulsoEscHtml(t.destino_codigo||'')} — ${msg}</span>
     </div>`;
   }).join('');
 }
@@ -6668,9 +6708,11 @@ function monOpenDetail(idx){
   const t = MON_TRIPS.find(x => x.idx === idx);
   if(!t) return;
   const d = monDerive(t, new Date());
-  document.getElementById('mon-detail-title').innerHTML = `<i class="fas fa-truck-fast" style="color:var(--orange);margin-right:8px"></i>${pulsoEscHtml(t.trip_number||'—')}`;
+  document.getElementById('mon-detail-title').innerHTML = `<i class="fas fa-truck-fast" style="color:var(--orange);margin-right:8px"></i>${pulsoEscHtml(t.destino||'—')} <span style="color:var(--text-muted);font-weight:600">· ${pulsoEscHtml(t.destino_codigo||'—')}</span>`;
+  const ruas = MON_ENDER[t.destino] || [];
   const rows = [
     ['Status', pulsoEscHtml(d.status)],
+    ['LT', pulsoEscHtml(t.trip_number || '—')],
     ['Destino', pulsoEscHtml(`${t.destino||'—'} (${t.destino_codigo||'—'})`)],
     ['Veículo', pulsoEscHtml(`${t.veiculo_tipo||'—'} · ${t.veiculo_placa||'—'}`)],
     ['Transportadora', pulsoEscHtml(t.transportadora || '—')],
@@ -6678,6 +6720,7 @@ function monOpenDetail(idx){
     ['STA', monFmtHM(t.staD)],
     ['STD', monFmtHM(t.stdD)],
     ['ATD', t.atdD ? monFmtHM(t.atdD) : 'Pendente'],
+    ['Endereçamento (Rua)', ruas.length ? pulsoEscHtml(ruas.map(r => `${r.rua} (${r.qtd})`).join(', ')) : 'Sem TO endereçado'],
     ['Pacotes Endereçados (destino)', (t.staged_pacotes||0).toLocaleString('pt-BR')],
     ['Sacas / Scuttle / Outros', `${t.u.sacas} / ${t.u.scuttle} / ${t.u.outros}`],
     ['Capacidade da Viagem', (t.capacidade_pct||0) + '%'],

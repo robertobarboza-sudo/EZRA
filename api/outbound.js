@@ -28,6 +28,40 @@ const OUTBOUND_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGH
 // 2026-08-13) — timeline ao vivo de viagens (STA/STD/ATD por trip), fonte
 // própria (outbound_monitor_pulso), não a rawdata_out_pulso de cima.
 const MONITOR_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1386791246' };
+// Local de endereçamento dos unitizadores por destino (pedido do Roberto em
+// 2026-08-13, "Intersoc/HUB"): mesma base da Clusterização (cluster_pulso +
+// config, ver api/cluster.js), só o de-para código→rua + contagem por
+// destino — não duplica a reconciliação inteira (roster/capacidade/etc,
+// que essa página não usa).
+const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
+const CLUSTER_CONFIG_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1408724077' };
+
+async function buildEnderecamentoPorDestino() {
+  const [{ rows: clusterRows }, { rows: configRows }] = await Promise.all([
+    fetchTabByGid(CLUSTER_SHEET.spreadsheetId, CLUSTER_SHEET.gid),
+    fetchTabByGid(CLUSTER_CONFIG_SHEET.spreadsheetId, CLUSTER_CONFIG_SHEET.gid),
+  ]);
+  const staginDepara = new Map(); // staging area id -> staging area name (rua)
+  configRows.forEach(r => {
+    const id = r['staging area id'];
+    const rua = r['staging area name'];
+    if (id && rua) staginDepara.set(id, rua);
+  });
+  const porDestino = new Map(); // destino (receiver) -> Map(rua -> qtd de TOs)
+  clusterRows.forEach(r => {
+    const codigo = r['staging area'];
+    const rua = (codigo && codigo !== '-') ? staginDepara.get(codigo) : null;
+    if (!rua || !r.receiver) return;
+    if (!porDestino.has(r.receiver)) porDestino.set(r.receiver, new Map());
+    const m = porDestino.get(r.receiver);
+    m.set(rua, (m.get(rua) || 0) + 1);
+  });
+  const out = {};
+  porDestino.forEach((ruas, destino) => {
+    out[destino] = [...ruas.entries()].sort((a, b) => b[1] - a[1]).map(([rua, qtd]) => ({ rua, qtd }));
+  });
+  return out;
+}
 
 // Monitor - Live: só busca/computa quando pedido explicitamente (?monitor=1)
 // — a página normal de Outbound não usa esse bloco. Curto-circuita antes do
@@ -40,6 +74,13 @@ async function buildMonitor(req, res) {
     res.status(502).json({ ok: false, erro: err.message });
     return;
   }
+  // Endereçamento é um enriquecimento opcional (vem de outra aba) — se
+  // falhar, o Monitor - Live continua funcionando sem essa informação.
+  let enderecamento = {};
+  try {
+    enderecamento = await buildEnderecamentoPorDestino();
+  } catch (err) { /* ignora — enriquecimento opcional */ }
+
   const comDia = monRows.filter(r => r.sta).map(r => ({ ...r, __dia: dataOperacionalDe(r.sta) })).filter(r => r.__dia);
   const diasDisponiveis = [...new Set(comDia.map(r => r.__dia))].sort();
   const hojeIso = hojeOperacionalIso();
@@ -81,6 +122,7 @@ async function buildMonitor(req, res) {
     dia,
     cobertura: { inicio: diasDisponiveis[0] || null, fim: diasDisponiveis[diasDisponiveis.length - 1] || null },
     viagens,
+    enderecamento,
   });
 }
 
