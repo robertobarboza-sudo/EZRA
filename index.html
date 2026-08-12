@@ -8983,7 +8983,10 @@ let ARV_CHART_HIST = null;
 // Folga acima/abaixo do target antes de virar "Fora do target" (era o slider
 // da tela de Configurações do mockup, que não veio junto).
 const ARV_BANDA = 0.15;
-const ARV_LARG = { bloco: 34, pic: 92, sub: 132, kpi: 230, target: 68, ref: 58, semana: 50, dia: 48 };
+// `ref` = semanas de referência (congeladas) e `semana` = coluna de semana
+// fechada: mais largas que as de dia porque carregam o valor consolidado
+// (ex: "100,0%"), que ficava espremido (pedido do Roberto em 2026-08-13).
+const ARV_LARG = { bloco: 34, pic: 92, sub: 132, kpi: 230, target: 68, ref: 74, semana: 74, dia: 48 };
 const ARV_PALETA = ['#ee4d2d', '#1e8e3e', '#1a73e8', '#b15c00', '#8b5cf6', '#0ea5a4', '#d93025', '#6b7280'];
 const ARV_PERIODOS = [['7', '7 dias'], ['30', '30 dias'], ['90', '90 dias'], ['all', 'Tudo']];
 
