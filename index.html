@@ -2113,6 +2113,71 @@
     }
     .data-card-input:focus { border-color: var(--orange); }
 
+    /* ── MONITOR - LIVE (Outbound) — porte do mockup do Roberto
+       ("monitor_operacional_viagens.html"), timeline de viagens (STA/STD/
+       ATD). Reskinned pro tema do site (var(--surface)/--text/--border/
+       --orange etc.) em vez da paleta própria do mockup — pedido do
+       Roberto em 2026-08-13, "coloque no template que estamos usando
+       atual", mesmo padrão já usado na Esteira On-time. ── */
+    .mon-toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:12px 16px; margin-bottom:14px; box-shadow:var(--shadow); }
+    .mon-toolbar select.filter-select, .mon-toolbar input.filter-select{ min-width:150px; }
+    .mon-toolbar input.filter-select{ min-width:180px; }
+    .mon-toolbar-spacer{ flex:1; }
+    .mon-now-btn{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); font-size:12px; font-weight:600; padding:7px 14px; border-radius:var(--radius); cursor:pointer; white-space:nowrap; }
+    .mon-now-btn:hover{ border-color:var(--orange); color:var(--text); }
+    .mon-last{ font-size:11px; color:var(--text-muted); white-space:nowrap; }
+    .mon-alert-btn{ position:relative; display:flex; align-items:center; gap:7px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:12px; font-weight:700; padding:7px 14px; border-radius:var(--radius); cursor:pointer; white-space:nowrap; }
+    .mon-alert-btn:hover{ border-color:var(--amber); }
+    .mon-alert-count{ background:var(--red); color:#fff; font-size:10.5px; font-weight:800; border-radius:10px; padding:1px 6px; min-width:16px; text-align:center; }
+    .mon-alert-count[data-zero="1"]{ background:var(--text-muted); opacity:.6; }
+    .mon-view-switcher{ display:flex; gap:6px; flex-wrap:wrap; }
+    .mon-view-btn{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:var(--radius); cursor:pointer; }
+    .mon-view-btn:hover{ border-color:var(--orange); }
+    .mon-view-btn.active{ background:var(--orange); border-color:var(--orange); color:#fff; }
+    .mon-group-btn{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); font-size:11.5px; font-weight:600; padding:6px 12px; border-radius:var(--radius); cursor:pointer; white-space:nowrap; }
+    .mon-group-btn:hover{ border-color:var(--orange); }
+    .mon-group-btn.active{ background:var(--cyan); border-color:var(--cyan); color:#fff; }
+
+    .mon-alert-panel{ display:none; position:absolute; right:0; top:calc(100% + 8px); width:340px; max-height:420px; overflow-y:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg,var(--shadow)); z-index:80; padding:10px; }
+    .mon-alert-panel.open{ display:block; }
+    .mon-alert-item{ display:flex; align-items:flex-start; gap:8px; padding:8px 8px; border-radius:var(--radius); font-size:12px; color:var(--text-sub); }
+    .mon-alert-item:hover{ background:var(--surface-2); cursor:pointer; }
+    .mon-alert-item b{ color:var(--text); }
+    .mon-alert-empty{ padding:14px 8px; font-size:12px; color:var(--text-muted); text-align:center; }
+
+    .mon-timeline-card{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); overflow:hidden; margin-bottom:14px; }
+    .mon-scroll{ overflow-x:auto; }
+    .mon-timehead{ display:flex; min-width:1800px; border-bottom:1px solid var(--border); background:var(--surface-2); position:sticky; top:0; z-index:4; }
+    .mon-timehead-meta{ width:280px; flex:none; position:sticky; left:0; z-index:5; background:var(--surface-2); }
+    .mon-hours{ position:relative; flex:1; height:28px; }
+    .mon-hour-label{ position:absolute; top:0; font-size:10px; color:var(--text-muted); transform:translateX(-50%); padding-top:6px; }
+    .mon-rows{ position:relative; min-width:1800px; }
+    .mon-row{ display:flex; align-items:center; border-bottom:1px solid var(--border); }
+    .mon-row:hover .mon-row-meta{ background:var(--surface-2); }
+    .mon-row-meta{ width:280px; flex:none; padding:8px 12px; display:flex; align-items:center; gap:8px; font-size:12px; overflow:hidden; position:sticky; left:0; z-index:3; background:var(--surface); }
+    .mon-row-dot{ width:8px; height:8px; border-radius:50%; flex:none; }
+    .mon-row-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .mon-row-text b{ color:var(--text); font-weight:700; }
+    .mon-row-sub{ color:var(--text-muted); font-size:10.5px; }
+    .mon-track{ position:relative; flex:1; height:40px; cursor:pointer; }
+    .mon-bar{ position:absolute; top:9px; height:22px; border-radius:11px; opacity:.9; }
+    .mon-bar:hover{ opacity:1; filter:brightness(1.08); }
+    .mon-atd{ position:absolute; top:5px; width:2px; height:30px; background:var(--green); }
+    .mon-now-line{ position:absolute; top:0; width:2px; height:100%; background:var(--amber); z-index:5; }
+    .mon-now-line::after{ content:"AGORA"; position:absolute; top:-14px; left:3px; font-size:9px; font-weight:800; color:var(--amber); white-space:nowrap; }
+    .mon-group-row{ background:var(--surface-3); font-size:11px; font-weight:700; color:var(--text-sub); padding:6px 12px; text-transform:uppercase; letter-spacing:.05em; }
+    .mon-empty{ padding:30px; text-align:center; color:var(--text-muted); font-size:13px; }
+    .mon-legend{ display:flex; flex-wrap:wrap; gap:14px; padding:10px 16px; font-size:11px; color:var(--text-muted); border-top:1px solid var(--border); }
+    .mon-legend span{ display:inline-flex; align-items:center; gap:5px; }
+    .mon-legend i{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+
+    .mon-detail-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:6px; }
+    .mon-detail-item{ background:var(--surface-3); border-radius:var(--radius); padding:9px 12px; }
+    .mon-detail-label{ font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; }
+    .mon-detail-value{ font-size:13px; color:var(--text); font-weight:600; }
+    .mon-detail-full{ grid-column:1/-1; }
+    @media(max-width:900px){ .mon-toolbar{ flex-direction:column; align-items:stretch; } .mon-detail-grid{ grid-template-columns:1fr; } }
+
     /* ── PERFORMANCE EXECUTIVA ───────────────────────────────── */
     .perf-score-card {
       background: var(--surface); border: 1px solid var(--border);
@@ -2850,6 +2915,7 @@
         <div class="nav-subitem active" data-subkey="outbound" onclick="navSidebarSubpage(this,'spr','outbound','pulso')">Outbound</div>
         <div class="nav-subitem" data-subkey="spr" onclick="navSidebarSubpage(this,'spr','spr','pulso')">SPR</div>
         <div class="nav-subitem" data-subkey="leftover" onclick="navSidebarSubpage(this,'spr','leftover','pulso')">Leftover</div>
+        <div class="nav-subitem" data-subkey="monitor" onclick="navSidebarSubpage(this,'spr','monitor','pulso')">Monitor - Live</div>
       </div>
       <div class="nav-item" data-section="clusterizacao" data-label="Clusterização" onclick="navigateTo('clusterizacao',this)">
         <i class="fas fa-circle-nodes nav-icon"></i><span class="nav-label">Clusterização</span>
@@ -3129,8 +3195,8 @@
           <div class="section-subtitle" id="pulso-page-subtitle">Acompanhamento de CPT ao vivo · Turno atual</div>
         </div>
         <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="pulsoOpenPipboy(PULSO_ACTIVE_SUBPAGE)"><i class="fas fa-satellite-dish"></i> COP Boy</button>
-          <button class="dl-btn dl-btn-csv" onclick="pulsoLoad(PULSO_ACTIVE_SUBPAGE)"><i class="fas fa-rotate-right"></i> Atualizar</button>
+          <button class="spr-pipboy-btn" id="pulso-pipboy-btn" onclick="pulsoOpenPipboy(PULSO_ACTIVE_SUBPAGE)"><i class="fas fa-satellite-dish"></i> COP Boy</button>
+          <button class="dl-btn dl-btn-csv" onclick="PULSO_ACTIVE_SUBPAGE==='monitor' ? monLoad() : pulsoLoad(PULSO_ACTIVE_SUBPAGE)"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
 
@@ -3138,11 +3204,13 @@
         <div class="bkl-tab active" id="subtab-outbound" onclick="pulsoSwitchSubpage('outbound',this)">Outbound</div>
         <div class="bkl-tab" id="subtab-spr" onclick="pulsoSwitchSubpage('spr',this)">SPR</div>
         <div class="bkl-tab" id="subtab-leftover" onclick="pulsoSwitchSubpage('leftover',this)">Leftover</div>
+        <div class="bkl-tab" id="subtab-monitor" onclick="pulsoSwitchSubpage('monitor',this)">Monitor - Live</div>
       </div>
 
       <div id="pulso-root-outbound"></div>
       <div id="pulso-root-spr" style="display:none"></div>
       <div id="pulso-root-leftover" style="display:none"></div>
+      <div id="pulso-root-monitor" style="display:none"></div>
     </section>
 
     <!-- Pipboy — painel de insights compartilhado por todas as páginas do pacote padrão -->
@@ -3157,6 +3225,17 @@
           <div class="spr-pipboy-loading-text"><i class="fas fa-circle-notch fa-spin"></i> Analisando dados…</div>
         </div>
         <div id="pulso-pipboy-body" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Monitor - Live — detalhe da viagem -->
+    <div class="modal-overlay" id="mon-detail-overlay" onclick="if(event.target===this) monCloseDetail()">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-header">
+          <span class="modal-title" id="mon-detail-title"><i class="fas fa-truck-fast" style="color:var(--orange);margin-right:8px"></i>Detalhe da viagem</span>
+          <button class="modal-close" onclick="monCloseDetail()"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div id="mon-detail-body" class="mon-detail-grid"></div>
       </div>
     </div>
 
@@ -5239,7 +5318,7 @@ let TV_ROTATION = null;       // { pages, intervalSec, idx, timer, subpages } qu
 // Páginas com subpáginas — pra rotação do TV Mode poder abrir a subpágina
 // certa de cada uma (pedido do Roberto em 2026-08-10), não só a seção.
 const TV_SUBPAGES = {
-  spr:      { tabsId:'pulso-subpage-tabs',    switcher:'pulsoSwitchSubpage',  options:[{key:'outbound',label:'Outbound'},{key:'spr',label:'SPR'},{key:'leftover',label:'Leftover'}] },
+  spr:      { tabsId:'pulso-subpage-tabs',    switcher:'pulsoSwitchSubpage',  options:[{key:'outbound',label:'Outbound'},{key:'spr',label:'SPR'},{key:'leftover',label:'Leftover'},{key:'monitor',label:'Monitor - Live'}] },
   conveyor: { tabsId:'conveyor-subpage-tabs', switcher:'cnvSwitchSubpage',    options:[{key:'performance',label:'Performance'},{key:'esteira',label:'Esteira On-time'}] },
   inbound:  { tabsId:'inbound-subpage-tabs',  switcher:'inboundSwitchSubpage',options:[{key:'lh',label:'Line Haul'},{key:'fm',label:'First Mile'},{key:'triagem',label:'Triagem'}] },
 };
@@ -6214,6 +6293,7 @@ const PULSO_SUBPAGE_META = {
   outbound: { title:'Outbound', subtitle:'Acompanhamento de CPT ao vivo · Turno atual' },
   spr:      { title:'SPR',      subtitle:'Solicitação de Programação de Rota · Viagens' },
   leftover: { title:'Leftover', subtitle:'Pacotes remanescentes por hub · Causas' },
+  monitor:  { title:'Monitor - Live', subtitle:'Timeline de viagens ao vivo · STA/STD/ATD' },
 };
 
 function pulsoSwitchSubpage(key, el){
@@ -6234,7 +6314,382 @@ function pulsoSwitchSubpage(key, el){
   document.getElementById('pulso-page-subtitle').textContent = meta.subtitle;
   document.getElementById('greet-sub').textContent = meta.subtitle;
 
-  pulsoRender(key);
+  // Monitor - Live é uma página bespoke (timeline/Gantt não cabe no motor
+  // pulsoRegister) — não tem COP Boy/insights, por isso some o botão.
+  const pipboyBtn = document.getElementById('pulso-pipboy-btn');
+  if(pipboyBtn) pipboyBtn.style.display = key==='monitor' ? 'none' : '';
+
+  if(key==='monitor') monRender(); else pulsoRender(key);
+}
+
+/* ================================================================
+   MONITOR - LIVE (Outbound) — porte do mockup do Roberto
+   (monitor_operacional_viagens.html), lendo dados reais de
+   /api/outbound?monitor=1 (aba outbound_monitor_pulso) em vez do
+   array mock embutido no original. Página bespoke (timeline/Gantt
+   não cabe no motor pulsoRegister), mesmo padrão da Esteira On-time.
+   Relógio usa hora real (new Date() tickando a cada segundo) em vez
+   do instante fixo do mockup — se o dia mostrado (fallback pro mais
+   recente disponível, ver api/outbound.js) for passado em relação a
+   "agora", as viagens simplesmente aparecem como Realizada/Atrasada
+   e a linha "AGORA" fica encostada na borda direita da timeline
+   (monPos já clampa o intervalo).
+================================================================ */
+let MON_TRIPS = [];       // viagens do dia resolvido, já parseadas (com .idx)
+let MON_DIA = null;       // YYYY-MM-DD do dia mostrado (vem da API)
+let MON_DAY_START = null; // Date às 06:00 do dia mostrado — origem do eixo da timeline
+let MON_LOADING = false;
+let MON_GROUP_BY_DESTINO = false;
+let MON_VIEW = 'todas';   // todas | andamento | planejadas | finalizadas
+let MON_TICK_STARTED = false;
+const MON_STATUS_ORDER = ['Atrasada','Próxima do fechamento','Em operação','Aguardando apresentação','Planejada','Realizada'];
+const MON_STATUS_COLOR = {
+  'Planejada': 'var(--text-muted)',
+  'Aguardando apresentação': 'var(--amber)',
+  'Em operação': 'var(--cyan)',
+  'Próxima do fechamento': 'var(--amber)',
+  'Atrasada': 'var(--red)',
+  'Realizada': 'var(--green)',
+};
+
+function monBuildHTML(){
+  return `
+    <div class="mon-toolbar">
+      <select class="filter-select" id="mon-f-status" onchange="monRenderAll()">
+        <option value="">Status: Todos</option>
+        <option>Planejada</option>
+        <option>Aguardando apresentação</option>
+        <option>Em operação</option>
+        <option>Próxima do fechamento</option>
+        <option>Atrasada</option>
+        <option>Realizada</option>
+      </select>
+      <select class="filter-select" id="mon-f-destino" onchange="monRenderAll()"><option value="">Destino: Todos</option></select>
+      <select class="filter-select" id="mon-f-veiculo" onchange="monRenderAll()"><option value="">Veículo: Todos</option></select>
+      <input class="filter-select" type="text" id="mon-f-busca" placeholder="Buscar LT, placa, destino…" oninput="monRenderAll()"/>
+      <div class="mon-view-switcher">
+        <div class="mon-view-btn active" data-view="todas" onclick="monSetView('todas',this)">Todas</div>
+        <div class="mon-view-btn" data-view="andamento" onclick="monSetView('andamento',this)">Em andamento</div>
+        <div class="mon-view-btn" data-view="planejadas" onclick="monSetView('planejadas',this)">Planejadas</div>
+        <div class="mon-view-btn" data-view="finalizadas" onclick="monSetView('finalizadas',this)">Finalizadas</div>
+      </div>
+      <div class="mon-group-btn" id="mon-group-btn" onclick="monToggleGroup()">Agrupar por destino</div>
+      <div class="mon-toolbar-spacer"></div>
+      <button class="mon-now-btn" onclick="monScrollToNow()"><i class="fas fa-location-crosshairs"></i> AGORA</button>
+      <span class="mon-last" id="mon-last"></span>
+      <div style="position:relative">
+        <button class="mon-alert-btn" onclick="monToggleAlerts()"><i class="fas fa-lightbulb"></i> Alertas <span class="mon-alert-count" id="mon-alert-count" data-zero="1">0</span></button>
+        <div class="mon-alert-panel" id="mon-alert-panel"></div>
+      </div>
+    </div>
+
+    <div id="mon-kpis"></div>
+
+    <div class="mon-timeline-card">
+      <div class="mon-scroll">
+        <div class="mon-timehead">
+          <div class="mon-timehead-meta"></div>
+          <div class="mon-hours" id="mon-hours"></div>
+        </div>
+        <div class="mon-rows" id="mon-rows"></div>
+      </div>
+      <div class="mon-legend">
+        <span><i style="background:var(--text-muted)"></i>Planejada</span>
+        <span><i style="background:var(--amber)"></i>Aguardando / Fechamento ≤30min</span>
+        <span><i style="background:var(--cyan)"></i>Em operação</span>
+        <span><i style="background:var(--red)"></i>Atrasada</span>
+        <span><i style="background:var(--green)"></i>Realizada</span>
+        <span><i style="background:var(--green);border-radius:2px;width:2px"></i>ATD real</span>
+      </div>
+    </div>`;
+}
+
+function monRender(){
+  const root = document.getElementById('pulso-root-monitor');
+  if(root && !root.dataset.built){
+    root.innerHTML = monBuildHTML();
+    root.dataset.built = '1';
+  }
+  if(!MON_TICK_STARTED){
+    MON_TICK_STARTED = true;
+    setInterval(monTick, 1000);
+  }
+  if(!MON_DIA) monLoad(); else monRenderAll();
+}
+
+function monTick(){
+  if(PULSO_ACTIVE_SUBPAGE !== 'monitor') return;
+  monRenderAll();
+}
+
+async function monLoad(){
+  if(MON_LOADING) return;
+  MON_LOADING = true;
+  try{
+    const r = await fetch('/api/outbound?monitor=1');
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'Falha ao carregar Monitor - Live');
+    MON_DIA = j.dia;
+    MON_DAY_START = new Date(j.dia + 'T06:00:00');
+    MON_TRIPS = (j.viagens || []).map(monParse).map((t,i) => ({ ...t, idx:i }));
+    monPopulateFilterOptions();
+    monBuildHours();
+    monRenderAll();
+  }catch(err){
+    const rows = document.getElementById('mon-rows');
+    if(rows) rows.innerHTML = `<div class="mon-empty">Erro ao carregar dados: ${pulsoEscHtml(err.message)}</div>`;
+  }finally{
+    MON_LOADING = false;
+  }
+}
+
+function monParse(r){
+  return {
+    ...r,
+    staD: monDate(r.sta), stdD: monDate(r.std), ataD: monDate(r.ata), atdD: monDate(r.atd),
+    u: monUnits(r.embalagens),
+  };
+}
+function monDate(s){ return s ? new Date(String(s).replace(' ','T')) : null; }
+function monUnits(s){
+  const o = { sacas:0, scuttle:0, outros:0 };
+  String(s || '').split(',').forEach(x => {
+    const m = x.trim().match(/(\d+)\s+(.+)/);
+    if(!m) return;
+    const n = +m[1], t = m[2].toLowerCase();
+    if(t.includes('saca')) o.sacas += n;
+    else if(t.includes('scuttle')) o.scuttle += n;
+    else o.outros += n;
+  });
+  o.total = o.sacas + o.scuttle + o.outros;
+  return o;
+}
+// Deriva o status a cada render (não no parse) porque depende de "agora",
+// que muda a cada tick — mesma regra de prioridade do mockup original.
+function monDerive(r, now){
+  const to = r.stdD ? (r.stdD - now) / 60000 : null;
+  const late = to == null ? null : -to;
+  let status = r.atdD ? 'Realizada'
+    : (r.stdD && now > r.stdD) ? 'Atrasada'
+    : (to != null && to <= 30 && to > 0) ? 'Próxima do fechamento'
+    : (r.staD && now >= r.staD) ? 'Em operação'
+    : 'Planejada';
+  if(!r.atdD && r.staD && r.stdD && now >= r.staD && now < r.stdD && to > 30) status = 'Aguardando apresentação';
+  return { status, to, late };
+}
+function monPos(d){
+  if(!d || !MON_DAY_START) return 0;
+  return Math.max(-10, Math.min(1510, (d - MON_DAY_START) / 86400000 * 1440));
+}
+function monFmtHM(d){ return d ? d.toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }) : '--:--'; }
+function monFmtDate(iso){
+  if(!iso) return '';
+  const [y,m,d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+function monFillSelect(id, values, allLabel){
+  const sel = document.getElementById(id);
+  if(!sel) return;
+  const current = sel.value;
+  sel.innerHTML = `<option value="">${allLabel}</option>` + values.map(v => `<option value="${pulsoEscHtml(v)}">${pulsoEscHtml(v)}</option>`).join('');
+  if(values.includes(current)) sel.value = current;
+}
+function monPopulateFilterOptions(){
+  const destinos = [...new Set(MON_TRIPS.map(t => t.destino).filter(Boolean))].sort();
+  const veiculos = [...new Set(MON_TRIPS.map(t => t.veiculo_placa).filter(Boolean))].sort();
+  monFillSelect('mon-f-destino', destinos, 'Destino: Todos');
+  monFillSelect('mon-f-veiculo', veiculos, 'Veículo: Todos');
+}
+function monBuildHours(){
+  const el = document.getElementById('mon-hours');
+  if(!el || !MON_DAY_START) return;
+  let html = '';
+  for(let i=0;i<25;i++){
+    const d = new Date(MON_DAY_START.getTime() + i*3600000);
+    html += `<div class="mon-hour-label" style="left:${i*60}px">${String(d.getHours()).padStart(2,'0')}h</div>`;
+  }
+  el.innerHTML = html;
+}
+
+function monSetView(view, el){
+  MON_VIEW = view;
+  document.querySelectorAll('#pulso-root-monitor .mon-view-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  monRenderAll();
+}
+function monToggleGroup(){
+  MON_GROUP_BY_DESTINO = !MON_GROUP_BY_DESTINO;
+  document.getElementById('mon-group-btn').classList.toggle('active', MON_GROUP_BY_DESTINO);
+  monRenderAll();
+}
+function monToggleAlerts(){
+  document.getElementById('mon-alert-panel').classList.toggle('open');
+}
+function monScrollToNow(){
+  const wrap = document.querySelector('#pulso-root-monitor .mon-scroll');
+  if(!wrap) return;
+  wrap.scrollLeft = Math.max(0, 280 + monPos(new Date()) - wrap.clientWidth/2);
+}
+
+function monFilteredTrips(now){
+  const status = document.getElementById('mon-f-status')?.value || '';
+  const destino = document.getElementById('mon-f-destino')?.value || '';
+  const veiculo = document.getElementById('mon-f-veiculo')?.value || '';
+  const busca = (document.getElementById('mon-f-busca')?.value || '').trim().toLowerCase();
+
+  return MON_TRIPS.map(t => ({ ...t, ...monDerive(t, now) })).filter(t => {
+    if(status && t.status !== status) return false;
+    if(destino && t.destino !== destino) return false;
+    if(veiculo && t.veiculo_placa !== veiculo) return false;
+    if(MON_VIEW === 'andamento' && !['Em operação','Próxima do fechamento','Aguardando apresentação'].includes(t.status)) return false;
+    if(MON_VIEW === 'planejadas' && t.status !== 'Planejada') return false;
+    if(MON_VIEW === 'finalizadas' && t.status !== 'Realizada') return false;
+    if(busca){
+      const hay = `${t.trip_number} ${t.veiculo_placa} ${t.destino} ${t.destino_codigo}`.toLowerCase();
+      if(!hay.includes(busca)) return false;
+    }
+    return true;
+  });
+}
+
+function monRenderAll(){
+  if(!MON_DAY_START) return;
+  const now = new Date();
+  const lastEl = document.getElementById('mon-last');
+  if(lastEl) lastEl.textContent = 'Agora: ' + now.toLocaleTimeString('pt-BR') + ' · dia exibido ' + monFmtDate(MON_DIA);
+
+  monRenderKpis(now);
+  monRenderRows(monFilteredTrips(now), monPos(now));
+  monRenderAlerts(now);
+}
+
+function monRenderKpis(now){
+  const all = MON_TRIPS.map(t => ({ ...t, ...monDerive(t, now) }));
+  const vistoDestino = new Set();
+  let pacotes = 0;
+  all.forEach(t => {
+    if(t.destino_codigo && !vistoDestino.has(t.destino_codigo)){
+      vistoDestino.add(t.destino_codigo);
+      pacotes += t.staged_pacotes || 0;
+    }
+  });
+  buildKPIs('mon-kpis', [
+    { label:'Viagens do Dia', value: all.length, icon:'fa-route', type:'' },
+    { label:'Em Operação', value: all.filter(t=>t.status==='Em operação').length, icon:'fa-truck-ramp-box', type:'info' },
+    { label:'Fechamento ≤30 min', value: all.filter(t=>t.status==='Próxima do fechamento').length, icon:'fa-hourglass-half', type:'warning' },
+    { label:'Atrasadas', value: all.filter(t=>t.status==='Atrasada').length, icon:'fa-triangle-exclamation', type:'danger' },
+    { label:'Partidas Realizadas', value: all.filter(t=>t.status==='Realizada').length, icon:'fa-circle-check', type:'success' },
+    { label:'Pacotes Endereçados', value: pacotes.toLocaleString('pt-BR'), icon:'fa-boxes-stacked', type:'' },
+  ]);
+}
+
+function monRowHtml(t){
+  const color = MON_STATUS_COLOR[t.status] || 'var(--text-muted)';
+  const left = monPos(t.staD), right = monPos(t.stdD);
+  const width = Math.max(4, right - left);
+  const atdLeft = t.atdD ? monPos(t.atdD) : null;
+  const tip = `STA ${monFmtHM(t.staD)} · STD ${monFmtHM(t.stdD)}${t.atdD ? (' · ATD ' + monFmtHM(t.atdD)) : ''}`;
+  return `
+    <div class="mon-row" onclick="monOpenDetail(${t.idx})">
+      <div class="mon-row-meta">
+        <span class="mon-row-dot" style="background:${color}"></span>
+        <div style="overflow:hidden">
+          <div class="mon-row-text"><b>${pulsoEscHtml(t.trip_number||'—')}</b> · ${pulsoEscHtml(t.destino_codigo||'')}</div>
+          <div class="mon-row-sub">${pulsoEscHtml(t.veiculo_placa||'—')} · ${pulsoEscHtml(t.status)}</div>
+        </div>
+      </div>
+      <div class="mon-track" title="${pulsoEscHtml(tip)}">
+        <div class="mon-bar" style="left:${left}px;width:${width}px;background:${color}"></div>
+        ${atdLeft!=null ? `<div class="mon-atd" style="left:${atdLeft}px"></div>` : ''}
+      </div>
+    </div>`;
+}
+
+function monRenderRows(list, nowLeft){
+  const el = document.getElementById('mon-rows');
+  if(!el) return;
+  if(!list.length){
+    el.innerHTML = '<div class="mon-empty">Nenhuma viagem encontrada com os filtros atuais.</div>';
+    return;
+  }
+
+  let sorted;
+  if(MON_GROUP_BY_DESTINO){
+    sorted = [...list].sort((a,b) => (a.destino_codigo||'').localeCompare(b.destino_codigo||'') || ((a.staD?.getTime()||0) - (b.staD?.getTime()||0)));
+  }else{
+    sorted = [...list].sort((a,b) => {
+      const pa = MON_STATUS_ORDER.indexOf(a.status), pb = MON_STATUS_ORDER.indexOf(b.status);
+      if(pa !== pb) return pa - pb;
+      return (a.staD?.getTime()||0) - (b.staD?.getTime()||0);
+    });
+  }
+
+  let html = '', lastGroup = null;
+  sorted.forEach(t => {
+    if(MON_GROUP_BY_DESTINO && t.destino_codigo !== lastGroup){
+      lastGroup = t.destino_codigo;
+      const count = sorted.filter(x => x.destino_codigo === lastGroup).length;
+      html += `<div class="mon-group-row">${pulsoEscHtml(lastGroup || '—')} · ${pulsoEscHtml(t.destino||'')} (${count})</div>`;
+    }
+    html += monRowHtml(t);
+  });
+  html += `<div class="mon-now-line" style="left:${280 + nowLeft}px"></div>`;
+  el.innerHTML = html;
+}
+
+function monRenderAlerts(now){
+  const critical = MON_TRIPS
+    .map(t => ({ ...t, ...monDerive(t, now) }))
+    .filter(t => t.status==='Atrasada' || t.status==='Próxima do fechamento')
+    .sort((a,b) => (b.late||0) - (a.late||0))
+    .slice(0, 12);
+
+  const countEl = document.getElementById('mon-alert-count');
+  if(countEl){ countEl.textContent = critical.length; countEl.dataset.zero = critical.length ? '0' : '1'; }
+
+  const panel = document.getElementById('mon-alert-panel');
+  if(!panel) return;
+  if(!critical.length){
+    panel.innerHTML = '<div class="mon-alert-empty">Nenhum alerta no momento.</div>';
+    return;
+  }
+  panel.innerHTML = critical.map(t => {
+    const icon = t.status==='Atrasada' ? '🔴' : '🟡';
+    const msg = t.status==='Atrasada' ? `atrasada há ${Math.round(t.late)} min` : `fecha em ${Math.round(t.to)} min`;
+    return `<div class="mon-alert-item" onclick="monOpenDetail(${t.idx})">
+      <span>${icon}</span>
+      <span><b>${pulsoEscHtml(t.trip_number||'—')}</b> · ${pulsoEscHtml(t.destino_codigo||'')} — ${msg}</span>
+    </div>`;
+  }).join('');
+}
+
+function monOpenDetail(idx){
+  const t = MON_TRIPS.find(x => x.idx === idx);
+  if(!t) return;
+  const d = monDerive(t, new Date());
+  document.getElementById('mon-detail-title').innerHTML = `<i class="fas fa-truck-fast" style="color:var(--orange);margin-right:8px"></i>${pulsoEscHtml(t.trip_number||'—')}`;
+  const rows = [
+    ['Status', pulsoEscHtml(d.status)],
+    ['Destino', pulsoEscHtml(`${t.destino||'—'} (${t.destino_codigo||'—'})`)],
+    ['Veículo', pulsoEscHtml(`${t.veiculo_tipo||'—'} · ${t.veiculo_placa||'—'}`)],
+    ['Transportadora', pulsoEscHtml(t.transportadora || '—')],
+    ['Doca', pulsoEscHtml(t.doca || '—')],
+    ['STA', monFmtHM(t.staD)],
+    ['STD', monFmtHM(t.stdD)],
+    ['ATD', t.atdD ? monFmtHM(t.atdD) : 'Pendente'],
+    ['Pacotes Endereçados (destino)', (t.staged_pacotes||0).toLocaleString('pt-BR')],
+    ['Sacas / Scuttle / Outros', `${t.u.sacas} / ${t.u.scuttle} / ${t.u.outros}`],
+    ['Capacidade da Viagem', (t.capacidade_pct||0) + '%'],
+    ['Carga Atual', (t.carga_pct||0) + '%'],
+  ];
+  document.getElementById('mon-detail-body').innerHTML = rows.map(([label,value]) => `
+    <div class="mon-detail-item"><div class="mon-detail-label">${pulsoEscHtml(label)}</div><div class="mon-detail-value">${value}</div></div>
+  `).join('');
+  document.getElementById('mon-detail-overlay').classList.add('open');
+}
+function monCloseDetail(){
+  document.getElementById('mon-detail-overlay').classList.remove('open');
 }
 
 /* ── SPR — config da página, usando o motor acima ── */
