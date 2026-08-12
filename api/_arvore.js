@@ -215,11 +215,23 @@ function metaHeuristica(kpi, targetNum, targetRaw) {
 }
 function metaDoKpi(bloco, pic, sub, kpi, targetNum, targetRaw) {
   const cfg = ARVORE_META[[bloco, pic, sub, kpi].join('|')];
-  if (!cfg) return metaHeuristica(kpi, targetNum, targetRaw);
-  return {
-    unit: cfg[0] === 'p' ? 'percent' : 'number',
-    polarity: cfg[1] === 'l' ? 'lower_better' : cfg[1] === 'z' ? 'near_zero' : 'higher_better',
-  };
+  const m = cfg
+    ? {
+      unit: cfg[0] === 'p' ? 'percent' : 'number',
+      polarity: cfg[1] === 'l' ? 'lower_better' : cfg[1] === 'z' ? 'near_zero' : 'higher_better',
+    }
+    : metaHeuristica(kpi, targetNum, targetRaw);
+
+  // Correção sobre a tabela do mockup: contagem (number) com meta ZERO é
+  // sempre "quanto menos melhor" — meta 0 só existe pra coisa que não devia
+  // acontecer. O convert_data.py marcava os 12 KPIs de ACA/PS (acidentes,
+  // bloco Pessoas/HSE) como higher_better, o que deixava indicador de
+  // segurança SEMPRE verde, inclusive com acidente registrado. Achado em
+  // 2026-08-13 ao portar a página; reportado ao Roberto.
+  if (m.unit === 'number' && targetNum === 0 && m.polarity === 'higher_better') {
+    m.polarity = 'lower_better';
+  }
+  return m;
 }
 
 // Texto que a planilha usa pra "não tem número aqui" — some do gráfico e
