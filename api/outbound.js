@@ -19,7 +19,7 @@
  *   destino, agencia, veiculo   listas separadas por vírgula
  *   q                        busca livre em lh_trips
  */
-const { fetchTabByGid } = require('./_google');
+const { fetchTabByGid, readRange, writeRange, ensureSheetExists } = require('./_google');
 const { parseCSV, hojeOperacionalIso, dataOperacionalDe, toNum } = require('./_period');
 const { enrich, pertenceAoTurno, aggregate, toCarroRow } = require('./_outbound');
 
@@ -63,6 +63,61 @@ async function buildEnderecamentoPorDestino() {
   return out;
 }
 
+// Tags do Monitor - Live (pedido do Roberto em 2026-08-13): anotação de
+// andamento por LT, visível pra todo mundo — primeira feature de ESCRITA
+// do projeto (resto do PULSO é só leitura, ver escopo em api/_google.js).
+// Aba própria (monitor_tags_pulso, criada sob demanda), não a
+// outbound_monitor_pulso de cima. Guarda por trip_number (1 tag ativa por
+// LT — marcar de novo substitui); expira sozinha 10 dias após criada
+// (pedido do Roberto: "limpar automaticamente a cada 10 dias", provisório
+// até a feature de login definir o "perfil" de quem marcou).
+const TAGS_TAB_TITLE = 'monitor_tags_pulso';
+const TAGS_RANGE = `'${TAGS_TAB_TITLE}'!A:D`;
+const TAGS_HEADER = ['trip_number', 'tag', 'usuario', 'criado_em'];
+const TAGS_TTL_MS = 10 * 24 * 60 * 60 * 1000;
+
+// Lê e já filtra tags expiradas (>10 dias) — se a aba ainda não existe
+// (feature nunca usada), Sheets retorna erro de range e isso vira [].
+async function readTagsAtivas() {
+  let values;
+  try {
+    values = await readRange(MONITOR_SHEET.spreadsheetId, TAGS_RANGE);
+  } catch (err) {
+    return [];
+  }
+  const agora = Date.now();
+  return values.slice(1)
+    .map(r => ({ trip_number: r[0] || '', tag: r[1] || '', usuario: r[2] || '', criado_em: r[3] || '' }))
+    .filter(t => t.trip_number && t.tag && (agora - new Date(t.criado_em).getTime()) < TAGS_TTL_MS);
+}
+
+// POST /api/outbound?monitor=1&tag=1  body: { trip_number, tag, usuario }
+// tag vazia = remove a tag da LT. Read-modify-write da aba inteira (clear +
+// rewrite) — mais simples que rastrear índice de linha; volume é pequeno
+// (tags ativas num raio de 10 dias). ponytail: sem lock, dois writes
+// concorrentes podem se sobrepor (last write wins) — upgrade se o uso
+// crescer muito.
+async function handleTagWrite(req, res) {
+  const { trip_number, tag, usuario } = req.body || {};
+  if (!trip_number) {
+    res.status(400).json({ ok: false, erro: 'trip_number obrigatório' });
+    return;
+  }
+  try {
+    await ensureSheetExists(MONITOR_SHEET.spreadsheetId, TAGS_TAB_TITLE);
+    const ativas = await readTagsAtivas();
+    const semEssaLt = ativas.filter(t => t.trip_number !== trip_number);
+    const atualizadas = tag
+      ? [...semEssaLt, { trip_number, tag, usuario: usuario || '', criado_em: new Date().toISOString() }]
+      : semEssaLt;
+    const values = [TAGS_HEADER, ...atualizadas.map(t => [t.trip_number, t.tag, t.usuario, t.criado_em])];
+    await writeRange(MONITOR_SHEET.spreadsheetId, TAGS_RANGE, values);
+    res.status(200).json({ ok: true, tags: atualizadas });
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+  }
+}
+
 // Monitor - Live: só busca/computa quando pedido explicitamente (?monitor=1)
 // — a página normal de Outbound não usa esse bloco. Curto-circuita antes do
 // fetch de OUTBOUND_SHEET (planilha diferente, não precisa das duas).
@@ -74,12 +129,13 @@ async function buildMonitor(req, res) {
     res.status(502).json({ ok: false, erro: err.message });
     return;
   }
-  // Endereçamento é um enriquecimento opcional (vem de outra aba) — se
-  // falhar, o Monitor - Live continua funcionando sem essa informação.
+  // Endereçamento e tags são enriquecimentos opcionais (vêm de outras
+  // abas) — se falharem, o Monitor - Live continua funcionando sem eles.
   let enderecamento = {};
   try {
     enderecamento = await buildEnderecamentoPorDestino();
   } catch (err) { /* ignora — enriquecimento opcional */ }
+  const tags = await readTagsAtivas();
 
   const comDia = monRows.filter(r => r.sta).map(r => ({ ...r, __dia: dataOperacionalDe(r.sta) })).filter(r => r.__dia);
   const diasDisponiveis = [...new Set(comDia.map(r => r.__dia))].sort();
@@ -123,11 +179,16 @@ async function buildMonitor(req, res) {
     cobertura: { inicio: diasDisponiveis[0] || null, fim: diasDisponiveis[diasDisponiveis.length - 1] || null },
     viagens,
     enderecamento,
+    tags,
   });
 }
 
 module.exports = async (req, res) => {
   if (req.query.monitor !== undefined) {
+    if (req.method === 'POST' && req.query.tag !== undefined) {
+      await handleTagWrite(req, res);
+      return;
+    }
     await buildMonitor(req, res);
     return;
   }

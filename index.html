@@ -2155,6 +2155,7 @@
     .mon-row{ display:flex; align-items:center; border-bottom:1px solid var(--border); }
     .mon-row:hover .mon-row-meta{ background:var(--surface-2); }
     .mon-row-meta{ width:280px; flex:none; padding:8px 12px; display:flex; align-items:center; gap:8px; font-size:12px; overflow:hidden; position:sticky; left:0; z-index:3; background:var(--surface); }
+    .mon-row-tag{ position:absolute; top:4px; right:6px; font-size:9px; font-weight:800; color:#fff; padding:1px 7px; border-radius:8px; text-transform:uppercase; letter-spacing:.02em; z-index:4; white-space:nowrap; max-width:120px; overflow:hidden; text-overflow:ellipsis; }
     .mon-row-dot{ width:8px; height:8px; border-radius:50%; flex:none; }
     .mon-row-text{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .mon-row-text b{ color:var(--text); font-weight:700; }
@@ -2179,6 +2180,11 @@
     .mon-detail-label{ font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; }
     .mon-detail-value{ font-size:13px; color:var(--text); font-weight:600; }
     .mon-detail-full{ grid-column:1/-1; }
+    .mon-tag-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+    .mon-tag-chip{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); font-size:11px; font-weight:700; padding:5px 11px; border-radius:12px; cursor:pointer; }
+    .mon-tag-chip:hover{ border-color:var(--orange); }
+    .mon-tag-chip.active{ color:#fff; border-color:transparent; }
+    .mon-tag-meta{ width:100%; font-size:10.5px; color:var(--text-muted); margin-top:2px; }
     @media(max-width:900px){ .mon-toolbar{ flex-direction:column; align-items:stretch; } .mon-detail-grid{ grid-template-columns:1fr; } }
 
     /* ── PERFORMANCE EXECUTIVA ───────────────────────────────── */
@@ -3238,6 +3244,7 @@
           <span class="modal-title" id="mon-detail-title"><i class="fas fa-truck-fast" style="color:var(--orange);margin-right:8px"></i>Detalhe da viagem</span>
           <button class="modal-close" onclick="monCloseDetail()"><i class="fas fa-xmark"></i></button>
         </div>
+        <div id="mon-detail-tags" class="mon-tag-picker"></div>
         <div id="mon-detail-body" class="mon-detail-grid"></div>
       </div>
     </div>
@@ -6346,6 +6353,7 @@ let MON_GROUP_BY_DESTINO = false;
 let MON_VIEW = 'todas';   // todas | andamento | planejadas | finalizadas
 let MON_FRONT = 'intersoc'; // intersoc (SoC) | hub (LM Hub + XPT) — pedido do Roberto em 2026-08-13
 let MON_ENDER = {};       // destino -> [{rua,qtd}] — local de endereçamento dos unitizadores (aba de clusterização)
+let MON_TAGS_BY_TRIP = {}; // trip_number -> {tag,usuario,criado_em} — anotação de andamento, visível pra todos (pedido do Roberto em 2026-08-13)
 let MON_TICK_STARTED = false;
 const MON_STATUS_ORDER = ['Atrasada','Próxima do fechamento','Em operação','Aguardando apresentação','Planejada','Realizada'];
 const MON_STATUS_COLOR = {
@@ -6356,6 +6364,35 @@ const MON_STATUS_COLOR = {
   'Atrasada': 'var(--red)',
   'Realizada': 'var(--green)',
 };
+// Tags de andamento/ocorrência da LT (lista fechada com o Roberto em
+// 2026-08-13) — 1 tag ativa por LT, expira sozinha 10 dias após marcada
+// (ver TAGS_TTL_MS em api/outbound.js).
+const MON_TAGS = [
+  { label:'Finalizado',         color:'var(--green)' },
+  { label:'Carregando',         color:'var(--cyan)' },
+  { label:'Docado',             color:'var(--cyan)' },
+  { label:'Chegada Sistêmica',  color:'var(--cyan)' },
+  { label:'Em Fila',            color:'var(--amber)' },
+  { label:'Aguar. Field',       color:'var(--amber)' },
+  { label:'Pend. Finalizar',    color:'var(--amber)' },
+  { label:'Atrasado',           color:'var(--red)' },
+  { label:'Prob. Mecânico',     color:'var(--red)' },
+  { label:'Sinistro',           color:'var(--red)' },
+  { label:'Cancelado',          color:'var(--text-muted)' },
+  { label:'No Show',            color:'var(--text-muted)' },
+  { label:'Infrutífera',        color:'var(--text-muted)' },
+];
+function monTagColor(label){ return (MON_TAGS.find(t => t.label === label) || {}).color || 'var(--text-muted)'; }
+// "Perfil" provisório enquanto a feature de login não existe (pedido do
+// Roberto em 2026-08-13) — nome digitado uma vez, guardado no navegador.
+function monGetMe(){
+  let nome = localStorage.getItem('pulso_mon_usuario') || '';
+  if(!nome){
+    nome = (prompt('Seu nome (aparece junto das tags que você marcar):') || '').trim();
+    if(nome) localStorage.setItem('pulso_mon_usuario', nome);
+  }
+  return nome;
+}
 
 function monBuildHTML(){
   return `
@@ -6448,6 +6485,8 @@ async function monLoad(){
     MON_DAY_START = new Date(j.dia + 'T06:00:00');
     MON_TRIPS = (j.viagens || []).map(monParse).map((t,i) => ({ ...t, idx:i }));
     MON_ENDER = j.enderecamento || {};
+    MON_TAGS_BY_TRIP = {};
+    (j.tags || []).forEach(t => { MON_TAGS_BY_TRIP[t.trip_number] = t; });
     monPopulateFilterOptions();
     monBuildHours();
     monRenderAll();
@@ -6636,6 +6675,15 @@ function monEnderecamentoLabel(destino){
   const top = ruas.slice(0,2).map(r => r.rua).join(', ');
   return ruas.length > 2 ? `${top} +${ruas.length-2}` : top;
 }
+// Doca: mostra a doca quando existe; sem doca + ainda não chegou (Planejada/
+// Aguardando apresentação) = "Transit" (esperado, viagem ainda não docou);
+// sem doca em qualquer outro status = "S/ Doca" (gap real pra sinalizar,
+// pedido do Roberto em 2026-08-13).
+function monDocaLabel(doca, status){
+  if(doca) return doca;
+  if(status === 'Planejada' || status === 'Aguardando apresentação') return 'Transit';
+  return 'S/ Doca';
+}
 function monRowHtml(t){
   const color = MON_STATUS_COLOR[t.status] || 'var(--text-muted)';
   const left = monPos(t.staD), right = monPos(t.stdD);
@@ -6643,13 +6691,16 @@ function monRowHtml(t){
   const atdLeft = t.atdD ? monPos(t.atdD) : null;
   const tip = `STA ${monFmtHM(t.staD)} · STD ${monFmtHM(t.stdD)}${t.atdD ? (' · ATD ' + monFmtHM(t.atdD)) : ''}`;
   const ender = monEnderecamentoLabel(t.destino);
+  const docaLabel = monDocaLabel(t.doca, t.status);
+  const tagInfo = MON_TAGS_BY_TRIP[t.trip_number];
   return `
     <div class="mon-row" onclick="monOpenDetail(${t.idx})">
       <div class="mon-row-meta">
+        ${tagInfo ? `<span class="mon-row-tag" style="background:${monTagColor(tagInfo.tag)}" title="${pulsoEscHtml(tagInfo.usuario ? `Marcado por ${tagInfo.usuario}` : 'Tag')}">${pulsoEscHtml(tagInfo.tag)}</span>` : ''}
         <span class="mon-row-dot" style="background:${color}"></span>
         <div style="overflow:hidden">
           <div class="mon-row-text" title="${pulsoEscHtml(`${t.destino||''} · ${t.destino_codigo||''}`)}"><b>${pulsoEscHtml(t.destino||'—')}</b> · ${pulsoEscHtml(t.destino_codigo||'')}</div>
-          <div class="mon-row-sub">${pulsoEscHtml(t.veiculo_tipo||'—')} · ${pulsoEscHtml(t.veiculo_placa||'—')} · ${pulsoEscHtml(t.trip_number||'—')}</div>
+          <div class="mon-row-sub" title="${pulsoEscHtml(`${t.veiculo_tipo||''} ${t.veiculo_placa||''} · ${t.trip_number||''} · ${docaLabel}`)}">${pulsoEscHtml(t.veiculo_tipo||'—')} · ${pulsoEscHtml(t.veiculo_placa||'—')} · ${pulsoEscHtml(t.trip_number||'—')} · ${pulsoEscHtml(docaLabel)}</div>
           ${ender ? `<div class="mon-row-ender" title="Endereçamento: ${pulsoEscHtml(ender)}"><i class="fas fa-location-dot"></i>${pulsoEscHtml(ender)}</div>` : ''}
         </div>
       </div>
@@ -6724,6 +6775,15 @@ function monOpenDetail(idx){
   if(!t) return;
   const d = monDerive(t, new Date());
   document.getElementById('mon-detail-title').innerHTML = `<i class="fas fa-truck-fast" style="color:var(--orange);margin-right:8px"></i>${pulsoEscHtml(t.destino||'—')} <span style="color:var(--text-muted);font-weight:600">· ${pulsoEscHtml(t.destino_codigo||'—')}</span>`;
+
+  const tagInfo = MON_TAGS_BY_TRIP[t.trip_number];
+  const chipsHtml = MON_TAGS.map(mt => {
+    const active = tagInfo && tagInfo.tag === mt.label;
+    return `<div class="mon-tag-chip${active?' active':''}" style="${active?`background:${mt.color};`:''}" onclick="monSetTag('${t.trip_number.replace(/'/g,"\\'")}', ${active ? "''" : `'${mt.label.replace(/'/g,"\\'")}'`})">${pulsoEscHtml(mt.label)}</div>`;
+  }).join('');
+  document.getElementById('mon-detail-tags').innerHTML = chipsHtml +
+    (tagInfo ? `<div class="mon-tag-meta">Marcado${tagInfo.usuario ? ' por ' + pulsoEscHtml(tagInfo.usuario) : ''} · ${pulsoEscHtml(new Date(tagInfo.criado_em).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</div>` : '');
+
   const ruas = MON_ENDER[t.destino] || [];
   const rows = [
     ['Status', pulsoEscHtml(d.status)],
@@ -6731,7 +6791,7 @@ function monOpenDetail(idx){
     ['Destino', pulsoEscHtml(`${t.destino||'—'} (${t.destino_codigo||'—'})`)],
     ['Veículo', pulsoEscHtml(`${t.veiculo_tipo||'—'} · ${t.veiculo_placa||'—'}`)],
     ['Transportadora', pulsoEscHtml(t.transportadora || '—')],
-    ['Doca', pulsoEscHtml(t.doca || '—')],
+    ['Doca', pulsoEscHtml(monDocaLabel(t.doca, d.status))],
     ['STA', monFmtHM(t.staD)],
     ['STD', monFmtHM(t.stdD)],
     ['ATD', t.atdD ? monFmtHM(t.atdD) : 'Pendente'],
@@ -6748,6 +6808,32 @@ function monOpenDetail(idx){
 }
 function monCloseDetail(){
   document.getElementById('mon-detail-overlay').classList.remove('open');
+}
+
+// Marca/remove a tag da LT (tagLabel='' remove) — grava na aba
+// monitor_tags_pulso (visível pra todo mundo, ver api/outbound.js).
+// Otimista: atualiza local antes da resposta pra não travar o clique.
+async function monSetTag(tripNumber, tagLabel){
+  const usuario = tagLabel ? monGetMe() : (MON_TAGS_BY_TRIP[tripNumber]?.usuario || '');
+  if(tagLabel){
+    MON_TAGS_BY_TRIP[tripNumber] = { trip_number:tripNumber, tag:tagLabel, usuario, criado_em:new Date().toISOString() };
+  }else{
+    delete MON_TAGS_BY_TRIP[tripNumber];
+  }
+  monRenderAll();
+  const t = MON_TRIPS.find(x => x.trip_number === tripNumber);
+  if(t && document.getElementById('mon-detail-overlay').classList.contains('open')) monOpenDetail(t.idx);
+  try{
+    const r = await fetch('/api/outbound?monitor=1&tag=1', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ trip_number:tripNumber, tag:tagLabel, usuario }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'Falha ao salvar tag');
+  }catch(err){
+    alert('Não foi possível salvar a tag: ' + err.message);
+    monLoad();
+  }
 }
 
 /* ── SPR — config da página, usando o motor acima ── */

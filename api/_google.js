@@ -38,9 +38,12 @@ async function getAccessToken() {
 
   const now = Math.floor(Date.now() / 1000);
   const header = base64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  // Escopo leitura+escrita (pedido do Roberto em 2026-08-13, feature de tags
+  // no Monitor - Live) — antes era spreadsheets.readonly. O resto do projeto
+  // continua só lendo; só api/outbound.js (aba monitor_tags_pulso) escreve.
   const claim = base64url(JSON.stringify({
     iss: email,
-    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+    scope: 'https://www.googleapis.com/auth/spreadsheets',
     aud: 'https://oauth2.googleapis.com/token',
     iat: now,
     exp: now + 3600,
@@ -119,4 +122,57 @@ async function fetchTabByGid(spreadsheetId, gid) {
   return { title, rows: rowsToObjects(values) };
 }
 
-module.exports = { fetchTabByGid, fetchTabRawValues, listTabs };
+// ── Escrita (usado só pela feature de tags do Monitor - Live, ver
+// api/outbound.js) — resto do projeto é só leitura. `range` já vem pronto
+// (ex: "'monitor_tags_pulso'!A:D"), não passa por resolveTabTitle porque
+// essas abas são criadas/nomeadas pelo próprio código, não abas externas
+// cujo nome pode mudar.
+async function readRange(spreadsheetId, range) {
+  const token = await getAccessToken();
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}`,
+    { headers: { Authorization: 'Bearer ' + token } }
+  );
+  const body = await r.json();
+  if (!r.ok) throw new Error('Sheets values (read): ' + (body.error?.message || r.status));
+  return body.values || [];
+}
+
+// Limpa o range inteiro e reescreve do zero — mais simples que rastrear
+// índice de linha pra deletar/atualizar seletivamente, e o volume de dados
+// (tags ativas, TTL de 10 dias) é pequeno o bastante pra isso ser barato.
+// ponytail: sem lock — dois writes concorrentes podem se sobrepor (last
+// write wins); upgrade se o volume de uso crescer.
+async function writeRange(spreadsheetId, range, values) {
+  const token = await getAccessToken();
+  await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}:clear`,
+    { method: 'POST', headers: { Authorization: 'Bearer ' + token } }
+  );
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
+    { method: 'PUT', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ values }) }
+  );
+  const body = await r.json();
+  if (!r.ok) throw new Error('Sheets values (write): ' + (body.error?.message || r.status));
+}
+
+// Cria a aba se ainda não existir (idempotente) — usado pra provisionar
+// monitor_tags_pulso no primeiro uso da feature de tags, sem exigir setup
+// manual do Roberto na planilha.
+async function ensureSheetExists(spreadsheetId, title) {
+  const token = await getAccessToken();
+  const sheets = await fetchSheetsMeta(token, spreadsheetId);
+  if (sheets.some(s => s.properties.title === title)) return;
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title } } }] }),
+  });
+  if (!r.ok) {
+    const body = await r.json();
+    throw new Error('Sheets addSheet: ' + (body.error?.message || r.status));
+  }
+}
+
+module.exports = { fetchTabByGid, fetchTabRawValues, listTabs, readRange, writeRange, ensureSheetExists };
