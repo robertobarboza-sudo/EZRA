@@ -1,0 +1,139 @@
+    /* ── ÁRVORE DE KPI'S ─────────────────────────────────────────
+       Substitui a antiga "Árvore (daily)", que era um espelho ESTÁTICO
+       (~24.800 células coladas no próprio index.html). Agora vem ao vivo da
+       aba árvore_pulso via /api/overview?arvore=1 — porte do mockup React
+       "arvore-kpis" que o Roberto enviou em 2026-08-13, reescrito em JS puro
+       e no template do site (a versão antiga usava paleta própria isolada
+       sob .arv-scope; esta usa as variáveis de tema, então acompanha
+       claro/escuro como o resto). A subpágina "Configurações" do mockup foi
+       removida a pedido dele. ── */
+    .arv-toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:12px 16px; margin-bottom:14px; box-shadow:var(--shadow); }
+    .arv-toolbar .filter-select{ min-width:150px; }
+    .arv-toolbar .arv-busca{ min-width:230px; flex:1 1 230px; }
+    .arv-toolbar-spacer{ flex:1; }
+    .arv-daynav{ display:flex; align-items:center; gap:6px; }
+    .arv-daybtn{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); font-size:11.5px; font-weight:600; padding:6px 10px; border-radius:var(--radius); cursor:pointer; white-space:nowrap; }
+    .arv-daybtn:hover:not(:disabled){ border-color:var(--orange); color:var(--text); }
+    .arv-daybtn:disabled{ opacity:.4; cursor:not-allowed; }
+    .arv-daypill{ font-size:11.5px; font-weight:700; padding:6px 12px; border-radius:var(--radius); background:var(--surface-2); color:var(--text-sub); white-space:nowrap; }
+    .arv-daypill[data-semdado="1"]{ background:color-mix(in srgb, var(--amber) 16%, transparent); color:var(--amber); }
+    .arv-count{ font-size:11px; color:var(--text-muted); white-space:nowrap; }
+
+    .arv-legend{ display:flex; flex-wrap:wrap; gap:14px; padding:9px 16px; font-size:11px; color:var(--text-muted); background:var(--surface); border:1px solid var(--border); border-bottom:none; border-radius:var(--radius-lg) var(--radius-lg) 0 0; }
+    .arv-legend span{ display:inline-flex; align-items:center; gap:5px; }
+    .arv-legend i{ width:10px; height:10px; border-radius:3px; display:inline-block; }
+
+    .arv-grid-wrap{ overflow:auto; max-height:calc(100vh - 340px); background:var(--surface); border:1px solid var(--border); border-radius:0 0 var(--radius-lg) var(--radius-lg); }
+    table.arv-grid{ border-collapse:separate; border-spacing:0; table-layout:fixed; font-size:12px; }
+    .arv-grid td, .arv-grid th{ overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .arv-grid thead th{ position:sticky; top:0; z-index:30; background:var(--orange); color:#fff; font-size:11px; font-weight:700; padding:6px 6px; border-right:1px solid rgba(255,255,255,.18); }
+    .arv-grid thead th.arv-daycol{ background:var(--orange-d,#c8401f); font-size:10.5px; font-weight:600; padding:4px 3px; }
+    .arv-grid thead th.arv-daycol.arv-hoje{ outline:2px solid #fff; outline-offset:-2px; }
+    .arv-grid thead th.arv-weekcol{ background:var(--orange-d,#c8401f); cursor:pointer; user-select:none; }
+    .arv-grid thead th.arv-weekcol:hover{ filter:brightness(1.12); }
+    .arv-grid thead th .arv-wd{ display:block; font-weight:400; font-size:9px; opacity:.8; }
+    .arv-frozen{ position:sticky; z-index:15; background:var(--surface); }
+    .arv-grid thead th.arv-frozen{ z-index:40; }
+    .arv-grid tbody tr:hover .arv-frozen{ background:var(--surface-2); }
+    .arv-grid tbody td{ border-right:1px solid var(--border); border-bottom:1px solid var(--border); padding:4px 5px; vertical-align:middle; background:var(--surface); }
+    .arv-grid tbody td.arv-bloco{ background:var(--orange); color:#fff; text-align:center; font-size:11px; font-weight:800; letter-spacing:.4px; }
+    .arv-grid tbody td.arv-bloco span{ writing-mode:vertical-rl; transform:rotate(180deg); white-space:nowrap; display:inline-block; padding:4px 0; }
+    .arv-grid tbody td.arv-pic, .arv-grid tbody td.arv-sub{ font-size:11.5px; color:var(--text-sub); text-align:center; }
+    .arv-grid tbody td.arv-sub{ text-align:left; }
+    .arv-grid tbody td.arv-kpiname{ font-size:12px; font-weight:600; color:var(--text); text-align:left; cursor:pointer; }
+    .arv-grid tbody td.arv-target{ background:var(--surface-3); text-align:center; font-size:11.5px; color:var(--text-muted); }
+    .arv-grid tr.arv-bloco-start td{ border-top:2px solid var(--orange); }
+    .arv-cell{ text-align:center; cursor:pointer; transition:box-shadow .12s; }
+    .arv-cell:hover{ box-shadow:inset 0 0 0 1.5px var(--orange); }
+    .arv-cell.arv-sel{ box-shadow:inset 0 0 0 2px var(--orange); }
+    .arv-cell.arv-hoje{ box-shadow:inset 0 0 0 2px var(--orange); }
+    /* Cores de status — mesma semântica do mockup (verde no alvo, âmbar na
+       banda de atenção de 15%, vermelho fora, cinza sem dado). */
+    .arv-ok  { background:color-mix(in srgb, var(--green) 15%, transparent); color:var(--green); font-weight:600; }
+    .arv-warn{ background:color-mix(in srgb, var(--amber) 16%, transparent); color:var(--amber); font-weight:600; }
+    .arv-bad { background:color-mix(in srgb, var(--red) 14%, transparent); color:var(--red); font-weight:600; }
+    .arv-na  { color:var(--text-muted); }
+    .arv-fonte{ color:var(--orange); margin-left:4px; font-size:10px; }
+    .arv-empty{ padding:30px; text-align:center; color:var(--text-muted); font-size:13px; }
+
+    /* Visão Geral */
+    .arv-blocorow{ display:flex; align-items:center; gap:12px; margin-bottom:11px; }
+    .arv-blocorow-nome{ width:120px; flex:none; font-size:12.5px; color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .arv-bar-track{ flex:1; height:9px; background:var(--surface-3); border-radius:999px; overflow:hidden; }
+    .arv-bar-fill{ height:100%; border-radius:999px; transition:width .5s cubic-bezier(.22,.9,.3,1); }
+    .arv-blocorow-pct{ width:48px; flex:none; text-align:right; font-size:12.5px; font-weight:700; }
+    .arv-dev{ display:flex; align-items:center; gap:12px; width:100%; padding:9px 12px; border-radius:var(--radius); background:transparent; border:none; text-align:left; cursor:pointer; }
+    .arv-dev:hover{ background:var(--surface-2); }
+    .arv-dev-pos{ font-size:12px; font-weight:800; color:var(--text-muted); width:20px; flex:none; }
+    .arv-dev-main{ flex:1; min-width:0; }
+    .arv-dev-nome{ font-size:13px; font-weight:600; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .arv-dev-sub{ font-size:11px; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .arv-dev-val{ text-align:right; flex:none; }
+    .arv-dev-val b{ display:block; font-size:13px; font-weight:700; color:var(--text); }
+    .arv-dev-val span{ font-size:10.5px; color:var(--text-muted); }
+
+    /* Histórico */
+    .arv-hist{ display:grid; grid-template-columns:280px 1fr; gap:16px; align-items:start; }
+    .arv-picker{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow); overflow:hidden; }
+    .arv-picker-head{ padding:12px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:8px; }
+    .arv-picker-list{ max-height:420px; overflow-y:auto; }
+    .arv-picker-item{ display:flex; align-items:flex-start; gap:8px; padding:8px 12px; border-bottom:1px solid var(--border); cursor:pointer; font-size:12px; color:var(--text-sub); }
+    .arv-picker-item:hover{ background:var(--surface-2); }
+    .arv-picker-item b{ display:block; color:var(--text); font-weight:600; }
+    .arv-picker-item small{ color:var(--text-muted); font-size:10.5px; }
+    .arv-chips{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:12px; }
+    .arv-chip{ display:inline-flex; align-items:center; gap:6px; background:var(--surface-2); border:1px solid var(--border); border-radius:999px; padding:4px 8px 4px 10px; font-size:11px; color:var(--text-sub); }
+    .arv-chip i.arv-dot{ width:8px; height:8px; border-radius:50%; display:inline-block; }
+    .arv-chip button{ color:var(--text-muted); font-size:12px; line-height:1; }
+    .arv-chip button:hover{ color:var(--text); }
+
+    /* Drawer de detalhe do KPI */
+    .arv-sum{ display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px; }
+    .arv-sum-item{ background:var(--surface-3); border-radius:var(--radius); padding:10px; text-align:center; }
+    .arv-sum-item .arv-sum-label{ font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+    .arv-sum-item .arv-sum-value{ font-size:17px; font-weight:800; color:var(--text); }
+    .arv-secao{ font-size:12px; font-weight:700; color:var(--text-sub); margin:14px 0 8px; }
+    .arv-var{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .arv-var-item{ background:var(--surface-3); border-radius:var(--radius); padding:9px 12px; }
+    .arv-var-item .arv-var-label{ font-size:10.5px; color:var(--text-muted); }
+    .arv-var-item .arv-var-value{ font-size:14px; font-weight:700; margin-top:2px; }
+    .arv-up{ color:var(--green); } .arv-down{ color:var(--red); } .arv-flat{ color:var(--text-muted); }
+    .arv-obs{ background:color-mix(in srgb, var(--amber) 10%, transparent); border-left:3px solid var(--amber); border-radius:var(--radius); padding:9px 12px; font-size:12px; color:var(--text-sub); }
+    .arv-turnos{ width:100%; font-size:12px; border-collapse:collapse; }
+    .arv-turnos th{ text-align:left; font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; padding:5px 8px; background:var(--surface-3); }
+    .arv-turnos td{ padding:5px 8px; border-top:1px solid var(--border); }
+    .arv-pill{ display:inline-flex; align-items:center; gap:4px; border-radius:999px; padding:2px 8px; font-size:10.5px; font-weight:700; }
+    .arv-insight{ display:flex; align-items:flex-start; gap:8px; background:var(--surface-3); border-radius:var(--radius); padding:8px 11px; font-size:12px; color:var(--text-sub); margin-bottom:6px; }
+
+    /* Filtro de Mês/Semana (porte do bundle "arvore-kpis" enviado pelo
+       Roberto em 2026-08-13) — reaproveita a mesma pílula multiseleção do
+       SPR/Leftover (.spr-ms-*), só ajustando a altura pro toolbar da árvore. */
+    .arv-toolbar .spr-ms-btn{ height:32px; }
+    /* Cabeçalho em 3 níveis: Mês (novo) → Semana → Dia. */
+    .arv-grid thead th.arv-monthcol{ background:var(--surface-3); color:var(--text-sub); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; text-align:left; padding-left:8px; }
+    .arv-grid thead th.arv-weektotalcol{ opacity:.92; }
+    .arv-cell.arv-agg{ font-weight:700; }
+    /* Linha vertical fina marcando o dia REAL de hoje (data do sistema) —
+       diferente do dia SELECIONADO (contorno laranja na coluna/célula via
+       .arv-sel), só aparece quando hoje está dentro do recorte de mês/semana
+       visível no momento. */
+    .arv-todayline{ position:absolute; top:0; bottom:0; width:2px; background:var(--orange); pointer-events:none; z-index:12; }
+    /* Painel de Insights com 2 fontes, sem misturar: "Insights" (oficiais,
+       da coluna Observação da planilha) e "Insights (COP Boy)" (gerados a
+       partir dos números). */
+    .arv-insight-tabs{ display:flex; gap:4px; }
+    .arv-insight-tab{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); font-size:10.5px; font-weight:700; padding:4px 10px; border-radius:var(--radius); cursor:pointer; }
+    .arv-insight-tab.active{ background:var(--orange); border-color:var(--orange); color:#fff; }
+    .arv-insight-manual{ background:var(--surface-3); border-radius:var(--radius); padding:10px 12px; font-size:12px; color:var(--text-sub); line-height:1.5; }
+    .arv-insight-empty{ font-size:12px; color:var(--text-muted); font-style:italic; padding:4px 2px; }
+
+    @media(max-width:900px){
+      .arv-toolbar{ flex-direction:column; align-items:stretch; }
+      /* Sem isso a navegação de data (botões + input) não quebra linha e
+         força a toolbar inteira a ficar mais larga que a tela. */
+      .arv-daynav{ flex-wrap:wrap; }
+      .arv-toolbar .filter-select, .arv-toolbar .arv-busca{ min-width:0; flex:1 1 auto; }
+      .arv-hist{ grid-template-columns:1fr; }
+      .arv-sum, .arv-var{ grid-template-columns:1fr; }
+      .arv-grid-wrap{ max-height:none; }
+    }
