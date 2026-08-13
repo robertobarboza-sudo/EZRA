@@ -9377,8 +9377,13 @@ function arvRenderTabela(){
   const hojeLeaf = leaves.find(l => l.type === 'day' && l.key === hojeIso);
   const linhaHojeLeft = hojeLeaf ? hojeLeaf.left + hojeLeaf.width : null;
 
+  // rowspan="3" é essencial aqui: o cabeçalho tem 3 linhas (Mês/Semana/Dia),
+  // mas essas colunas congeladas (Bloco..Target/refs) só existem na 1ª. Sem
+  // o rowspan, o navegador empurra as linhas de Semana/Dia pra debaixo
+  // delas em vez de alinhar com as colunas de mês — bug reportado pelo
+  // Roberto em 2026-08-13 ("as datas estão abaixo dos KPIs").
   const thFrozen = (label, left, w, extra, title) =>
-    `<th class="arv-frozen ${extra || ''}" style="left:${left}px;width:${w}px;min-width:${w}px" ${title ? `title="${pulsoEscHtml(title)}"` : ''}>${label}</th>`;
+    `<th class="arv-frozen ${extra || ''}" rowspan="3" style="left:${left}px;width:${w}px;min-width:${w}px" ${title ? `title="${pulsoEscHtml(title)}"` : ''}>${label}</th>`;
 
   let head1 = '<tr>' +
     thFrozen('Bloco', off.bloco, ARV_LARG.bloco) +
