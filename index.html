@@ -1849,6 +1849,28 @@
     .arv-pill{ display:inline-flex; align-items:center; gap:4px; border-radius:999px; padding:2px 8px; font-size:10.5px; font-weight:700; }
     .arv-insight{ display:flex; align-items:flex-start; gap:8px; background:var(--surface-3); border-radius:var(--radius); padding:8px 11px; font-size:12px; color:var(--text-sub); margin-bottom:6px; }
 
+    /* Filtro de Mês/Semana (porte do bundle "arvore-kpis" enviado pelo
+       Roberto em 2026-08-13) — reaproveita a mesma pílula multiseleção do
+       SPR/Leftover (.spr-ms-*), só ajustando a altura pro toolbar da árvore. */
+    .arv-toolbar .spr-ms-btn{ height:32px; }
+    /* Cabeçalho em 3 níveis: Mês (novo) → Semana → Dia. */
+    .arv-grid thead th.arv-monthcol{ background:var(--surface-3); color:var(--text-sub); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; text-align:left; padding-left:8px; }
+    .arv-grid thead th.arv-weektotalcol{ opacity:.92; }
+    .arv-cell.arv-agg{ font-weight:700; }
+    /* Linha vertical fina marcando o dia REAL de hoje (data do sistema) —
+       diferente do dia SELECIONADO (contorno laranja na coluna/célula via
+       .arv-sel), só aparece quando hoje está dentro do recorte de mês/semana
+       visível no momento. */
+    .arv-todayline{ position:absolute; top:0; bottom:0; width:2px; background:var(--orange); pointer-events:none; z-index:12; }
+    /* Painel de Insights com 2 fontes, sem misturar: "Insights" (oficiais,
+       da coluna Observação da planilha) e "Insights (COP Boy)" (gerados a
+       partir dos números). */
+    .arv-insight-tabs{ display:flex; gap:4px; }
+    .arv-insight-tab{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); font-size:10.5px; font-weight:700; padding:4px 10px; border-radius:var(--radius); cursor:pointer; }
+    .arv-insight-tab.active{ background:var(--orange); border-color:var(--orange); color:#fff; }
+    .arv-insight-manual{ background:var(--surface-3); border-radius:var(--radius); padding:10px 12px; font-size:12px; color:var(--text-sub); line-height:1.5; }
+    .arv-insight-empty{ font-size:12px; color:var(--text-muted); font-style:italic; padding:4px 2px; }
+
     @media(max-width:900px){
       .arv-toolbar{ flex-direction:column; align-items:stretch; }
       /* Sem isso a navegação de data (botões + input) não quebra linha e
@@ -8953,19 +8975,28 @@ function renderLaborplan(){
 }
 
 /* ================================================================
-   ÁRVORE DE KPI'S — porte do mockup React "arvore-kpis" que o Roberto
-   enviou em 2026-08-13, reescrito em JS puro no template do site.
+   ÁRVORE DE KPI'S — porte do bundle React "arvore-kpis" (versão final,
+   enviada pelo Roberto em 2026-08-13) pro template do site, em JS puro.
 
    Substitui a antiga "Árvore (daily)", que era um espelho ESTÁTICO da
-   planilha colado aqui dentro (~24.800 células, somente leitura). Agora os
-   dados vêm ao vivo da aba árvore_pulso, por /api/overview?arvore=1 (ver
-   api/_arvore.js — mora dentro do overview por causa do teto de 12 funções
-   serverless da Vercel).
+   planilha colado aqui dentro. Os dados vêm ao vivo da aba árvore_pulso,
+   via /api/overview?arvore=1 (ver api/_arvore.js — mora dentro do overview
+   por causa do teto de 12 funções serverless da Vercel).
 
-   Três subpáginas, como no mockup: Árvore de KPI's (a tabela hierárquica),
-   Visão Geral e Histórico. A quarta do mockup ("Configurações") saiu a
-   pedido do Roberto — a única preferência que ela controlava e que importa
-   aqui, a banda de atenção, virou a constante ARV_BANDA abaixo.
+   Conexões confirmadas com o Roberto em 2026-08-13 (aba árvore_pulso):
+     Data        -> filtro de Mês/Semana + colunas de dia
+     Bloco       -> filtro de Bloco
+     PIC         -> filtro de PIC
+     Semana      -> filtro de Semana + colunas de semana
+     Target      -> cards de Target (resumo do drawer)
+     Valor       -> os números da tabela/gráficos
+     Observação  -> aba "Insights" do drawer (não confundir com a aba
+                    "Insights (COP Boy)", que é gerada a partir dos números)
+     Link        -> hiperlink junto do nome do KPI (ícone de fonte)
+
+   A subpágina "Configurações" do bundle não entrou (pedido do Roberto) — a
+   única preferência que ela controlava era a margem de "estável" na
+   tendência, que aqui é fixa (ver ARV_TREND_MULT).
 ================================================================ */
 let ARV_DATA = null;        // resposta crua do endpoint
 let ARV_LOADING = false;
@@ -8973,67 +9004,105 @@ let ARV_SUBPAGE = 'arvore'; // arvore | visao | historico
 let ARV_SEL_ISO = null;     // dia selecionado (coluna destacada / base dos cálculos)
 let ARV_SEL_KPI = null;     // KPI aberto no drawer
 let ARV_FILTROS = { busca: '', bloco: '', pic: '' };
-let ARV_SEMANAS_FECHADAS = new Set();
+let ARV_MESES_SEL = [];     // [] = ainda no padrão (mês atual + anterior) — ver arvEffectiveMonths
+let ARV_MESES_TOCADO = false; // true assim que o usuário mexe no filtro de Mês (vazio passa a significar "todos")
+let ARV_SEMANAS_SEL = [];   // [] = todas as semanas dos meses efetivos
+let ARV_SEMANAS_ABERTAS = new Set(); // semanas expandidas (mostrando os dias)
+let ARV_INSIGHT_TAB = 'auto'; // manual | auto — reaberto a cada troca de KPI no drawer
 let ARV_HIST_SEL = [];      // ids dos KPIs comparados no Histórico
 let ARV_HIST_PERIODO = '30';
 let ARV_HIST_FILTRO = { busca: '', bloco: '' };
 let ARV_CHART = null;       // instância Chart.js do drawer (destruída a cada abertura)
 let ARV_CHART_HIST = null;
 
-// Folga acima/abaixo do target antes de virar "Fora do target" (era o slider
-// da tela de Configurações do mockup, que não veio junto).
-const ARV_BANDA = 0.15;
-// `ref` = semanas de referência (congeladas) e `semana` = coluna de semana
-// fechada: mais largas que as de dia porque carregam o valor consolidado
-// (ex: "100,0%"), que ficava espremido (pedido do Roberto em 2026-08-13).
 const ARV_LARG = { bloco: 34, pic: 92, sub: 132, kpi: 230, target: 68, ref: 74, semana: 74, dia: 48 };
 const ARV_PALETA = ['#ee4d2d', '#1e8e3e', '#1a73e8', '#b15c00', '#8b5cf6', '#0ea5a4', '#d93025', '#6b7280'];
 const ARV_PERIODOS = [['7', '7 dias'], ['30', '30 dias'], ['90', '90 dias'], ['all', 'Tudo']];
+const ARV_MESES_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-/* ── util de valor / status ─────────────────────────────────── */
+/* ── status (5 rótulos, porte de utils/status.js do bundle) ────
+   Única camada de cálculo de status da página — tabela, drawer, turnos,
+   Visão Geral e insights usam esta mesma função pra nunca divergir. */
+const ARV_STATUS5 = {
+  in_target:            { key:'in_target',            text:'Dentro do Target',              dot:'🟢', color:'ok' },
+  in_target_stable:     { key:'in_target_stable',      text:'Dentro do target estável',       dot:'🟢', color:'ok' },
+  in_target_worsening:  { key:'in_target_worsening',   text:'Dentro do target piorando',      dot:'🟡', color:'warn' },
+  out_target_improving: { key:'out_target_improving',  text:'Fora do target melhorando',      dot:'🟡', color:'warn' },
+  out_target_worsening: { key:'out_target_worsening',  text:'Fora do target piorando',        dot:'🔴', color:'bad' },
+  na:                   { key:'na',                    text:'Sem dado',                       dot:'⚪', color:'na' },
+};
+const ARV_TREND_MULT = 1; // margem (multiplicador) que define "estável" — era ajustável em Configurações no bundle, aqui é fixo
 function arvValor(kpi, chave){
   const v = kpi.valores[chave];
   return v === undefined ? null : v;
 }
+function arvIsWithinTarget(kpi, v){
+  if(v === null || v === undefined || kpi.target === null || kpi.target === undefined) return null;
+  if(kpi.polarity === 'near_zero') return Math.abs(v) <= Math.abs(kpi.target);
+  if(kpi.polarity === 'lower_better') return v <= kpi.target;
+  return v >= kpi.target;
+}
+function arvTrend(kpi, delta){
+  if(delta === null || delta === undefined) return 'stable';
+  const base = kpi.unit === 'percent' ? 0.001 : Math.max(Math.abs(kpi.target) || 0, 1) * 0.01;
+  const th = base * ARV_TREND_MULT;
+  if(delta > th) return 'up';
+  if(delta < -th) return 'down';
+  return 'stable';
+}
+// value/compareValue -> um dos 6 status. compareValue costuma ser D-1; sem
+// ele disponível, a tendência é tratada como estável (não inventa melhora/piora).
+function arvStatusLabel(kpi, value, compareValue){
+  const within = arvIsWithinTarget(kpi, value);
+  if(within === null) return ARV_STATUS5.na;
+  let trendState = 'stable';
+  if(compareValue !== null && compareValue !== undefined){
+    const d = value - compareValue;
+    const trend = arvTrend(kpi, d);
+    if(trend !== 'stable'){
+      if(kpi.polarity === 'near_zero') trendState = Math.abs(value) < Math.abs(compareValue) ? 'improving' : 'worsening';
+      else {
+        const goingUp = trend === 'up';
+        trendState = (kpi.polarity === 'lower_better' ? !goingUp : goingUp) ? 'improving' : 'worsening';
+      }
+    }
+  }
+  if(within){
+    if(trendState === 'stable') return ARV_STATUS5.in_target_stable;
+    if(trendState === 'worsening') return ARV_STATUS5.in_target_worsening;
+    return ARV_STATUS5.in_target;
+  }
+  return trendState === 'improving' ? ARV_STATUS5.out_target_improving : ARV_STATUS5.out_target_worsening;
+}
+function arvPrevPeriodKey(colKey){
+  return colKey.indexOf('-') !== -1 ? arvAddDias(colKey, -1) : arvPrevWeekLabel(colKey);
+}
+function arvPrevWeekLabel(label){
+  const n = parseInt(String(label).replace(/^W/, ''), 10);
+  return (!isFinite(n) || n <= 2) ? null : 'W' + (n - 1);
+}
 function arvFmtValor(kpi, v){
   if(v === null || v === undefined) return '—';
-  if(kpi.unit === 'percent') return (v * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%';
-  return v.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+  if(kpi.unit === 'percent') return (v * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + '%';
+  return v.toLocaleString('pt-BR', { maximumFractionDigits: Math.abs(v) < 10 && !Number.isInteger(v) ? 2 : 1 });
 }
 function arvFmtTarget(kpi){
   return kpi.target === null || kpi.target === undefined ? '—' : arvFmtValor(kpi, kpi.target);
-}
-// ok / warn (dentro da banda de atenção) / bad / na — mesma semântica do
-// mockup. `polarity` vem do endpoint (ver ARVORE_META em api/_arvore.js).
-function arvStatus(kpi, v){
-  if(v === null || v === undefined || kpi.target === null || kpi.target === undefined){
-    return { key:'na', label:'Sem dado', dot:'⚪' };
-  }
-  const menorMelhor = kpi.polarity === 'lower_better' || kpi.polarity === 'near_zero';
-  const alvo = kpi.target;
-  const folga = Math.abs(alvo) * ARV_BANDA;
-  if(menorMelhor){
-    if(v <= alvo) return { key:'ok', label:'Dentro do target', dot:'🟢' };
-    if(v <= alvo + folga) return { key:'warn', label:'Atenção', dot:'🟡' };
-    return { key:'bad', label:'Fora do target', dot:'🔴' };
-  }
-  if(v >= alvo) return { key:'ok', label:'Dentro do target', dot:'🟢' };
-  if(v >= alvo - folga) return { key:'warn', label:'Atenção', dot:'🟡' };
-  return { key:'bad', label:'Fora do target', dot:'🔴' };
 }
 function arvDelta(atual, anterior){
   if(atual === null || anterior === null || atual === undefined || anterior === undefined) return null;
   return atual - anterior;
 }
 function arvMelhorou(kpi, d){
-  if(d === null || d === 0) return null;
-  const menorMelhor = kpi.polarity === 'lower_better' || kpi.polarity === 'near_zero';
-  return menorMelhor ? d < 0 : d > 0;
+  if(d === null || Math.abs(d) < 1e-9) return null;
+  if(kpi.polarity === 'lower_better') return d < 0;
+  if(kpi.polarity === 'near_zero') return false;
+  return d > 0;
 }
 function arvFmtDelta(kpi, d){
   if(d === null) return '—';
-  const sinal = d > 0 ? '+' : '';
-  return sinal + arvFmtValor(kpi, d).replace('—', '0');
+  if(kpi.unit === 'percent') return (d > 0 ? '+' : '') + (d * 100).toLocaleString('pt-BR', { maximumFractionDigits: 2 }) + ' p.p.';
+  return (d > 0 ? '+' : '') + arvFmtValor(kpi, d).replace('—', '0');
 }
 function arvToneDelta(kpi, d){
   const m = arvMelhorou(kpi, d);
@@ -9046,7 +9115,38 @@ function arvAddDias(iso, n){
 }
 function arvFmtDataCurta(iso){ return iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '—'; }
 function arvFmtDataLonga(iso){ return iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) + '/' + iso.slice(0, 4) : '—'; }
+function arvFmtMes(monthKey){ const [y,m] = monthKey.split('-').map(Number); return ARV_MESES_PT[m-1] + ' ' + y; }
 function arvDia(iso){ return (ARV_DATA.days || []).find(d => d.iso === iso) || null; }
+function arvHojeReal(){
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+function arvTurnoEntries(kpi, colKey){
+  if(!kpi.turnoRefs) return [];
+  return Object.keys(kpi.turnoRefs).sort().map(tKey => {
+    const sibling = (ARV_DATA.kpis || []).find(k => k.id === kpi.turnoRefs[tKey]);
+    const value = sibling ? arvValor(sibling, colKey) : null;
+    const prevValue = sibling ? arvValor(sibling, arvPrevPeriodKey(colKey)) : null;
+    const statusLabel = sibling ? arvStatusLabel(sibling, value, prevValue) : ARV_STATUS5.na;
+    return { turno: tKey, kpi: sibling, value, statusLabel };
+  });
+}
+// Conta quantos períodos diários consecutivos (terminando no mais recente)
+// se movem na mesma direção de melhora/piora.
+function arvTrendStreak(kpi, trailingValues){
+  const nums = (trailingValues || []).filter(v => v !== null && v !== undefined);
+  if(nums.length < 3) return null;
+  let dir = null, count = 0;
+  for(let i = nums.length - 1; i > 0; i--){
+    const d = nums[i] - nums[i-1];
+    if(Math.abs(d) < 1e-9) break;
+    const imp = arvMelhorou(kpi, d);
+    if(imp === null) break;
+    if(dir === null) dir = imp; else if(imp !== dir) break;
+    count++;
+  }
+  return count >= 2 ? { improved: dir, periods: count + 1 } : null;
+}
 
 /* ── carga ──────────────────────────────────────────────────── */
 function renderArvore(){
@@ -9066,10 +9166,12 @@ async function arvLoad(force){
     if(!j.ok) throw new Error(j.erro || 'Falha ao carregar a árvore');
     ARV_DATA = j;
     if(!ARV_SEL_ISO || !arvDia(ARV_SEL_ISO)) ARV_SEL_ISO = j.meta.lastRealDate;
-    // Semanas começam fechadas, menos a do dia selecionado — a planilha tem
-    // o ano inteiro, abrir tudo deixaria a tabela impossível de ler.
-    const semanaAtual = (arvDia(ARV_SEL_ISO) || {}).wk;
-    ARV_SEMANAS_FECHADAS = new Set((j.weeks || []).map(w => w.label).filter(l => l !== semanaAtual));
+    ARV_MESES_SEL = arvDefaultMonths(ARV_SEL_ISO);
+    ARV_MESES_TOCADO = false;
+    ARV_SEMANAS_SEL = [];
+    const semanaSel = (arvDia(ARV_SEL_ISO) || {}).wk;
+    const semanaHoje = (arvDia(arvHojeReal()) || {}).wk;
+    ARV_SEMANAS_ABERTAS = new Set([semanaSel, semanaHoje].filter(Boolean));
     arvRenderAtual();
     setBadge('arvore', 'ok', 'árvore_pulso');
   }catch(err){
@@ -9102,6 +9204,85 @@ function arvRenderAtual(){
   else arvRenderHistorico();
 }
 
+/* ── filtro de período (Mês/Semana) ─────────────────────────── */
+function arvMonthOptions(){
+  const seen = new Set(); const out = [];
+  (ARV_DATA.days || []).forEach(d => { const k = d.iso.slice(0,7); if(!seen.has(k)){ seen.add(k); out.push(k); } });
+  return out.sort();
+}
+function arvDefaultMonths(iso){
+  const cur = iso.slice(0,7);
+  const [y,m] = cur.split('-').map(Number);
+  const prevD = new Date(Date.UTC(y, m-2, 1));
+  const prev = prevD.getUTCFullYear() + '-' + String(prevD.getUTCMonth()+1).padStart(2,'0');
+  return [prev, cur];
+}
+function arvEffectiveMonths(){
+  const all = arvMonthOptions();
+  if(!ARV_MESES_TOCADO) return ARV_MESES_SEL.filter(m => all.includes(m));
+  return ARV_MESES_SEL.length ? ARV_MESES_SEL.slice().sort() : all;
+}
+function arvWeekOptions(){
+  const eff = arvEffectiveMonths();
+  return (ARV_DATA.weeks || []).filter(w => eff.includes((w.startIso||'').slice(0,7)));
+}
+// remove da seleção ativa semanas que deixaram de pertencer aos meses marcados
+function arvSanearSemanas(){
+  if(!ARV_MESES_TOCADO || !ARV_MESES_SEL.length) return;
+  const validos = new Set(arvWeekOptions().map(w => w.label));
+  ARV_SEMANAS_SEL = ARV_SEMANAS_SEL.filter(l => validos.has(l));
+}
+function arvMsToggleDropdown(msKey){
+  const id = 'arv-ms-dropdown-' + msKey;
+  document.querySelectorAll('.spr-ms-dropdown').forEach(d => { if(d.id !== id) d.classList.remove('open'); });
+  document.getElementById(id)?.classList.toggle('open');
+}
+document.addEventListener('change', e => {
+  if(!e.target.classList.contains('arv-ms-checkbox')) return;
+  const msKey = e.target.dataset.ms;
+  const val = e.target.value;
+  // `let` no topo do arquivo não vira propriedade de `window`, então o
+  // array certo precisa ser referenciado direto (nada de window[nome]).
+  const arr = msKey === 'meses' ? ARV_MESES_SEL : ARV_SEMANAS_SEL;
+  const i = arr.indexOf(val);
+  if(e.target.checked){ if(i < 0) arr.push(val); } else if(i >= 0) arr.splice(i, 1);
+  if(msKey === 'meses') ARV_MESES_TOCADO = true;
+  arvSanearSemanas();
+  arvRenderTabela();
+});
+function arvMsSelectAll(msKey){
+  if(msKey === 'meses'){ ARV_MESES_SEL = arvMonthOptions(); ARV_MESES_TOCADO = true; }
+  else ARV_SEMANAS_SEL = arvWeekOptions().map(w => w.label);
+  arvRenderTabela();
+}
+function arvMsReset(msKey){
+  if(msKey === 'meses'){ ARV_MESES_SEL = []; ARV_MESES_TOCADO = true; }
+  else ARV_SEMANAS_SEL = [];
+  arvSanearSemanas();
+  arvRenderTabela();
+}
+function arvMsHtml(msKey, label, options, selectedRaw){
+  const selected = selectedRaw.length === 0 ? [] : selectedRaw;
+  const resumo = (selected.length === 0 || selected.length === options.length) ? 'todos' : selected.length + ' sel.';
+  const ativo = msKey === 'meses' ? ARV_MESES_TOCADO && selected.length > 0 : selected.length > 0;
+  const itens = options.map(o => `
+    <label class="spr-ms-item">
+      <input type="checkbox" class="arv-ms-checkbox" data-ms="${msKey}" value="${pulsoEscHtml(o.value)}" ${selected.includes(o.value) ? 'checked' : ''}/>
+      ${pulsoEscHtml(o.label)}
+    </label>`).join('');
+  return `
+    <div class="spr-ms-wrap">
+      <button class="spr-ms-btn ${ativo ? 'active' : ''}" type="button" onclick="arvMsToggleDropdown('${msKey}')">${label} <span style="opacity:.7">(${resumo})</span> <i class="fas fa-chevron-down" style="font-size:9px"></i></button>
+      <div class="spr-ms-dropdown" id="arv-ms-dropdown-${msKey}">
+        <div class="spr-ms-actions">
+          <button type="button" class="spr-ms-action-btn" onclick="arvMsSelectAll('${msKey}')">Todos</button>
+          <button type="button" class="spr-ms-action-btn" onclick="arvMsReset('${msKey}')">Limpar</button>
+        </div>
+        <div class="spr-ms-list">${itens || '<div class="spr-ms-empty">Nenhuma opção.</div>'}</div>
+      </div>
+    </div>`;
+}
+
 /* ── subpágina 1: a árvore (tabela hierárquica) ─────────────── */
 function arvKpisFiltrados(){
   const q = (ARV_FILTROS.busca || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -9116,9 +9297,9 @@ function arvKpisFiltrados(){
   });
 }
 function arvSetFiltro(campo, valor){ ARV_FILTROS[campo] = valor; arvRenderTabela(); }
-function arvToggleSemana(label){
-  if(ARV_SEMANAS_FECHADAS.has(label)) ARV_SEMANAS_FECHADAS.delete(label);
-  else ARV_SEMANAS_FECHADAS.add(label);
+function arvToggleWeekOpen(label){
+  if(ARV_SEMANAS_ABERTAS.has(label)) ARV_SEMANAS_ABERTAS.delete(label);
+  else ARV_SEMANAS_ABERTAS.add(label);
   arvRenderTabela();
 }
 function arvIrDia(delta){
@@ -9131,7 +9312,7 @@ function arvSetDia(iso){
   if(!iso) return;
   ARV_SEL_ISO = iso;
   const semana = (arvDia(iso) || {}).wk;
-  if(semana) ARV_SEMANAS_FECHADAS.delete(semana);
+  if(semana) ARV_SEMANAS_ABERTAS.add(semana);
   arvRenderAtual();
   if(ARV_SUBPAGE === 'arvore'){
     setTimeout(() => {
@@ -9146,56 +9327,92 @@ function arvRenderTabela(){
   const root = document.getElementById('arv-root-arvore');
   if(!root) return;
   const kpis = arvKpisFiltrados();
-  const dias = ARV_DATA.days || [];
-  const semanas = ARV_DATA.weeks || [];
-  const refs = (ARV_DATA.meta.refWeeks || []).map(l => semanas.find(w => w.label === l)).filter(Boolean);
-  const diasPorSemana = {};
-  dias.forEach(d => { (diasPorSemana[d.wk] = diasPorSemana[d.wk] || []).push(d); });
+  const refs = (ARV_DATA.meta.refWeeks || []).map(l => (ARV_DATA.weeks || []).find(w => w.label === l)).filter(Boolean);
   const pics = [...new Set((ARV_DATA.kpis || []).map(k => k.pic).filter(Boolean))].sort();
   const temDado = !!arvDia(ARV_SEL_ISO);
 
-  // offsets das colunas congeladas (mesma ideia do mockup: left acumulado)
+  const effMonths = arvEffectiveMonths();
+  const weekOptions = arvWeekOptions();
+  const daysByWeek = {};
+  (ARV_DATA.days || []).forEach(d => { (daysByWeek[d.wk] = daysByWeek[d.wk] || []).push(d); });
+
+  // offsets das colunas congeladas
   const off = {}; let acc = 0;
   ['bloco','pic','sub','kpi','target'].forEach(c => { off[c] = acc; acc += ARV_LARG[c]; });
   refs.forEach((w, i) => { off['ref' + i] = acc; acc += ARV_LARG.ref; });
-  let largura = acc;
-  semanas.forEach(w => {
-    largura += ARV_SEMANAS_FECHADAS.has(w.label) ? ARV_LARG.semana : (diasPorSemana[w.label] || []).length * ARV_LARG.dia;
+  const frozenTotal = acc;
+
+  // Monta Mês -> Semana -> (dias, se aberta) e a lista plana de colunas-folha.
+  const leaves = []; const monthGroups = [];
+  let x = frozenTotal;
+  effMonths.forEach(monthKey => {
+    const weeksAll = weekOptions.filter(w => w.startIso.slice(0,7) === monthKey);
+    const weeksDoMes = ARV_SEMANAS_SEL.length ? weeksAll.filter(w => ARV_SEMANAS_SEL.includes(w.label)) : weeksAll;
+    if(!weeksDoMes.length) return;
+    const weekEntries = [];
+    weeksDoMes.forEach(w => {
+      const isOpen = ARV_SEMANAS_ABERTAS.has(w.label);
+      const monthStart = leaves.length === 0 || leaves[leaves.length-1]._monthKey !== monthKey;
+      if(!isOpen){
+        leaves.push({ type:'week', key:w.label, week:w, width:ARV_LARG.semana, left:x, monthStart, _monthKey:monthKey });
+        x += ARV_LARG.semana;
+        weekEntries.push({ week:w, isOpen:false, leafCount:1 });
+      }else{
+        const wDays = daysByWeek[w.label] || [];
+        leaves.push({ type:'weekTotal', key:w.label+'-total', week:w, width:ARV_LARG.semana, left:x, monthStart, _monthKey:monthKey });
+        x += ARV_LARG.semana;
+        wDays.forEach(d => {
+          leaves.push({ type:'day', key:d.iso, day:d, week:w, width:ARV_LARG.dia, left:x, monthStart:false, _monthKey:monthKey });
+          x += ARV_LARG.dia;
+        });
+        weekEntries.push({ week:w, isOpen:true, leafCount:wDays.length+1 });
+      }
+    });
+    const leafCount = weekEntries.reduce((a,e) => a+e.leafCount, 0);
+    if(leafCount > 0) monthGroups.push({ monthKey, weeks:weekEntries, leafCount });
   });
+  const largura = x;
 
-  const thFrozen = (label, left, w, extra) =>
-    `<th class="arv-frozen ${extra || ''}" style="left:${left}px;width:${w}px;min-width:${w}px">${label}</th>`;
+  const hojeIso = arvHojeReal();
+  const hojeLeaf = leaves.find(l => l.type === 'day' && l.key === hojeIso);
+  const linhaHojeLeft = hojeLeaf ? hojeLeaf.left + hojeLeaf.width : null;
 
-  let head = '<tr>' +
+  const thFrozen = (label, left, w, extra, title) =>
+    `<th class="arv-frozen ${extra || ''}" style="left:${left}px;width:${w}px;min-width:${w}px" ${title ? `title="${pulsoEscHtml(title)}"` : ''}>${label}</th>`;
+
+  let head1 = '<tr>' +
     thFrozen('Bloco', off.bloco, ARV_LARG.bloco) +
     thFrozen('PIC', off.pic, ARV_LARG.pic) +
     thFrozen('Sub Bloco', off.sub, ARV_LARG.sub) +
     thFrozen('KPI', off.kpi, ARV_LARG.kpi, 'style-left') +
     thFrozen('Target', off.target, ARV_LARG.target) +
-    refs.map((w, i) => thFrozen(w.label, off['ref' + i], ARV_LARG.ref)).join('');
-  semanas.forEach(w => {
-    if(ARV_SEMANAS_FECHADAS.has(w.label)){
-      head += `<th class="arv-weekcol" style="width:${ARV_LARG.semana}px;min-width:${ARV_LARG.semana}px" onclick="arvToggleSemana('${w.label}')" title="Clique para abrir a semana">▸ ${w.label}</th>`;
-      return;
-    }
-    (diasPorSemana[w.label] || []).forEach((d, i) => {
-      head += `<th class="arv-daycol ${d.iso === ARV_SEL_ISO ? 'arv-hoje' : ''}" data-iso="${d.iso}" style="width:${ARV_LARG.dia}px;min-width:${ARV_LARG.dia}px">
-        ${i === 0 ? `<span style="display:block;font-size:9px;opacity:.85;cursor:pointer" onclick="arvToggleSemana('${w.label}')" title="Fechar semana">▾ ${w.label}</span>` : ''}
-        ${arvFmtDataCurta(d.iso)}<span class="arv-wd">${d.wd}</span>
-      </th>`;
-    });
-  });
-  head += '</tr>';
+    refs.map((w, i) => thFrozen(w.label, off['ref' + i], ARV_LARG.ref, '', 'Semana de referência')).join('') +
+    monthGroups.map(g => `<th class="arv-monthcol" colspan="${g.leafCount}">${pulsoEscHtml(arvFmtMes(g.monthKey))}</th>`).join('') +
+    '</tr>';
 
-  const celula = (k, chave, cls, left) => {
+  let head2 = '<tr>' + monthGroups.flatMap(g => g.weeks.map(we => we.isOpen
+    ? `<th class="arv-weekcol" colspan="${we.leafCount}" onclick="arvToggleWeekOpen('${we.week.label}')" title="Clique para fechar a semana">▾ ${we.week.label}</th>`
+    : `<th class="arv-weekcol" onclick="arvToggleWeekOpen('${we.week.label}')" title="Clique para abrir a semana" style="width:${ARV_LARG.semana}px;min-width:${ARV_LARG.semana}px">▸ ${we.week.label}</th>`
+  )).join('') + '</tr>';
+
+  let head3 = '<tr>' + monthGroups.flatMap(g => g.weeks.filter(we => we.isOpen).flatMap(we => {
+    const totalTh = `<th class="arv-weekcol arv-weektotalcol" style="width:${ARV_LARG.semana}px;min-width:${ARV_LARG.semana}px" title="Resultado consolidado da semana">${we.week.label}</th>`;
+    const dayThs = (daysByWeek[we.week.label] || []).map(d =>
+      `<th class="arv-daycol ${d.iso === ARV_SEL_ISO ? 'arv-sel' : ''}" data-iso="${d.iso}" style="width:${ARV_LARG.dia}px;min-width:${ARV_LARG.dia}px">
+        ${arvFmtDataCurta(d.iso)}<span class="arv-wd">${d.wd}</span>
+      </th>`).join('');
+    return totalTh + dayThs;
+  })).join('') + '</tr>';
+
+  const celula = (k, chave, cls, left, aggregate) => {
     const v = arvValor(k, chave);
-    const st = arvStatus(k, v);
-    const w = left !== undefined ? ARV_LARG.ref : (cls.includes('arv-semanacell') ? ARV_LARG.semana : ARV_LARG.dia);
+    const compare = arvValor(k, arvPrevPeriodKey(chave));
+    const st = arvStatusLabel(k, v, compare);
+    const w = left !== undefined ? ARV_LARG.ref : (aggregate ? ARV_LARG.semana : ARV_LARG.dia);
     const estilo = left !== undefined ? `left:${left}px;width:${w}px;min-width:${w}px` : `width:${w}px;min-width:${w}px`;
-    return `<td class="arv-cell arv-${st.key} ${cls}" style="${estilo}" title="${pulsoEscHtml(k.kpi + ' — ' + arvFmtValor(k, v) + (st.key !== 'na' ? ' · ' + st.label : ''))}" onclick="arvOpenDetail('${k.id}')">${arvFmtValor(k, v)}</td>`;
+    return `<td class="arv-cell arv-${st.color} ${aggregate ? 'arv-agg' : ''} ${cls}" style="${estilo}" title="${pulsoEscHtml(k.kpi + ' — ' + arvFmtValor(k, v) + (st.key !== 'na' ? ' · ' + st.text : ''))}" onclick="arvOpenDetail('${k.id}')">${arvFmtValor(k, v)}</td>`;
   };
 
-  // rowspans de Bloco/PIC/Sub Bloco (a hierarquia só aparece na 1ª linha)
   const spanAte = (i, chaveFn) => { let j = i + 1; while(j < kpis.length && chaveFn(kpis[j]) === chaveFn(kpis[i])) j++; return j - i; };
   let body = '';
   kpis.forEach((k, i) => {
@@ -9209,18 +9426,18 @@ function arvRenderTabela(){
     body += `<td class="arv-frozen arv-kpiname" style="left:${off.kpi}px;width:${ARV_LARG.kpi}px;min-width:${ARV_LARG.kpi}px" onclick="arvOpenDetail('${k.id}')">${pulsoEscHtml(k.kpi)}${k.fonte && /^https?:/.test(k.fonte) ? `<a class="arv-fonte" href="${pulsoEscHtml(k.fonte)}" target="_blank" rel="noopener" onclick="event.stopPropagation()" title="Fonte"><i class="fas fa-arrow-up-right-from-square"></i></a>` : ''}</td>`;
     body += `<td class="arv-frozen arv-target" style="left:${off.target}px;width:${ARV_LARG.target}px;min-width:${ARV_LARG.target}px">${arvFmtTarget(k)}</td>`;
     refs.forEach((w, ri) => { body += celula(k, w.label, 'arv-frozen', off['ref' + ri]); });
-    semanas.forEach(w => {
-      if(ARV_SEMANAS_FECHADAS.has(w.label)){ body += celula(k, w.label, 'arv-semanacell'); return; }
-      (diasPorSemana[w.label] || []).forEach(d => {
-        body += celula(k, d.iso, d.iso === ARV_SEL_ISO ? 'arv-hoje' : '');
-      });
+    leaves.forEach(l => {
+      body += celula(k, l.type === 'day' ? l.day.iso : l.week.label, l.monthStart ? 'month-start' : '', undefined, l.type !== 'day');
     });
     body += '</tr>';
   });
   if(!kpis.length) body = `<tr><td colspan="99" class="arv-empty">Nenhum KPI encontrado com os filtros atuais.</td></tr>`;
 
-  const dias0 = dias[0] ? dias[0].iso : '';
-  const diasN = dias.length ? dias[dias.length-1].iso : '';
+  const allMonthOptions = arvMonthOptions().map(m => ({ value:m, label:arvFmtMes(m) }));
+  const weekOptForFiltro = weekOptions.map(w => ({ value:w.label, label:`${w.label} (${arvFmtDataCurta(w.startIso)}–${arvFmtDataCurta(w.endIso)})` }));
+  const dias0 = (ARV_DATA.days[0] || {}).iso || '';
+  const diasN = (ARV_DATA.days[ARV_DATA.days.length-1] || {}).iso || '';
+
   root.innerHTML = `
     <div class="arv-toolbar">
       <input class="filter-select arv-busca" type="text" id="arv-f-busca" placeholder="Buscar KPI, Bloco, Sub Bloco ou PIC…" value="${pulsoEscHtml(ARV_FILTROS.busca)}" oninput="arvSetFiltro('busca',this.value)"/>
@@ -9232,6 +9449,8 @@ function arvRenderTabela(){
         <option value="">Todos os PICs</option>
         ${pics.map(p => `<option value="${pulsoEscHtml(p)}" ${ARV_FILTROS.pic === p ? 'selected' : ''}>${pulsoEscHtml(p)}</option>`).join('')}
       </select>
+      ${arvMsHtml('meses', 'Mês', allMonthOptions, ARV_MESES_SEL)}
+      ${arvMsHtml('semanas', 'Semana', weekOptForFiltro, ARV_SEMANAS_SEL)}
       <div class="arv-daynav">
         <button class="arv-daybtn" onclick="arvIrDia(-1)" ${ARV_SEL_ISO === dias0 ? 'disabled' : ''}><i class="fas fa-chevron-left"></i></button>
         <span class="arv-daypill" data-semdado="${temDado ? '0' : '1'}">${arvFmtDataLonga(ARV_SEL_ISO)}${temDado ? '' : ' · sem dado'}</span>
@@ -9244,16 +9463,20 @@ function arvRenderTabela(){
     </div>
     <div class="arv-legend">
       <span><i style="background:color-mix(in srgb, var(--green) 45%, transparent)"></i>Dentro do target</span>
-      <span><i style="background:color-mix(in srgb, var(--amber) 45%, transparent)"></i>Atenção (±${Math.round(ARV_BANDA*100)}%)</span>
+      <span><i style="background:color-mix(in srgb, var(--amber) 45%, transparent)"></i>Próximo do target</span>
       <span><i style="background:color-mix(in srgb, var(--red) 45%, transparent)"></i>Fora do target</span>
       <span><i style="background:var(--surface-3)"></i>Sem dado</span>
+      <span><i style="background:var(--orange);border-radius:2px;width:2px"></i>Hoje</span>
       <span>▸ semana fechada · ▾ semana aberta (clique no cabeçalho)</span>
     </div>
     <div class="arv-grid-wrap">
-      <table class="arv-grid" style="width:${largura}px;min-width:${largura}px">
-        <thead>${head}</thead>
-        <tbody>${body}</tbody>
-      </table>
+      <div style="position:relative;width:${largura}px">
+        <table class="arv-grid" style="width:${largura}px;min-width:${largura}px">
+          <thead>${head1}${head2}${head3}</thead>
+          <tbody>${body}</tbody>
+        </table>
+        ${linhaHojeLeft !== null ? `<div class="arv-todayline" style="left:${linhaHojeLeft}px"></div>` : ''}
+      </div>
     </div>`;
 }
 
@@ -9267,11 +9490,15 @@ function arvRenderVisao(){
   const desvios = [];
   kpis.forEach(k => {
     const v = arvValor(k, ARV_SEL_ISO);
-    const st = arvStatus(k, v);
-    cont[st.key]++;
+    const prevV = arvValor(k, arvAddDias(ARV_SEL_ISO, -1));
+    const st = arvStatusLabel(k, v, prevV);
+    const inTarget = st.key === 'in_target' || st.key === 'in_target_stable';
+    const warnish = st.key === 'in_target_worsening' || st.key === 'out_target_improving';
+    const outBad = st.key === 'out_target_worsening';
+    if(inTarget) cont.ok++; else if(warnish) cont.warn++; else if(outBad) cont.bad++; else cont.na++;
     if(!porBloco[k.bloco]) porBloco[k.bloco] = { ok:0, total:0 };
-    if(st.key !== 'na'){ porBloco[k.bloco].total++; if(st.key === 'ok') porBloco[k.bloco].ok++; }
-    if((st.key === 'bad' || st.key === 'warn') && k.target !== null && v !== null){
+    if(st.key !== 'na'){ porBloco[k.bloco].total++; if(inTarget) porBloco[k.bloco].ok++; }
+    if((warnish || outBad) && k.target !== null && v !== null){
       const base = Math.max(Math.abs(k.target), k.unit === 'percent' ? 0.01 : 1);
       desvios.push({ k, v, st, score: Math.abs(v - k.target) / base });
     }
@@ -9399,7 +9626,8 @@ function arvRenderHistorico(){
               <tbody>
                 ${sel.length ? sel.map((k, i) => {
                   const v = arvValor(k, fim);
-                  const st = arvStatus(k, v);
+                  const prevV = arvValor(k, arvAddDias(fim, -1));
+                  const st = arvStatusLabel(k, v, prevV);
                   const vals = janela.map(d => arvValor(k, d.iso)).filter(x => x !== null);
                   const media = vals.length ? vals.reduce((s, x) => s + x, 0) / vals.length : null;
                   return `<tr>
@@ -9407,7 +9635,7 @@ function arvRenderHistorico(){
                     <td style="text-align:right;font-weight:700">${arvFmtValor(k, v)}</td>
                     <td style="text-align:right;color:var(--text-muted)">${arvFmtTarget(k)}</td>
                     <td style="text-align:right;color:var(--text-muted)">${arvFmtValor(k, media)}</td>
-                    <td style="text-align:right"><span class="arv-pill arv-${st.key}">${st.dot} ${st.label}</span></td>
+                    <td style="text-align:right"><span class="arv-pill arv-${st.color}">${st.dot} ${st.text}</span></td>
                   </tr>`;
                 }).join('') : '<tr><td colspan="5" class="arv-empty">Nenhum KPI selecionado.</td></tr>'}
               </tbody>
@@ -9449,17 +9677,19 @@ function arvOpenDetail(id){
   if(!k) return;
   ARV_SEL_KPI = id;
   const v = arvValor(k, ARV_SEL_ISO);
-  const st = arvStatus(k, v);
   const ontem = arvAddDias(ARV_SEL_ISO, -1);
-  const dOntem = arvDelta(v, arvValor(k, ontem));
+  const vOntem = arvValor(k, ontem);
+  const st = arvStatusLabel(k, v, vOntem);
+  const dOntem = arvDelta(v, vOntem);
   const refLabel = (ARV_DATA.meta.refWeeks || []).slice(-1)[0];
   const dRef = refLabel ? arvDelta(v, arvValor(k, refLabel)) : null;
-  const obs = (k.obs || {})[ARV_SEL_ISO];
+  const obsHoje = (k.obs || {})[ARV_SEL_ISO];
+  const turnoEntries = arvTurnoEntries(k, ARV_SEL_ISO);
+  const trailingDias = (ARV_DATA.days || []).filter(d => d.iso <= ARV_SEL_ISO).slice(-6);
+  const trailingValues = trailingDias.map(d => arvValor(k, d.iso));
+  const insightsAuto = arvInsights(k, v, st, dOntem, dRef, refLabel, turnoEntries, trailingValues);
 
-  // Quebra por turno: só aparece se existir um KPI irmão T1..T4 no mesmo
-  // Bloco/PIC/Sub Bloco (é assim que a planilha representa turno).
-  const turnos = (ARV_DATA.kpis || []).filter(x =>
-    x.bloco === k.bloco && x.pic === k.pic && x.subBloco === k.subBloco && /^T[1-4]$/.test(x.kpi));
+  ARV_INSIGHT_TAB = obsHoje ? 'manual' : 'auto';
 
   document.getElementById('arv-detail-title').innerHTML =
     `<i class="fas fa-diagram-project" style="color:var(--orange);margin-right:8px"></i>${pulsoEscHtml(k.kpi)}
@@ -9473,9 +9703,8 @@ function arvOpenDetail(id){
     <div class="arv-sum">
       <div class="arv-sum-item"><div class="arv-sum-label">Resultado</div><div class="arv-sum-value">${arvFmtValor(k, v)}</div></div>
       <div class="arv-sum-item"><div class="arv-sum-label">Target</div><div class="arv-sum-value">${arvFmtTarget(k)}</div></div>
-      <div class="arv-sum-item"><div class="arv-sum-label">Status</div><div class="arv-sum-value" style="font-size:13px">${st.dot} ${st.label}</div></div>
+      <div class="arv-sum-item"><div class="arv-sum-label">Status</div><div class="arv-sum-value" style="font-size:12px">${st.dot} ${st.text}</div></div>
     </div>
-    ${obs ? `<div class="arv-obs"><i class="fas fa-note-sticky" style="margin-right:6px"></i>${pulsoEscHtml(obs)}</div>` : ''}
     <div class="arv-secao">Variações</div>
     <div class="arv-var">
       <div class="arv-var-item"><div class="arv-var-label">vs D-1 (${arvFmtDataCurta(ontem)})</div><div class="arv-var-value ${arvToneDelta(k, dOntem)}">${arvFmtDelta(k, dOntem)}</div></div>
@@ -9483,23 +9712,26 @@ function arvOpenDetail(id){
     </div>
     <div class="arv-secao">Evolução (últimos 14 dias)</div>
     <div style="height:200px"><canvas id="arv-detail-chart"></canvas></div>
-    ${turnos.length ? `
+    ${turnoEntries.length ? `
       <div class="arv-secao">Por turno</div>
       <table class="arv-turnos">
         <thead><tr><th>Turno</th><th style="text-align:right">Resultado</th><th style="text-align:right">Target</th><th style="text-align:right">Status</th></tr></thead>
-        <tbody>${turnos.map(t => {
-          const tv = arvValor(t, ARV_SEL_ISO); const ts = arvStatus(t, tv);
-          return `<tr><td style="font-weight:600">${pulsoEscHtml(t.kpi)}</td>
-            <td style="text-align:right">${arvFmtValor(t, tv)}</td>
-            <td style="text-align:right;color:var(--text-muted)">${arvFmtTarget(t)}</td>
-            <td style="text-align:right"><span class="arv-pill arv-${ts.key}">${ts.dot} ${ts.label}</span></td></tr>`;
-        }).join('')}</tbody>
+        <tbody>${turnoEntries.map(t => t.kpi ? `<tr><td style="font-weight:600">${pulsoEscHtml(t.turno)}</td>
+            <td style="text-align:right">${arvFmtValor(t.kpi, t.value)}</td>
+            <td style="text-align:right;color:var(--text-muted)">${arvFmtTarget(t.kpi)}</td>
+            <td style="text-align:right"><span class="arv-pill arv-${t.statusLabel.color}">${t.statusLabel.dot} ${t.statusLabel.text}</span></td></tr>` : '').join('')}</tbody>
       </table>` : ''}
-    <div class="arv-secao">Leitura</div>
-    ${arvInsights(k, v, st, dOntem, dRef, refLabel).map(t => `<div class="arv-insight"><i class="fas fa-circle-info" style="color:var(--orange);margin-top:2px"></i><span>${t}</span></div>`).join('')}
+    <div class="arv-secao" style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+      <span>Insights</span>
+      <div class="arv-insight-tabs">
+        <div class="arv-insight-tab ${ARV_INSIGHT_TAB === 'manual' ? 'active' : ''}" onclick="arvSetInsightTab('manual')">Insights</div>
+        <div class="arv-insight-tab ${ARV_INSIGHT_TAB === 'auto' ? 'active' : ''}" onclick="arvSetInsightTab('auto')">Insights (COP Boy)</div>
+      </div>
+    </div>
+    <div id="arv-insight-body"></div>
   `;
+  arvRenderInsightBody(obsHoje, insightsAuto);
 
-  // Gráfico dos últimos 14 dias terminando na data selecionada
   const dias = ARV_DATA.days || [];
   const iSel = dias.findIndex(d => d.iso === ARV_SEL_ISO);
   const janela = dias.slice(Math.max(0, (iSel < 0 ? dias.length - 1 : iSel) - 13), (iSel < 0 ? dias.length : iSel + 1));
@@ -9528,35 +9760,94 @@ function arvOpenDetail(id){
   }
   document.getElementById('arv-detail-overlay').classList.add('open');
 }
+function arvSetInsightTab(tab){
+  ARV_INSIGHT_TAB = tab;
+  document.querySelectorAll('.arv-insight-tab').forEach(el => el.classList.remove('active'));
+  const idx = tab === 'manual' ? 0 : 1;
+  document.querySelectorAll('.arv-insight-tab')[idx]?.classList.add('active');
+  const k = (ARV_DATA.kpis || []).find(x => x.id === ARV_SEL_KPI);
+  arvRenderInsightBody(k ? (k.obs || {})[ARV_SEL_ISO] : null, arvLastInsightsAuto);
+}
+let arvLastInsightsAuto = [];
+function arvRenderInsightBody(obsHoje, insightsAuto){
+  arvLastInsightsAuto = insightsAuto;
+  const el = document.getElementById('arv-insight-body');
+  if(!el) return;
+  if(ARV_INSIGHT_TAB === 'manual'){
+    el.innerHTML = obsHoje
+      ? `<div class="arv-insight-manual"><i class="fas fa-note-sticky" style="color:var(--orange);margin-right:6px"></i>${pulsoEscHtml(obsHoje)}</div>`
+      : `<div class="arv-insight-empty">Nenhum insight cadastrado para este KPI nesta data (coluna Observação, planilha árvore_pulso).</div>`;
+  }else{
+    el.innerHTML = insightsAuto.length
+      ? insightsAuto.map(ins => `<div class="arv-insight"><i class="fas ${ins.icone}" style="color:${ins.cor};margin-top:2px"></i><span>${ins.texto}</span></div>`).join('')
+      : `<div class="arv-insight-empty">Sem dados suficientes para gerar insights automáticos.</div>`;
+  }
+}
 function arvCloseDetail(){
   document.getElementById('arv-detail-overlay').classList.remove('open');
   if(ARV_CHART){ ARV_CHART.destroy(); ARV_CHART = null; }
 }
-// Leitura automática do KPI — texto derivado dos números, nunca fixo.
-function arvInsights(k, v, st, dOntem, dRef, refLabel){
+// Leitura automática do KPI ("COP Boy") — texto derivado dos números, nunca
+// fixo. Complementa (não substitui) o insight oficial da coluna Observação.
+const ARV_ICONES = {
+  check:['fa-circle-check','var(--green)'], warn:['fa-triangle-exclamation','var(--amber)'],
+  alert:['fa-circle-exclamation','var(--red)'], up:['fa-arrow-trend-up','var(--green)'],
+  down:['fa-arrow-trend-down','var(--red)'], target:['fa-bullseye','var(--orange)'], dash:['fa-circle-minus','var(--text-muted)'],
+};
+function arvIns(icone, texto){ const [i,c] = ARV_ICONES[icone]; return { icone:i, cor:c, texto }; }
+function arvInsights(kpi, v, st, dOntem, dRef, refLabel, turnoEntries, trailingValues){
   const out = [];
-  if(v === null){
-    out.push('Sem dado lançado para esta data.');
-    return out;
+  const gapTexto = (v !== null && kpi.target !== null) ? (() => {
+    const gap = v - kpi.target;
+    const dir = gap > 0 ? 'acima' : 'abaixo';
+    const mag = arvFmtDelta(kpi, Math.abs(gap));
+    return `${mag} ${dir} do Target`;
+  })() : null;
+
+  switch(st.key){
+    case 'in_target': out.push(arvIns('check', 'O resultado está dentro do Target.')); break;
+    case 'in_target_stable': out.push(arvIns('check', 'O resultado está dentro do Target e estável em relação ao período anterior.')); break;
+    case 'in_target_worsening': out.push(arvIns('warn', 'O resultado está dentro do Target, mas a tendência é de piora.')); break;
+    case 'out_target_improving': out.push(arvIns('up', gapTexto ? `O resultado está ${gapTexto}, porém melhorando e se aproximando da meta.` : 'O resultado está fora do Target, porém melhorando.')); break;
+    case 'out_target_worsening': out.push(arvIns('alert', gapTexto ? `O resultado está ${gapTexto} e piorando.` : 'O resultado está fora do Target e piorando.')); break;
+    default: out.push(arvIns('dash', 'Não há dado suficiente para avaliar este indicador na data selecionada.'));
   }
-  if(k.target !== null){
-    const dif = v - k.target;
-    const pct = Math.abs(k.target) > 0 ? Math.abs(dif / k.target * 100) : null;
-    out.push(st.key === 'ok'
-      ? `Está <b>dentro do target</b> (${arvFmtValor(k, v)} contra meta de ${arvFmtTarget(k)}).`
-      : `Está <b>${st.key === 'warn' ? 'na faixa de atenção' : 'fora do target'}</b>: ${arvFmtValor(k, v)} contra meta de ${arvFmtTarget(k)}${pct !== null ? ` (${pct.toFixed(0)}% de distância)` : ''}.`);
-  }else{
-    out.push(`Sem meta definida na planilha — valor do dia: <b>${arvFmtValor(k, v)}</b>.`);
+
+  if(dOntem !== null){
+    const m = arvMelhorou(kpi, dOntem);
+    const mag = arvFmtDelta(kpi, Math.abs(dOntem));
+    if(m === true) out.push(arvIns('up', `O indicador apresentou melhora de ${mag} em relação ao D-1.`));
+    else if(m === false) out.push(arvIns('down', `O indicador apresentou piora de ${mag} em relação ao D-1.`));
   }
-  if(dOntem !== null && dOntem !== 0){
-    const m = arvMelhorou(k, dOntem);
-    out.push(`Contra o dia anterior: <b>${arvFmtDelta(k, dOntem)}</b> (${m === true ? 'melhora' : m === false ? 'piora' : 'estável'}).`);
+  if(dRef !== null){
+    const m = arvMelhorou(kpi, dRef);
+    if(m === true) out.push(arvIns('up', `O indicador apresentou melhora em relação à semana ${refLabel || 'anterior'}.`));
+    else if(m === false) out.push(arvIns('down', `O indicador apresentou piora em relação à semana ${refLabel || 'anterior'}.`));
   }
-  if(dRef !== null && dRef !== 0 && refLabel){
-    const m = arvMelhorou(k, dRef);
-    out.push(`Contra a semana de referência ${refLabel}: <b>${arvFmtDelta(k, dRef)}</b> (${m === true ? 'melhora' : m === false ? 'piora' : 'estável'}).`);
+  const streak = arvTrendStreak(kpi, trailingValues);
+  if(streak) out.push(arvIns(streak.improved ? 'up' : 'down', `O indicador apresentou ${streak.improved ? 'melhora' : 'piora'} nos últimos ${streak.periods} períodos.`));
+
+  if(turnoEntries && turnoEntries.length){
+    const withData = turnoEntries.filter(t => t.value !== null);
+    const foraTarget = withData.filter(t => t.statusLabel.key.indexOf('out_target') === 0);
+    const dentro = withData.filter(t => t.statusLabel.key.indexOf('in_target') === 0);
+    if(foraTarget.length === 1 && dentro.length === withData.length - 1 && withData.length > 1){
+      out.push(arvIns('alert', `${foraTarget[0].turno} é o único turno fora do target.`));
+    }else if(foraTarget.length > 0 && foraTarget.length < withData.length){
+      out.push(arvIns('alert', `${foraTarget.map(t => t.turno).join(', ')} ${foraTarget.length > 1 ? 'estão' : 'está'} fora do target.`));
+    }else if(foraTarget.length === 0 && withData.length > 0){
+      out.push(arvIns('check', 'Todos os turnos estão dentro do target.'));
+    }
+    if(withData.length > 1){
+      const worst = withData.reduce((acc, t) => {
+        const d = kpi.polarity === 'lower_better' ? t.value : -t.value;
+        const accD = kpi.polarity === 'lower_better' ? acc.value : -acc.value;
+        return d > accD ? t : acc;
+      });
+      if(worst.statusLabel.key.indexOf('in_target') !== 0) out.push(arvIns('target', `O maior desvio está concentrado no turno ${worst.turno}.`));
+    }
   }
-  return out;
+  return out.slice(0, 6);
 }
 
 /* ================================================================

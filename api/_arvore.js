@@ -347,6 +347,29 @@ async function buildArvore() {
   const comDado = weeks.filter(w => w.hasRealData);
   const refWeeks = comDado.slice(-2).map(w => w.label);
 
+  const kpis = [...kpiPorChave.values()];
+  // Quebra por turno (pedido do Roberto em 2026-08-13, mockup "arvore-kpis"
+  // bundle): dentro do mesmo Bloco/PIC/Sub Bloco, se existir KPI nomeado
+  // exatamente T1/T2/T3/T4, o KPI "Total" desse mesmo grupo ganha turnoRefs
+  // apontando pros ids — usado no drawer pra montar a tabela "Por turno".
+  // Só o "Total" recebe (não qualquer KPI não-T1-4 do grupo): um Sub Bloco
+  // como ABS tem várias métricas diferentes além de Total/T1-T4 (% Aderência,
+  // Entrevista, etc.) — anexar turnoRefs nelas mostraria os valores de T1-T4
+  // do ABS dentro do drawer de uma métrica sem relação nenhuma com turno.
+  const grupos = new Map(); // bloco|pic|sub -> kpis do grupo
+  kpis.forEach(k => {
+    const chaveGrupo = [k.bloco, k.pic, k.subBloco].join('|');
+    if (!grupos.has(chaveGrupo)) grupos.set(chaveGrupo, []);
+    grupos.get(chaveGrupo).push(k);
+  });
+  grupos.forEach(grupo => {
+    const turnos = {};
+    grupo.forEach(k => { if (/^T[1-4]$/.test(k.kpi)) turnos[k.kpi] = k.id; });
+    if (!Object.keys(turnos).length) return;
+    const total = grupo.find(k => k.kpi === 'Total');
+    if (total) total.turnoRefs = turnos;
+  });
+
   return {
     meta: {
       fonte: 'árvore_pulso',
@@ -357,7 +380,7 @@ async function buildArvore() {
     blocks: blocos,
     weeks,
     days,
-    kpis: [...kpiPorChave.values()],
+    kpis,
   };
 }
 
