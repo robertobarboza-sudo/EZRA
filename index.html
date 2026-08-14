@@ -3080,7 +3080,8 @@
         <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-conveyor', this)"></i>
       </div>
       <div class="nav-subgroup" id="navsub-conveyor">
-        <div class="nav-subitem active" data-subkey="performance" onclick="navSidebarSubpage(this,'conveyor','performance','conveyor')">Performance</div>
+        <div class="nav-subitem active" data-subkey="performance" onclick="navSidebarSubpage(this,'conveyor','performance','conveyor')">Packing Out ASM</div>
+        <div class="nav-subitem" data-subkey="conveyor" onclick="navSidebarSubpage(this,'conveyor','conveyor','conveyor')">Conveyor</div>
         <div class="nav-subitem" data-subkey="esteira" onclick="navSidebarSubpage(this,'conveyor','esteira','conveyor')">Esteira On-time</div>
       </div>
       <div class="nav-item" data-section="spr" data-label="Outbound" onclick="navigateToAndExpand('spr',this,'navsub-spr')">
@@ -3589,7 +3590,8 @@
       </div>
 
       <div class="bkl-tabs" id="conveyor-subpage-tabs" style="margin-bottom:16px">
-        <div class="bkl-tab active" id="subtab-performance" onclick="cnvSwitchSubpage('performance',this)">Performance</div>
+        <div class="bkl-tab active" id="subtab-performance" onclick="cnvSwitchSubpage('performance',this)">Packing Out ASM</div>
+        <div class="bkl-tab" id="subtab-conveyor" onclick="cnvSwitchSubpage('conveyor',this)">Conveyor</div>
         <div class="bkl-tab" id="subtab-esteira" onclick="cnvSwitchSubpage('esteira',this)">Esteira On-time</div>
       </div>
 
@@ -5599,7 +5601,7 @@ let TV_ROTATION = null;       // { pages, intervalSec, idx, timer, subpages } qu
 // certa de cada uma (pedido do Roberto em 2026-08-10), não só a seção.
 const TV_SUBPAGES = {
   spr:      { tabsId:'pulso-subpage-tabs',    switcher:'pulsoSwitchSubpage',  options:[{key:'outbound',label:'Outbound'},{key:'spr',label:'SPR'},{key:'leftover',label:'Leftover'},{key:'monitor',label:'Monitor - Live'}] },
-  conveyor: { tabsId:'conveyor-subpage-tabs', switcher:'cnvSwitchSubpage',    options:[{key:'performance',label:'Performance'},{key:'esteira',label:'Esteira On-time'}] },
+  conveyor: { tabsId:'conveyor-subpage-tabs', switcher:'cnvSwitchSubpage',    options:[{key:'performance',label:'Packing Out ASM'},{key:'conveyor',label:'Conveyor'},{key:'esteira',label:'Esteira On-time'}] },
   inbound:  { tabsId:'inbound-subpage-tabs',  switcher:'inboundSwitchSubpage',options:[{key:'lh',label:'Line Haul'},{key:'fm',label:'First Mile'},{key:'triagem',label:'Triagem'},{key:'fila',label:'Monitor - Fila'}] },
   asm:      { tabsId:'asm-subpage-tabs',      switcher:'asmSwitchSubpage',    options:[{key:'performance',label:'ASM Performance'},{key:'rejeito',label:'Sorting Exception'}] },
 };
@@ -12582,6 +12584,22 @@ function rejGenerateInsights(){
 ================================================================ */
 const CONVEYOR_STATE = { date: null, hora: null, grupo: '', estacao: '', turno: '', tableMode: 'acumulado' };
 const CNV_GROUP_COLORS = { 'OBA/OBB': '#ee4d2d', 'OBC/OBD': '#f5a623', 'Termoplástica': '#5d8dff', 'Esteira A': '#10b981', 'Esteira B': '#06b6d4', 'Tintas': '#ec4899', 'TO-Audit': '#eab308', 'Non-TO': '#a855f7' };
+// Subaba "Conveyor" (pedido do Roberto em 2026-08-15): mesmo dashboard
+// de "Packing Out ASM" (mesmo CONVEYOR_DATA, já carregado uma vez),
+// só que restrito às esteiras — nenhum fetch novo, só um filtro de
+// escopo aplicado em cima do dado já em memória (ver cnvRowsEscopo/
+// cnvGruposEscopo, usados em todo lugar que antes lia CONVEYOR_DATA.rows/
+// .grupos direto). null = sem restrição (Packing Out ASM).
+const CONVEYOR_ESTEIRA_GRUPOS = ['Esteira A', 'Esteira B', 'Termoplástica'];
+let CONVEYOR_SCOPE_GRUPOS = null;
+function cnvRowsEscopo(){
+  if(!CONVEYOR_DATA) return [];
+  return CONVEYOR_SCOPE_GRUPOS ? CONVEYOR_DATA.rows.filter(r => CONVEYOR_SCOPE_GRUPOS.includes(r.grupo)) : CONVEYOR_DATA.rows;
+}
+function cnvGruposEscopo(){
+  if(!CONVEYOR_DATA) return [];
+  return CONVEYOR_SCOPE_GRUPOS || CONVEYOR_DATA.grupos;
+}
 const CNV_SORT_COLS = ['opsId','colaborador','grupo','estacao','turno','totalProcessamento'];
 const CNV_SORT = { key: 'totalProcessamento', dir: -1 }; // default: maior pro menor
 let CONVEYOR_DATA = null;
@@ -12590,13 +12608,24 @@ let CNV_ULTIMA_HORA = 23;
 let CNV_PAGE = 0;
 
 let CONVEYOR_SUBPAGE = 'performance';
+// "Conveyor" (pedido do Roberto em 2026-08-15) reaproveita o MESMO painel
+// e o MESMO CONVEYOR_DATA de "Packing Out ASM" (era "Performance", só
+// renomeado) — só troca o escopo de grupos (CONVEYOR_SCOPE_GRUPOS) e
+// re-renderiza com o que já está em memória, sem fetch novo. "Esteira
+// On-time" continua totalmente separada (fonte própria, ESTEIRA_DATA).
 function cnvSwitchSubpage(key, el){
   CONVEYOR_SUBPAGE = key;
   navSyncSidebarSubitem('conveyor', key);
   document.querySelectorAll('#conveyor-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  document.getElementById('conveyor-panel-performance').style.display = key==='performance' ? '' : 'none';
+  const painelPacking = (key==='performance' || key==='conveyor');
+  document.getElementById('conveyor-panel-performance').style.display = painelPacking ? '' : 'none';
   document.getElementById('conveyor-panel-esteira').style.display = key==='esteira' ? '' : 'none';
+  if(painelPacking){
+    CONVEYOR_SCOPE_GRUPOS = key==='conveyor' ? CONVEYOR_ESTEIRA_GRUPOS : null;
+    if(CONVEYOR_SCOPE_GRUPOS && CONVEYOR_STATE.grupo && !CONVEYOR_SCOPE_GRUPOS.includes(CONVEYOR_STATE.grupo)) CONVEYOR_STATE.grupo = '';
+    if(CONVEYOR_DATA){ cnvPopulateGrupoOptions(); cnvPopulateEstacaoOptions(); cnvRenderAll(); } else loadConveyor();
+  }
   if(key==='esteira' && !ESTEIRA_DATA) estLoad();
 }
 
@@ -13030,11 +13059,7 @@ async function loadConveyor(){
       horaEl.value = String(cnvEffectiveHora());
     }
 
-    const grupoEl = document.getElementById('cnv-grupo-input');
-    if(grupoEl){
-      grupoEl.innerHTML = `<option value="">Todos os grupos</option>` + j.grupos.map(g => `<option value="${g}">${g}</option>`).join('');
-      grupoEl.value = CONVEYOR_STATE.grupo;
-    }
+    cnvPopulateGrupoOptions();
     cnvPopulateEstacaoOptions();
     cnvUpdateSortHeaders();
 
@@ -13055,10 +13080,17 @@ function cnvEffectiveHora(){
   return (CONVEYOR_STATE.hora !== null && CONVEYOR_STATE.hora !== undefined) ? CONVEYOR_STATE.hora : CNV_ULTIMA_HORA;
 }
 
+function cnvPopulateGrupoOptions(){
+  const grupoEl = document.getElementById('cnv-grupo-input');
+  if(!grupoEl || !CONVEYOR_DATA) return;
+  if(CONVEYOR_STATE.grupo && CONVEYOR_SCOPE_GRUPOS && !CONVEYOR_SCOPE_GRUPOS.includes(CONVEYOR_STATE.grupo)) CONVEYOR_STATE.grupo = '';
+  grupoEl.innerHTML = `<option value="">Todos os grupos</option>` + cnvGruposEscopo().map(g => `<option value="${g}">${g}</option>`).join('');
+  grupoEl.value = CONVEYOR_STATE.grupo;
+}
 function cnvPopulateEstacaoOptions(){
   const el = document.getElementById('cnv-estacao-input');
   if(!el || !CONVEYOR_DATA) return;
-  const pool = CONVEYOR_STATE.grupo ? CONVEYOR_DATA.rows.filter(r => r.grupo === CONVEYOR_STATE.grupo) : CONVEYOR_DATA.rows;
+  const pool = CONVEYOR_STATE.grupo ? cnvRowsEscopo().filter(r => r.grupo === CONVEYOR_STATE.grupo) : cnvRowsEscopo();
   const estacoes = [...new Set(pool.map(r => r.estacao))].sort();
   if(CONVEYOR_STATE.estacao && !estacoes.includes(CONVEYOR_STATE.estacao)) CONVEYOR_STATE.estacao = '';
   el.innerHTML = `<option value="">Todos os postos</option>` + estacoes.map(e => `<option value="${pulsoEscHtml(e)}">${pulsoEscHtml(e)}</option>`).join('');
@@ -13095,7 +13127,7 @@ function cnvRenderAll(){
 // não o próprio filtro de grupo (cada grupo sempre aparece, clicável).
 function cnvRowsForGroupCards(){
   if(!CONVEYOR_DATA) return [];
-  return CONVEYOR_DATA.rows.filter(r =>
+  return cnvRowsEscopo().filter(r =>
     (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao) &&
     (!CONVEYOR_STATE.turno || r.turno === CONVEYOR_STATE.turno)
   );
@@ -13108,7 +13140,7 @@ function cnvFilteredRows(){
   const h = cnvEffectiveHora();
   const diaTodo = h === '';
   const ordemH = diaTodo ? null : ordemHoraCutoff(h);
-  return CONVEYOR_DATA.rows.filter(r =>
+  return cnvRowsEscopo().filter(r =>
     (diaTodo || (CONVEYOR_STATE.tableMode === 'hora' ? r.hora === h : ordemHoraCutoff(r.hora) <= ordemH)) &&
     (!CONVEYOR_STATE.grupo || r.grupo === CONVEYOR_STATE.grupo) &&
     (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao) &&
@@ -13119,7 +13151,7 @@ function cnvFilteredRows(){
 // Gráfico: dia inteiro (0-23h) — curva de acumulação, respeitando grupo/posto se ativos.
 function cnvRowsForChart(){
   if(!CONVEYOR_DATA) return [];
-  return CONVEYOR_DATA.rows.filter(r =>
+  return cnvRowsEscopo().filter(r =>
     (!CONVEYOR_STATE.grupo || r.grupo === CONVEYOR_STATE.grupo) &&
     (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao) &&
     (!CONVEYOR_STATE.turno || r.turno === CONVEYOR_STATE.turno)
@@ -13160,12 +13192,16 @@ function cnvRenderGroupCards(){
   // Bug corrigido em 2026-08-04 (mesmo do "Total Realizado" do ASM): a borda
   // era fixa (sempre laranja) — agora só destaca quando nenhum grupo está filtrado.
   const totalAtivo = CONVEYOR_STATE.grupo === '';
+  // Rótulo/descrição do card total mudam no escopo Esteiras (pedido do
+  // Roberto em 2026-08-15) — mesmo card, só reflete o que está sendo somado.
+  const totalLabel = CONVEYOR_SCOPE_GRUPOS ? 'Total Esteiras' : 'Packing Total';
+  const totalDesc = CONVEYOR_SCOPE_GRUPOS ? 'soma de Esteira A + B + Termoplástica' : 'soma de todos os grupos';
   const packingTotalHtml = `<div class="switch-card" style="cursor:pointer;${totalAtivo?'border-color:var(--orange)':''}" onclick="cnvGrupoClick('')">
     <div class="switch-card-top">
-      <div class="switch-card-name"><i class="fas fa-boxes-stacked" style="color:var(--orange);margin-right:8px"></i>Packing Total</div>
+      <div class="switch-card-name"><i class="fas fa-boxes-stacked" style="color:var(--orange);margin-right:8px"></i>${totalLabel}</div>
     </div>
     <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHoraTotal.toLocaleString('pt-BR')}</div>
-    <div class="switch-card-desc">processado ${rotuloHora} · soma de todos os grupos</div>
+    <div class="switch-card-desc">processado ${rotuloHora} · ${totalDesc}</div>
     <div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
       Acumulado do dia: <strong style="color:var(--text)">${acumuladoDiaTotal.toLocaleString('pt-BR')}</strong>${deltaTotalHtml}
     </div>
@@ -13235,7 +13271,14 @@ function cnvRenderGroupCards(){
   //   L1: Packing Total, Esteiras (agregado), OBs (agregado)
   //   L2: Esteira A, Esteira B, Termoplástica
   //   L3: OBA/OBB, OBC/OBD, Tintas+TO-Audit+Non-TO (1 card só)
-  wrap.innerHTML = [
+  // Na subaba "Conveyor" (CONVEYOR_SCOPE_GRUPOS setado) só faz sentido a
+  // L2 — os cards de OBs/Tintas/TO-Audit/Non-TO nem existem no escopo.
+  wrap.innerHTML = CONVEYOR_SCOPE_GRUPOS ? [
+    packingTotalHtml,
+    cardGrupo('Esteira A'),
+    cardGrupo('Esteira B'),
+    cardGrupo('Termoplástica'),
+  ].join('') : [
     packingTotalHtml,
     cnvAgregado('Esteiras', 'fa-conveyor-belt', ['Esteira A', 'Esteira B', 'Termoplástica']),
     cnvAgregado('OBs', 'fa-layer-group', ['OBA/OBB', 'OBC/OBD']),
@@ -13279,7 +13322,7 @@ function cnvRenderChart(){
   if(chartInstances['chart-cnv-hora']){ chartInstances['chart-cnv-hora'].destroy(); delete chartInstances['chart-cnv-hora']; }
 
   if(CNV_CHART_VIEW === 'comparativo'){
-    const datasets = CONVEYOR_DATA.grupos.map(grupo => ({
+    const datasets = cnvGruposEscopo().map(grupo => ({
       label: grupo,
       data: HORAS_CUTOFF.map(h => rows.filter(r=>r.hora===h && r.grupo===grupo).reduce((s,r)=>s+r.totalProcessamento,0)),
       borderColor: CNV_GROUP_COLORS[grupo]||'#75809b', backgroundColor:'transparent', fill:false, tension:.3, pointRadius:2, borderWidth:2,
@@ -13404,7 +13447,7 @@ function cnvGenerateInsights(){
   const insights = [];
   const rows = cnvRowsForChart();
   const porGrupo = {};
-  CONVEYOR_DATA.grupos.forEach(g => { porGrupo[g] = 0; });
+  cnvGruposEscopo().forEach(g => { porGrupo[g] = 0; });
   rows.forEach(r => { porGrupo[r.grupo] = (porGrupo[r.grupo]||0) + r.totalProcessamento; });
   const entries = Object.entries(porGrupo);
   if(entries.length){
@@ -13425,7 +13468,8 @@ function cnvGenerateInsights(){
 }
 
 function cnvOpenPipboy(){
-  pulsoOpenPipboyGeneric('Conveyor', cnvGenerateInsights());
+  const titulo = CONVEYOR_SUBPAGE==='conveyor' ? 'Conveyor' : 'Packing Out ASM';
+  pulsoOpenPipboyGeneric(titulo, cnvGenerateInsights());
 }
 
 function jornalTab(id, el){
