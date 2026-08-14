@@ -635,16 +635,17 @@
     .switch-card-name { font-size: 14px; font-weight: 700; color: var(--text); }
     .switch-card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
     .switch-card-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
-    /* Card fino, abaixo dos cards normais (ASM > Qty Mesas Abertas, pedido
-       do Roberto em 2026-08-14) — mesma família visual do .switch-card, só
-       mais baixo (linha única, sem o bloco de acumulado do dia). */
-    .switch-grid-thin { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    /* Card fino, abaixo dos cards normais (ASM > bloco de Mesas — 1 card fino
+       por card de zona/Total, pedido do Roberto em 2026-08-14) — mesma
+       família visual do .switch-card, só mais baixo (linha única, sem o
+       bloco de acumulado do dia). */
+    .switch-grid-thin { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
     .switch-card-thin {
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
       padding: 9px 20px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 10px;
     }
-    .switch-card-thin .switch-card-name { font-size: 12px; font-weight: 700; color: var(--text); }
-    .switch-card-thin .switch-card-thin-value { font-size: 18px; font-weight: 800; color: var(--text); margin-left: auto; }
+    .switch-card-thin .switch-card-name { font-size: 12px; font-weight: 700; color: var(--text); white-space: nowrap; }
+    .switch-card-thin .switch-card-thin-stats { font-size: 12px; color: var(--text-muted); margin-left: auto; text-align: right; }
     .switch-status {
       font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
       border-radius: 999px; padding: 3px 10px;
@@ -10942,17 +10943,32 @@ function asmRenderZoneCards(){
 
   wrap.innerHTML = cardTotalHtml + ASM_DATA.zonas.map(cardParaZona).join('');
 
-  // Qty Mesas Abertas (pedido do Roberto em 2026-08-14) — card fino, numa
-  // linha própria abaixo dos cards de zona. Reusa mesasTotal (mesas
-  // distintas com indução na hora efetiva, já calculado acima) — não existe
-  // um flag de "mesa aberta/fechada" na base, então "aberta" = teve indução
-  // na hora vigente.
+  // Bloco de Mesas (pedido do Roberto em 2026-08-14) — linha de cards finos
+  // logo abaixo, 1 por card de cima (Total Realizado + cada zona, mesma
+  // ordem), com qty de mesas abertas e média de pacotes/mesa daquele
+  // recorte. "Aberta" = teve indução na hora vigente (não existe um flag de
+  // mesa aberta/fechada na base). mesasTotal/valorHoraTotal já vêm do
+  // cálculo do Total Realizado acima.
+  const thinCardHtml = (nome, mesas, pacotes) => {
+    const media = mesas ? Math.round(pacotes / mesas) : 0;
+    return `<div class="switch-card-thin">
+      <div class="switch-card-name"><i class="fas fa-table-cells" style="color:var(--orange);margin-right:8px"></i>${nome}</div>
+      <div class="switch-card-thin-stats"><strong style="color:var(--text)">${mesas}</strong> mesa(s) abertas · média <strong style="color:var(--text)">${media.toLocaleString('pt-BR')}</strong> pacotes/mesa</div>
+    </div>`;
+  };
+  const zonaStats = ASM_DATA.zonas.map(zona => {
+    const rowsZona = rows.filter(r => r.zona === zona);
+    const rowsNaHora = diaTodo ? rowsZona : rowsZona.filter(r => r.hora === h);
+    return {
+      zona,
+      valorHora: rowsNaHora.reduce((s, r) => s + r.scanNumbers, 0),
+      mesas: new Set(rowsNaHora.filter(r => r.mesa).map(r => r.mesa)).size,
+    };
+  });
   const mesasRow = document.getElementById('asm-mesas-row');
   if(mesasRow){
-    mesasRow.innerHTML = `<div class="switch-card-thin">
-      <div class="switch-card-name"><i class="fas fa-table-cells" style="color:var(--orange);margin-right:8px"></i>Qty Mesas Abertas</div>
-      <div class="switch-card-thin-value">${mesasTotal.toLocaleString('pt-BR')}</div>
-    </div>`;
+    mesasRow.innerHTML = thinCardHtml('Total Realizado', mesasTotal, valorHoraTotal)
+      + zonaStats.map(z => thinCardHtml(z.zona, z.mesas, z.valorHora)).join('');
   }
 }
 
