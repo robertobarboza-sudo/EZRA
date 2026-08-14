@@ -26,7 +26,7 @@
  *              se hoje não tiver dado ainda)
  */
 const { fetchTabByGid } = require('./_google');
-const { toNum, hojeOperacionalIso } = require('./_period');
+const { toNum, hojeOperacionalIso, dataOperacionalDe } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1485919739' };
 
@@ -43,8 +43,106 @@ function horaDe(v) {
   return m ? Number(m[1]) : null;
 }
 
+// Monitor - Fila (subaba nova dentro de Inbound, pedido do Roberto em
+// 2026-08-15) — timeline ao vivo da fila de descarga (fila_pulso), com
+// join em inbound_lh_pulso (chave: fila."lh trip number" = lh.viagem) pra
+// trazer os dados da viagem quando já tiver sido vinculada. Cabeçalhos de
+// fila_pulso vêm com espaço/parênteses (ex.: "waiting time (s)") — só essa
+// aba no PULSO usa esse formato, por isso o acesso é sempre via colchete.
+const FILA_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1682611336' };
+
+async function buildFila(req, res) {
+  let filaRows, lhRows;
+  try {
+    ([{ rows: filaRows }, { rows: lhRows }] = await Promise.all([
+      fetchTabByGid(FILA_SHEET.spreadsheetId, FILA_SHEET.gid),
+      fetchTabByGid(SHEET.spreadsheetId, SHEET.gid),
+    ]));
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  }
+
+  // viagem é única em inbound_lh_pulso (mesma garantia usada no resto do
+  // arquivo) — lookup direto por chave.
+  const lhPorViagem = new Map();
+  lhRows.forEach(r => { if (r.viagem) lhPorViagem.set(r.viagem, r); });
+
+  const comHora = filaRows.filter(r => r['add to queue time']);
+  const comDia = comHora
+    .map(r => ({ ...r, __dia: dataOperacionalDe(r['add to queue time']) }))
+    .filter(r => r.__dia);
+  const diasDisponiveis = [...new Set(comDia.map(r => r.__dia))].sort();
+  const hojeIso = hojeOperacionalIso();
+  const dia = diasDisponiveis.includes(hojeIso) ? hojeIso : (diasDisponiveis[diasDisponiveis.length - 1] || hojeIso);
+  const doDia = comDia.filter(r => r.__dia === dia);
+
+  const filas = doDia.map(r => {
+    const lhTripNumber = r['lh trip number'] || '';
+    const lh = lhTripNumber ? lhPorViagem.get(lhTripNumber) : null;
+    return {
+      queueNumber: r['queue number'] || '',
+      status: r.status || '',
+      driver: r.driver || '',
+      agency: r.agency || '',
+      veiculo: r['vehicle number'] || '',
+      arrivalType: r['arrival type'] || '',
+      addToQueueTime: r['add to queue time'] || '',
+      waitingTimeS: toNum(r['waiting time (s)']),
+      outOfThreshold: String(r['out of threshold'] || '').trim().toLowerCase() === 'sim',
+      assignedDock: r['assigned dock'] || '',
+      occupiedDock: r['occupied dock'] || '',
+      onHoldDock: r['on hold dock'] || '',
+      orderQuantity: toNum(r['order quantity']),
+      lhTripNumber,
+      lhTripName: r['lh trip name'] || '',
+      // Campos pedidos pro card clicável — só existem quando o join acha a
+      // viagem em inbound_lh_pulso (lh trip number pode vir vazio na fila
+      // até o vínculo ser feito no sistema de origem).
+      lh: lh ? {
+        viagem: lh.viagem || '',
+        numeroVeiculo: lh.numero_veiculo || '',
+        lacre: lh.lacre || '',
+        etaDestinoPlanejado: lh.eta_destino_planejado || '',
+        checkinDestino: lh.checkin_destino || '',
+        aberturaBau: lh.abertura_bau || '',
+        fimDescarga: lh.fim_descarga || '',
+        totalPacotes: toNum(lh.total_pacotes),
+        totalTos: toNum(lh.total_tos),
+        pacotesSaca: toNum(lh.pacotes_saca),
+        pacotesScuttle: toNum(lh.pacotes_scuttle),
+        pacotesPallet: toNum(lh.pacotes_pallet),
+        tosSaca: toNum(lh.tos_saca),
+        tosScuttle: toNum(lh.tos_scuttle),
+        tosPallet: toNum(lh.tos_pallet),
+        tosOutros: toNum(lh.tos_outros),
+        pacotesBulk: toNum(lh.pacotes_bulk),
+        pacotesG: toNum(lh.pacotes_g),
+        pacotesM: toNum(lh.pacotes_m),
+        pacotesP: toNum(lh.pacotes_p),
+        pacotesPP: toNum(lh.pacotes_pp),
+        pacotesNaoClassificados: toNum(lh.pacotes_nao_classificados),
+        solicitacaoAgrupado: lh.solicitation_agrupado || '',
+        docaDescarga: lh.doca_descarga || '',
+      } : null,
+    };
+  });
+
+  res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=180');
+  res.status(200).json({
+    ok: true,
+    dia,
+    cobertura: { inicio: diasDisponiveis[0] || null, fim: diasDisponiveis[diasDisponiveis.length - 1] || null },
+    rows: filas,
+  });
+}
 
 module.exports = async (req, res) => {
+  if (req.query.fila !== undefined) {
+    await buildFila(req, res);
+    return;
+  }
+
   let rows;
   try {
     ({ rows } = await fetchTabByGid(SHEET.spreadsheetId, SHEET.gid));
