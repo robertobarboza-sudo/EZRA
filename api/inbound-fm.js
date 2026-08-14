@@ -20,6 +20,23 @@ const { toNum, hojeOperacionalIso } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1026737209' };
 
+// Hora extraída direto da string (evita ambiguidade de fuso horário do
+// parse via Date) + turno pela mesma janela do Outbound (T1 06h-13h59,
+// T2 14h-21h59, T3 22h-05h59) — pedido do Roberto em 2026-08-14:
+// turno_operacional é estático da planilha, não reflete a hora real do
+// checkin; sem "planejado" nessa base (ver comentário do topo do arquivo),
+// então recalcula sempre em cima do checkin_driver.
+function horaDe(v) {
+  const m = String(v || '').match(/(\d{2}):\d{2}:\d{2}/);
+  return m ? Number(m[1]) : null;
+}
+function turnoDeHora(hora) {
+  if (hora === null) return null;
+  if (hora >= 6 && hora <= 13) return 'T1';
+  if (hora >= 14 && hora <= 21) return 'T2';
+  return 'T3';
+}
+
 module.exports = async (req, res) => {
   let rows;
   try {
@@ -48,7 +65,7 @@ module.exports = async (req, res) => {
     driver: r.driver_id_spx || '',
     estacao: r.station_name || '',
     agencia: r.agency_name || '',
-    turno: r.turno_operacional || '',
+    turno: turnoDeHora(horaDe(r.checkin_driver)) || r.turno_operacional || '',
     hora: toNum(r.slot_chegada),
     checkinDriver: r.checkin_driver || '',
     atribuicaoDoca: r.atribuicao_doca || '',

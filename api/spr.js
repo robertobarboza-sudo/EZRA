@@ -43,6 +43,11 @@ function aggregate(rows) {
     // cálculo do pedidosPorViagem, aplicado a to_scuttle/to_saca).
     ocupacaoMediaScuttle: tripCount ? +(totalToScuttle / tripCount).toFixed(1) : 0,
     ocupacaoMediaSaca: tripCount ? +(totalToSaca / tripCount).toFixed(1) : 0,
+    // SPP médio por unitizador (pedido do Roberto em 2026-08-14, confirmado:
+    // "Orders Scuttle / TO Scuttle e a mesma coisa pra saca") = pedidos por
+    // unitizador usado, em média — não é por viagem, é por scuttle/saca.
+    sppScuttle: totalToScuttle ? +(rows.reduce((s, r) => s + toNum(r.orders_scuttle), 0) / totalToScuttle).toFixed(1) : 0,
+    sppSaca: totalToSaca ? +(rows.reduce((s, r) => s + toNum(r.orders_saca), 0) / totalToSaca).toFixed(1) : 0,
   };
 }
 
