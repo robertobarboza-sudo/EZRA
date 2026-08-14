@@ -7924,6 +7924,7 @@ function lhRenderKpis(){
 
   buildKPIs('lh-kpis', [
     { label:'Viagens', value:rows.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck' },
+    { label:'Veículos Descarregados', value:descarregados.length.toLocaleString('pt-BR'), sub:'LT fechada (descarga realizada)', delta:'', trend:'up', type:'success', icon:'fa-truck-ramp-box' },
     { label:'% On Time', value:pctOnTime+'%', delta:'', trend:'up', type: pctOnTime>=90?'success':(pctOnTime>=75?'warning':'danger'), icon:'fa-clock' },
     { label:'Atraso Médio (h)', value:pulsoFmtHoraVirgula(atrasoMedio), sub:'só viagens atrasadas', delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
     { label:'Chegada Antecipada', value:antecipadas.length.toLocaleString('pt-BR'), delta:'', trend:'up',
@@ -7933,7 +7934,6 @@ function lhRenderKpis(){
     { label:'Tempo de Descarga (h)', value:pulsoFmtHoraVirgula(mediaCampoMin('tempoDescargaMin')), sub:'Início → Fim Descarga', delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
     { label:'Pacotes Recebidos', value:pacotes.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
     { label:'TOs Recebidos', value:tos.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-clipboard-list' },
-    { label:'Veículos Descarregados', value:descarregados.length.toLocaleString('pt-BR'), sub:'LT fechada (descarga realizada)', delta:'', trend:'up', type:'success', icon:'fa-truck-ramp-box' },
     { label:'No Prazo', value:onTime.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-circle-check' },
     { label:'Em Atraso', value:atrasadas.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-triangle-exclamation' },
     cardStatus('canceladas', 'Canceladas', 'CANCELADO', 'fa-ban'),
