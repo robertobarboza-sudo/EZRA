@@ -6676,11 +6676,12 @@ function monRowHtml(t){
   const docaLabel = monDocaLabel(t.doca, t.status);
   const registro = MON_REGISTRO_BY_TRIP[t.trip_number];
   const tagInfo = registro && registro.tag ? registro : null;
-  // Linha inteira em amarelo (destino em alerta) ou vermelho (viagem
+  // Linha inteira em amarelo (perto de perder o STD) ou vermelho (viagem
   // atrasada) — atrasada tem prioridade sobre alerta (pedido do Roberto em
-  // 2026-08-14). `alerta_destino` vem preenchido ("1", "2", "1, 2") quando
-  // tem alerta; vazio quando não tem.
-  const linhaClasse = t.status === 'Atrasada' ? ' mon-row-atrasada' : (t.alerta_destino ? ' mon-row-alerta' : '');
+  // 2026-08-14). Amarelo = STD chegando em até 15min e ainda não passou
+  // (trocado de `alerta_destino` pra esse critério de tempo em 2026-08-14:
+  // o campo da planilha não correspondia a "perto de perder o STD").
+  const linhaClasse = t.status === 'Atrasada' ? ' mon-row-atrasada' : (t.to != null && t.to > 0 && t.to <= 15 ? ' mon-row-alerta' : '');
   return `
     <div class="mon-row${linhaClasse}" onclick="monOpenDetail(${t.idx})">
       <div class="mon-row-meta">
