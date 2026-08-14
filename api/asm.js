@@ -21,7 +21,69 @@ const { toNum } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1776828985' };
 
+// Sorting Exception (subaba nova dentro de ASM, pedido do Roberto em
+// 2026-08-14) — rejeito da esteira por máquina/hora, fonte própria
+// (sorting_exception_pulso), não a asm_pulso de cima. Sem coluna de data —
+// a aba guarda só o dia operacional corrente (mesmo formato do mockup).
+const REJEITO_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1109902999' };
+// Colunas fixas da aba — tudo que sobrar num objeto de linha é motivo de
+// rejeito (ver lista real em debug-meta; evita fixar os 35 nomes na mão,
+// se a Shopee adicionar/remover algum motivo isso já acompanha sozinho).
+const REJEITO_CAMPOS_FIXOS = new Set([
+  'hora', 'turno', 'asm_account', 'asm_name', 'asm_category', 'layer',
+  'parcel_count', 'success', 'success_rate', 'failed', 'failed_rate',
+  'induction_quality', 'valid_infeed', 'invalid_infeed', 'cancelled_infeed',
+  'normal_sort', 'ai_unpack_sort',
+]);
+
+async function buildRejeito(req, res) {
+  let rows;
+  try {
+    ({ rows } = await fetchTabByGid(REJEITO_SHEET.spreadsheetId, REJEITO_SHEET.gid));
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  }
+
+  const comHora = rows.filter(r => r.hora !== '' && r.hora != null && !isNaN(Number(r.hora)));
+  const reasons = comHora.length
+    ? Object.keys(comHora[0]).filter(k => !REJEITO_CAMPOS_FIXOS.has(k))
+    : [];
+
+  const linhas = comHora.map(r => {
+    const linha = {
+      hora: Number(r.hora),
+      turno: r.turno || '',
+      asm_account: r.asm_account || '',
+      asm_name: r.asm_name || '',
+      asm_category: Number(r.asm_category) || 0,
+      layer: Number(r.layer) || 1,
+      parcel_count: toNum(r.parcel_count),
+      success: toNum(r.success),
+      success_rate: toNum(r.success_rate),
+      failed: toNum(r.failed),
+      failed_rate: toNum(r.failed_rate),
+      induction_quality: toNum(r.induction_quality),
+      valid_infeed: toNum(r.valid_infeed),
+      invalid_infeed: toNum(r.invalid_infeed),
+      cancelled_infeed: toNum(r.cancelled_infeed),
+      normal_sort: toNum(r.normal_sort),
+      ai_unpack_sort: toNum(r.ai_unpack_sort),
+    };
+    reasons.forEach(mo => { linha[mo] = toNum(r[mo]); });
+    return linha;
+  });
+
+  res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=180');
+  res.status(200).json({ ok: true, rows: linhas, reasons, updatedAt: new Date().toISOString() });
+}
+
 module.exports = async (req, res) => {
+  if (req.query.rejeito !== undefined) {
+    await buildRejeito(req, res);
+    return;
+  }
+
   let rows;
   try {
     ({ rows } = await fetchTabByGid(SHEET.spreadsheetId, SHEET.gid));
