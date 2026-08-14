@@ -61,7 +61,22 @@ module.exports = async (req, res) => {
 
   const doIntervalo = fm.filter(r => r.data_operacional >= de && r.data_operacional <= ate);
 
-  const linhas = doIntervalo.map(r => ({
+  // A aba tem linhas duplicadas pro mesmo motorista+checkin (confirmado com
+  // amostra real em 2026-08-14: driver 2524020, checkin 2026-08-13 15:58:18,
+  // linhas idênticas exceto um arredondamento diferente de
+  // tempo_descarga_minutos) — sem trip_id_spx (sempre "0" nessa base) pra
+  // distinguir. "Chegadas" e as somas de pacotes/tempo estavam contando a
+  // mesma chegada 2x. Deduplica por motorista+checkin, mantendo a 1ª
+  // ocorrência (pedido do Roberto em 2026-08-14).
+  const vistos = new Set();
+  const semDuplicata = doIntervalo.filter(r => {
+    const chave = `${r.driver_id_spx}|${r.checkin_driver}`;
+    if (vistos.has(chave)) return false;
+    vistos.add(chave);
+    return true;
+  });
+
+  const linhas = semDuplicata.map(r => ({
     driver: r.driver_id_spx || '',
     estacao: r.station_name || '',
     agencia: r.agency_name || '',

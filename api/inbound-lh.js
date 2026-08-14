@@ -35,18 +35,6 @@ function horaDe(v) {
   return m ? Number(m[1]) : null;
 }
 
-// Turno pela hora real (mesma janela do Outbound — api/_outbound.js:
-// T1 06h-13h59, T2 14h-21h59, T3 22h-05h59) — pedido do Roberto em
-// 2026-08-14: turno_planejado é estático da planilha e não reflete quando a
-// LT realmente chegou/descarregou; recalcula em cima do horário real
-// (chegada realizada), caindo pro horário planejado enquanto a viagem
-// ainda não chegou.
-function turnoDeHora(hora) {
-  if (hora === null) return null;
-  if (hora >= 6 && hora <= 13) return 'T1';
-  if (hora >= 14 && hora <= 21) return 'T2';
-  return 'T3';
-}
 
 module.exports = async (req, res) => {
   let rows;
@@ -92,13 +80,16 @@ module.exports = async (req, res) => {
     const fimDescarga = parseDT(r.fim_descarga);
     const tempoFilaMin = (checkinDestino && fimDescarga) ? Math.round((fimDescarga - checkinDestino) / 60000) : null;
     const tempoDescargaMin = (inicioDescarga && fimDescarga) ? Math.round((fimDescarga - inicioDescarga) / 60000) : null;
-    const horaChegadaReal = horaDe(r.eta_destino_realizado);
-    const turnoCalc = turnoDeHora(horaChegadaReal !== null ? horaChegadaReal : horaDe(r.eta_destino_planejado));
     return {
       viagem: r.viagem,
       origem: r.origem || '',
       veiculo: r.veiculo_utilizado || '',
-      turno: turnoCalc || r.turno_planejado || '',
+      // Turno = turno_chegada (coluna já calculada na planilha pelo horário
+      // real de chegada) quando a LT já chegou; turno_planejado enquanto
+      // ainda não chegou. Antes usava um recálculo próprio por hora — trocado
+      // em 2026-08-14 porque turno_chegada já é a fonte oficial (evita
+      // divergência entre o cálculo daqui e o que o resto da operação usa).
+      turno: (r.eta_destino_realizado ? r.turno_chegada : r.turno_planejado) || r.turno_planejado || '',
       status: r.status_agrupado || '',
       horaPlanejada: toNum(r.hora_eta_ajustado),
       horaRealizada: r.hora_eta_destino_realizado !== '' ? toNum(r.hora_eta_destino_realizado) : null,
