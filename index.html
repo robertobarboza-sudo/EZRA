@@ -8786,7 +8786,7 @@ function filaFilteredTrips(){
     if(FILA_VIEW === 'docado' && t.status !== 'Occupied') return false;
     if(FILA_VIEW === 'finalizado' && t.status !== 'Ended') return false;
     if(busca){
-      const hay = `${t.driver} ${t.veiculo} ${t.lhTripNumber} ${t.queueNumber}`.toLowerCase();
+      const hay = `${t.driver} ${t.veiculo} ${t.lhTripNumber} ${t.queueNumber} ${t.agency}`.toLowerCase();
       if(!hay.includes(busca)) return false;
     }
     return true;
