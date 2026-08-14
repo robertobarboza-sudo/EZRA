@@ -2340,14 +2340,11 @@
        já que a aba não tem um "fim" de fila em timestamp. Pedido do
        Roberto em 2026-08-15. ── */
     .fq-marker{ position:absolute; top:6px; width:3px; height:28px; border-radius:2px; z-index:2; }
-    /* Chegada real (checkin_destino) — verde se antecipada vs ETA
-       planejado, ciano se não. Também reaproveitado (top:24px) pro
-       marcador de fim de descarga quando só existe fim_descarga sem
-       início (raro), colorido por risco contra o Prazo Desc. */
-    .fq-marker-chegada{ position:absolute; top:4px; width:9px; height:9px; border-radius:50%; z-index:3; transform:translateX(-50%); box-shadow:0 0 0 2px var(--surface); }
-    /* Janela EFETIVA de descarga (início→fim real) — verde dentro do
-       Prazo Desc. (ETA + 1h), vermelho fora ("com risco"). */
-    .fq-bar-descarga{ position:absolute; top:23px; height:11px; border-radius:6px; opacity:.9; z-index:1; }
+    /* Barra da viagem: início = chegada antecipada (checkin real) OU
+       início do ETA planejado (o que for menor), fim = fim do
+       carregamento/descarga — verde dentro do Prazo Desc. (ETA + 1h),
+       vermelho fora ("com risco"). Pedido do Roberto em 2026-08-15. */
+    .fq-bar-descarga{ position:absolute; top:14px; height:12px; border-radius:6px; opacity:.9; z-index:1; }
     .fq-badge{ font-size:8.5px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; padding:1px 6px; border-radius:8px; color:#fff; white-space:nowrap; }
     .fq-row-wait{ font-size:10px; color:var(--text-muted); }
 
@@ -3959,10 +3956,8 @@
             <span><i style="background:var(--orange)"></i>Docado</span>
             <span><i style="background:var(--green)"></i>Finalizado</span>
             <span><i style="background:var(--red)"></i>Fora do threshold</span>
-            <span><i style="background:var(--green);border-radius:50%"></i>Chegada antecipada</span>
-            <span><i style="background:var(--cyan);border-radius:50%"></i>Chegada</span>
-            <span><i style="background:var(--green);border-radius:2px;width:14px"></i>Descarga dentro do prazo</span>
-            <span><i style="background:var(--red);border-radius:2px;width:14px"></i>Descarga fora do prazo</span>
+            <span><i style="background:var(--green);border-radius:2px;width:14px"></i>Viagem dentro do prazo</span>
+            <span><i style="background:var(--red);border-radius:2px;width:14px"></i>Viagem fora do prazo</span>
           </div>
         </div>
       </div>
@@ -8769,6 +8764,17 @@ function filaDescargaForaDoPrazo(lh){
   const prazo = filaPrazoDesc(lh), fim = filaDate(lh.fimDescarga);
   return !!(prazo && fim && fim > prazo);
 }
+// Início da barra da Lineage (pedido do Roberto em 2026-08-15): chegada
+// antecipada -> começa no checkin real; chegada dentro do ETA (no
+// horário ou atrasada) -> começa no ETA planejado, não no checkin real
+// (não "premia" nem penaliza o horário real quando não chegou antes) —
+// na prática é sempre o MENOR entre checkin e ETA planejado.
+function filaBarraInicio(lh){
+  if(!lh) return null;
+  const checkin = filaDate(lh.checkinDestino), eta = filaDate(lh.etaDestinoPlanejado);
+  if(checkin && eta) return checkin < eta ? checkin : eta;
+  return checkin || eta || null;
+}
 
 function filaPopulateFilterOptions(){
   const agencias = [...new Set(FILA_TRIPS.map(t => t.agency).filter(Boolean))].sort();
@@ -8861,32 +8867,22 @@ function filaRowHtml(t, nowLeft){
   const statusLabel = FILA_STATUS_LABEL[t.status] || t.status;
   const tip = `Entrada na fila: ${filaFmtHM(t.addToQueueD)} · ${statusLabel}`;
 
-  // Marcadores extra vindos do join com inbound_lh_pulso (só existem
-  // quando a viagem já foi vinculada): chegada real (verde se antecipada
-  // vs o ETA planejado) e a janela EFETIVA de descarga (início→fim),
-  // colorida por risco contra o Prazo Desc. (ETA + 1h) — pedido do
-  // Roberto em 2026-08-15.
+  // Barra da Lineage vinda do join com inbound_lh_pulso (só existe quando
+  // a viagem já foi vinculada) — início = chegada antecipada (checkin
+  // real) OU início do ETA planejado (chegada dentro do ETA), o que for
+  // MENOR; fim = fim do carregamento/descarga. Cor por risco contra o
+  // Prazo Desc. (ETA + 1h) — pedido do Roberto em 2026-08-15.
   let extras = '';
   const lh = t.lh;
   if(lh){
-    const checkinD = filaDate(lh.checkinDestino);
-    if(checkinD){
+    const inicioB = filaBarraInicio(lh), fimD = filaDate(lh.fimDescarga);
+    if(inicioB && fimD){
       const antecipada = filaChegadaAntecipada(lh);
-      const corChegada = antecipada ? 'var(--green)' : 'var(--cyan)';
-      const tipChegada = `Chegada: ${filaFmtHM(checkinD)}${antecipada ? ' · antecipada' : ''}`;
-      extras += `<div class="fq-marker-chegada" style="left:${filaPos(checkinD)}px;background:${corChegada}" title="${pulsoEscHtml(tipChegada)}"></div>`;
-    }
-    const inicioD = filaDate(lh.inicioDescarga), fimD = filaDate(lh.fimDescarga);
-    if(inicioD && fimD){
       const foraDoPrazo = filaDescargaForaDoPrazo(lh);
       const corBarra = foraDoPrazo ? 'var(--red)' : 'var(--green)';
-      const leftB = filaPos(inicioD), widthB = Math.max(4, filaPos(fimD) - leftB);
-      const tipBarra = `Descarga efetiva: ${filaFmtHM(inicioD)} → ${filaFmtHM(fimD)} · ${foraDoPrazo ? 'fora do prazo' : 'dentro do prazo'}`;
+      const leftB = filaPos(inicioB), widthB = Math.max(4, filaPos(fimD) - leftB);
+      const tipBarra = `${antecipada ? 'Chegada antecipada' : 'Chegada dentro do ETA'}: ${filaFmtHM(inicioB)} → Fim carregamento: ${filaFmtHM(fimD)} · ${foraDoPrazo ? 'fora do prazo' : 'dentro do prazo'}`;
       extras += `<div class="fq-bar-descarga" style="left:${leftB}px;width:${widthB}px;background:${corBarra}" title="${pulsoEscHtml(tipBarra)}"></div>`;
-    } else if(fimD){
-      const foraDoPrazo = filaDescargaForaDoPrazo(lh);
-      const corFim = foraDoPrazo ? 'var(--red)' : 'var(--green)';
-      extras += `<div class="fq-marker-chegada" style="left:${filaPos(fimD)}px;top:24px;background:${corFim}" title="Fim descarga: ${filaFmtHM(fimD)} · ${foraDoPrazo?'fora do prazo':'dentro do prazo'}"></div>`;
     }
   }
 
