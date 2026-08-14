@@ -7184,7 +7184,7 @@ function leftoverRenderOfensoras(){
       <div class="pulso-ofensoras-row">
         <span class="pulso-ofensoras-nome">${pulsoEscHtml(t.transportadora)}</span>
         <span class="pulso-ofensoras-pct">${t.pct}%</span>
-        <span class="pulso-ofensoras-detalhe">(${t.pacotes.toLocaleString('pt-BR')} pacotes em ${t.viagensRealizadas.toLocaleString('pt-BR')} viagem${t.viagensRealizadas===1?'':'s'} realizada${t.viagensRealizadas===1?'':'s'})</span>
+        <span class="pulso-ofensoras-detalhe">(${t.pacotes.toLocaleString('pt-BR')} pacotes em ${t.viagensRealizadas.toLocaleString('pt-BR')} ${t.viagensRealizadas===1?'viagem realizada':'viagens realizadas'})</span>
       </div>`).join('');
 }
 
