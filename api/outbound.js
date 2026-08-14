@@ -188,12 +188,19 @@ async function buildEnderecamentoPorDestino() {
 // snapshot) — TTL ancorado em `atualizado_em`, não mais em `criado_em`
 // (provisório até a feature de login definir o "perfil" de quem marcou).
 const TAGS_TAB_TITLE = 'monitor_tags_pulso';
+// `transportadora` no fim de propósito (pedido do Roberto em 2026-08-14,
+// depois da aba já ter registros reais gravados): inserir no meio
+// deslocaria a posição de todas as colunas seguintes, corrompendo a
+// leitura das linhas já existentes (mapeamento é por posição — ver
+// linhaParaRegistro) até o próximo write reescrever cada uma. No fim,
+// linhas antigas simplesmente leem "" pro campo novo até o próximo
+// snapshot/tag preencher.
 const TAGS_HEADER = [
   'trip_number', 'tag', 'usuario',
   'sort_code', 'destino', 'placa', 'veiculo_tipo', 'sta', 'std',
   'to_sta', 'pacotes_sta', 'packed_sta',
   'atd', 'to_atd', 'pacotes_atd', 'packed_atd',
-  'atualizado_em',
+  'atualizado_em', 'transportadora',
 ];
 const TAGS_RANGE = `'${TAGS_TAB_TITLE}'!A:${String.fromCharCode(64 + TAGS_HEADER.length)}`;
 const TAGS_TTL_MS = 10 * 24 * 60 * 60 * 1000;
@@ -298,6 +305,7 @@ async function syncMonitorSnapshots(viagens, packedPorDestino) {
     r.destino = v.destino || '';
     r.placa = v.veiculo_placa || '';
     r.veiculo_tipo = v.veiculo_tipo || '';
+    r.transportadora = v.transportadora || '';
     r.sta = v.sta || '';
     r.std = v.std || '';
     if (temAtd) r.atd = v.atd || '';
