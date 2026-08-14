@@ -2092,6 +2092,14 @@
     .mon-rows{ position:relative; min-width:1800px; }
     .mon-row{ display:flex; align-items:center; border-bottom:1px solid var(--border); }
     .mon-row:hover .mon-row-meta{ background:var(--surface-2); }
+    /* Linha inteira colorida (pedido do Roberto em 2026-08-14): destino em
+       alerta = amarelo, viagem atrasada = vermelho (atrasada tem prioridade,
+       ver monRowHtml). .mon-row-meta é sticky com background próprio, por
+       isso precisa da regra separada pra não ficar branco por cima. */
+    .mon-row.mon-row-alerta{ background:color-mix(in srgb, var(--amber) 16%, transparent); }
+    .mon-row.mon-row-alerta .mon-row-meta{ background:color-mix(in srgb, var(--amber) 16%, var(--surface)); }
+    .mon-row.mon-row-atrasada{ background:color-mix(in srgb, var(--red) 14%, transparent); }
+    .mon-row.mon-row-atrasada .mon-row-meta{ background:color-mix(in srgb, var(--red) 14%, var(--surface)); }
     .mon-row-meta{ width:340px; flex:none; padding:8px 12px; display:flex; align-items:center; gap:8px; font-size:12px; overflow:hidden; position:sticky; left:0; z-index:3; background:var(--surface); }
     .mon-row-tag{ position:absolute; top:4px; right:6px; font-size:9px; font-weight:800; color:#fff; padding:1px 7px; border-radius:8px; text-transform:uppercase; letter-spacing:.02em; z-index:4; white-space:nowrap; max-width:120px; overflow:hidden; text-overflow:ellipsis; }
     .mon-row-dot{ width:8px; height:8px; border-radius:50%; flex:none; }
@@ -2121,6 +2129,7 @@
     .mon-detail-label{ font-size:10px; font-weight:700; color:var(--text-muted); text-transform:uppercase; letter-spacing:.05em; margin-bottom:3px; }
     .mon-detail-value{ font-size:13px; color:var(--text); font-weight:600; }
     .mon-detail-full{ grid-column:1/-1; }
+    .mon-secao-label{ font-size:11px; font-weight:800; color:var(--orange); text-transform:uppercase; letter-spacing:.05em; margin:10px 0 6px; }
     .mon-tag-picker{ display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border); }
     .mon-tag-chip{ border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); font-size:11px; font-weight:700; padding:5px 11px; border-radius:12px; cursor:pointer; }
     .mon-tag-chip:hover{ border-color:var(--orange); }
@@ -6279,8 +6288,11 @@ let MON_GROUP_BY_DESTINO = false;
 let MON_VIEW = 'todas';   // todas | andamento | planejadas | finalizadas
 let MON_FRONT = 'intersoc'; // intersoc (SoC) | hub (LM Hub + XPT) — pedido do Roberto em 2026-08-13
 let MON_ENDER = {};       // destino -> [{rua,qtd}] — local de endereçamento dos unitizadores (aba de clusterização)
-let MON_TAGS_BY_TRIP = {}; // trip_number -> {tag,usuario,criado_em} — anotação de andamento, visível pra todos (pedido do Roberto em 2026-08-13)
+let MON_PACKED = {};      // destino -> total de pacotes "packed" na Clusterização (vivo, não é o snapshot)
+let MON_REGISTRO_BY_TRIP = {}; // trip_number -> registro completo (tag + snapshots STA/ATD), ver monitor_tags_pulso
 let MON_TICK_STARTED = false;
+let MON_REFRESH_STARTED = false;
+let MON_FILTRO_TURNO = '';  // '' = Todos | 'T1' | 'T2' | 'T3' — filtra por STD previsto (ver monTurnosDe)
 const MON_STATUS_ORDER = ['Atrasada','Próxima do fechamento','Em operação','Aguardando apresentação','Planejada','Realizada'];
 const MON_STATUS_COLOR = {
   'Planejada': 'var(--text-muted)',
@@ -6328,6 +6340,12 @@ function monBuildHTML(){
     </div>
 
     <div class="mon-toolbar">
+      <select class="filter-select" id="mon-f-turno" onchange="monSetFiltroTurno(this.value)">
+        <option value="">Turno: Todos</option>
+        <option value="T1">T1 · 06:00–14:00</option>
+        <option value="T2">T2 · 14:00–22:00</option>
+        <option value="T3">T3 · 22:00–06:00</option>
+      </select>
       <select class="filter-select" id="mon-f-status" onchange="monRenderAll()">
         <option value="">Status: Todos</option>
         <option>Planejada</option>
@@ -6392,6 +6410,14 @@ function monRender(){
     MON_TICK_STARTED = true;
     setInterval(monTick, 1000);
   }
+  // Refresh de dados a cada 3 min (pedido do Roberto em 2026-08-14) — roda
+  // sempre, mesmo com o Monitor fora de foco, pra não perder o momento
+  // exato do snapshot de STA/ATD (ver syncMonitorSnapshots em
+  // api/outbound.js, que dispara a cada GET desse endpoint).
+  if(!MON_REFRESH_STARTED){
+    MON_REFRESH_STARTED = true;
+    setInterval(monLoad, 3 * 60 * 1000);
+  }
   if(!MON_DIA) monLoad(); else monRenderAll();
 }
 
@@ -6411,8 +6437,9 @@ async function monLoad(){
     MON_DAY_START = new Date(j.dia + 'T06:00:00');
     MON_TRIPS = (j.viagens || []).map(monParse).map((t,i) => ({ ...t, idx:i }));
     MON_ENDER = j.enderecamento || {};
-    MON_TAGS_BY_TRIP = {};
-    (j.tags || []).forEach(t => { MON_TAGS_BY_TRIP[t.trip_number] = t; });
+    MON_PACKED = j.packed || {};
+    MON_REGISTRO_BY_TRIP = {};
+    (j.registros || []).forEach(r => { MON_REGISTRO_BY_TRIP[r.trip_number] = r; });
     monPopulateFilterOptions();
     monBuildHours();
     monRenderAll();
@@ -6545,6 +6572,28 @@ function monScrollToNow(){
   wrap.scrollLeft = Math.max(0, 340 + monPos(new Date()) - wrap.clientWidth/2);
 }
 
+// Turno pelo relógio (mesma janela usada no resto do PULSO — ver
+// currentShift(): T1 06-14, T2 14-22, T3 22-06 cruzando a meia-noite).
+function monTurnoDoHorario(d){
+  if(!d) return null;
+  const h = d.getHours();
+  if(h>=6 && h<14) return 'T1';
+  if(h>=14 && h<22) return 'T2';
+  return 'T3';
+}
+// Turnos que a viagem toca (pedido do Roberto em 2026-08-14): base é o STD
+// previsto, mas se o STA cai num turno diferente do STD (a viagem atravessa
+// a fronteira), ela tem que aparecer no filtro dos DOIS turnos.
+function monTurnosDe(t){
+  const turnos = new Set();
+  const std = monTurnoDoHorario(t.stdD);
+  if(std) turnos.add(std);
+  const sta = monTurnoDoHorario(t.staD);
+  if(sta) turnos.add(sta);
+  return turnos;
+}
+function monSetFiltroTurno(v){ MON_FILTRO_TURNO = v; monRenderAll(); }
+
 function monFilteredTrips(now){
   const status = document.getElementById('mon-f-status')?.value || '';
   const destino = document.getElementById('mon-f-destino')?.value || '';
@@ -6555,6 +6604,7 @@ function monFilteredTrips(now){
     if(status && t.status !== status) return false;
     if(destino && t.destino !== destino) return false;
     if(veiculoTipo && monVeiculoGrupo(t.veiculo_tipo) !== veiculoTipo) return false;
+    if(MON_FILTRO_TURNO && !monTurnosDe(t).has(MON_FILTRO_TURNO)) return false;
     if(MON_VIEW === 'andamento' && !['Em operação','Próxima do fechamento','Aguardando apresentação'].includes(t.status)) return false;
     if(MON_VIEW === 'planejadas' && t.status !== 'Planejada') return false;
     if(MON_VIEW === 'finalizadas' && t.status !== 'Realizada') return false;
@@ -6624,9 +6674,15 @@ function monRowHtml(t){
   const tip = `STA ${monFmtHM(t.staD)} · STD ${monFmtHM(t.stdD)}${t.atdD ? (' · ATD ' + monFmtHM(t.atdD)) : ''}`;
   const ender = monEnderecamentoLabel(t.destino);
   const docaLabel = monDocaLabel(t.doca, t.status);
-  const tagInfo = MON_TAGS_BY_TRIP[t.trip_number];
+  const registro = MON_REGISTRO_BY_TRIP[t.trip_number];
+  const tagInfo = registro && registro.tag ? registro : null;
+  // Linha inteira em amarelo (destino em alerta) ou vermelho (viagem
+  // atrasada) — atrasada tem prioridade sobre alerta (pedido do Roberto em
+  // 2026-08-14). `alerta_destino` vem preenchido ("1", "2", "1, 2") quando
+  // tem alerta; vazio quando não tem.
+  const linhaClasse = t.status === 'Atrasada' ? ' mon-row-atrasada' : (t.alerta_destino ? ' mon-row-alerta' : '');
   return `
-    <div class="mon-row" onclick="monOpenDetail(${t.idx})">
+    <div class="mon-row${linhaClasse}" onclick="monOpenDetail(${t.idx})">
       <div class="mon-row-meta">
         ${tagInfo ? `<span class="mon-row-tag" style="background:${monTagColor(tagInfo.tag)}" title="${pulsoEscHtml(tagInfo.usuario ? `Marcado por ${tagInfo.usuario}` : 'Tag')}">${pulsoEscHtml(tagInfo.tag)}</span>` : ''}
         <span class="mon-row-dot" style="background:${color}"></span>
@@ -6701,21 +6757,48 @@ function monRenderAlerts(now){
   }).join('');
 }
 
+// Snapshot automático de TO/Pacotes Endereçados/Pacotes Packed no instante
+// do STA e no instante do ATD (pedido do Roberto em 2026-08-14) — gravado
+// pelo backend em syncMonitorSnapshots (api/outbound.js), não algo que o
+// front calcula. Só aparece quando o instante já aconteceu (to_sta/to_atd
+// preenchidos).
+function monSnapshotHtml(registro){
+  if(!registro) return '';
+  const blocos = [];
+  if(registro.to_sta !== ''){
+    blocos.push(['Snapshot no STA', registro.to_sta, registro.pacotes_sta, registro.packed_sta]);
+  }
+  if(registro.to_atd !== ''){
+    blocos.push(['Snapshot no ATD', registro.to_atd, registro.pacotes_atd, registro.packed_atd]);
+  }
+  if(!blocos.length) return '';
+  return `<div class="mon-detail-full" style="grid-column:1/-1;margin-top:6px">` +
+    blocos.map(([titulo, to, pacotes, packed]) => `
+      <div class="mon-secao-label">${pulsoEscHtml(titulo)}</div>
+      <div class="mon-detail-grid" style="margin-bottom:10px">
+        <div class="mon-detail-item"><div class="mon-detail-label">TO</div><div class="mon-detail-value">${(+to||0).toLocaleString('pt-BR')}</div></div>
+        <div class="mon-detail-item"><div class="mon-detail-label">Pacotes Endereçados</div><div class="mon-detail-value">${(+pacotes||0).toLocaleString('pt-BR')}</div></div>
+        <div class="mon-detail-item"><div class="mon-detail-label">Pacotes Packed</div><div class="mon-detail-value">${(+packed||0).toLocaleString('pt-BR')}</div></div>
+      </div>`).join('') +
+    `</div>`;
+}
 function monOpenDetail(idx){
   const t = MON_TRIPS.find(x => x.idx === idx);
   if(!t) return;
   const d = monDerive(t, new Date());
   document.getElementById('mon-detail-title').innerHTML = `<i class="fas fa-truck-fast" style="color:var(--orange);margin-right:8px"></i>${pulsoEscHtml(t.destino||'—')} <span style="color:var(--text-muted);font-weight:600">· ${pulsoEscHtml(t.destino_codigo||'—')}</span>`;
 
-  const tagInfo = MON_TAGS_BY_TRIP[t.trip_number];
+  const registro = MON_REGISTRO_BY_TRIP[t.trip_number];
+  const tagInfo = registro && registro.tag ? registro : null;
   const chipsHtml = MON_TAGS.map(mt => {
     const active = tagInfo && tagInfo.tag === mt.label;
     return `<div class="mon-tag-chip${active?' active':''}" style="${active?`background:${mt.color};`:''}" onclick="monSetTag('${t.trip_number.replace(/'/g,"\\'")}', ${active ? "''" : `'${mt.label.replace(/'/g,"\\'")}'`})">${pulsoEscHtml(mt.label)}</div>`;
   }).join('');
   document.getElementById('mon-detail-tags').innerHTML = chipsHtml +
-    (tagInfo ? `<div class="mon-tag-meta">Marcado${tagInfo.usuario ? ' por ' + pulsoEscHtml(tagInfo.usuario) : ''} · ${pulsoEscHtml(new Date(tagInfo.criado_em).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</div>` : '');
+    (tagInfo ? `<div class="mon-tag-meta">Marcado${tagInfo.usuario ? ' por ' + pulsoEscHtml(tagInfo.usuario) : ''} · ${pulsoEscHtml(new Date(tagInfo.atualizado_em).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</div>` : '');
 
   const ruas = MON_ENDER[t.destino] || [];
+  const packedVivo = MON_PACKED[t.destino] || 0;
   const rows = [
     ['Status', pulsoEscHtml(d.status)],
     ['LT', pulsoEscHtml(t.trip_number || '—')],
@@ -6727,15 +6810,16 @@ function monOpenDetail(idx){
     ['STD', monFmtHM(t.stdD)],
     ['ATD', t.atdD ? monFmtHM(t.atdD) : 'Pendente'],
     ['Endereçamento (Rua)', ruas.length ? pulsoEscHtml(ruas.map(r => `${r.rua} (${r.qtd})`).join(', ')) : 'Sem TO endereçado'],
-    ['Total Order', (t.staged_to||0).toLocaleString('pt-BR')],
+    ['TO', (t.staged_to||0).toLocaleString('pt-BR')],
     ['Pacotes Endereçados (destino)', (t.staged_pacotes||0).toLocaleString('pt-BR')],
+    ['Pacotes Packed (destino)', packedVivo.toLocaleString('pt-BR')],
     ['Sacas / Scuttle / Outros', `${t.u.sacas} / ${t.u.scuttle} / ${t.u.outros}`],
     ['Capacidade da Viagem', (t.capacidade_pct||0) + '%'],
     ['Carga Atual', (t.carga_pct||0) + '%'],
   ];
   document.getElementById('mon-detail-body').innerHTML = rows.map(([label,value]) => `
     <div class="mon-detail-item"><div class="mon-detail-label">${pulsoEscHtml(label)}</div><div class="mon-detail-value">${value}</div></div>
-  `).join('');
+  `).join('') + monSnapshotHtml(registro);
 
   // Painel de ruas começa fechado a cada abertura do drawer, mas já vem
   // montado pro destino da viagem (ver monToggleCluster).
@@ -6796,12 +6880,11 @@ function monRenderClusterPanel(destino){
 // monitor_tags_pulso (visível pra todo mundo, ver api/outbound.js).
 // Otimista: atualiza local antes da resposta pra não travar o clique.
 async function monSetTag(tripNumber, tagLabel){
-  const usuario = tagLabel ? monGetMe() : (MON_TAGS_BY_TRIP[tripNumber]?.usuario || '');
-  if(tagLabel){
-    MON_TAGS_BY_TRIP[tripNumber] = { trip_number:tripNumber, tag:tagLabel, usuario, criado_em:new Date().toISOString() };
-  }else{
-    delete MON_TAGS_BY_TRIP[tripNumber];
-  }
+  const existente = MON_REGISTRO_BY_TRIP[tripNumber];
+  const usuario = tagLabel ? monGetMe() : (existente?.usuario || '');
+  // Mescla em vez de substituir — preserva o snapshot de STA/ATD que já
+  // possa existir nessa linha (a tag é só mais um campo do registro).
+  MON_REGISTRO_BY_TRIP[tripNumber] = { ...(existente || { trip_number:tripNumber }), tag:tagLabel, usuario, atualizado_em:new Date().toISOString() };
   monRenderAll();
   const t = MON_TRIPS.find(x => x.trip_number === tripNumber);
   if(t && document.getElementById('mon-detail-overlay').classList.contains('open')) monOpenDetail(t.idx);

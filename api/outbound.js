@@ -46,6 +46,14 @@ const SACOS_POR_POSICAO = 10;
 const RESIDUO_QTD_MAX = 15;
 const RESIDUO_AGING_HORAS_MIN = 15 * 24;
 const BR_PARA_UTC_MS = 3 * 60 * 60 * 1000;
+// "YYYY-MM-DD HH:MM:SS" (horário de Brasília, mesma convenção de toda a
+// planilha) -> epoch UTC real, pra comparar contra Date.now() no snapshot
+// de STA. Mesmo truque de agingHoras() logo abaixo.
+function parseBrParaUtcMs(raw) {
+  if (!raw) return null;
+  const ms = new Date(String(raw).replace(' ', 'T') + 'Z').getTime();
+  return isNaN(ms) ? null : ms + BR_PARA_UTC_MS;
+}
 
 async function buildEnderecamentoPorDestino() {
   const [{ rows: clusterRows }, { rows: configRows }] = await Promise.all([
@@ -84,13 +92,22 @@ async function buildEnderecamentoPorDestino() {
   const posicoesPorRua = new Map(); // rua -> { sacaTOs, outrosTOs }
   // 2ª: quebra por destino+rua (sacas/scuttle/pacotes/aging DAQUELE destino).
   const porDestino = new Map();
+  // "Pacotes Packed" (pedido do Roberto em 2026-08-13, card novo no Monitor -
+  // Live): total de pacotes já embalados (packed) pro destino no
+  // cluster_pulso, INDEPENDENTE de já estar endereçado numa rua ou ainda
+  // PENDENTE — por isso soma direto de `receiver`, sem passar pelo filtro
+  // de `rua` que o resto desta função usa (aquele é só sobre o que já tem
+  // posição física).
+  const packedPorDestino = new Map();
   clusterRows.forEach(r => {
-    const codigo = r['staging area'];
-    const rua = (codigo && codigo !== '-') ? staginDepara.get(codigo) : null;
-    if (!rua) return;
     const qtd = toNum(r.quantity);
     const aging = agingHoras(r['create time']);
     if (qtd < RESIDUO_QTD_MAX && aging !== null && aging > RESIDUO_AGING_HORAS_MIN) return; // resíduo
+    if (r.receiver) packedPorDestino.set(r.receiver, (packedPorDestino.get(r.receiver) || 0) + qtd);
+
+    const codigo = r['staging area'];
+    const rua = (codigo && codigo !== '-') ? staginDepara.get(codigo) : null;
+    if (!rua) return;
     const isSaca = SACA_TIPOS.has(r['to pack']);
     const isScuttle = r['to pack'] === 'Scuttle';
 
@@ -158,25 +175,42 @@ async function buildEnderecamentoPorDestino() {
 
     if (lista.length) out[destino] = lista;
   });
-  return out;
+  return { enderecamento: out, packedPorDestino };
 }
 
-// Tags do Monitor - Live (pedido do Roberto em 2026-08-13): anotação de
-// andamento por LT, visível pra todo mundo — primeira feature de ESCRITA
-// do projeto (resto do PULSO é só leitura, ver escopo em api/_google.js).
-// Aba própria (monitor_tags_pulso, criada sob demanda), não a
-// outbound_monitor_pulso de cima. Guarda por trip_number (1 tag ativa por
-// LT — marcar de novo substitui); expira sozinha 10 dias após criada
-// (pedido do Roberto: "limpar automaticamente a cada 10 dias", provisório
-// até a feature de login definir o "perfil" de quem marcou).
+// Registros do Monitor - Live (pedido do Roberto em 2026-08-13): tag de
+// andamento por LT (visível pra todo mundo) + snapshot automático de
+// TO/Pacotes Endereçados/Pacotes Packed no instante do STA e no instante do
+// ATD — primeira feature de ESCRITA do projeto (resto do PULSO é só
+// leitura, ver escopo em api/_google.js). Aba própria (monitor_tags_pulso,
+// criada sob demanda), não a outbound_monitor_pulso de cima. 1 linha por
+// trip_number; expira sozinha 10 dias sem nenhuma atividade (tag OU
+// snapshot) — TTL ancorado em `atualizado_em`, não mais em `criado_em`
+// (provisório até a feature de login definir o "perfil" de quem marcou).
 const TAGS_TAB_TITLE = 'monitor_tags_pulso';
-const TAGS_RANGE = `'${TAGS_TAB_TITLE}'!A:D`;
-const TAGS_HEADER = ['trip_number', 'tag', 'usuario', 'criado_em'];
+const TAGS_HEADER = [
+  'trip_number', 'tag', 'usuario',
+  'sort_code', 'destino', 'placa', 'veiculo_tipo', 'sta', 'std',
+  'to_sta', 'pacotes_sta', 'packed_sta',
+  'atd', 'to_atd', 'pacotes_atd', 'packed_atd',
+  'atualizado_em',
+];
+const TAGS_RANGE = `'${TAGS_TAB_TITLE}'!A:${String.fromCharCode(64 + TAGS_HEADER.length)}`;
 const TAGS_TTL_MS = 10 * 24 * 60 * 60 * 1000;
 
-// Lê e já filtra tags expiradas (>10 dias) — se a aba ainda não existe
-// (feature nunca usada), Sheets retorna erro de range e isso vira [].
-async function readTagsAtivas() {
+function linhaParaRegistro(r) {
+  const o = {};
+  TAGS_HEADER.forEach((campo, i) => { o[campo] = r[i] || ''; });
+  return o;
+}
+function registroParaLinha(o) {
+  return TAGS_HEADER.map(campo => o[campo] != null ? o[campo] : '');
+}
+
+// Lê e já filtra registros expirados (>10 dias sem nenhuma atividade) — se
+// a aba ainda não existe (feature nunca usada), Sheets retorna erro de
+// range e isso vira [].
+async function readMonitorRegistros() {
   let values;
   try {
     values = await readRange(MONITOR_SHEET.spreadsheetId, TAGS_RANGE);
@@ -185,16 +219,20 @@ async function readTagsAtivas() {
   }
   const agora = Date.now();
   return values.slice(1)
-    .map(r => ({ trip_number: r[0] || '', tag: r[1] || '', usuario: r[2] || '', criado_em: r[3] || '' }))
-    .filter(t => t.trip_number && t.tag && (agora - new Date(t.criado_em).getTime()) < TAGS_TTL_MS);
+    .map(linhaParaRegistro)
+    .filter(r => r.trip_number && (agora - new Date(r.atualizado_em).getTime()) < TAGS_TTL_MS);
+}
+async function writeMonitorRegistros(registros) {
+  const values = [TAGS_HEADER, ...registros.map(registroParaLinha)];
+  await writeRange(MONITOR_SHEET.spreadsheetId, TAGS_RANGE, values);
 }
 
 // POST /api/outbound?monitor=1&tag=1  body: { trip_number, tag, usuario }
-// tag vazia = remove a tag da LT. Read-modify-write da aba inteira (clear +
-// rewrite) — mais simples que rastrear índice de linha; volume é pequeno
-// (tags ativas num raio de 10 dias). ponytail: sem lock, dois writes
-// concorrentes podem se sobrepor (last write wins) — upgrade se o uso
-// crescer muito.
+// tag vazia = remove a tag (mas preserva o snapshot da linha, se existir —
+// só apaga a tag). Read-modify-write da aba inteira (clear + rewrite) —
+// mais simples que rastrear índice de linha; volume é pequeno (registros
+// ativos num raio de 10 dias). ponytail: sem lock, dois writes concorrentes
+// podem se sobrepor (last write wins) — upgrade se o uso crescer muito.
 async function handleTagWrite(req, res) {
   const { trip_number, tag, usuario } = req.body || {};
   if (!trip_number) {
@@ -203,17 +241,87 @@ async function handleTagWrite(req, res) {
   }
   try {
     await ensureSheetExists(MONITOR_SHEET.spreadsheetId, TAGS_TAB_TITLE);
-    const ativas = await readTagsAtivas();
-    const semEssaLt = ativas.filter(t => t.trip_number !== trip_number);
-    const atualizadas = tag
-      ? [...semEssaLt, { trip_number, tag, usuario: usuario || '', criado_em: new Date().toISOString() }]
-      : semEssaLt;
-    const values = [TAGS_HEADER, ...atualizadas.map(t => [t.trip_number, t.tag, t.usuario, t.criado_em])];
-    await writeRange(MONITOR_SHEET.spreadsheetId, TAGS_RANGE, values);
-    res.status(200).json({ ok: true, tags: atualizadas });
+    const atuais = await readMonitorRegistros();
+    const existente = atuais.find(r => r.trip_number === trip_number);
+    const atualizado = {
+      ...(existente || TAGS_HEADER.reduce((o, c) => ({ ...o, [c]: '' }), {})),
+      trip_number, tag: tag || '', usuario: usuario || '',
+      atualizado_em: new Date().toISOString(),
+    };
+    const semEssaLt = atuais.filter(r => r.trip_number !== trip_number);
+    const semTagVazia = atualizado.tag || Object.keys(atualizado).some(c => c !== 'trip_number' && c !== 'tag' && c !== 'usuario' && c !== 'atualizado_em' && atualizado[c]);
+    const registros = semTagVazia ? [...semEssaLt, atualizado] : semEssaLt;
+    await writeMonitorRegistros(registros);
+    res.status(200).json({ ok: true, registros });
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });
   }
+}
+
+// Snapshot automático (pedido do Roberto em 2026-08-13): quando uma viagem
+// chega no horário do STA, grava TO/Pacotes Endereçados/Pacotes Packed
+// daquele instante nas colunas *_sta; quando o ATD é registrado na
+// planilha de origem, grava o mesmo trio nas colunas *_atd — colunas
+// diferentes na MESMA linha, não uma linha nova. Roda dentro do
+// buildMonitor() (chamado a cada refresh de qualquer usuário, agora de 3
+// em 3 min) em vez de um cron dedicado — a Vercel Hobby não tem esse
+// recurso sobrando (ver teto de funções em api/_arvore.js). Só grava de
+// volta na planilha quando alguma viagem realmente precisa de snapshot
+// novo, pra não gastar a cota de escrita a cada refresh à toa.
+async function syncMonitorSnapshots(viagens, packedPorDestino) {
+  await ensureSheetExists(MONITOR_SHEET.spreadsheetId, TAGS_TAB_TITLE);
+  const atuais = await readMonitorRegistros();
+  const porTrip = new Map(atuais.map(r => [r.trip_number, r]));
+  let mudou = false;
+  const agoraMs = Date.now();
+
+  viagens.forEach(v => {
+    if (!v.trip_number) return;
+    let r = porTrip.get(v.trip_number);
+    const staMs = parseBrParaUtcMs(v.sta);
+    const chegouSta = staMs !== null && agoraMs >= staMs;
+    const temAtd = !!v.atd;
+    if (!chegouSta && !temAtd) return; // nada a fazer ainda pra essa viagem
+
+    const precisaStaSnap = chegouSta && !(r && r.to_sta !== '');
+    const precisaAtdSnap = temAtd && !(r && r.to_atd !== '');
+    if (!precisaStaSnap && !precisaAtdSnap) return;
+
+    if (!r) {
+      r = TAGS_HEADER.reduce((o, c) => ({ ...o, [c]: '' }), {});
+      r.trip_number = v.trip_number;
+      porTrip.set(v.trip_number, r);
+    }
+    // Campos "de identificação" ficam sempre atualizados com o valor mais
+    // recente da planilha de origem, independente de qual snapshot disparou.
+    r.sort_code = v.destino_codigo || '';
+    r.destino = v.destino || '';
+    r.placa = v.veiculo_placa || '';
+    r.veiculo_tipo = v.veiculo_tipo || '';
+    r.sta = v.sta || '';
+    r.std = v.std || '';
+    if (temAtd) r.atd = v.atd || '';
+
+    const packed = packedPorDestino.get(v.destino) || 0;
+    if (precisaStaSnap) {
+      r.to_sta = String(v.staged_to || 0);
+      r.pacotes_sta = String(v.staged_pacotes || 0);
+      r.packed_sta = String(packed);
+      mudou = true;
+    }
+    if (precisaAtdSnap) {
+      r.to_atd = String(v.staged_to || 0);
+      r.pacotes_atd = String(v.staged_pacotes || 0);
+      r.packed_atd = String(packed);
+      mudou = true;
+    }
+    if (precisaStaSnap || precisaAtdSnap) r.atualizado_em = new Date().toISOString();
+  });
+
+  if (!mudou) return atuais;
+  const registros = [...porTrip.values()];
+  await writeMonitorRegistros(registros);
+  return registros;
 }
 
 // Monitor - Live: só busca/computa quando pedido explicitamente (?monitor=1)
@@ -227,13 +335,6 @@ async function buildMonitor(req, res) {
     res.status(502).json({ ok: false, erro: err.message });
     return;
   }
-  // Endereçamento e tags são enriquecimentos opcionais (vêm de outras
-  // abas) — se falharem, o Monitor - Live continua funcionando sem eles.
-  let enderecamento = {};
-  try {
-    enderecamento = await buildEnderecamentoPorDestino();
-  } catch (err) { /* ignora — enriquecimento opcional */ }
-  const tags = await readTagsAtivas();
 
   const comDia = monRows.filter(r => r.sta).map(r => ({ ...r, __dia: dataOperacionalDe(r.sta) })).filter(r => r.__dia);
   const diasDisponiveis = [...new Set(comDia.map(r => r.__dia))].sort();
@@ -270,6 +371,18 @@ async function buildMonitor(req, res) {
     alerta_trip: r.alerta_trip || '',
   }));
 
+  // Endereçamento/Pacotes Packed e registros (tags + snapshots) são
+  // enriquecimentos opcionais (vêm de outras abas) — se falharem, o
+  // Monitor - Live continua funcionando sem eles.
+  let enderecamento = {}, packedPorDestino = new Map();
+  try {
+    ({ enderecamento, packedPorDestino } = await buildEnderecamentoPorDestino());
+  } catch (err) { /* ignora — enriquecimento opcional */ }
+  let registros = [];
+  try {
+    registros = await syncMonitorSnapshots(viagens, packedPorDestino);
+  } catch (err) { /* ignora — snapshot é enriquecimento, não pode derrubar o Monitor */ }
+
   res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=180');
   res.status(200).json({
     ok: true,
@@ -277,7 +390,8 @@ async function buildMonitor(req, res) {
     cobertura: { inicio: diasDisponiveis[0] || null, fim: diasDisponiveis[diasDisponiveis.length - 1] || null },
     viagens,
     enderecamento,
-    tags,
+    packed: Object.fromEntries(packedPorDestino),
+    registros,
   });
 }
 
