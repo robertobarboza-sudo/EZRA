@@ -8110,15 +8110,35 @@ function lhActiveCardFilter(r){
   return LH_CARD_FILTERS[LH_ACTIVE_CARD](r);
 }
 
-function lhFilteredRows(){
-  if(!LH_DATA) return [];
-  return LH_DATA.rows.filter(r =>
-    (!LH_STATE.turno || r.turno === LH_STATE.turno) &&
+// api/inbound-lh.js manda a UNIÃO de duas janelas (cutoff_eta_planejado E
+// cutoff_descarga podem cair em dias diferentes pra uma mesma viagem — ver
+// comentário lá) — cada view do front filtra pelo cutoff que faz sentido:
+// pontualidade/tabela usa a chegada planejada (lhFilteredRows), o card de
+// sacas/scuttles usa o fim do descarregamento (lhFilteredRowsPorDescarga).
+function lhNoIntervalo(campo){
+  return r => r[campo] >= LH_DATA.de && r[campo] <= LH_DATA.ate;
+}
+function lhFiltrosComuns(r){
+  return (!LH_STATE.turno || r.turno === LH_STATE.turno) &&
     (!LH_STATE.status || r.status === LH_STATE.status) &&
     (!LH_STATE.origem || r.origem === LH_STATE.origem) &&
     (!LH_STATE.veiculo || r.veiculo === LH_STATE.veiculo) &&
-    lhActiveCardFilter(r)
-  );
+    lhActiveCardFilter(r);
+}
+function lhFilteredRows(){
+  if(!LH_DATA) return [];
+  const noIntervalo = lhNoIntervalo('cutoffEtaPlanejado');
+  return LH_DATA.rows.filter(r => noIntervalo(r) && lhFiltrosComuns(r));
+}
+// Só pro card "Sacas e Scuttles disponíveis por hora" — precisa das
+// viagens cujo DESCARREGAMENTO caiu no dia certo, não a chegada (ex.: ETA
+// planejado 04:00 do dia 14 conta pro dia 13, mas se só terminou de
+// descarregar 07:52 do dia 14, esse volume tem que aparecer no dia 14 —
+// pedido do Roberto em 2026-08-15).
+function lhFilteredRowsPorDescarga(){
+  if(!LH_DATA) return [];
+  const noIntervalo = lhNoIntervalo('cutoffDescarga');
+  return LH_DATA.rows.filter(r => noIntervalo(r) && lhFiltrosComuns(r));
 }
 
 function lhRenderAll(){
@@ -8225,8 +8245,12 @@ function lhRenderChart(){
   }
 
   if(LH_CHART_VIEW === 'sacas'){
+    // Filtro próprio (cutoffDescarga, não cutoffEtaPlanejado) — uma viagem
+    // planejada pra madrugada mas que só terminou de descarregar depois
+    // das 6h pertence ao dia seguinte pra esse card (ver lhFilteredRowsPorDescarga).
+    const rowsDescarga = lhFilteredRowsPorDescarga();
     const sacas = Array(24).fill(0), scuttles = Array(24).fill(0);
-    rows.forEach(r => {
+    rowsDescarga.forEach(r => {
       if(r.horaDescarga!==null && r.horaDescarga>=0 && r.horaDescarga<=23){
         sacas[r.horaDescarga] += r.pacotesSaca;
         scuttles[r.horaDescarga] += r.pacotesScuttle;

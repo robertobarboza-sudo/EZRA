@@ -69,7 +69,26 @@ module.exports = async (req, res) => {
   const de = (req.query.from && datasDisponiveis.includes(req.query.from)) ? req.query.from : padrao;
   const ate = (req.query.to && datasDisponiveis.includes(req.query.to) && req.query.to >= de) ? req.query.to : de;
 
-  const doIntervalo = lh.filter(r => r.cutoff_eta_planejado >= de && r.cutoff_eta_planejado <= ate);
+  // Uma viagem tem 3 eventos com cutoff PRÓPRIO na planilha (podem cair em
+  // dias operacionais diferentes entre si): cutoff_eta_planejado (chegada
+  // planejada), cutoff_eta_realizado (chegada real) e cutoff_descarga (fim
+  // do descarregamento — quando saca/scuttle fica disponível pra
+  // processamento). Ex. real: ETA planejado 04:00 do dia 14 -> cutoff_eta
+  // = dia 13, mas o descarregamento só terminou 07:52 do dia 14 -> cutoff_
+  // descarga = dia 14. Retornar só quem bate por cutoff_eta_planejado
+  // (como era antes) fazia o card "Sacas/Scuttles disponíveis por hora"
+  // perder viagens cujo descarregamento terminou no dia certo mas cuja
+  // chegada tinha sido planejada/contada no dia anterior — bug relatado
+  // pelo Roberto em 2026-08-15 ("carros descarregados depois de meia-
+  // noite do dia 14 devem contar pro dia 14"). Por isso a união: manda
+  // pro front toda viagem que bate em QUALQUER um dos dois cutoffs, com
+  // os dois campos expostos — cada view do front filtra pelo cutoff que
+  // faz sentido pra ela (cutoffEtaPlanejado pra pontualidade/tabela,
+  // cutoffDescarga pro card de sacas/scuttles).
+  const doIntervalo = lh.filter(r =>
+    (r.cutoff_eta_planejado >= de && r.cutoff_eta_planejado <= ate) ||
+    (r.cutoff_descarga && r.cutoff_descarga >= de && r.cutoff_descarga <= ate)
+  );
 
   const linhas = doIntervalo.map(r => {
     const planejado = parseDT(r.eta_destino_planejado);
@@ -90,6 +109,10 @@ module.exports = async (req, res) => {
     const tempoDescargaMin = (inicioDescarga && fimDescarga) ? Math.round((fimDescarga - inicioDescarga) / 60000) : null;
     return {
       viagem: r.viagem,
+      // Cutoff de cada evento, expostos separados pro front escolher o
+      // certo por view (ver comentário acima de doIntervalo).
+      cutoffEtaPlanejado: r.cutoff_eta_planejado || '',
+      cutoffDescarga: r.cutoff_descarga || '',
       origem: r.origem || '',
       veiculo: r.veiculo_utilizado || '',
       // Turno = turno_chegada (coluna já calculada na planilha pelo horário
