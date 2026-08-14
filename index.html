@@ -7294,11 +7294,10 @@ pulsoRegister({
     const title = document.querySelector('#pulso-root-outbound .table-toolbar-title');
     if(title) title.textContent = data.modo === 'hoje' ? 'Carros previstos — hoje' : 'Carros previstos — histórico';
     if(data.porHoraEta){
-      const horas = Array.from({length:24},(_,i)=>String(i).padStart(2,'0')+'h');
       chartInstances['chart-outbound-eta']?.destroy();
-      mkLine('chart-outbound-eta', horas, [
-        { label:'Planejado', data:data.porHoraEta.planejado, borderColor:'#5c6bc0', backgroundColor:'transparent', tension:.3 },
-        { label:'Realizado', data:data.porHoraEta.realizado, borderColor:'var(--orange)', backgroundColor:'transparent', tension:.3 },
+      mkLine('chart-outbound-eta', HORAS_CUTOFF_LABELS, [
+        { label:'Planejado', data:rotHoraCutoff(data.porHoraEta.planejado), borderColor:'#5c6bc0', backgroundColor:'transparent', tension:.3 },
+        { label:'Realizado', data:rotHoraCutoff(data.porHoraEta.realizado), borderColor:'var(--orange)', backgroundColor:'transparent', tension:.3 },
       ]);
     }
   },
@@ -7658,12 +7657,12 @@ function ovwRenderResumo(){
 
   if(chartInstances['chart-ovw-resumo']){ chartInstances['chart-ovw-resumo'].destroy(); delete chartInstances['chart-ovw-resumo']; }
   const somar = (a,b) => (!a && !b) ? null : Array.from({length:24},(_,i)=>(a?a[i]:0)+(b?b[i]:0));
-  const planejado = somar(j.asm?.serieHoraria.planejado, j.conveyor?.serieHoraria.planejado);
-  const realizado = somar(j.asm?.serieHoraria.realizado, j.conveyor?.serieHoraria.realizado);
+  const planejado = rotHoraCutoff(somar(j.asm?.serieHoraria.planejado, j.conveyor?.serieHoraria.planejado));
+  const realizado = rotHoraCutoff(somar(j.asm?.serieHoraria.realizado, j.conveyor?.serieHoraria.realizado));
   const datasets = [];
   if(planejado) datasets.push({ label:'Capacidade Planejada', data:planejado, borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:0, borderWidth:1.5 });
   if(realizado) datasets.push({ label:'Realizado', data:realizado, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:0, borderWidth:2.5 });
-  if(datasets.length) mkLine('chart-ovw-resumo', Array.from({length:24},(_,h)=>String(h).padStart(2,'0')+'h'), datasets);
+  if(datasets.length) mkLine('chart-ovw-resumo', HORAS_CUTOFF_LABELS, datasets);
 }
 
 // Gráficos ficam dentro do MESMO <details> do bloco (cards+tabela+gráfico
@@ -7681,12 +7680,11 @@ function ovwRenderChart(blockKey){
   const canvasId = 'chart-ovw-'+blockKey;
   if(chartInstances[canvasId]){ chartInstances[canvasId].destroy(); delete chartInstances[canvasId]; }
   if(!serie) return;
-  const labels = Array.from({length:24}, (_,h) => String(h).padStart(2,'0')+'h');
   const datasets = [];
-  if(serie.previstos) datasets.push({ label:'Previstos', data:serie.previstos, borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:0 });
-  if(serie.planejado) datasets.push({ label:'Planejado', data:serie.planejado, borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:0 });
-  if(serie.realizado) datasets.push({ label:'Realizado', data:serie.realizado, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:0 });
-  mkLine(canvasId, labels, datasets);
+  if(serie.previstos) datasets.push({ label:'Previstos', data:rotHoraCutoff(serie.previstos), borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:0 });
+  if(serie.planejado) datasets.push({ label:'Planejado', data:rotHoraCutoff(serie.planejado), borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:0 });
+  if(serie.realizado) datasets.push({ label:'Realizado', data:rotHoraCutoff(serie.realizado), borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:0 });
+  mkLine(canvasId, HORAS_CUTOFF_LABELS, datasets);
 }
 
 function ovwGenerateInsights(){
@@ -7977,14 +7975,14 @@ function lhRenderChart(){
   if(!LH_DATA) return;
   const rows = lhFilteredRows();
   if(chartInstances['chart-lh-hora']){ chartInstances['chart-lh-hora'].destroy(); delete chartInstances['chart-lh-hora']; }
-  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
+  const labels = HORAS_CUTOFF_LABELS;
 
   if(LH_CHART_VIEW === 'fila'){
     const somaMin = Array(24).fill(0), qtd = Array(24).fill(0);
     rows.forEach(r => {
       if(r.tempoFilaMin!==null && r.horaCheckin>=0 && r.horaCheckin<=23){ somaMin[r.horaCheckin]+=r.tempoFilaMin; qtd[r.horaCheckin]++; }
     });
-    const filaHoras = somaMin.map((s,h) => qtd[h] ? +(s/qtd[h]/60).toFixed(1) : 0);
+    const filaHoras = rotHoraCutoff(somaMin.map((s,h) => qtd[h] ? +(s/qtd[h]/60).toFixed(1) : 0));
     mkLine('chart-lh-hora', labels, [
       { label:'Tempo de fila médio (h)', data:filaHoras, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:2 },
     ], { plugins:{ legend:{labels:{color:'#5c5f7a',boxWidth:11,font:{size:11}}}, tooltip:{ callbacks:{ label: ctx => `Tempo de fila médio: ${String(ctx.raw).replace('.',',')}h` } } } });
@@ -8001,8 +7999,8 @@ function lhRenderChart(){
     });
     const d = cd();
     mkBar('chart-lh-hora', labels, [
-      { label:'Sacas', data:sacas, backgroundColor:'#ee4d2d' },
-      { label:'Scuttles', data:scuttles, backgroundColor:'#75809b' },
+      { label:'Sacas', data:rotHoraCutoff(sacas), backgroundColor:'#ee4d2d' },
+      { label:'Scuttles', data:rotHoraCutoff(scuttles), backgroundColor:'#75809b' },
     ], { scales:{ x:{ ...d.scales.x, stacked:true }, y:{ ...d.scales.y, stacked:true } } });
     return;
   }
@@ -8013,8 +8011,8 @@ function lhRenderChart(){
     if(r.horaRealizada!==null && r.horaRealizada>=0 && r.horaRealizada<=23) porHoraRealizado[r.horaRealizada]++;
   });
   mkLine('chart-lh-hora', labels, [
-    { label:'Planejado', data:porHoraPlanejado, borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:2 },
-    { label:'Realizado', data:porHoraRealizado, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:2 },
+    { label:'Planejado', data:rotHoraCutoff(porHoraPlanejado), borderColor:'#75809b', backgroundColor:'transparent', borderDash:[6,4], fill:false, tension:.3, pointRadius:2 },
+    { label:'Realizado', data:rotHoraCutoff(porHoraRealizado), borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.14)', fill:true, tension:.3, pointRadius:2 },
   ]);
 }
 
@@ -8224,12 +8222,12 @@ function fmRenderChart(){
   if(!FM_DATA) return;
   const rows = fmFilteredRows();
   if(chartInstances['chart-fm-hora']){ chartInstances['chart-fm-hora'].destroy(); delete chartInstances['chart-fm-hora']; }
-  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
+  const labels = HORAS_CUTOFF_LABELS;
 
   if(FM_CHART_VIEW === 'descarga'){
     const somaMin = Array(24).fill(0), qtd = Array(24).fill(0);
     rows.forEach(r => { if(r.hora>=0 && r.hora<=23){ somaMin[r.hora]+=r.tempoDescargaMin; qtd[r.hora]++; } });
-    const descargaHoras = somaMin.map((s,h) => qtd[h] ? +(s/qtd[h]/60).toFixed(1) : 0);
+    const descargaHoras = rotHoraCutoff(somaMin.map((s,h) => qtd[h] ? +(s/qtd[h]/60).toFixed(1) : 0));
     mkLine('chart-fm-hora', labels, [
       { label:'Tempo médio de descarga (h)', data:descargaHoras, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.16)', fill:true, tension:.35, pointRadius:2 },
     ], { plugins:{ legend:{labels:{color:'#5c5f7a',boxWidth:11,font:{size:11}}}, tooltip:{ callbacks:{ label: ctx => `Descarga média: ${String(ctx.raw).replace('.',',')}h` } } } });
@@ -8239,7 +8237,7 @@ function fmRenderChart(){
   const porHora = Array(24).fill(0);
   rows.forEach(r => { if(r.hora>=0 && r.hora<=23) porHora[r.hora]++; });
   mkLine('chart-fm-hora', labels, [
-    { label:'Chegadas', data:porHora, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.16)', fill:true, tension:.35, pointRadius:2 },
+    { label:'Chegadas', data:rotHoraCutoff(porHora), borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.16)', fill:true, tension:.35, pointRadius:2 },
   ]);
 }
 
@@ -8946,17 +8944,16 @@ function bklRenderChart(){
   if(!BACKLOG_DATA) return;
   const rows = BACKLOG_DATA.rows.filter(r => (!BACKLOG_STATE.perfil || r.perfil === BACKLOG_STATE.perfil) && bklActiveCardFilter(r));
   if(chartInstances['chart-backlog-faixa']){ chartInstances['chart-backlog-faixa'].destroy(); delete chartInstances['chart-backlog-faixa']; }
-  const labels = Array.from({length:24}, (_,h) => String(h).padStart(2,'0')+'h');
   const cores = { '0-4h':'#10b981', '4-24h':'#f59e0b', '>24h':'#ee4d2d' };
   const datasets = AGING_CLUSTERS.map(c => ({
     label: c,
-    data: Array.from({length:24}, (_,h) => {
+    data: HORAS_CUTOFF.map(h => {
       const subset = rows.filter(r => r.hora===h && AGING_CLUSTER_OF[r.faixaAging]===c);
       return BACKLOG_CHART_METRIC === 'aging' ? +(bklAgingPonderado(subset)/60).toFixed(1) : subset.reduce((s,r)=>s+r.qtdPacotes,0);
     }),
     borderColor: cores[c], backgroundColor: cores[c]+'22', fill:false, tension:.3, pointRadius:2,
   }));
-  mkLine('chart-backlog-faixa', labels, datasets);
+  mkLine('chart-backlog-faixa', HORAS_CUTOFF_LABELS, datasets);
 }
 
 // Tabela vira mapa de calor: intensidade da cor de fundo escala com o valor
@@ -10730,15 +10727,22 @@ let ASM_CHART_VIEW = 'hora'; // 'hora' | 'acumulado' | 'comparativo'
 let ASM_ULTIMA_HORA = 23;
 let ASM_PAGE = 0;
 
-// O turno do ASM roda das 6h às 5h59 do dia seguinte, sob o MESMO cutoff
+// O turno roda das 6h às 5h59 do dia seguinte, sob o cutoff operacional
 // (confirmado batendo actual_sort_time: cutoff=X + hora 6-23 -> actual_sort_time=X;
 // cutoff=X + hora 0-5 -> X+1, ou seja 0-5h são o FIM do turno, não o início).
-// asmHourOrder() reindexa a hora bruta (0-23) pra ordem cronológica real
-// dentro do cutoff, usada em toda comparação/acumulação/ordenação de hora.
-function asmHourOrder(hora){
+// ordemHoraCutoff()/HORAS_CUTOFF reindexam a hora bruta (0-23) pra ordem
+// cronológica real dentro do cutoff — usado em toda comparação/acumulação/
+// ordenação de hora e no eixo de TODOS os gráficos por hora do site (não só
+// ASM, que foi onde isso nasceu — pedido do Roberto em 2026-08-14 pra
+// unificar "hoje" em 06h-05h do dia seguinte em vez de 00h-23h corridas).
+function ordemHoraCutoff(hora){
   return hora >= 6 ? hora - 6 : hora + 18;
 }
-const ASM_HORAS_ORDENADAS = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5];
+const HORAS_CUTOFF = [6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5];
+const HORAS_CUTOFF_LABELS = HORAS_CUTOFF.map(h => String(h).padStart(2,'0')+'h');
+// Reordena um array de 24 posições indexado por hora bruta (0-23) pra ordem
+// de cutoff (6h...23h,0h...5h) — mesma ordem de HORAS_CUTOFF/HORAS_CUTOFF_LABELS.
+function rotHoraCutoff(arr){ return arr ? HORAS_CUTOFF.map(h => arr[h]) : arr; }
 
 async function loadAsm(){
   setBadge('asm', 'loading');
@@ -10756,12 +10760,12 @@ async function loadAsm(){
     if(dateInput && j.cutoff) dateInput.value = j.cutoff;
 
     const horasComDado = [...new Set(j.rows.map(row => row.hora))].filter(h => h >= 0 && h <= 23);
-    horasComDado.sort((a,b) => asmHourOrder(a) - asmHourOrder(b));
+    horasComDado.sort((a,b) => ordemHoraCutoff(a) - ordemHoraCutoff(b));
     ASM_ULTIMA_HORA = horasComDado.length ? horasComDado[horasComDado.length-1] : 23;
     const horaEl = document.getElementById('asm-hora-input');
     if(horaEl){
       horaEl.innerHTML = '<option value="">Dia todo</option>' +
-        ASM_HORAS_ORDENADAS.map(h => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
+        HORAS_CUTOFF.map(h => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
       horaEl.value = String(asmEffectiveHora());
     }
 
@@ -10837,9 +10841,9 @@ function asmFilteredRows(){
   if(!ASM_DATA) return [];
   const h = asmEffectiveHora();
   const diaTodo = h === '';
-  const ordemH = diaTodo ? null : asmHourOrder(h);
+  const ordemH = diaTodo ? null : ordemHoraCutoff(h);
   return ASM_DATA.rows.filter(r =>
-    (diaTodo || (ASM_STATE.tableMode === 'hora' ? r.hora === h : asmHourOrder(r.hora) <= ordemH)) &&
+    (diaTodo || (ASM_STATE.tableMode === 'hora' ? r.hora === h : ordemHoraCutoff(r.hora) <= ordemH)) &&
     (!ASM_STATE.turno || r.turno === ASM_STATE.turno) &&
     (!ASM_STATE.zona || r.zona === ASM_STATE.zona) &&
     (!ASM_STATE.nivel || r.nivel === ASM_STATE.nivel) &&
@@ -10864,8 +10868,8 @@ function asmRenderZoneCards(){
   if(!wrap || !ASM_DATA) return;
   const h = asmEffectiveHora();
   const diaTodo = h === ''; // "Dia todo" (pedido do Roberto em 2026-08-04) — sem hora de referência, sem "vs hora anterior"
-  const ordemH = diaTodo ? null : asmHourOrder(h);
-  const horaAnterior = (!diaTodo && ordemH > 0) ? ASM_HORAS_ORDENADAS[ordemH - 1] : null;
+  const ordemH = diaTodo ? null : ordemHoraCutoff(h);
+  const horaAnterior = (!diaTodo && ordemH > 0) ? HORAS_CUTOFF[ordemH - 1] : null;
   const rows = asmRowsForZoneCards();
   const rotuloHora = diaTodo ? 'no dia' : `às ${String(h).padStart(2,'0')}h`;
 
@@ -10874,7 +10878,7 @@ function asmRenderZoneCards(){
     const rowsNaHora = diaTodo ? rowsZona : rowsZona.filter(r => r.hora === h);
     const valorHora = rowsNaHora.reduce((s, r) => s + r.scanNumbers, 0);
     const valorHoraAnterior = (!diaTodo && horaAnterior !== null) ? rowsZona.filter(r => r.hora === horaAnterior).reduce((s, r) => s + r.scanNumbers, 0) : null;
-    const acumuladoDia = diaTodo ? valorHora : rowsZona.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
+    const acumuladoDia = diaTodo ? valorHora : rowsZona.filter(r => ordemHoraCutoff(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
     const mesas = new Set(rowsNaHora.filter(r => r.mesa).map(r => r.mesa)).size;
     const operadores = new Set(rowsNaHora.map(r => r.colaborador)).size;
     const ativo = ASM_STATE.zona === zona;
@@ -10910,8 +10914,8 @@ function asmRenderZoneCards(){
   const rowsReaisNaHora = diaTodo ? rowsReais : rowsReais.filter(r => r.hora === h);
   const valorHoraTotal = rowsReaisNaHora.reduce((s, r) => s + r.scanNumbers, 0);
   const valorHoraAnteriorTotal = (!diaTodo && horaAnterior !== null) ? rowsReais.filter(r => r.hora === horaAnterior).reduce((s, r) => s + r.scanNumbers, 0) : null;
-  const acumuladoDiaTotal = diaTodo ? valorHoraTotal : rowsReais.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
-  const acumuladoDiaSD = diaTodo ? rowsSD.reduce((s, r) => s + r.scanNumbers, 0) : rowsSD.filter(r => asmHourOrder(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
+  const acumuladoDiaTotal = diaTodo ? valorHoraTotal : rowsReais.filter(r => ordemHoraCutoff(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
+  const acumuladoDiaSD = diaTodo ? rowsSD.reduce((s, r) => s + r.scanNumbers, 0) : rowsSD.filter(r => ordemHoraCutoff(r.hora) <= ordemH).reduce((s, r) => s + r.scanNumbers, 0);
   const mesasTotal = new Set(rowsReaisNaHora.filter(r => r.mesa).map(r => r.mesa)).size;
   const operadoresTotal = new Set(rowsReaisNaHora.map(r => r.colaborador)).size;
 
@@ -11000,21 +11004,21 @@ function asmRenderChart(){
   const rows = asmRowsForChart();
   // Soma por hora, na ORDEM cronológica real do turno (6h...23h,0h...5h) —
   // não na ordem numérica crua, senão a curva de acumulação/comparação fica errada.
-  const labels = ASM_HORAS_ORDENADAS.map(h => String(h).padStart(2,'0')+'h');
+  const labels = HORAS_CUTOFF.map(h => String(h).padStart(2,'0')+'h');
   if(chartInstances['chart-asm-hora']){ chartInstances['chart-asm-hora'].destroy(); delete chartInstances['chart-asm-hora']; }
 
   if(ASM_CHART_VIEW === 'comparativo'){
     const zonas = Object.keys(ASM_ZONE_COLORS).filter(z => z !== 'System Default');
     const datasets = zonas.map(zona => ({
       label: zona,
-      data: ASM_HORAS_ORDENADAS.map(h => rows.filter(r => r.hora===h && r.zona===zona).reduce((s,r)=>s+r.scanNumbers,0)),
+      data: HORAS_CUTOFF.map(h => rows.filter(r => r.hora===h && r.zona===zona).reduce((s,r)=>s+r.scanNumbers,0)),
       borderColor: ASM_ZONE_COLORS[zona], backgroundColor:'transparent', fill:false, tension:.3, pointRadius:2, borderWidth:2,
     }));
     mkLine('chart-asm-hora', labels, datasets);
     return;
   }
 
-  const porHoraOrdenada = ASM_HORAS_ORDENADAS.map(h => rows.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0));
+  const porHoraOrdenada = HORAS_CUTOFF.map(h => rows.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0));
   const rotulo = ASM_STATE.zona || 'Total';
 
   if(ASM_CHART_VIEW === 'hora'){
@@ -11049,7 +11053,7 @@ function asmGroupByColaborador(){
     if(!porColaborador.has(chave)) porColaborador.set(chave, { colaborador: chave, zona:r.zona, nivel:r.nivel, mesa:r.mesa, turno:r.turno, lider:r.lider, scanNumbers:0, _ultimaOrdemHora:-1 });
     const acc = porColaborador.get(chave);
     acc.scanNumbers += r.scanNumbers;
-    const ordemR = asmHourOrder(r.hora);
+    const ordemR = ordemHoraCutoff(r.hora);
     if(ordemR >= acc._ultimaOrdemHora){ acc.zona=r.zona; acc.nivel=r.nivel; acc.mesa=r.mesa; acc.turno=r.turno; acc.lider=r.lider; acc._ultimaOrdemHora=ordemR; }
   });
   return [...porColaborador.values()];
@@ -11847,26 +11851,27 @@ function cnvSetChartView(view, el){
 function cnvRenderChart(){
   if(!CONVEYOR_DATA) return;
   const rows = cnvRowsForChart();
-  const labels = Array.from({length:24}, (_, h) => String(h).padStart(2,'0')+'h');
+  // Soma por hora, na ORDEM cronológica real do turno (6h...23h,0h...5h) —
+  // não na ordem numérica crua, senão a curva de acumulação/comparação fica errada.
+  const labels = HORAS_CUTOFF_LABELS;
   if(chartInstances['chart-cnv-hora']){ chartInstances['chart-cnv-hora'].destroy(); delete chartInstances['chart-cnv-hora']; }
 
   if(CNV_CHART_VIEW === 'comparativo'){
     const datasets = CONVEYOR_DATA.grupos.map(grupo => ({
       label: grupo,
-      data: Array.from({length:24}, (_,h) => rows.filter(r=>r.hora===h && r.grupo===grupo).reduce((s,r)=>s+r.totalProcessamento,0)),
+      data: HORAS_CUTOFF.map(h => rows.filter(r=>r.hora===h && r.grupo===grupo).reduce((s,r)=>s+r.totalProcessamento,0)),
       borderColor: CNV_GROUP_COLORS[grupo]||'#75809b', backgroundColor:'transparent', fill:false, tension:.3, pointRadius:2, borderWidth:2,
     }));
     mkLine('chart-cnv-hora', labels, datasets);
     return;
   }
 
-  const porHora = Array(24).fill(0);
-  rows.forEach(r => { if(r.hora >= 0 && r.hora <= 23) porHora[r.hora] += r.totalProcessamento; });
+  const porHoraOrdenada = HORAS_CUTOFF.map(h => rows.filter(r => r.hora === h).reduce((s, r) => s + r.totalProcessamento, 0));
   const rotulo = CONVEYOR_STATE.estacao || CONVEYOR_STATE.grupo || 'Total';
 
   if(CNV_CHART_VIEW === 'hora'){
     mkLine('chart-cnv-hora', labels, [
-      { label: 'Realizado — '+rotulo, data: porHora,
+      { label: 'Realizado — '+rotulo, data: porHoraOrdenada,
         borderColor: '#ee4d2d', backgroundColor: 'rgba(238,77,45,.16)', fill: true, tension: .35, pointRadius: 2, borderWidth: 2.5 },
     ]);
     return;
@@ -11874,7 +11879,7 @@ function cnvRenderChart(){
 
   // Acumulado — visão secundária, mantém o comportamento original.
   let acc = 0;
-  const realizadoAcumulado = porHora.map(v => { acc += v; return acc; });
+  const realizadoAcumulado = porHoraOrdenada.map(v => { acc += v; return acc; });
   const capacidadeAcumulada = Array(24).fill(0); // placeholder até termos a meta real
   mkLine('chart-cnv-hora', labels, [
     { label: 'Realizado — '+rotulo, data: realizadoAcumulado,
