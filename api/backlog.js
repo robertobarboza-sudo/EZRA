@@ -26,7 +26,7 @@
  *   date   YYYY-MM-DD (default = hoje operacional, ou o dia mais recente disponível)
  */
 const { fetchTabByGid } = require('./_google');
-const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
+const { toNum, dataOperacionalDe, hojeOperacionalIso, ordemHoraCutoff } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '202012183' };
 
@@ -83,7 +83,10 @@ module.exports = async (req, res) => {
   const opcoes = {
     perfis: [...new Set(doDia.map(r => r.perfil).filter(Boolean))].sort(),
     faixas: [...new Set(doDia.map(r => r.faixaAging).filter(Boolean))],
-    horas: [...new Set(doDia.map(r => r.hora))].sort((a, b) => a - b),
+    // Ordem de cutoff (6h...23h,0h...5h), não numérica crua — senão
+    // "última hora" no front pegava 23h em vez da real (ex.: 2h da manhã,
+    // que é cronologicamente depois de 23h dentro do dia operacional).
+    horas: [...new Set(doDia.map(r => r.hora))].sort((a, b) => ordemHoraCutoff(a) - ordemHoraCutoff(b)),
   };
 
   const ultimaAtualizacao = doDia.reduce((max, r) => (!max || r.snapshotHora > max) ? r.snapshotHora : max, null);

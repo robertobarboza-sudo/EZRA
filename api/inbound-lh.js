@@ -8,7 +8,15 @@
  * margem/tolerância (confirmado com o Roberto em 2026-08-04): atraso > 0
  * já conta como atrasada.
  *
- * Data de referência da página = data_eta_ajustado (data do ETA planejado).
+ * Data de referência da página = cutoff_eta_planejado (dia operacional do
+ * ETA planejado, cutoff 6h já aplicado na planilha). NÃO usa a coluna
+ * data_eta_ajustado — apesar do nome, ela é só a data-calendário crua do
+ * timestamp (sem o shift de 6h), então uma viagem planejada pra 02:00
+ * (que operacionalmente é "hoje", turno T3) ficava de fora do "hoje" da
+ * página até o dia virar no calendário — bug real de dado faltando,
+ * confirmado ao vivo em 2026-08-14 comparando as duas colunas
+ * (data_eta_ajustado="2026-08-15" vs cutoff_eta_planejado="2026-08-14"
+ * pra uma linha com eta 2026-08-15 02:00). Corrigido pedido do Roberto.
  * Suporta intervalo (from/to) pra análise histórica — confirmado com o
  * Roberto em 2026-08-04; sem params, default é from=to=hoje (1 dia, mesmo
  * comportamento de antes).
@@ -45,13 +53,13 @@ module.exports = async (req, res) => {
     return;
   }
 
-  const lh = rows.filter(r => r.data_eta_ajustado);
+  const lh = rows.filter(r => r.cutoff_eta_planejado);
   if (!lh.length) {
     res.status(200).json({ ok: true, de: null, ate: null, rows: [], opcoes: { turnos: [], status: [], origens: [], veiculos: [], solicitacoes: [] }, cobertura: { inicio: null, fim: null } });
     return;
   }
 
-  const datasDisponiveis = [...new Set(lh.map(r => r.data_eta_ajustado))].sort();
+  const datasDisponiveis = [...new Set(lh.map(r => r.cutoff_eta_planejado))].sort();
   const dataMinima = datasDisponiveis[0], dataMaxima = datasDisponiveis[datasDisponiveis.length - 1];
   // dataMaxima pode ser um ETA planejado futuro (viagem pré-agendada) — o
   // default tem que ser o dia real de hoje, não a data mais distante da
@@ -61,7 +69,7 @@ module.exports = async (req, res) => {
   const de = (req.query.from && datasDisponiveis.includes(req.query.from)) ? req.query.from : padrao;
   const ate = (req.query.to && datasDisponiveis.includes(req.query.to) && req.query.to >= de) ? req.query.to : de;
 
-  const doIntervalo = lh.filter(r => r.data_eta_ajustado >= de && r.data_eta_ajustado <= ate);
+  const doIntervalo = lh.filter(r => r.cutoff_eta_planejado >= de && r.cutoff_eta_planejado <= ate);
 
   const linhas = doIntervalo.map(r => {
     const planejado = parseDT(r.eta_destino_planejado);

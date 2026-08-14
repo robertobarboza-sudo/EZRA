@@ -10971,6 +10971,14 @@ const HORAS_CUTOFF_LABELS = HORAS_CUTOFF.map(h => String(h).padStart(2,'0')+'h')
 // Reordena um array de 24 posições indexado por hora bruta (0-23) pra ordem
 // de cutoff (6h...23h,0h...5h) — mesma ordem de HORAS_CUTOFF/HORAS_CUTOFF_LABELS.
 function rotHoraCutoff(arr){ return arr ? HORAS_CUTOFF.map(h => arr[h]) : arr; }
+// Hora anterior a `h` na ordem de cutoff (6h...23h,0h...5h) — null se `h`
+// for a 1ª hora do dia operacional (6h, sem "hora anterior" dentro do
+// mesmo dia). Precisa disso em vez de `h-1` puro pra virada de 0h (a
+// anterior de 0h é 23h, não -1h) — usado nos cards "vs hora anterior".
+function horaAnteriorCutoff(h){
+  const ordem = ordemHoraCutoff(h);
+  return ordem > 0 ? HORAS_CUTOFF[ordem-1] : null;
+}
 
 async function loadAsm(){
   setBadge('asm', 'loading');
@@ -12570,12 +12578,13 @@ async function loadConveyor(){
     const dateInput = document.getElementById('cnv-date-input');
     if(dateInput && j.data) dateInput.value = j.data;
 
-    const horasComDado = [...new Set(j.rows.map(row => row.hora))].filter(h => h >= 0 && h <= 23).sort((a,b) => a-b);
+    const horasComDado = [...new Set(j.rows.map(row => row.hora))].filter(h => h >= 0 && h <= 23);
+    horasComDado.sort((a,b) => ordemHoraCutoff(a) - ordemHoraCutoff(b));
     CNV_ULTIMA_HORA = horasComDado.length ? horasComDado[horasComDado.length-1] : 23;
     const horaEl = document.getElementById('cnv-hora-input');
     if(horaEl){
       horaEl.innerHTML = '<option value="">Dia todo</option>' +
-        Array.from({length:24}, (_, h) => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
+        HORAS_CUTOFF.map(h => `<option value="${h}">${String(h).padStart(2,'0')}h</option>`).join('');
       horaEl.value = String(cnvEffectiveHora());
     }
 
@@ -12656,8 +12665,9 @@ function cnvFilteredRows(){
   if(!CONVEYOR_DATA) return [];
   const h = cnvEffectiveHora();
   const diaTodo = h === '';
+  const ordemH = diaTodo ? null : ordemHoraCutoff(h);
   return CONVEYOR_DATA.rows.filter(r =>
-    (diaTodo || (CONVEYOR_STATE.tableMode === 'hora' ? r.hora === h : r.hora <= h)) &&
+    (diaTodo || (CONVEYOR_STATE.tableMode === 'hora' ? r.hora === h : ordemHoraCutoff(r.hora) <= ordemH)) &&
     (!CONVEYOR_STATE.grupo || r.grupo === CONVEYOR_STATE.grupo) &&
     (!CONVEYOR_STATE.estacao || r.estacao === CONVEYOR_STATE.estacao) &&
     (!CONVEYOR_STATE.turno || r.turno === CONVEYOR_STATE.turno)
@@ -12681,22 +12691,28 @@ function cnvRenderGroupCards(){
   const diaTodo = h === ''; // "Dia todo" (pedido do Roberto em 2026-08-04) — sem hora de referência, sem "vs hora anterior"
   const rows = cnvRowsForGroupCards();
   const rotuloHora = diaTodo ? 'no dia' : `às ${String(h).padStart(2,'0')}h`;
+  // Ordem/hora anterior calculadas na ORDEM de cutoff (6h...23h,0h...5h) —
+  // "hora <= h" cru e "h-1" cru quebravam na virada de 0h (0h ficava sem
+  // "hora anterior" e o acumulado perdia o resto do turno anterior à
+  // meia-noite). Bug reportado pelo Roberto em 2026-08-14.
+  const ordemH = diaTodo ? null : ordemHoraCutoff(h);
+  const horaAnt = diaTodo ? null : horaAnteriorCutoff(h);
 
   // Packing Total = soma de todos os grupos (pedido do Roberto em
   // 2026-08-04). Clicar limpa o filtro de grupo, já que representa "todos".
   const rowsHoraTotal = diaTodo ? rows : rows.filter(r => r.hora === h);
   const valorHoraTotal = rowsHoraTotal.reduce((s, r) => s + r.totalProcessamento, 0);
-  const rowsHoraAnteriorTotal = (!diaTodo && h > 0) ? rows.filter(r => r.hora === h-1) : [];
-  const valorHoraAnteriorTotal = (!diaTodo && h > 0) ? rowsHoraAnteriorTotal.reduce((s, r) => s + r.totalProcessamento, 0) : null;
-  const acumuladoDiaTotal = diaTodo ? valorHoraTotal : rows.filter(r => r.hora <= h).reduce((s, r) => s + r.totalProcessamento, 0);
+  const rowsHoraAnteriorTotal = horaAnt !== null ? rows.filter(r => r.hora === horaAnt) : [];
+  const valorHoraAnteriorTotal = horaAnt !== null ? rowsHoraAnteriorTotal.reduce((s, r) => s + r.totalProcessamento, 0) : null;
+  const acumuladoDiaTotal = diaTodo ? valorHoraTotal : rows.filter(r => ordemHoraCutoff(r.hora) <= ordemH).reduce((s, r) => s + r.totalProcessamento, 0);
   let deltaTotalHtml = '';
-  if(!diaTodo){
+  if(!diaTodo && horaAnt !== null){
     if(valorHoraAnteriorTotal !== null && valorHoraAnteriorTotal > 0){
       const pct = (valorHoraTotal - valorHoraAnteriorTotal) / valorHoraAnteriorTotal * 100;
       const trend = pct >= 0 ? 'green' : 'red';
-      deltaTotalHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(h-1).padStart(2,'0')}h</span>`;
+      deltaTotalHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(horaAnt).padStart(2,'0')}h</span>`;
     } else if(valorHoraAnteriorTotal === 0 && valorHoraTotal > 0){
-      deltaTotalHtml = ` · <span style="color:var(--green)">novo vs ${String(h-1).padStart(2,'0')}h</span>`;
+      deltaTotalHtml = ` · <span style="color:var(--green)">novo vs ${String(horaAnt).padStart(2,'0')}h</span>`;
     }
   }
   // Bug corrigido em 2026-08-04 (mesmo do "Total Realizado" do ASM): a borda
@@ -12719,21 +12735,21 @@ function cnvRenderGroupCards(){
     const valorHora = rowsHora.reduce((s, r) => s + r.totalProcessamento, 0);
     const estacoes = new Set(rowsHora.map(r => r.estacao)).size;
 
-    const rowsHoraAnterior = (!diaTodo && h > 0) ? rowsGrupo.filter(r => r.hora === h-1) : [];
-    const valorHoraAnterior = (!diaTodo && h > 0) ? rowsHoraAnterior.reduce((s, r) => s + r.totalProcessamento, 0) : null;
+    const rowsHoraAnterior = horaAnt !== null ? rowsGrupo.filter(r => r.hora === horaAnt) : [];
+    const valorHoraAnterior = horaAnt !== null ? rowsHoraAnterior.reduce((s, r) => s + r.totalProcessamento, 0) : null;
 
-    const acumuladoDia = diaTodo ? valorHora : rowsGrupo.filter(r => r.hora <= h).reduce((s, r) => s + r.totalProcessamento, 0);
+    const acumuladoDia = diaTodo ? valorHora : rowsGrupo.filter(r => ordemHoraCutoff(r.hora) <= ordemH).reduce((s, r) => s + r.totalProcessamento, 0);
 
     const ativo = CONVEYOR_STATE.grupo === grupo;
 
     let deltaHtml = '';
-    if(!diaTodo){
+    if(!diaTodo && horaAnt !== null){
       if(valorHoraAnterior !== null && valorHoraAnterior > 0){
         const pct = (valorHora - valorHoraAnterior) / valorHoraAnterior * 100;
         const trend = pct >= 0 ? 'green' : 'red';
-        deltaHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(h-1).padStart(2,'0')}h</span>`;
+        deltaHtml = ` · <span style="color:var(--${trend})">${pct>=0?'+':''}${pct.toFixed(1)}% vs ${String(horaAnt).padStart(2,'0')}h</span>`;
       } else if(valorHoraAnterior === 0 && valorHora > 0){
-        deltaHtml = ` · <span style="color:var(--green)">novo vs ${String(h-1).padStart(2,'0')}h</span>`;
+        deltaHtml = ` · <span style="color:var(--green)">novo vs ${String(horaAnt).padStart(2,'0')}h</span>`;
       }
     }
 
@@ -12757,7 +12773,7 @@ function cnvRenderGroupCards(){
     const rowsAgregado = rows.filter(r => gruposAlvo.includes(r.grupo));
     const rowsHora = diaTodo ? rowsAgregado : rowsAgregado.filter(r => r.hora === h);
     const valorHora = rowsHora.reduce((s, r) => s + r.totalProcessamento, 0);
-    const acumuladoDia = diaTodo ? valorHora : rowsAgregado.filter(r => r.hora <= h).reduce((s, r) => s + r.totalProcessamento, 0);
+    const acumuladoDia = diaTodo ? valorHora : rowsAgregado.filter(r => ordemHoraCutoff(r.hora) <= ordemH).reduce((s, r) => s + r.totalProcessamento, 0);
     return `<div class="switch-card">
       <div class="switch-card-top">
         <div class="switch-card-name"><i class="fas ${icone}" style="color:var(--orange);margin-right:8px"></i>${nome}</div>

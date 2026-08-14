@@ -87,4 +87,14 @@ function dataOperacionalDe(tsRaw) {
   return d.toISOString().slice(0, 10);
 }
 
-module.exports = { periodStart, periodEnd, periodBefore, fmtDate, toNum, parseCSV, pctDelta, hojeOperacionalIso, dataOperacionalDe };
+// Reindexa uma hora bruta (0-23) pra ordem cronológica real dentro do
+// cutoff (6h=0ª, 7h=1ª, ..., 23h=17ª, 0h=18ª, ..., 5h=23ª) — mesma lógica
+// do ordemHoraCutoff() do front-end (index.html), pra endpoints que
+// precisam ordenar/comparar horas no servidor (ex.: opcoes.horas do
+// Backlog, que antes saía em ordem numérica crua e confundia "hora mais
+// recente" quando o dia cruzava a meia-noite).
+function ordemHoraCutoff(hora) {
+  return hora >= CUTOFF_HORA ? hora - CUTOFF_HORA : hora + (24 - CUTOFF_HORA);
+}
+
+module.exports = { periodStart, periodEnd, periodBefore, fmtDate, toNum, parseCSV, pctDelta, hojeOperacionalIso, dataOperacionalDe, ordemHoraCutoff };

@@ -2329,7 +2329,9 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 (function () {
   const { useState, useMemo, useEffect, useRef } = React;
 
-  const COLW = { bloco: 34, pic: 92, sub: 132, kpi: 224, target: 66, ref: 58, week: 72, day: 56 };
+  // Colunas de valor (target/ref/week/day) alargadas pra caber números até
+  // 7 dígitos (ex.: 1.999.999) sem cortar — pedido do Roberto em 2026-08-14.
+  const COLW = { bloco: 34, pic: 92, sub: 132, kpi: 224, target: 76, ref: 76, week: 92, day: 76 };
   const ROW1_H = 24; // altura da linha de Mês
   const ROW2_H = 26; // altura da linha de Semana
   const ROW3_H = 32; // altura da linha de Dia
