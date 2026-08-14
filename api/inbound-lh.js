@@ -106,6 +106,7 @@ async function buildFila(req, res) {
         etaDestinoPlanejado: lh.eta_destino_planejado || '',
         checkinDestino: lh.checkin_destino || '',
         aberturaBau: lh.abertura_bau || '',
+        inicioDescarga: lh.inicio_descarga || '',
         fimDescarga: lh.fim_descarga || '',
         totalPacotes: toNum(lh.total_pacotes),
         totalTos: toNum(lh.total_tos),
