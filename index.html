@@ -2179,6 +2179,146 @@
     .mon-cluster-empty{ font-size:12px; color:var(--text-muted); padding:10px 2px; }
     @media(max-width:900px){ .mon-toolbar{ flex-direction:column; align-items:stretch; } .mon-detail-grid{ grid-template-columns:1fr; } .mon-rua-stats{ grid-template-columns:repeat(2,1fr); } }
 
+    /* ── SORTING EXCEPTION (ASM) — porte do mockup do Roberto ("Rejeito
+       da Esteira · Control Tower"), reskinado pro tema do site (var(--surface)/
+       --text/--border/--orange/--green/--amber/--red etc.) em vez da paleta
+       creme/vermelho própria do mockup — pedido do Roberto em 2026-08-14,
+       "coloque no template que estamos usando", mesmo padrão da Esteira
+       On-time e do Monitor - Live. ── */
+    .rej-toolbar{ display:flex; flex-wrap:wrap; align-items:center; gap:9px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:12px 16px; margin-bottom:14px; box-shadow:var(--shadow); }
+    .rej-search{ flex:1 1 200px; min-width:180px; }
+    .rej-target-box{ display:flex; align-items:center; gap:7px; height:34px; padding:0 12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface-2); font-size:12px; font-weight:700; color:var(--text-sub); white-space:nowrap; }
+    .rej-target-box input{ width:44px; height:24px; border:1px solid var(--border); border-radius:6px; background:var(--surface); text-align:center; font-weight:700; color:var(--text); outline:none; }
+    .rej-toggle-only{ display:flex; align-items:center; gap:7px; height:34px; padding:0 12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface-2); font-size:12px; font-weight:700; color:var(--text-sub); white-space:nowrap; }
+    .rej-toggle-only input{ width:14px; height:14px; accent-color:var(--red); }
+    .rej-counter{ margin-left:auto; font-size:12px; color:var(--text-muted); font-weight:650; white-space:nowrap; }
+    .rej-counter b{ color:var(--text); }
+
+    .rej-msel{ position:relative; }
+    .rej-msel-btn{ all:unset; cursor:pointer; box-sizing:border-box; height:34px; padding:0 12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--surface-2); color:var(--text-sub); font-size:12px; font-weight:650; display:inline-flex; align-items:center; gap:7px; white-space:nowrap; max-width:200px; }
+    .rej-msel-btn:hover{ border-color:var(--orange); }
+    .rej-msel-btn.has-value{ border-color:var(--orange); background:rgba(238,77,45,.08); color:var(--text); }
+    .rej-msel-btn span{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rej-msel-panel{ position:absolute; top:calc(100% + 6px); left:0; z-index:60; min-width:220px; max-height:280px; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg,var(--shadow)); padding:8px; display:none; }
+    .rej-msel-panel.open{ display:block; }
+    .rej-msel-opt{ display:flex; align-items:center; gap:9px; padding:7px 9px; border-radius:var(--radius); font-size:12.5px; color:var(--text-sub); cursor:pointer; }
+    .rej-msel-opt:hover{ background:var(--surface-2); }
+    .rej-msel-opt input{ width:14px; height:14px; accent-color:var(--orange); flex:none; }
+    .rej-msel-actions{ border-top:1px solid var(--border); margin-top:6px; padding-top:6px; display:flex; justify-content:flex-end; }
+    .rej-msel-actions button{ all:unset; cursor:pointer; font-size:11px; color:var(--text-muted); font-weight:700; padding:5px 9px; border-radius:7px; }
+    .rej-msel-actions button:hover{ background:var(--surface-2); color:var(--text); }
+    .rej-msel-empty{ padding:10px; font-size:12px; color:var(--text-muted); }
+
+    .rej-health{ display:flex; align-items:center; gap:16px; padding:18px 20px; }
+    .rej-health-badge{ width:46px; height:46px; border-radius:14px; display:flex; align-items:center; justify-content:center; font-size:20px; flex:none; }
+    .rej-health.good .rej-health-badge{ background:color-mix(in srgb, var(--green) 14%, transparent); color:var(--green); }
+    .rej-health.warn .rej-health-badge{ background:color-mix(in srgb, var(--amber) 14%, transparent); color:var(--amber); }
+    .rej-health.bad .rej-health-badge{ background:color-mix(in srgb, var(--red) 14%, transparent); color:var(--red); }
+    .rej-health h2{ font-size:16px; font-weight:800; color:var(--text); }
+    .rej-health p{ font-size:12.5px; color:var(--text-sub); margin-top:4px; max-width:70ch; }
+    .rej-health strong{ color:var(--text); }
+
+    .rej-alert-row{ display:flex; align-items:center; gap:12px; padding:11px 12px; border-bottom:1px solid var(--border); border-left:3px solid transparent; border-radius:var(--radius); cursor:pointer; width:100%; background:none; text-align:left; }
+    .rej-alert-row:last-child{ border-bottom:none; }
+    .rej-alert-row:hover{ background:var(--surface-2); }
+    .rej-alert-row.bad{ border-left-color:var(--red); }
+    .rej-alert-row.warn{ border-left-color:var(--amber); }
+    .rej-alert-dot{ width:8px; height:8px; border-radius:50%; flex:none; }
+    .rej-alert-dot.bad{ background:var(--red); } .rej-alert-dot.warn{ background:var(--amber); }
+    .rej-alert-mach{ font-weight:800; min-width:150px; color:var(--text); font-size:13px; }
+    .rej-alert-mach small{ display:block; font-weight:600; color:var(--text-muted); font-size:10.5px; }
+    .rej-alert-rate{ font-weight:800; min-width:60px; font-size:13px; }
+    .rej-alert-rate.bad{ color:var(--red); } .rej-alert-rate.warn{ color:var(--amber); }
+    .rej-alert-reason{ color:var(--text-sub); font-size:12.5px; flex:1; min-width:120px; }
+    .rej-alert-meta{ color:var(--text-muted); font-size:11.5px; white-space:nowrap; }
+    .rej-alert-arrow{ color:var(--text-muted); font-size:14px; }
+    .rej-empty{ padding:26px; text-align:center; color:var(--text-muted); font-size:13px; }
+    .rej-empty b{ color:var(--green); }
+
+    .rej-trend-wrap{ display:flex; gap:20px; align-items:flex-end; flex-wrap:wrap; }
+    .rej-trend-svg{ flex:1 1 420px; min-width:280px; }
+    .rej-trend-legend{ display:flex; flex-direction:column; gap:8px; font-size:12px; color:var(--text-muted); min-width:190px; max-width:260px; }
+    .rej-trend-lg{ display:flex; align-items:center; gap:8px; }
+    .rej-trend-sw{ width:16px; height:3px; border-radius:2px; display:inline-block; flex:none; }
+    .rej-trend-sw.target{ background:repeating-linear-gradient(90deg,var(--text-muted) 0 5px,transparent 5px 9px); }
+    .rej-trend-note{ font-size:11px; color:var(--text-muted); margin-top:8px; }
+
+    .rej-motivo-cards{ display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; margin-bottom:14px; }
+    .rej-motivo-card{ all:unset; cursor:pointer; box-sizing:border-box; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); padding:11px 13px; display:block; }
+    .rej-motivo-card:hover{ border-color:var(--orange); }
+    .rej-motivo-card.active{ border-color:var(--orange); background:rgba(238,77,45,.08); }
+    .rej-motivo-card .nm{ font-size:11.5px; font-weight:700; color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; display:flex; align-items:center; gap:6px; }
+    .rej-motivo-card .nm i{ width:6px; height:6px; border-radius:50%; background:var(--red); flex:none; }
+    .rej-motivo-card .pc{ font-size:19px; font-weight:800; margin-top:5px; color:var(--text); }
+    .rej-motivo-card .qt{ font-size:10.5px; color:var(--text-muted); margin-top:2px; }
+    .rej-motivo-row{ display:flex; align-items:center; gap:12px; padding:10px 4px; cursor:pointer; border-radius:var(--radius); }
+    .rej-motivo-row:hover{ background:var(--surface-2); }
+    .rej-motivo-row.active{ background:rgba(238,77,45,.06); }
+    .rej-motivo-rank{ width:22px; font-weight:800; color:var(--text-muted); font-size:12px; flex:none; }
+    .rej-motivo-name{ width:180px; flex:none; font-weight:700; font-size:12.5px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rej-motivo-bar{ flex:1; height:8px; border-radius:999px; background:var(--surface-3); position:relative; overflow:hidden; min-width:80px; }
+    .rej-motivo-bar i{ position:absolute; left:0; top:0; bottom:0; border-radius:999px; background:linear-gradient(90deg,var(--amber),var(--red)); }
+    .rej-motivo-pct{ width:52px; text-align:right; font-weight:800; font-size:12.5px; flex:none; color:var(--text); }
+    .rej-motivo-count{ width:60px; text-align:right; color:var(--text-muted); font-size:11.5px; flex:none; }
+    .rej-motivo-detail{ margin:6px 4px 12px; padding:14px 16px; background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); font-size:12.5px; }
+    .rej-motivo-detail h4{ font-size:11.5px; font-weight:800; margin-bottom:8px; color:var(--text-sub); }
+    .rej-motivo-detail .grid2{ display:grid; grid-template-columns:1fr 1fr; gap:18px; }
+    .rej-mini-bar-row{ display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:12px; }
+    .rej-mini-bar-row .lbl{ width:60px; flex:none; color:var(--text-muted); font-weight:650; }
+    .rej-mini-bar-row .bar{ flex:1; height:6px; border-radius:999px; background:var(--surface-3); overflow:hidden; }
+    .rej-mini-bar-row .bar i{ display:block; height:100%; background:var(--text-sub); border-radius:999px; }
+    .rej-mini-bar-row .v{ width:42px; text-align:right; font-weight:700; color:var(--text); }
+
+    .rej-table-wrap{ overflow:auto; max-height:640px; }
+    .rej-table{ border-collapse:separate; border-spacing:0; width:max-content; min-width:100%; font-size:12.5px; }
+    .rej-table thead th{ position:sticky; top:0; z-index:3; background:var(--surface-3); color:var(--text); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; padding:11px 9px; text-align:center; border-bottom:1px solid var(--border); }
+    .rej-table thead th.lbl{ text-align:left; }
+    .rej-table tbody td{ padding:0; border-bottom:1px solid var(--border); text-align:center; font-variant-numeric:tabular-nums; }
+    .rej-table tbody tr.rej-mach-row:hover td{ background:var(--surface-2); }
+    .rej-sticky{ position:sticky; background:var(--surface); z-index:2; }
+    .rej-table thead .rej-sticky{ z-index:4; background:var(--surface-3); }
+    .rej-c-group{ left:0; width:28px; min-width:28px; padding:0!important; }
+    .rej-c-mach{ left:28px; width:190px; min-width:190px; text-align:left!important; padding:10px 12px!important; }
+    .rej-c-target{ left:218px; width:66px; min-width:66px; background:var(--surface-2); color:var(--text-muted); font-weight:700; }
+    .rej-table thead .rej-c-target{ background:var(--surface-3); }
+    td.rej-c-group{ background:var(--surface-3); color:var(--text-sub); }
+    td.rej-c-group div{ writing-mode:vertical-rl; transform:rotate(180deg); margin:0 auto; padding:10px 0; font-weight:800; font-size:10px; letter-spacing:.06em; text-transform:uppercase; }
+    .rej-mach-name{ font-weight:800; font-size:13px; color:var(--text); display:flex; align-items:center; gap:7px; }
+    .rej-mach-name button.rej-expand{ all:unset; cursor:pointer; color:var(--text-muted); font-size:10px; padding:2px 5px; border-radius:5px; }
+    .rej-mach-name button.rej-expand:hover{ background:var(--surface-2); color:var(--text); }
+    .rej-mach-sub{ display:block; font-size:10.5px; color:var(--text-muted); font-weight:600; margin-top:1px; }
+    .rej-mach-badge-line{ display:flex; align-items:center; gap:7px; margin-top:4px; font-size:11px; color:var(--text-muted); }
+    .rej-mach-badge-line .rate{ font-weight:800; }
+    td.rej-hm{ padding:10px 6px!important; font-weight:750; }
+    td.rej-hm.good{ background:color-mix(in srgb, var(--green) 13%, transparent); color:var(--green); }
+    td.rej-hm.warn{ background:color-mix(in srgb, var(--amber) 14%, transparent); color:var(--amber); }
+    td.rej-hm.bad{ background:color-mix(in srgb, var(--red) 13%, transparent); color:var(--red); }
+    td.rej-hm.none{ background:transparent; color:var(--text-muted); }
+    td.rej-hm.day{ font-size:13px; border-left:2px solid var(--border); }
+    tr.rej-sub-row td{ background:var(--surface-2); color:var(--text-sub); font-size:11.5px; padding:6px 10px!important; }
+    tr.rej-sub-row td.rej-c-mach{ padding-left:32px!important; font-weight:650; color:var(--text-muted); }
+    tr.rej-sub-row.rej-motivo td.rej-c-mach{ color:var(--text-muted); font-size:11px; }
+    tr.rej-sub-row.rej-hidden{ display:none; }
+    .rej-empty-table{ padding:36px; text-align:center; color:var(--text-muted); }
+
+    .rej-metas-cols{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
+    .rej-metas-cat{ background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
+    .rej-metas-cat-head{ padding:12px 16px; background:var(--surface-3); color:var(--text); font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:space-between; }
+    .rej-metas-cat-head small{ font-weight:600; color:var(--text-muted); font-size:10.5px; }
+    .rej-metas-row{ display:flex; align-items:center; gap:9px; padding:9px 14px; border-bottom:1px solid var(--border); }
+    .rej-metas-row:last-child{ border-bottom:none; }
+    .rej-metas-row .nm{ flex:1; font-size:12px; font-weight:650; color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .rej-metas-row .hoje{ width:52px; text-align:right; font-size:11.5px; font-weight:750; flex:none; }
+    .rej-metas-row .hoje.good{ color:var(--green); } .rej-metas-row .hoje.warn{ color:var(--amber); } .rej-metas-row .hoje.bad{ color:var(--red); } .rej-metas-row .hoje.none{ color:var(--text-muted); }
+    .rej-metas-row .tgt-wrap{ display:flex; align-items:center; gap:3px; flex:none; }
+    .rej-metas-row .tgt-wrap input{ width:42px; height:26px; border:1px solid var(--border); border-radius:6px; background:var(--surface); text-align:center; font-weight:700; font-size:11.5px; color:var(--text); outline:none; }
+    .rej-metas-row .tgt-wrap span{ font-size:10.5px; color:var(--text-muted); }
+    .rej-metas-row .dot-st{ width:7px; height:7px; border-radius:50%; flex:none; }
+    .rej-metas-row .dot-st.good{ background:var(--green); } .rej-metas-row .dot-st.warn{ background:var(--amber); } .rej-metas-row .dot-st.bad{ background:var(--red); } .rej-metas-row .dot-st.none{ background:var(--text-muted); }
+    .rej-metas-saved{ display:inline-flex; align-items:center; gap:5px; color:var(--green); font-size:11px; font-weight:700; opacity:0; transition:opacity .25s; margin-left:10px; }
+    .rej-metas-saved.show{ opacity:1; }
+    @media(max-width:900px){ .rej-toolbar{ flex-direction:column; align-items:stretch; } .rej-motivo-detail .grid2{ grid-template-columns:1fr; } }
+
     /* ── PERFORMANCE EXECUTIVA ───────────────────────────────── */
     .perf-score-card {
       background: var(--surface); border: 1px solid var(--border);
@@ -2897,8 +3037,13 @@
         <div class="nav-subitem" data-subkey="fm" onclick="navSidebarSubpage(this,'inbound','fm','inbound')">First Mile</div>
         <div class="nav-subitem" data-subkey="triagem" onclick="navSidebarSubpage(this,'inbound','triagem','inbound')">Triagem</div>
       </div>
-      <div class="nav-item" data-section="asm" data-label="ASM" onclick="navigateTo('asm',this)">
+      <div class="nav-item" data-section="asm" data-label="ASM" onclick="navigateToAndExpand('asm',this,'navsub-asm')">
         <i class="fas fa-feather nav-icon"></i><span class="nav-label">ASM</span>
+        <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-asm', this)"></i>
+      </div>
+      <div class="nav-subgroup" id="navsub-asm">
+        <div class="nav-subitem active" data-subkey="performance" onclick="navSidebarSubpage(this,'asm','performance','asm')">ASM Performance</div>
+        <div class="nav-subitem" data-subkey="rejeito" onclick="navSidebarSubpage(this,'asm','rejeito','asm')">Sorting Exception</div>
       </div>
       <div class="nav-item" data-section="conveyor" data-label="Conveyor" onclick="navigateToAndExpand('conveyor',this,'navsub-conveyor')">
         <i class="fas fa-box nav-icon"></i><span class="nav-label">Conveyor</span>
@@ -3257,11 +3402,17 @@
           <div class="section-subtitle">Performance de induções por zona, hora a hora</div>
         </div>
         <div class="section-dl-group">
-          <button class="spr-pipboy-btn" onclick="asmOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
-          <button class="dl-btn dl-btn-csv" onclick="loadAsm()"><i class="fas fa-rotate-right"></i> Atualizar</button>
+          <button class="spr-pipboy-btn" id="asm-pipboy-btn" onclick="asmOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
+          <button class="dl-btn dl-btn-csv" onclick="ASM_SUBPAGE==='rejeito' ? rejLoad() : loadAsm()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
 
+      <div class="bkl-tabs" id="asm-subpage-tabs" style="margin-bottom:16px">
+        <div class="bkl-tab active" id="subtab-performance" onclick="asmSwitchSubpage('performance',this)">ASM Performance</div>
+        <div class="bkl-tab" id="subtab-rejeito" onclick="asmSwitchSubpage('rejeito',this)">Sorting Exception</div>
+      </div>
+
+      <div id="asm-panel-performance">
       <div class="switch-hint">
         <i class="fas fa-circle-info"></i>
         Capacidade esperada (meta) por zona ainda não está disponível — será adicionada aqui futuramente.
@@ -3316,6 +3467,81 @@
           </table>
         </div>
         <div class="pulso-footer" id="asm-footer" style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--text-muted)"></div>
+      </div>
+      </div>
+
+      <!-- SORTING EXCEPTION — porte do mockup do Roberto ("Rejeito da
+           Esteira · Control Tower"), lendo /api/asm?rejeito=1 (aba
+           sorting_exception_pulso). Reskinado pro template do site. -->
+      <div id="asm-panel-rejeito" style="display:none">
+        <div class="rej-toolbar">
+          <input class="filter-select rej-search" type="text" id="rej-q" placeholder="Buscar máquina ou motivo…" oninput="rejSetFilter('q', this.value)"/>
+          <div class="rej-msel" id="rej-msel-cat">
+            <button class="rej-msel-btn" type="button" onclick="rejToggleMsel('cat', event)"><span id="rej-msel-cat-label">Categoria: Todas</span> <i class="fas fa-caret-down"></i></button>
+            <div class="rej-msel-panel" id="rej-msel-cat-panel"></div>
+          </div>
+          <div class="rej-msel" id="rej-msel-turno">
+            <button class="rej-msel-btn" type="button" onclick="rejToggleMsel('turno', event)"><span id="rej-msel-turno-label">Turno: Todos</span> <i class="fas fa-caret-down"></i></button>
+            <div class="rej-msel-panel" id="rej-msel-turno-panel"></div>
+          </div>
+          <div class="rej-msel" id="rej-msel-status">
+            <button class="rej-msel-btn" type="button" onclick="rejToggleMsel('status', event)"><span id="rej-msel-status-label">Status: Todos</span> <i class="fas fa-caret-down"></i></button>
+            <div class="rej-msel-panel" id="rej-msel-status-panel"></div>
+          </div>
+          <div class="rej-msel" id="rej-msel-motivo">
+            <button class="rej-msel-btn" type="button" onclick="rejToggleMsel('motivo', event)"><span id="rej-msel-motivo-label">Motivo: Todos</span> <i class="fas fa-caret-down"></i></button>
+            <div class="rej-msel-panel" id="rej-msel-motivo-panel"></div>
+          </div>
+          <label class="rej-target-box">Target <input type="number" id="rej-target" min="0" max="100" step="0.5" value="5" onchange="rejSetFilter('target', this.value)"/>%</label>
+          <label class="rej-toggle-only"><input type="checkbox" id="rej-only-problems" onchange="rejSetFilter('onlyProblems', this.checked)"/> Só problemas</label>
+          <span class="rej-counter" id="rej-counter">—</span>
+        </div>
+
+        <div class="bkl-tabs" style="margin-bottom:16px">
+          <div class="bkl-tab active" id="rej-tab-tower" onclick="rejSetPage('tower',this)">Control Tower</div>
+          <div class="bkl-tab" id="rej-tab-metas" onclick="rejSetPage('metas',this)">Metas por motivo</div>
+        </div>
+
+        <div id="rej-page-tower">
+          <div class="chart-card full" id="rej-health"></div>
+
+          <div id="rej-kpis" style="margin-top:16px"></div>
+
+          <div class="table-card full" style="margin-top:16px">
+            <div class="table-toolbar-title">🔴 Alertas da operação <span style="font-weight:400;color:var(--text-muted);font-size:12px">ordenado por impacto (volume × taxa)</span></div>
+            <div id="rej-alerts" style="margin-top:8px"></div>
+          </div>
+
+          <div class="chart-card full" style="margin-top:16px">
+            <div class="table-toolbar" style="margin-bottom:0">
+              <div class="chart-title" id="rej-trend-title">Tendência da taxa de rejeito</div>
+              <div class="bkl-tabs">
+                <div class="bkl-tab active" id="rej-trend-pct" onclick="rejSetTrendModo('pct',this)">%</div>
+                <div class="bkl-tab" id="rej-trend-qtd" onclick="rejSetTrendModo('qtd',this)">Pacotes</div>
+              </div>
+            </div>
+            <div id="rej-trend" style="margin-top:12px"></div>
+          </div>
+
+          <div class="table-card full" style="margin-top:16px">
+            <div class="table-toolbar-title">Principais motivos <span style="font-weight:400;color:var(--text-muted);font-size:12px">clique num motivo pra abrir o diagnóstico (também filtra a tendência acima)</span></div>
+            <div id="rej-motivos" style="margin-top:8px"></div>
+          </div>
+
+          <div class="table-card full" style="margin-top:16px;padding:0">
+            <div class="table-toolbar-title" style="padding:16px 16px 0">Investigação detalhada · por máquina <span style="font-weight:400;color:var(--text-muted);font-size:12px">heatmap por hora — clique numa máquina pra ver o detalhe</span></div>
+            <div class="rej-table-wrap" id="rej-table-wrap"></div>
+            <div style="font-size:11px;color:var(--text-muted);padding:10px 16px">Cada célula é a janela cheia daquela hora (06h = 06:00–07:00). "Dia" recalcula a taxa sobre o total do dia, não é média das horas.</div>
+          </div>
+        </div>
+
+        <div id="rej-page-metas" style="display:none">
+          <div class="table-card full">
+            <div class="table-toolbar-title">Metas por motivo, por categoria <span class="rej-metas-saved" id="rej-metas-saved"><i class="fas fa-check"></i> salvo neste navegador</span></div>
+            <p style="font-size:12px;color:var(--text-muted);max-width:80ch;margin:8px 0 16px">Cada motivo de rejeito tem seu próprio target %, configurado separadamente pra CBS, DWS e OBS (o mesmo motivo pode pesar diferente em cada tipo de máquina). "Hoje" é a taxa real do motivo sobre o volume da categoria no dia operacional corrente — independente do Target geral do Control Tower. Salvo só neste navegador por enquanto.</p>
+            <div class="rej-metas-cols" id="rej-metas-wrap"></div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -5287,6 +5513,7 @@ const TV_SUBPAGES = {
   spr:      { tabsId:'pulso-subpage-tabs',    switcher:'pulsoSwitchSubpage',  options:[{key:'outbound',label:'Outbound'},{key:'spr',label:'SPR'},{key:'leftover',label:'Leftover'},{key:'monitor',label:'Monitor - Live'}] },
   conveyor: { tabsId:'conveyor-subpage-tabs', switcher:'cnvSwitchSubpage',    options:[{key:'performance',label:'Performance'},{key:'esteira',label:'Esteira On-time'}] },
   inbound:  { tabsId:'inbound-subpage-tabs',  switcher:'inboundSwitchSubpage',options:[{key:'lh',label:'Line Haul'},{key:'fm',label:'First Mile'},{key:'triagem',label:'Triagem'}] },
+  asm:      { tabsId:'asm-subpage-tabs',      switcher:'asmSwitchSubpage',    options:[{key:'performance',label:'ASM Performance'},{key:'rejeito',label:'Sorting Exception'}] },
 };
 function tvApplySubpage(sectionKey, subKey){
   const cfg = TV_SUBPAGES[sectionKey];
@@ -5594,6 +5821,7 @@ const NAV_SUBPAGE_SWITCHERS = {
   gestao: (...a) => gestaoSwitchSubpage(...a),
   mapadados: (...a) => mapadadosSwitchSubpage(...a),
   conveyor: (...a) => cnvSwitchSubpage(...a),
+  asm: (...a) => asmSwitchSubpage(...a),
 };
 // Mantém o subitem certo destacado no menu lateral mesmo quando a troca de
 // subpágina acontece pela aba do topo da página (não pelo próprio menu) —
@@ -5615,7 +5843,7 @@ async function renderSection(section){
   try {
     const {data,source} = await DataService.load(section);
     setBadge(section,'ok',source);
-    const fn = {gestao:renderGestao, performance:renderPerformance, asm:()=>loadAsm(),
+    const fn = {gestao:renderGestao, performance:renderPerformance, asm:()=>ASM_SUBPAGE==='rejeito' ? rejLoad() : loadAsm(),
       backlog:()=>loadBacklog(), spr:()=>PULSO_ACTIVE_SUBPAGE==='monitor' ? monRender() : pulsoRender(PULSO_ACTIVE_SUBPAGE),
       conveyor:()=>loadConveyor(), inbound:()=>loadInbound(), tratativas:renderTratativas,
       laborplan:renderLaborplan, kpioverview:renderKpioverview,
@@ -11159,7 +11387,726 @@ function asmGenerateInsights(){
 }
 
 function asmOpenPipboy(){
+  if(ASM_SUBPAGE === 'rejeito'){ pulsoOpenPipboyGeneric('Sorting Exception', rejGenerateInsights()); return; }
   pulsoOpenPipboyGeneric('ASM', asmGenerateInsights());
+}
+
+let ASM_SUBPAGE = 'performance';
+function asmSwitchSubpage(key, el){
+  ASM_SUBPAGE = key;
+  navSyncSidebarSubitem('asm', key);
+  document.querySelectorAll('#asm-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('asm-panel-performance').style.display = key==='performance' ? '' : 'none';
+  document.getElementById('asm-panel-rejeito').style.display = key==='rejeito' ? '' : 'none';
+  if(key==='rejeito' && !REJ_DATA) rejLoad();
+}
+
+/* ================================================================
+   SORTING EXCEPTION (ASM) — porte do mockup do Roberto ("Rejeito da
+   Esteira · Control Tower"), lendo dados reais de /api/asm?rejeito=1
+   (aba sorting_exception_pulso) em vez do array mock embutido no
+   original. Página bespoke (heatmap/tendência SVG não cabem no motor
+   pulsoRegister), mesmo padrão da Esteira On-time/Monitor - Live.
+
+   Sem coluna de data na aba — é sempre "o dia operacional corrente",
+   sem seletor de data (mesmo comportamento do mockup original).
+   Sem auto-refresh e sem live-tag/stale-banner próprios — o site já
+   tem badge de status por seção (COP Boy/Atualizar no header) e
+   nenhuma outra página do PULSO faz polling automático, então manter
+   consistência em vez de reintroduzir isso só aqui. Copito (assistente
+   heurístico) vira o COP Boy/Pipboy já existente em vez de um botão
+   flutuante próprio. Cards mobile da tabela de máquinas não foram
+   portados — a tabela rola horizontalmente, mesmo comportamento de
+   toda outra tabela do site em telas pequenas.
+================================================================ */
+const REJ_CATEGORIAS = { 1:'CBS', 2:'OBS', 3:'DWS' };
+const REJ_MIN_VOLUME = 100;
+const REJ_DEFAULT_TARGET = 5;
+const REJ_TARGETS_KEY = 'jarvis_rejeito_targets_v1';
+const REJ_PALETA = ['#75809b', '#10b981', '#f59e0b', '#ef4444', '#8b7fd4', '#06b6d4', '#ec4899', '#84a53f'];
+const REJ_STATUS_LABEL = { good:'Normal', warn:'Atenção', bad:'Crítico', none:'Sem dado' };
+
+const REJ_STATE = {
+  raw: { rows:[], reasons:[] },
+  filtros: { q:'', cat:[], turno:[], status:[], motivo:[], onlyProblems:false, target:5 },
+  page: 'tower',
+  trendModo: 'pct',
+  targets: rejCarregarTargets(),
+  expandidas: new Set(),
+  rowsFiltradas: [],
+};
+let REJ_DATA = null; // vira truthy assim que a 1ª carga terminar (guarda de lazy-load)
+
+function rejCarregarTargets(){
+  try { return JSON.parse(localStorage.getItem(REJ_TARGETS_KEY)) || {}; }
+  catch { return {}; }
+}
+function rejSalvarTargets(){ localStorage.setItem(REJ_TARGETS_KEY, JSON.stringify(REJ_STATE.targets)); }
+function rejGetTargetMotivo(categoria, motivo){ return REJ_STATE.targets[categoria]?.[motivo] ?? REJ_DEFAULT_TARGET; }
+function rejSetTargetMotivo(categoria, motivo, valor){
+  (REJ_STATE.targets[categoria] ??= {})[motivo] = valor;
+  rejSalvarTargets();
+}
+
+const rejFmtInt = v => v == null ? '—' : v.toLocaleString('pt-BR');
+const rejFmtPct = v => v == null ? '—' : (Math.round(v*10)/10).toLocaleString('pt-BR',{minimumFractionDigits: v%1===0?0:1, maximumFractionDigits:1}) + '%';
+const rejFmtHora = h => String(h).padStart(2,'0') + 'h';
+const rejTarget = () => REJ_STATE.filtros.target;
+const rejStatusType = st => ({good:'success', warn:'warning', bad:'danger', none:''}[st] || '');
+
+async function rejLoad(){
+  try{
+    const r = await fetch('/api/asm?rejeito=1', { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    setBadge('asm', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    REJ_STATE.raw = rejNormalizar(j);
+    REJ_DATA = j;
+    rejRenderTudo();
+  }catch(err){
+    setBadge('asm', 'error', 'Erro: '+err.message);
+    console.error('[rejeito]', err);
+    const health = document.getElementById('rej-health');
+    if(health) health.innerHTML = `<div class="rej-empty">Erro ao carregar Sorting Exception: ${pulsoEscHtml(err.message)}</div>`;
+  }
+}
+
+function rejNormalizar(json){
+  const reasons = json.reasons || [];
+  const rows = (json.rows || []).map(r => ({
+    ...r,
+    categoria: REJ_CATEGORIAS[r.asm_category] || ('Cat ' + r.asm_category),
+    machKey: r.asm_account + '|' + r.layer,
+  }));
+  return { rows, reasons };
+}
+
+/* ── FILTER ── */
+function rejFiltrarLinhas(){
+  const { q, cat, turno } = REJ_STATE.filtros;
+  const query = q.trim().toLowerCase();
+  const motivoBusca = query ? REJ_STATE.raw.reasons.filter(m => m.toLowerCase().includes(query)) : [];
+
+  let rows = REJ_STATE.raw.rows.filter(r => {
+    if(cat.length && !cat.includes(r.categoria)) return false;
+    if(turno.length && !turno.includes(r.turno)) return false;
+    if(!query) return true;
+    if(String(r.asm_name).toLowerCase().includes(query)) return true;
+    if(String(r.asm_account).toLowerCase().includes(query)) return true;
+    return motivoBusca.some(m => r[m]);
+  });
+
+  const statusEfetivo = REJ_STATE.filtros.status.length ? REJ_STATE.filtros.status
+    : (REJ_STATE.filtros.onlyProblems ? ['warn','bad'] : null);
+  if(statusEfetivo){
+    const totais = rejTotalPorMaquina(rows);
+    rows = rows.filter(r => {
+      const t = totais.get(r.machKey);
+      const st = t ? rejClassificarDia(t.taxa, t.volume) : 'none';
+      return statusEfetivo.includes(st);
+    });
+  }
+  return rows;
+}
+function rejHorasPresentes(rows){
+  const set = new Set(rows.map(r => r.hora));
+  return HORAS_CUTOFF.filter(h => set.has(h));
+}
+
+/* ── ANALYTICS ── */
+function rejClassificar(taxa, t = rejTarget()){
+  if(taxa == null) return 'none';
+  if(taxa <= t) return 'good';
+  if(taxa <= t*1.15) return 'warn';
+  return 'bad';
+}
+function rejClassificarDia(taxa, volume, t = rejTarget()){
+  return volume >= REJ_MIN_VOLUME ? rejClassificar(taxa, t) : 'none';
+}
+function rejTotalPorMaquina(rows){
+  const map = new Map();
+  for(const r of rows){
+    const t = map.get(r.machKey) || { ref:r, volume:0, failed:0, motivos:{}, horas:new Map() };
+    t.volume += r.parcel_count || 0;
+    t.failed += r.failed || 0;
+    t.horas.set(r.hora, r);
+    for(const mo of REJ_STATE.raw.reasons) t.motivos[mo] = (t.motivos[mo] || 0) + (r[mo] || 0);
+    map.set(r.machKey, t);
+  }
+  for(const t of map.values()) t.taxa = t.volume ? t.failed/t.volume*100 : null;
+  return map;
+}
+function rejMotivoPrincipal(t){
+  const entries = Object.entries(t.motivos).filter(([,v]) => v>0).sort((a,b) => b[1]-a[1]);
+  return entries[0] ? entries[0][0] : null;
+}
+function rejCalcularKpis(rows){
+  const volume = rows.reduce((a,r) => a+(r.parcel_count||0), 0);
+  const failed = rows.reduce((a,r) => a+(r.failed||0), 0);
+  const taxa = volume ? failed/volume*100 : null;
+  const totais = rejTotalPorMaquina(rows);
+  const relevantes = [...totais.values()].filter(t => t.volume >= REJ_MIN_VOLUME);
+  const criticas = relevantes.filter(t => rejClassificar(t.taxa) === 'bad').length;
+  const pior = relevantes.sort((a,b) => (b.taxa ?? -1)-(a.taxa ?? -1))[0];
+  return { volume, failed, taxa, status: rejClassificar(taxa), criticas, pior };
+}
+function rejCalcularAlertas(rows){
+  const totais = rejTotalPorMaquina(rows);
+  const alertas = [];
+  for(const [k,t] of totais){
+    if(t.volume < REJ_MIN_VOLUME) continue;
+    const status = rejClassificar(t.taxa);
+    if(status !== 'bad' && status !== 'warn') continue;
+    let piorHora = null, piorTaxa = -1;
+    for(const [h,r] of t.horas){
+      if(r.parcel_count >= 20 && r.failed_rate != null && r.failed_rate > piorTaxa){ piorTaxa = r.failed_rate; piorHora = h; }
+    }
+    alertas.push({ key:k, ref:t.ref, taxa:t.taxa, volume:t.volume, failed:t.failed, status, motivo: rejMotivoPrincipal(t), piorHora });
+  }
+  alertas.sort((a,b) => (b.status==='bad')-(a.status==='bad') || b.failed-a.failed);
+  return alertas;
+}
+function rejCalcularTendencia(rows){
+  const horas = rejHorasPresentes(rows);
+  return horas.map(h => {
+    const rs = rows.filter(r => r.hora===h);
+    const volume = rs.reduce((a,r) => a+(r.parcel_count||0), 0);
+    const failed = rs.reduce((a,r) => a+(r.failed||0), 0);
+    return { hora:h, volume, failed, taxa: volume ? failed/volume*100 : null };
+  });
+}
+function rejCalcularTendenciaMotivo(rows, motivo){
+  const horas = rejHorasPresentes(rows);
+  return horas.map(h => {
+    const rs = rows.filter(r => r.hora===h);
+    const volume = rs.reduce((a,r) => a+(r.parcel_count||0), 0);
+    const total = rs.reduce((a,r) => a+(r[motivo]||0), 0);
+    return { hora:h, volume, failed:total, taxa: volume ? total/volume*100 : null };
+  });
+}
+function rejTargetReferencia(rows, motivo){
+  if(!motivo) return rejTarget();
+  if(REJ_STATE.filtros.cat.length === 1) return rejGetTargetMotivo(REJ_STATE.filtros.cat[0], motivo);
+  const porCategoria = {};
+  for(const r of rows) porCategoria[r.categoria] = (porCategoria[r.categoria]||0) + (r.parcel_count||0);
+  const totalVolume = Object.values(porCategoria).reduce((a,b) => a+b, 0);
+  if(!totalVolume) return rejTarget();
+  return Object.entries(porCategoria).reduce((acc,[cat,vol]) => acc + rejGetTargetMotivo(cat,motivo)*(vol/totalVolume), 0);
+}
+function rejMontarSeries(rows){
+  const motivos = REJ_STATE.filtros.motivo;
+  const categorias = REJ_STATE.filtros.cat;
+  const multiCat = categorias.length >= 2;
+
+  if(motivos.length && multiCat){
+    const series = [];
+    motivos.forEach(mo => categorias.forEach(cat => {
+      const rowsCat = rows.filter(r => r.categoria===cat);
+      series.push({ nome:`${cat} · ${mo}`, pontos: rejCalcularTendenciaMotivo(rowsCat, mo), cor: REJ_PALETA[series.length % REJ_PALETA.length], targetRef: rejGetTargetMotivo(cat, mo) });
+    }));
+    return series;
+  }
+  if(motivos.length){
+    return motivos.map((mo,i) => ({ nome:mo, pontos: rejCalcularTendenciaMotivo(rows, mo), cor: REJ_PALETA[i % REJ_PALETA.length], targetRef: rejTargetReferencia(rows, mo) }));
+  }
+  if(multiCat){
+    return categorias.map((cat,i) => ({ nome:cat, pontos: rejCalcularTendencia(rows.filter(r => r.categoria===cat)), cor: REJ_PALETA[i % REJ_PALETA.length], targetRef: rejTarget() }));
+  }
+  return [{ nome:null, pontos: rejCalcularTendencia(rows), cor: REJ_PALETA[0], targetRef: rejTarget() }];
+}
+function rejCalcularTopMotivos(rows){
+  const totalGeral = rows.reduce((a,r) => a+(r.failed||0), 0);
+  const motivos = REJ_STATE.raw.reasons.map(mo => ({ mo, total: rows.reduce((a,r) => a+(r[mo]||0), 0) })).filter(m => m.total>0);
+  motivos.sort((a,b) => b.total-a.total);
+  return motivos.map(m => ({ ...m, share: totalGeral ? m.total/totalGeral*100 : 0 }));
+}
+function rejCalcularDetalheMotivo(rows, motivo){
+  const porCategoria = {};
+  for(const r of rows){
+    const c = porCategoria[r.categoria] || (porCategoria[r.categoria] = { motivoTotal:0, volume:0 });
+    c.motivoTotal += r[motivo] || 0;
+    c.volume += r.parcel_count || 0;
+  }
+  const totalMotivo = Object.values(porCategoria).reduce((a,c) => a+c.motivoTotal, 0);
+  const categorias = Object.entries(porCategoria).filter(([,c]) => c.motivoTotal>0).map(([cat,c]) => {
+    const taxaCat = c.volume ? c.motivoTotal/c.volume*100 : null;
+    const targetCat = rejGetTargetMotivo(cat, motivo);
+    return { cat, v:c.motivoTotal, pct: totalMotivo ? c.motivoTotal/totalMotivo*100 : 0, taxaCat, targetCat, statusCat: rejClassificar(taxaCat, targetCat) };
+  }).sort((a,b) => b.v-a.v);
+
+  const horas = rejHorasPresentes(rows).map(h => {
+    const rs = rows.filter(r => r.hora===h);
+    const volume = rs.reduce((a,r) => a+(r.parcel_count||0), 0);
+    const total = rs.reduce((a,r) => a+(r[motivo]||0), 0);
+    return { hora:h, taxa: volume ? total/volume*100 : 0, total };
+  }).filter(h => h.total>0).sort((a,b) => b.taxa-a.taxa).slice(0,3);
+
+  return { categorias, horas };
+}
+
+/* ── VIEW — HEALTH ── */
+function rejRenderHealth(kpis){
+  const el = document.getElementById('rej-health');
+  if(!el) return;
+  const icon = { good:'<i class="fas fa-circle-check"></i>', warn:'<i class="fas fa-triangle-exclamation"></i>', bad:'<i class="fas fa-circle-xmark"></i>' }[kpis.status] || '<i class="fas fa-circle-question"></i>';
+  const texto = {
+    good: `A operação está <strong>dentro do target</strong> (${rejFmtPct(kpis.taxa)} de ${kpis.criticas ? kpis.criticas+' máquina(s) em atenção' : 'nenhuma máquina crítica'}).`,
+    warn: `A taxa de rejeito está em <strong>${rejFmtPct(kpis.taxa)}</strong>, acima do target de ${rejFmtPct(rejTarget())} mas ainda dentro da margem de atenção.`,
+    bad: `A taxa de rejeito está em <strong>${rejFmtPct(kpis.taxa)}</strong>, fora do target (${rejFmtPct(rejTarget())})${kpis.criticas ? ` — ${kpis.criticas} máquina(s) em estado crítico` : ''}.`,
+  }[kpis.status] || 'Sem dado suficiente pra avaliar a operação com os filtros atuais.';
+  const titulo = { good:'Operação saudável', warn:'Atenção', bad:'Problema crítico' }[kpis.status] || 'Sem dado';
+  el.className = 'chart-card full rej-health ' + kpis.status;
+  el.innerHTML = `<div class="rej-health-badge">${icon}</div><div><h2>${pulsoEscHtml(titulo)}</h2><p>${texto}</p></div>`;
+}
+
+/* ── VIEW — KPIs (reaproveita buildKPIs, mesmo componente do resto do site) ── */
+function rejRenderKpis(kpis){
+  const pior = kpis.pior;
+  buildKPIs('rej-kpis', [
+    { label:'Volume Processado', value: rejFmtInt(kpis.volume), sub:'pacotes no período filtrado', icon:'fa-boxes-stacked', type:'' },
+    { label:'Rejeitos', value: rejFmtInt(kpis.failed), sub:'unidades rejeitadas', icon:'fa-ban', type:'' },
+    { label:'Taxa de Rejeito', value: rejFmtPct(kpis.taxa), sub:'target '+rejFmtPct(rejTarget()), icon:'fa-percent', type: rejStatusType(kpis.status) },
+    { label:'Máquinas Críticas', value: rejFmtInt(kpis.criticas), sub:`acima de ${rejFmtPct(rejTarget()*1.15)} · vol. ≥ ${REJ_MIN_VOLUME}`, icon:'fa-skull-crossbones', type: kpis.criticas ? 'danger' : 'success' },
+    { label:'Pior Máquina', value: pior ? pulsoEscHtml(pior.ref.asm_name) : '—', sub: pior ? `${rejFmtPct(pior.taxa)} · ${rejFmtInt(pior.volume)} pacotes` : 'sem volume relevante', icon:'fa-arrow-trend-down', type: pior ? rejStatusType(rejClassificar(pior.taxa)) : '' },
+  ]);
+}
+
+/* ── VIEW — ALERTAS ── */
+function rejRenderAlertas(alertas){
+  const el = document.getElementById('rej-alerts');
+  if(!el) return;
+  if(!alertas.length){
+    el.innerHTML = `<div class="rej-empty"><b>Nenhum alerta.</b><br>Todas as máquinas filtradas estão dentro do target.</div>`;
+    return;
+  }
+  el.innerHTML = alertas.slice(0,10).map(a => `
+    <button class="rej-alert-row ${a.status}" onclick="rejAlertClick('${pulsoEscHtml(a.ref.asm_name)}')">
+      <span class="rej-alert-dot ${a.status}"></span>
+      <span class="rej-alert-mach">${pulsoEscHtml(a.ref.asm_name)}<small>${pulsoEscHtml(a.ref.asm_account)}</small></span>
+      <span class="rej-alert-rate ${a.status}">${rejFmtPct(a.taxa)}</span>
+      <span class="rej-alert-reason">${a.motivo ? pulsoEscHtml(a.motivo) : 'motivo não identificado'}</span>
+      <span class="rej-alert-meta">${a.piorHora!=null ? 'pico '+rejFmtHora(a.piorHora) : ''} · ${rejFmtInt(a.volume)} pcts · ${REJ_STATUS_LABEL[a.status]}</span>
+      <span class="rej-alert-arrow"><i class="fas fa-chevron-right"></i></span>
+    </button>`).join('');
+}
+function rejAlertClick(machName){
+  document.getElementById('rej-q').value = machName;
+  REJ_STATE.filtros.q = machName;
+  rejRenderTudo();
+  document.getElementById('rej-table-wrap').scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+/* ── VIEW — TENDÊNCIA (SVG inline, mesmo esquema de var(--cor) usado nos
+   sparklines de Overview KPIs — sem lib externa, igual o mockup original) ── */
+function rejRenderTendencia(series){
+  const multi = series.length > 1;
+  const qtd = REJ_STATE.trendModo === 'qtd';
+  const valorDe = p => qtd ? p.failed : p.taxa;
+  const fmt = qtd ? rejFmtInt : rejFmtPct;
+  const comDados = series.filter(s => s.pontos.some(p => p.taxa != null));
+
+  const rotuloUnica = series[0].nome ? `Tendência · ${series[0].nome}` : (qtd ? 'Pacotes rejeitados por hora' : 'Tendência da taxa de rejeito');
+  document.getElementById('rej-trend-title').textContent = multi ? `Tendência · ${series.length} séries` : rotuloUnica;
+
+  const wrap = document.getElementById('rej-trend');
+  if(!comDados.length){
+    wrap.innerHTML = `<div class="rej-empty">Sem volume suficiente pra calcular tendência.</div>`;
+    return;
+  }
+
+  const pontosRef = series[0].pontos;
+  const W = 640, H = 220, PAD_L = 34, PAD_R = 14, PAD_T = 26, PAD_B = 26;
+  const todosValores = series.flatMap(s => s.pontos.map(p => valorDe(p) || 0));
+  const maxValor = Math.max(qtd ? 0 : Math.max(...series.map(s => s.targetRef)), ...todosValores, qtd ? 1 : 0.1) * 1.15;
+  const xw = (W-PAD_L-PAD_R) / Math.max(1, pontosRef.length-1);
+  const xAt = i => PAD_L + i*xw;
+  const yAt = v => PAD_T + (H-PAD_T-PAD_B) * (1 - Math.min(1, v/maxValor));
+
+  let corpoSvg = '';
+  series.forEach(s => {
+    const corLinha = multi ? s.cor : 'var(--text-sub)';
+    const linePts = s.pontos.map((p,i) => p.taxa==null ? null : `${xAt(i)},${yAt(valorDe(p))}`).filter(Boolean).join(' ');
+    if(!multi){
+      const areaPts = `${PAD_L},${yAt(0)} ${linePts} ${xAt(s.pontos.length-1)},${yAt(0)}`;
+      corpoSvg += `<polygon points="${areaPts}" fill="${corLinha}" opacity=".08"/>`;
+    }
+    corpoSvg += `<polyline points="${linePts}" fill="none" stroke="${corLinha}" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round"/>`;
+    corpoSvg += s.pontos.map((p,i) => {
+      if(p.taxa==null) return '';
+      const v = valorDe(p), cx = xAt(i), cy = yAt(v);
+      const corPonto = (multi||qtd) ? s.cor : {good:'var(--green)', warn:'var(--amber)', bad:'var(--red)'}[rejClassificar(p.taxa, s.targetRef)];
+      let label = '';
+      if(!multi){
+        const acima = cy > PAD_T+16;
+        const ly = acima ? cy-11 : cy+17;
+        label = `<text x="${cx}" y="${ly}" font-size="10" font-weight="700" text-anchor="middle" fill="${corPonto}">${fmt(v)}</text>`;
+      }
+      return `<g><circle cx="${cx}" cy="${cy}" r="${multi?3:4}" fill="${corPonto}" stroke="var(--surface)" stroke-width="1.5"><title>${s.nome?s.nome+' · ':''}${rejFmtHora(p.hora)} · ${rejFmtPct(p.taxa)} · ${rejFmtInt(p.failed)} de ${rejFmtInt(p.volume)} pacotes</title></circle>${label}</g>`;
+    }).join('');
+  });
+
+  const targetSvg = (!multi && !qtd) ? `
+    <line x1="${PAD_L}" y1="${yAt(series[0].targetRef)}" x2="${W-PAD_R}" y2="${yAt(series[0].targetRef)}" stroke="var(--text-muted)" stroke-width="1.4" stroke-dasharray="5 4"/>
+    <text x="${W-PAD_R}" y="${yAt(series[0].targetRef)-5}" font-size="10" text-anchor="end" fill="var(--text-muted)">target ${rejFmtPct(series[0].targetRef)}</text>` : '';
+
+  const xLabels = pontosRef.map((p,i) => `<text x="${xAt(i)}" y="${H-6}" font-size="10.5" text-anchor="middle" fill="var(--text-muted)">${rejFmtHora(p.hora)}</text>`).join('');
+  const yTicks = [0, maxValor/2, maxValor].map(v => `<text x="${PAD_L-8}" y="${yAt(v)+3}" font-size="10" text-anchor="end" fill="var(--text-muted)">${qtd?rejFmtInt(Math.round(v)):v.toFixed(1)+'%'}</text>`).join('');
+
+  wrap.innerHTML = `
+    <div class="rej-trend-wrap">
+      <svg class="rej-trend-svg" viewBox="0 0 ${W} ${H}">${targetSvg}${corpoSvg}${xLabels}${yTicks}</svg>
+      <div class="rej-trend-legend">
+        ${series.map(s => {
+          const validos = s.pontos.filter(p => p.taxa!=null);
+          const ultimo = validos.length ? validos[validos.length-1] : null;
+          return `<div class="rej-trend-lg">
+            <span class="rej-trend-sw" style="background:${multi ? s.cor : 'var(--text-sub)'}"></span>
+            <span>${s.nome ? pulsoEscHtml(s.nome) : (qtd ? 'Pacotes rejeitados por hora' : 'Taxa de rejeito (ponderada por volume)')}</span>
+            ${s.nome && !qtd ? `<span style="color:var(--text-muted)">· target ${rejFmtPct(s.targetRef)}</span>` : ''}
+            ${ultimo ? `<span style="margin-left:auto;font-weight:800;color:var(--text)">${fmt(valorDe(ultimo))}</span>` : ''}
+          </div>`;
+        }).join('')}
+        ${(!multi && !qtd) ? `<div class="rej-trend-lg"><span class="rej-trend-sw target"></span> Target</div>` : ''}
+      </div>
+    </div>`;
+
+  const base = comDados[0];
+  const validos = base.pontos.filter(p => p.taxa!=null);
+  const pico = validos.reduce((a,b) => valorDe(b)>valorDe(a)?b:a);
+  const vale = validos.reduce((a,b) => valorDe(b)<valorDe(a)?b:a);
+  const tendCurva = validos.length>1 ? (valorDe(validos[validos.length-1]) - valorDe(validos[0])) : 0;
+  const limiarTend = qtd ? Math.max(1, maxValor*0.02) : 0.3;
+  const prefixo = multi ? `${base.nome}: ` : '';
+  const nota = document.createElement('div');
+  nota.style.cssText = 'font-size:11px;color:var(--text-muted);margin-top:8px';
+  nota.textContent = `${prefixo}pico ${rejFmtHora(pico.hora)} (${fmt(valorDe(pico))}) · menor ${rejFmtHora(vale.hora)} (${fmt(valorDe(vale))}) · ${tendCurva>limiarTend?'piorando':tendCurva<-limiarTend?'melhorando':'estável'} no período`;
+  wrap.appendChild(nota);
+}
+
+/* ── VIEW — MOTIVOS + drill-down ── */
+function rejRenderMotivos(rows, motivos){
+  const el = document.getElementById('rej-motivos');
+  if(!motivos.length){
+    el.innerHTML = `<div class="rej-empty">Nenhum motivo de rejeito no período filtrado.</div>`;
+    return;
+  }
+  const top = motivos.slice(0,10);
+  const pico = Math.max(1, ...top.map(m => m.total));
+
+  const cards = top.map(m => {
+    const aberto = REJ_STATE.filtros.motivo.includes(m.mo);
+    return `<button class="rej-motivo-card ${aberto?'active':''}" onclick="rejToggleMotivo('${pulsoEscHtml(m.mo)}')">
+      <div class="nm"><i></i>${pulsoEscHtml(m.mo)}</div>
+      <div class="pc">${rejFmtPct(m.share)}</div>
+      <div class="qt">${rejFmtInt(m.total)} pacotes</div>
+    </button>`;
+  }).join('');
+
+  const linhas = top.map((m,i) => {
+    const aberto = REJ_STATE.filtros.motivo.includes(m.mo);
+    return `
+    <div class="rej-motivo-row ${aberto?'active':''}" onclick="rejToggleMotivo('${pulsoEscHtml(m.mo)}')">
+      <span class="rej-motivo-rank">#${i+1}</span>
+      <span class="rej-motivo-name" title="${pulsoEscHtml(m.mo)}">${pulsoEscHtml(m.mo)}</span>
+      <span class="rej-motivo-bar"><i style="width:${m.total/pico*100}%"></i></span>
+      <span class="rej-motivo-pct">${rejFmtPct(m.share)}</span>
+      <span class="rej-motivo-count">${rejFmtInt(m.total)}</span>
+    </div>
+    ${aberto ? rejRenderDetalheMotivoHTML(rows, m.mo) : ''}`;
+  }).join('');
+
+  el.innerHTML = `<div class="rej-motivo-cards">${cards}</div>${linhas}`;
+}
+function rejRenderDetalheMotivoHTML(rows, motivo){
+  const d = rejCalcularDetalheMotivo(rows, motivo);
+  const maxCat = Math.max(1, ...d.categorias.map(c => c.pct));
+  const maxHora = Math.max(1, ...d.horas.map(h => h.taxa));
+  const corSt = st => st==='none' ? 'var(--text-sub)' : {good:'var(--green)',warn:'var(--amber)',bad:'var(--red)'}[st];
+  return `<div class="rej-motivo-detail">
+    <div class="grid2">
+      <div>
+        <h4>Categorias afetadas</h4>
+        ${d.categorias.map(c => `<div class="rej-mini-bar-row"><span class="lbl">${pulsoEscHtml(c.cat)}</span>
+          <span class="bar"><i style="width:${c.pct/maxCat*100}%;background:${corSt(c.statusCat)}"></i></span>
+          <span class="v">${rejFmtPct(c.pct)}</span></div>
+          <div style="font-size:10.5px;color:var(--text-muted);margin:-2px 0 8px 68px">
+            taxa na categoria: <strong style="color:${corSt(c.statusCat)}">${rejFmtPct(c.taxaCat)}</strong> de target ${rejFmtPct(c.targetCat)}
+          </div>`).join('') || '<div class="rej-mini-bar-row">sem dado</div>'}
+      </div>
+      <div>
+        <h4>Horários críticos</h4>
+        ${d.horas.map(h => `<div class="rej-mini-bar-row"><span class="lbl">${rejFmtHora(h.hora)}</span>
+          <span class="bar"><i style="width:${h.taxa/maxHora*100}%"></i></span>
+          <span class="v">${rejFmtPct(h.taxa)}</span></div>`).join('') || '<div class="rej-mini-bar-row">sem dado</div>'}
+      </div>
+    </div>
+  </div>`;
+}
+function rejToggleMotivo(mo){
+  const arr = REJ_STATE.filtros.motivo;
+  const i = arr.indexOf(mo);
+  if(i===-1) arr.push(mo); else arr.splice(i,1);
+  rejRenderTudo();
+}
+
+/* ── VIEW — TABELA/HEATMAP DE MÁQUINAS ── */
+function rejRenderMaquinas(rows){
+  const horas = rejHorasPresentes(rows);
+  const totais = rejTotalPorMaquina(rows);
+  const wrap = document.getElementById('rej-table-wrap');
+  if(!totais.size){
+    wrap.innerHTML = `<div class="rej-empty-table">Nenhuma máquina bate com os filtros atuais.</div>`;
+    return;
+  }
+  const grupos = new Map();
+  for(const [k,t] of totais){
+    const cat = t.ref.categoria;
+    if(!grupos.has(cat)) grupos.set(cat, []);
+    grupos.get(cat).push({ key:k, t });
+  }
+  for(const lista of grupos.values()) lista.sort((a,b) => (b.t.taxa??-1)-(a.t.taxa??-1));
+  const gruposOrdenados = [...grupos].sort((a,b) => a[0].localeCompare(b[0]));
+
+  let corpo = '';
+  for(const [cat, lista] of gruposOrdenados){
+    const meta = lista.map(({key,t}) => {
+      const aberto = REJ_STATE.expandidas.has(key);
+      const motivosAtivos = Object.entries(t.motivos).filter(([,v]) => v>0).sort((a,b) => b[1]-a[1]);
+      return { key, t, aberto, motivosAtivos, linhas: 1 + (aberto ? 2+motivosAtivos.length : 0) };
+    });
+    const rowspanCategoria = meta.reduce((soma,m) => soma+m.linhas, 0);
+
+    meta.forEach(({key,t,aberto,motivosAtivos}, mi) => {
+      const status = rejClassificarDia(t.taxa, t.volume);
+      const grupoCell = mi===0 ? `<td class="rej-sticky rej-c-group" rowspan="${rowspanCategoria}"><div>${pulsoEscHtml(cat)}</div></td>` : '';
+      const horaCells = horas.map(h => {
+        const r = t.horas.get(h);
+        const st = r ? rejClassificar(r.failed_rate) : 'none';
+        const v = r ? r.failed_rate : null;
+        return `<td class="rej-hm ${st}" title="${rejFmtHora(h)} · ${REJ_STATUS_LABEL[st]}">${v==null?'—':rejFmtPct(v)}</td>`;
+      }).join('');
+
+      corpo += `<tr class="rej-mach-row">
+        ${grupoCell}
+        <td class="rej-sticky rej-c-mach">
+          <div class="rej-mach-name">
+            <button class="rej-expand" onclick="rejToggleExpand('${pulsoEscHtml(key)}')">${aberto?'▾':'▸'}</button>
+            ${pulsoEscHtml(t.ref.asm_name)}
+          </div>
+          <span class="rej-mach-sub">${pulsoEscHtml(t.ref.asm_account)}${t.ref.layer>1?' · nível '+t.ref.layer:''}</span>
+          <div class="rej-mach-badge-line"><span class="rate" style="color:${status==='none'?'var(--text-muted)':{good:'var(--green)',warn:'var(--amber)',bad:'var(--red)'}[status]}">${rejFmtPct(t.taxa)}</span> · ${rejFmtInt(t.volume)} pcts</div>
+        </td>
+        <td class="rej-sticky rej-c-target">${rejFmtPct(rejTarget())}</td>
+        ${horaCells}
+        <td class="rej-hm day ${status}">${rejFmtPct(t.taxa)}</td>
+      </tr>`;
+
+      const subClass = aberto ? '' : 'rej-hidden';
+      corpo += `<tr class="rej-sub-row ${subClass}">
+        <td class="rej-sticky rej-c-mach">Volume processado</td><td class="rej-sticky rej-c-target">—</td>
+        ${horas.map(h => `<td>${t.horas.has(h)?rejFmtInt(t.horas.get(h).parcel_count):'—'}</td>`).join('')}
+        <td>${rejFmtInt(t.volume)}</td></tr>`;
+      corpo += `<tr class="rej-sub-row ${subClass}">
+        <td class="rej-sticky rej-c-mach">Rejeitos</td><td class="rej-sticky rej-c-target">—</td>
+        ${horas.map(h => `<td>${t.horas.has(h)?rejFmtInt(t.horas.get(h).failed):'—'}</td>`).join('')}
+        <td>${rejFmtInt(t.failed)}</td></tr>`;
+      motivosAtivos.forEach(([mo,total]) => {
+        corpo += `<tr class="rej-sub-row rej-motivo ${subClass}">
+          <td class="rej-sticky rej-c-mach">${pulsoEscHtml(mo)}</td><td class="rej-sticky rej-c-target">—</td>
+          ${horas.map(h => { const r = t.horas.get(h); return `<td>${r&&r[mo]?rejFmtInt(r[mo]):'—'}</td>`; }).join('')}
+          <td>${rejFmtInt(total)}</td></tr>`;
+      });
+    });
+  }
+
+  const cabecalho = horas.map(h => `<th>${rejFmtHora(h)}</th>`).join('');
+  wrap.innerHTML = `<table class="rej-table">
+    <thead><tr>
+      <th class="rej-sticky rej-c-group"></th>
+      <th class="rej-sticky rej-c-mach lbl">Máquina</th>
+      <th class="rej-sticky rej-c-target">Target</th>
+      ${cabecalho}<th class="rej-hm day">Dia</th>
+    </tr></thead><tbody>${corpo}</tbody></table>`;
+}
+function rejToggleExpand(key){
+  if(REJ_STATE.expandidas.has(key)) REJ_STATE.expandidas.delete(key); else REJ_STATE.expandidas.add(key);
+  rejRenderTudo();
+}
+
+/* ── UI — MULTI-SELECT (Categoria/Turno/Status/Motivo) ── */
+const REJ_MULTISELECTS = [
+  { campo:'cat', id:'cat', label:'Categoria', opcoes: () => [...new Set(REJ_STATE.raw.rows.map(r=>r.categoria))].sort().map(v=>({value:v,label:v})) },
+  { campo:'turno', id:'turno', label:'Turno', opcoes: () => [...new Set(REJ_STATE.raw.rows.map(r=>r.turno))].filter(Boolean).sort().map(v=>({value:v,label:v})) },
+  { campo:'status', id:'status', label:'Status', opcoes: () => [{value:'bad',label:'🔴 Crítico'},{value:'warn',label:'🟠 Atenção'},{value:'good',label:'🟢 Normal'}] },
+  { campo:'motivo', id:'motivo', label:'Motivo', opcoes: () => [...REJ_STATE.raw.reasons].sort().map(v=>({value:v,label:v})) },
+];
+function rejRenderMultiSelect(cfg){
+  const btn = document.querySelector(`#rej-msel-${cfg.id} .rej-msel-btn span`);
+  const btnEl = document.querySelector(`#rej-msel-${cfg.id} .rej-msel-btn`);
+  const panel = document.getElementById('rej-msel-'+cfg.id+'-panel');
+  if(!btn || !panel) return;
+  const opcoes = cfg.opcoes();
+  const sel = REJ_STATE.filtros[cfg.campo];
+  const rotulo = !sel.length ? 'Todos' : sel.length<=2 ? sel.map(v=>opcoes.find(o=>o.value===v)?.label||v).join(', ') : `${sel.length} selecionados`;
+  btn.textContent = `${cfg.label}: ${rotulo}`;
+  btnEl.classList.toggle('has-value', sel.length>0);
+  panel.innerHTML = (opcoes.length ? opcoes.map(o => `
+      <label class="rej-msel-opt"><input type="checkbox" value="${pulsoEscHtml(o.value)}" ${sel.includes(o.value)?'checked':''} onchange="rejMselCheck('${cfg.campo}',this)"> ${pulsoEscHtml(o.label)}</label>
+    `).join('') : `<div class="rej-msel-empty">nada pra filtrar ainda</div>`)
+    + (sel.length ? `<div class="rej-msel-actions"><button type="button" onclick="rejMselClear('${cfg.campo}')">Limpar</button></div>` : '');
+}
+function rejRenderTodosMultiSelects(){ REJ_MULTISELECTS.forEach(rejRenderMultiSelect); }
+function rejToggleMsel(id, ev){
+  ev.stopPropagation();
+  const panel = document.getElementById('rej-msel-'+id+'-panel');
+  const abrir = !panel.classList.contains('open');
+  document.querySelectorAll('.rej-msel-panel.open').forEach(p => p.classList.remove('open'));
+  panel.classList.toggle('open', abrir);
+}
+function rejMselCheck(campo, cb){
+  const arr = REJ_STATE.filtros[campo];
+  const i = arr.indexOf(cb.value);
+  if(cb.checked && i===-1) arr.push(cb.value);
+  if(!cb.checked && i!==-1) arr.splice(i,1);
+  rejRenderTudo();
+}
+function rejMselClear(campo){
+  REJ_STATE.filtros[campo] = [];
+  rejRenderTudo();
+}
+let REJ_MSEL_DOC_BOUND = false;
+function rejBindMselDocClose(){
+  if(REJ_MSEL_DOC_BOUND) return;
+  REJ_MSEL_DOC_BOUND = true;
+  document.addEventListener('click', () => document.querySelectorAll('.rej-msel-panel.open').forEach(p => p.classList.remove('open')));
+}
+
+/* ── UI — orquestração ── */
+function rejSetFilter(campo, valor){
+  if(campo==='target') REJ_STATE.filtros.target = parseFloat(valor) || 0;
+  else if(campo==='onlyProblems') REJ_STATE.filtros.onlyProblems = !!valor;
+  else REJ_STATE.filtros[campo] = valor;
+  rejRenderTudo();
+}
+function rejSetTrendModo(modo, el){
+  REJ_STATE.trendModo = modo;
+  document.getElementById('rej-trend-pct').classList.toggle('active', modo==='pct');
+  document.getElementById('rej-trend-qtd').classList.toggle('active', modo==='qtd');
+  rejRenderTudo();
+}
+function rejSetPage(page, el){
+  REJ_STATE.page = page;
+  document.getElementById('rej-tab-tower').classList.toggle('active', page==='tower');
+  document.getElementById('rej-tab-metas').classList.toggle('active', page==='metas');
+  document.getElementById('rej-page-tower').style.display = page==='tower' ? '' : 'none';
+  document.getElementById('rej-page-metas').style.display = page==='metas' ? '' : 'none';
+}
+function rejRenderTudo(){
+  rejBindMselDocClose();
+  const rows = rejFiltrarLinhas();
+  REJ_STATE.rowsFiltradas = rows;
+
+  if(!REJ_STATE.raw.rows.length){
+    document.getElementById('rej-health').innerHTML = `<div class="rej-empty">Sem dados na aba <strong>sorting_exception_pulso</strong> ainda.</div>`;
+    ['rej-kpis','rej-alerts','rej-trend','rej-motivos'].forEach(id => document.getElementById(id).innerHTML = '');
+    document.getElementById('rej-table-wrap').innerHTML = '';
+    document.getElementById('rej-counter').textContent = '—';
+    return;
+  }
+
+  const kpis = rejCalcularKpis(rows);
+  const alertas = rejCalcularAlertas(rows);
+  const motivos = rejCalcularTopMotivos(rows);
+  const series = rejMontarSeries(rows);
+
+  rejRenderHealth(kpis);
+  rejRenderKpis(kpis);
+  rejRenderAlertas(alertas);
+  rejRenderTendencia(series);
+  rejRenderMotivos(rows, motivos);
+  rejRenderMaquinas(rows);
+  rejRenderMetas();
+  rejRenderTodosMultiSelects();
+
+  const totalMaquinas = new Set(REJ_STATE.raw.rows.map(r => r.machKey)).size;
+  const maquinasFiltradas = new Set(rows.map(r => r.machKey)).size;
+  document.getElementById('rej-counter').innerHTML = rows.length
+    ? `<b>${maquinasFiltradas}</b> de ${totalMaquinas} máquinas · ${rejHorasPresentes(rows).length}h`
+    : `nenhuma linha bate com os filtros`;
+  if(!rows.length) document.getElementById('rej-alerts').innerHTML = `<div class="rej-empty">Nenhuma linha bate com os filtros atuais.</div>`;
+}
+
+/* ── VIEW — METAS POR MOTIVO (independente dos filtros do Control Tower —
+   sempre reflete o dia operacional inteiro, agrupado por categoria) ── */
+function rejRenderMetas(){
+  const wrap = document.getElementById('rej-metas-wrap');
+  if(!wrap) return;
+  if(!REJ_STATE.raw.rows.length){ wrap.innerHTML = ''; return; }
+  const categorias = [...new Set(REJ_STATE.raw.rows.map(r => r.categoria))].sort();
+  wrap.innerHTML = categorias.map(cat => {
+    const rowsCat = REJ_STATE.raw.rows.filter(r => r.categoria===cat);
+    const volumeCat = rowsCat.reduce((a,r) => a+(r.parcel_count||0), 0);
+    const linhas = [...REJ_STATE.raw.reasons].sort().map(mo => {
+      const total = rowsCat.reduce((a,r) => a+(r[mo]||0), 0);
+      const taxa = volumeCat ? total/volumeCat*100 : null;
+      const tgt = rejGetTargetMotivo(cat, mo);
+      const st = total>0 ? rejClassificar(taxa, tgt) : 'none';
+      return `<div class="rej-metas-row">
+        <span class="dot-st ${st}"></span>
+        <span class="nm" title="${pulsoEscHtml(mo)}">${pulsoEscHtml(mo)}</span>
+        <span class="hoje ${st}">${total>0 ? rejFmtPct(taxa) : '—'}</span>
+        <span class="tgt-wrap">
+          <input type="number" min="0" max="100" step="0.5" value="${tgt}" onchange="rejMetaTargetChange('${pulsoEscHtml(cat)}','${pulsoEscHtml(mo)}',this.value)">
+          <span>%</span>
+        </span>
+      </div>`;
+    }).join('');
+    return `<div class="rej-metas-cat"><div class="rej-metas-cat-head">${pulsoEscHtml(cat)} <small>${rejFmtInt(volumeCat)} pacotes hoje</small></div>${linhas}</div>`;
+  }).join('');
+}
+function rejMetaTargetChange(cat, mo, valor){
+  rejSetTargetMotivo(cat, mo, parseFloat(valor) || 0);
+  rejRenderMetas();
+  const saved = document.getElementById('rej-metas-saved');
+  saved.classList.add('show');
+  clearTimeout(saved._t);
+  saved._t = setTimeout(() => saved.classList.remove('show'), 1600);
+  if(REJ_STATE.filtros.motivo.includes(mo)) rejRenderTudo();
+}
+
+/* ── COP Boy (Copito do mockup vira o mesmo assistente do resto do site) ── */
+function rejGenerateInsights(){
+  if(!REJ_DATA) return [];
+  const rows = REJ_STATE.rowsFiltradas || [];
+  const kpis = rejCalcularKpis(rows);
+  const alertas = rejCalcularAlertas(rows);
+  const tendencia = rejCalcularTendencia(rows);
+  const motivos = rejCalcularTopMotivos(rows);
+  if(kpis.taxa == null) return [{ icon:'fa-circle-info', html:'Ainda não há volume suficiente no filtro atual pra avaliar a operação.' }];
+
+  const insights = [];
+  const diffPct = rejTarget() ? ((kpis.taxa-rejTarget())/rejTarget()*100) : 0;
+  insights.push({ icon: kpis.status==='good'?'fa-circle-check':'fa-triangle-exclamation',
+    html: kpis.status==='good'
+      ? `A taxa de rejeito está em <strong>${rejFmtPct(kpis.taxa)}</strong>, dentro do target (${rejFmtPct(rejTarget())}).`
+      : `A taxa de rejeito está em <strong>${rejFmtPct(kpis.taxa)}</strong>, ${diffPct>0?Math.abs(diffPct).toFixed(0)+'% acima':'abaixo'} do target de ${rejFmtPct(rejTarget())}.` });
+
+  const piorAlerta = alertas[0];
+  if(piorAlerta){
+    const share = kpis.failed ? (piorAlerta.failed/kpis.failed*100) : 0;
+    insights.push({ icon:'fa-magnifying-glass', html:`<strong>${pulsoEscHtml(piorAlerta.ref.asm_name)}</strong> concentra ${rejFmtPct(share)} dos rejeitos, com taxa de ${rejFmtPct(piorAlerta.taxa)}.` });
+  }
+  const validos = tendencia.filter(p => p.taxa!=null);
+  const pico = validos.length ? validos.reduce((a,b) => b.taxa>a.taxa?b:a) : null;
+  if(pico) insights.push({ icon:'fa-clock', html:`O pico ocorreu em <strong>${rejFmtHora(pico.hora)}</strong>, com taxa de ${rejFmtPct(pico.taxa)}.` });
+  const topMotivo = motivos[0];
+  if(topMotivo) insights.push({ icon:'fa-list', html:`Principal motivo: <strong>${pulsoEscHtml(topMotivo.mo)}</strong> (${rejFmtPct(topMotivo.share)} dos rejeitos).` });
+
+  if(piorAlerta && topMotivo) insights.push({ icon:'fa-lightbulb', html:`Sugestão: verificar a <strong>${pulsoEscHtml(piorAlerta.ref.asm_name)}</strong> e investigar <strong>${pulsoEscHtml(topMotivo.mo)}</strong>${pico?` no período de ${rejFmtHora(pico.hora)}`:''}.` });
+  else if(topMotivo) insights.push({ icon:'fa-lightbulb', html:`Sugestão: investigar <strong>${pulsoEscHtml(topMotivo.mo)}</strong>, motivo dominante do dia.` });
+
+  return insights;
 }
 
 /* ================================================================
