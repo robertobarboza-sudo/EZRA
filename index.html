@@ -3926,10 +3926,10 @@
           <select class="filter-select" id="fq-f-agencia" onchange="filaSetFilter('agencia', this.value)"><option value="">Agência: Todas</option></select>
           <input class="filter-select" type="text" id="fq-f-busca" placeholder="Buscar motorista, placa, viagem…" oninput="filaSetFilter('q', this.value)" style="min-width:200px"/>
           <div class="mon-view-switcher">
-            <div class="mon-view-btn active" data-view="todas" onclick="filaSetView('todas',this)">Todas</div>
-            <div class="mon-view-btn" data-view="fila" onclick="filaSetView('fila',this)">Em Fila</div>
-            <div class="mon-view-btn" data-view="docado" onclick="filaSetView('docado',this)">Docado</div>
-            <div class="mon-view-btn" data-view="finalizado" onclick="filaSetView('finalizado',this)">Finalizado</div>
+            <div class="mon-view-btn active" data-view="todas" onclick="filaSetView('todas')">Todas</div>
+            <div class="mon-view-btn" data-view="fila" onclick="filaSetView('fila')">Em Fila</div>
+            <div class="mon-view-btn" data-view="docado" onclick="filaSetView('docado')">Docado</div>
+            <div class="mon-view-btn" data-view="finalizado" onclick="filaSetView('finalizado')">Finalizado</div>
           </div>
           <div class="mon-toolbar-spacer"></div>
           <button class="mon-now-btn" onclick="filaScrollToNow()"><i class="fas fa-location-crosshairs"></i> AGORA</button>
@@ -8799,11 +8799,16 @@ function filaSetFilter(campo, valor){
   FILA_FILTERS[campo] = valor;
   filaRenderAll();
 }
-function filaSetView(view, el){
+// Sem parâmetro de elemento — chamado tanto pelos botões do toolbar
+// quanto pelos KPIs clicáveis (buildKPIs não dá pra passar `this` fácil
+// no onclickAttr), então sincroniza os botões pelo estado (FILA_VIEW),
+// não por quem disparou o clique. Pedido do Roberto em 2026-08-15.
+function filaSetView(view){
   FILA_VIEW = view;
-  document.querySelectorAll('#inbound-panel-fila .mon-view-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
   filaRenderAll();
+}
+function filaSyncViewButtons(){
+  document.querySelectorAll('#inbound-panel-fila .mon-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === FILA_VIEW));
 }
 function filaToggleAlerts(){
   document.getElementById('fq-alert-panel').classList.toggle('open');
@@ -8823,6 +8828,7 @@ function filaFilteredTrips(){
     if(FILA_VIEW === 'fila' && t.status !== 'Pending' && t.status !== 'Assigned') return false;
     if(FILA_VIEW === 'docado' && t.status !== 'Occupied') return false;
     if(FILA_VIEW === 'finalizado' && t.status !== 'Ended') return false;
+    if(FILA_VIEW === 'threshold' && !(t.outOfThreshold && t.status !== 'Ended')) return false;
     if(busca){
       const hay = `${t.driver} ${t.veiculo} ${t.lhTripNumber} ${t.queueNumber} ${t.agency}`.toLowerCase();
       if(!hay.includes(busca)) return false;
@@ -8837,6 +8843,7 @@ function filaRenderAll(){
   const lastEl = document.getElementById('fq-last');
   if(lastEl) lastEl.textContent = 'Agora: ' + now.toLocaleTimeString('pt-BR') + ' · dia exibido ' + filaFmtDate(FILA_DIA);
 
+  filaSyncViewButtons();
   filaRenderKpis(now);
   filaRenderRows(filaFilteredTrips(), filaPos(now));
   filaRenderAlerts(now);
@@ -8850,12 +8857,20 @@ function filaRenderKpis(now){
   const ativos = FILA_TRIPS.filter(t => t.status!=='Ended' && t.addToQueueD);
   const esperaMedia = ativos.length ? ativos.reduce((s,t) => s + (now - t.addToQueueD)/60000, 0) / ativos.length : null;
 
+  // KPIs clicáveis — cada card filtra a Lineage abaixo (mesmo estado dos
+  // botões Todas/Em Fila/Docado/Finalizado do toolbar) — pedido do
+  // Roberto em 2026-08-15.
   buildKPIs('fq-kpis', [
-    { label:'Na Fila', value: FILA_TRIPS.length, icon:'fa-truck-ramp-box', type:'' },
-    { label:'Em Fila', value: emFila, icon:'fa-hourglass-half', type:'warning' },
-    { label:'Docado', value: docado, icon:'fa-warehouse', type:'info' },
-    { label:'Finalizados', value: finalizado, icon:'fa-circle-check', type:'success' },
-    { label:'Fora do Threshold', value: foraThreshold, icon:'fa-triangle-exclamation', type: foraThreshold?'danger':'success' },
+    { label:'Na Fila', value: FILA_TRIPS.length, icon:'fa-truck-ramp-box', type:'',
+      clickable:true, active: FILA_VIEW==='todas', onclickAttr:"filaSetView('todas')" },
+    { label:'Em Fila', value: emFila, icon:'fa-hourglass-half', type:'warning',
+      clickable:true, active: FILA_VIEW==='fila', onclickAttr:"filaSetView('fila')" },
+    { label:'Docado', value: docado, icon:'fa-warehouse', type:'info',
+      clickable:true, active: FILA_VIEW==='docado', onclickAttr:"filaSetView('docado')" },
+    { label:'Finalizados', value: finalizado, icon:'fa-circle-check', type:'success',
+      clickable:true, active: FILA_VIEW==='finalizado', onclickAttr:"filaSetView('finalizado')" },
+    { label:'Fora do Threshold', value: foraThreshold, icon:'fa-triangle-exclamation', type: foraThreshold?'danger':'success',
+      clickable:true, active: FILA_VIEW==='threshold', onclickAttr:"filaSetView('threshold')" },
     { label:'Espera Média (ativos)', value: filaFmtMin(esperaMedia), icon:'fa-clock', type:'' },
   ]);
 }

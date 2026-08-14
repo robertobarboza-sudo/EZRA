@@ -75,7 +75,16 @@ async function buildFila(req, res) {
   const diasDisponiveis = [...new Set(comDia.map(r => r.__dia))].sort();
   const hojeIso = hojeOperacionalIso();
   const dia = diasDisponiveis.includes(hojeIso) ? hojeIso : (diasDisponiveis[diasDisponiveis.length - 1] || hojeIso);
-  const doDia = comDia.filter(r => r.__dia === dia);
+  // Inclusão (pedido do Roberto em 2026-08-15): quem ainda está ATIVO na
+  // fila (Pending/Assigned/Occupied) aparece sempre, não importa de qual
+  // dia — um carro que entrou ontem e ainda não finalizou (atrasado de
+  // ETA, por exemplo) continua na tela até finalizar a viagem. Só quem
+  // já FINALIZOU (Ended) é que fica restrito ao dia resolvido — senão a
+  // tela acumularia meses de histórico de viagens já encerradas. Isso já
+  // cobre sozinho o caso de "carro do dia seguinte que chega antecipado"
+  // (aparece porque ainda está ativo ou porque seu add_to_queue_time já
+  // cai no dia resolvido).
+  const doDia = comDia.filter(r => r.status !== 'Ended' || r.__dia === dia);
 
   const filas = doDia.map(r => {
     const lhTripNumber = r['lh trip number'] || '';
