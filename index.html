@@ -635,6 +635,16 @@
     .switch-card-name { font-size: 14px; font-weight: 700; color: var(--text); }
     .switch-card-desc { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
     .switch-card-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+    /* Card fino, abaixo dos cards normais (ASM > Qty Mesas Abertas, pedido
+       do Roberto em 2026-08-14) — mesma família visual do .switch-card, só
+       mais baixo (linha única, sem o bloco de acumulado do dia). */
+    .switch-grid-thin { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+    .switch-card-thin {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 9px 20px; box-shadow: var(--shadow); display: flex; align-items: center; gap: 10px;
+    }
+    .switch-card-thin .switch-card-name { font-size: 12px; font-weight: 700; color: var(--text); }
+    .switch-card-thin .switch-card-thin-value { font-size: 18px; font-weight: 800; color: var(--text); margin-left: auto; }
     .switch-status {
       font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
       border-radius: 999px; padding: 3px 10px;
@@ -3270,6 +3280,7 @@
 
       <div class="pulso-coverage" id="asm-coverage"></div>
       <div class="switch-grid" id="asm-zone-cards" style="margin-top:12px"></div>
+      <div class="switch-grid-thin" id="asm-mesas-row" style="margin-top:8px"></div>
 
       <div class="chart-card full" style="margin-top:16px">
         <div class="table-toolbar" style="margin-bottom:0">
@@ -3299,7 +3310,6 @@
               <th class="spr-sortable" onclick="asmSortBy('nivel')" id="asm-th-nivel">Nível <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="asmSortBy('mesa')" id="asm-th-mesa">Mesa <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="asmSortBy('turno')" id="asm-th-turno">Turno <i class="fas fa-sort"></i></th>
-              <th class="spr-sortable" onclick="asmSortBy('lider')" id="asm-th-lider">Líder <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="asmSortBy('scanNumbers')" id="asm-th-scanNumbers">Induções <i class="fas fa-sort"></i></th>
             </tr></thead>
             <tbody id="asm-tbody"></tbody>
@@ -10713,7 +10723,7 @@ async function switchToggle(id, ligado){
 ================================================================ */
 const ASM_STATE = { date: null, hora: null, turno: '', zona: '', nivel: '', mesa: '', tableMode: 'acumulado' };
 const ASM_ZONE_COLORS = { 'ZONA A': '#ee4d2d', 'ZONA B': '#5d8dff', 'ZONA C': '#10b981', 'System Default': '#75809b' };
-const ASM_SORT_COLS = ['colaborador','zona','nivel','mesa','turno','lider','scanNumbers'];
+const ASM_SORT_COLS = ['colaborador','zona','nivel','mesa','turno','scanNumbers'];
 const ASM_SORT = { key: 'scanNumbers', dir: -1 }; // default: maior pro menor
 let ASM_DATA = null;
 let ASM_CHART_VIEW = 'hora'; // 'hora' | 'acumulado' | 'comparativo'
@@ -10932,6 +10942,19 @@ function asmRenderZoneCards(){
   </div>`;
 
   wrap.innerHTML = cardTotalHtml + ASM_DATA.zonas.map(cardParaZona).join('');
+
+  // Qty Mesas Abertas (pedido do Roberto em 2026-08-14) — card fino, numa
+  // linha própria abaixo dos cards de zona. Reusa mesasTotal (mesas
+  // distintas com indução na hora efetiva, já calculado acima) — não existe
+  // um flag de "mesa aberta/fechada" na base, então "aberta" = teve indução
+  // na hora vigente.
+  const mesasRow = document.getElementById('asm-mesas-row');
+  if(mesasRow){
+    mesasRow.innerHTML = `<div class="switch-card-thin">
+      <div class="switch-card-name"><i class="fas fa-table-cells" style="color:var(--orange);margin-right:8px"></i>Qty Mesas Abertas</div>
+      <div class="switch-card-thin-value">${mesasTotal.toLocaleString('pt-BR')}</div>
+    </div>`;
+  }
 }
 
 function asmZonaClick(zona){
@@ -11059,7 +11082,7 @@ function asmRenderTable(){
   }
 
   if(!linhas.length){
-    tbody.innerHTML = emptyRow(7);
+    tbody.innerHTML = emptyRow(6);
     if(footer) footer.textContent = '';
     return;
   }
@@ -11073,7 +11096,6 @@ function asmRenderTable(){
     <td>${pulsoEscHtml(r.nivel||'—')}</td>
     <td>${pulsoEscHtml(r.mesa||'—')}</td>
     <td>${pulsoEscHtml(r.turno||'—')}</td>
-    <td>${pulsoEscHtml(r.lider||'—')}</td>
     <td>${r.scanNumbers.toLocaleString('pt-BR')}</td>
   </tr>`).join('');
   const pager = totalPaginas > 1 ? `<span class="pulso-pager">
