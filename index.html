@@ -627,6 +627,12 @@
     }
     .switch-hint i { color: var(--orange); font-size: 13px; }
     .switch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; }
+    /* Conveyor Performance: 3 colunas fixas (não auto-fit) pra manter as 3
+       linhas de cards sempre estáveis (Packing Total/Esteiras/OBs · Esteira
+       A/B/Termo · OBA-OBB/OBC-ODB/Tintas+TO-Audit+Non-TO), independente da
+       largura da tela — pedido do Roberto em 2026-08-15. */
+    #cnv-group-cards { grid-template-columns: repeat(3, 1fr); }
+    @media(max-width:900px){ #cnv-group-cards { grid-template-columns: 1fr; } }
     .switch-card {
       background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
       padding: 18px 20px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px;
@@ -3655,10 +3661,6 @@
               <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub);font-weight:600">Colaborador
                 <select id="est-colab-input" class="filter-select" onchange="estSetColab(this.value)" style="min-width:220px"><option value="">Selecione um colaborador...</option></select>
               </label>
-            </div>
-            <div class="est-turno-btns" id="est-colab-mode-btns">
-              <button type="button" class="est-turno-btn active" data-mode="acumulado" onclick="estSetColabMode('acumulado')">Acumulado</button>
-              <button type="button" class="est-turno-btn" data-mode="hora" onclick="estSetColabMode('hora')">Hora</button>
             </div>
           </div>
           <div id="est-colab-panel" style="margin-bottom:16px;display:none"></div>
@@ -12356,10 +12358,9 @@ function estToggleFlipAll(){
 
 // Filtro por colaborador — busca em TODAS as linhas de conveyor_pulso do
 // dia (não só de uma bancada), pra achar a produtividade de uma pessoa
-// específica. Botão Acumulado/Hora alterna entre total do dia e
-// detalhamento hora a hora — pedido do Roberto em 2026-08-13.
+// específica. Total acumulado do dia (botão Acumulado/Hora removido a
+// pedido do Roberto em 2026-08-15 — a visão por hora saiu).
 let ESTEIRA_COLAB_SELECIONADO = '';
-let ESTEIRA_COLAB_MODE = 'acumulado';
 function estInitColabSelect(){
   const el = document.getElementById('est-colab-input');
   if(!el) return;
@@ -12371,11 +12372,6 @@ function estSetColab(nome){
   ESTEIRA_COLAB_SELECIONADO = nome;
   estRenderColabPanel();
 }
-function estSetColabMode(mode){
-  ESTEIRA_COLAB_MODE = mode;
-  document.querySelectorAll('#est-colab-mode-btns .est-turno-btn').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
-  estRenderColabPanel();
-}
 function estRenderColabPanel(){
   const panel = document.getElementById('est-colab-panel');
   if(!panel) return;
@@ -12385,22 +12381,10 @@ function estRenderColabPanel(){
   if(!rows.length){ panel.innerHTML = '<div class="switch-hint">Sem dados de produtividade pra esse colaborador hoje.</div>'; return; }
   const grupos = [...new Set(rows.map(r => r.grupo))].join(', ');
   const postos = [...new Set(rows.map(r => r.nomeEstacao).filter(Boolean))].join(', ') || '—';
-  if(ESTEIRA_COLAB_MODE === 'acumulado'){
-    const total = rows.reduce((s,r) => s+r.totalProcessamento, 0);
-    buildKPIs('est-colab-panel', [
-      { label:pulsoEscHtml(ESTEIRA_COLAB_SELECIONADO), value:estFmtInt(total), sub:`${grupos} · posto(s): ${postos}`, delta:'', trend:'up', type:'', icon:'fa-user' },
-    ]);
-  } else {
-    const porHora = new Map();
-    rows.forEach(r => porHora.set(r.hora, (porHora.get(r.hora)||0) + r.totalProcessamento));
-    const horas = [...porHora.keys()].sort((a,b) => a-b);
-    panel.innerHTML = `<div class="table-card full" style="margin-top:4px">
-      <div class="table-toolbar-title">${pulsoEscHtml(ESTEIRA_COLAB_SELECIONADO)} <span style="font-weight:400;color:var(--text-muted)">— ${grupos} · posto(s): ${postos}</span></div>
-      <table><thead><tr><th>Hora</th><th class="num">Pacotes</th></tr></thead><tbody>
-        ${horas.map(h => `<tr><td>${String(h).padStart(2,'0')}h</td><td class="num">${estFmtInt(porHora.get(h))}</td></tr>`).join('')}
-      </tbody></table>
-    </div>`;
-  }
+  const total = rows.reduce((s,r) => s+r.totalProcessamento, 0);
+  buildKPIs('est-colab-panel', [
+    { label:pulsoEscHtml(ESTEIRA_COLAB_SELECIONADO), value:estFmtInt(total), sub:`${grupos} · posto(s): ${postos}`, delta:'', trend:'up', type:'', icon:'fa-user' },
+  ]);
 }
 
 function estFmtInt(n){ return Math.round(n).toLocaleString('pt-BR'); }
@@ -12760,7 +12744,8 @@ function cnvRenderGroupCards(){
     </div>
   </div>`;
 
-  wrap.innerHTML = packingTotalHtml + CONVEYOR_DATA.grupos.map(grupo => {
+  // Card por grupo individual (Esteira A/B, Termoplástica, OBA/OBB, OBC/OBD).
+  const cardGrupo = (grupo) => {
     const rowsGrupo = rows.filter(r => r.grupo === grupo);
     const rowsHora = diaTodo ? rowsGrupo : rowsGrupo.filter(r => r.hora === h);
     const valorHora = rowsHora.reduce((s, r) => s + r.totalProcessamento, 0);
@@ -12794,12 +12779,12 @@ function cnvRenderGroupCards(){
         Acumulado do dia: <strong style="color:var(--text)">${acumuladoDia.toLocaleString('pt-BR')}</strong>${deltaHtml}
       </div>`}
     </div>`;
-  }).join('');
+  };
 
-  // Cards agregados OBs (OBA/OBB + OBC/OBD) e Esteiras (Esteira A + Esteira
-  // B + Termoplástica) — pedido do Roberto em 2026-08-14. Somam grupos já
-  // existentes em CONVEYOR_DATA.grupos, não são filtro clicável (agregado
-  // sintético, sem "grupo" próprio na planilha).
+  // Cards agregados (soma de vários grupos já existentes em
+  // CONVEYOR_DATA.grupos, não são filtro clicável — agregado sintético,
+  // sem "grupo" próprio na planilha). Reaproveitado também pro card
+  // combinado Tintas/TO-Audit/Non-TO (pedido do Roberto em 2026-08-15).
   const cnvAgregado = (nome, icone, gruposAlvo) => {
     const rowsAgregado = rows.filter(r => gruposAlvo.includes(r.grupo));
     const rowsHora = diaTodo ? rowsAgregado : rowsAgregado.filter(r => r.hora === h);
@@ -12816,8 +12801,24 @@ function cnvRenderGroupCards(){
       </div>`}
     </div>`;
   };
-  wrap.innerHTML += cnvAgregado('OBs', 'fa-layer-group', ['OBA/OBB', 'OBC/OBD'])
-    + cnvAgregado('Esteiras', 'fa-conveyor-belt', ['Esteira A', 'Esteira B', 'Termoplástica']);
+
+  // Layout fixo em 3 linhas de 3 (pedido do Roberto em 2026-08-15) — ver
+  // #cnv-group-cards no CSS (grid de 3 colunas, não auto-fit, pra manter
+  // essas linhas estáveis independente da largura da tela):
+  //   L1: Packing Total, Esteiras (agregado), OBs (agregado)
+  //   L2: Esteira A, Esteira B, Termoplástica
+  //   L3: OBA/OBB, OBC/OBD, Tintas+TO-Audit+Non-TO (1 card só)
+  wrap.innerHTML = [
+    packingTotalHtml,
+    cnvAgregado('Esteiras', 'fa-conveyor-belt', ['Esteira A', 'Esteira B', 'Termoplástica']),
+    cnvAgregado('OBs', 'fa-layer-group', ['OBA/OBB', 'OBC/OBD']),
+    cardGrupo('Esteira A'),
+    cardGrupo('Esteira B'),
+    cardGrupo('Termoplástica'),
+    cardGrupo('OBA/OBB'),
+    cardGrupo('OBC/OBD'),
+    cnvAgregado('Tintas / TO-Audit / Non-TO', 'fa-layer-group', ['Tintas', 'TO-Audit', 'Non-TO']),
+  ].join('');
 }
 
 function cnvGrupoClick(grupo){
