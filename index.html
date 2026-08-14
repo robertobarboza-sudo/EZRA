@@ -5350,6 +5350,17 @@ function tvHandleClusterAutoScroll(key){
   else clstAutoScrollStop();
 }
 
+// Liga/desliga a rotação Intersoc/HUB do Monitor - Live conforme a seção/
+// subpágina que o TV Mode está mostrando agora (chamado tanto na entrada
+// simples de 1 seção quanto a cada tick da rotação multi-página do TV Mode
+// Config) — subKey vem undefined na entrada simples, aí usa a subpágina
+// ativa no momento.
+function tvSyncMonitorRotation(sectionKey, subKey){
+  const sub = subKey !== undefined ? subKey : PULSO_ACTIVE_SUBPAGE;
+  if(sectionKey === 'spr' && sub === 'monitor') monTvStart();
+  else monTvStop();
+}
+
 let TV_PRE_MODE_NIGHT = null;
 function tvModeEnter(key){
   if(!TV_MODE_SECTION && !TV_ROTATION) TV_PRE_MODE_NIGHT = isTvNight();
@@ -5363,6 +5374,7 @@ function tvModeEnter(key){
   document.querySelectorAll(`#section-${key} .tv-mode-btn`).forEach(b=>b.classList.add('active'));
   tvcfgApplyPageMode(key);
   tvHandleClusterAutoScroll(key);
+  tvSyncMonitorRotation(key);
   if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
 }
 
@@ -5401,6 +5413,7 @@ function tvRotationStart(items, intervalSec){
     tvcfgApplyPageMode(item.key);
     tvHandleClusterAutoScroll(item.key);
     tvApplySubpage(item.key, item.sub);
+    tvSyncMonitorRotation(item.key, item.sub);
     if(!document.fullscreenElement) document.documentElement.requestFullscreen?.().catch(()=>{});
     TV_ROTATION.currentLabel = item.label;
     TV_ROTATION.nextTickAt = Date.now() + intervalSec * 1000;
@@ -5428,6 +5441,7 @@ function tvRotationStop(){
   TV_ROTATION = null;
   document.getElementById('tv-rotation-badge')?.remove();
   clstAutoScrollStop();
+  monTvStop();
 }
 
 /* ================================================================
@@ -6566,6 +6580,26 @@ function monToggleGroup(){
 function monToggleAlerts(){
   document.getElementById('mon-alert-panel').classList.toggle('open');
 }
+
+// TV Mode do Monitor - Live (pedido do Roberto em 2026-08-14): enquanto o
+// TV Mode estiver aberto nessa aba, trava a view em "Em andamento" e
+// revezada Intersoc/HUB a cada 10s, sem precisar de operador mexendo na
+// tela. Ligado/desligado por tvSyncMonitorRotation (ver bloco de TV MODE).
+let MON_TV_TIMER = null;
+function monTvStart(){
+  if(MON_TV_TIMER) return;
+  const viewBtn = document.querySelector('#pulso-root-monitor .mon-view-btn[data-view="andamento"]');
+  if(viewBtn) monSetView('andamento', viewBtn);
+  MON_TV_TIMER = setInterval(() => {
+    const next = MON_FRONT === 'intersoc' ? 'hub' : 'intersoc';
+    const tab = document.querySelector(`#mon-front-tabs .bkl-tab[data-front="${next}"]`);
+    if(tab) monSetFront(next, tab);
+  }, 10000);
+}
+function monTvStop(){
+  if(MON_TV_TIMER){ clearInterval(MON_TV_TIMER); MON_TV_TIMER = null; }
+}
+
 function monScrollToNow(){
   const wrap = document.querySelector('#pulso-root-monitor .mon-scroll');
   if(!wrap) return;
@@ -6627,23 +6661,57 @@ function monRenderAll(){
   monRenderAlerts(now);
 }
 
+// Card clica -> filtra a timeline pelo mesmo status (reusa o select de
+// Status já existente, em vez de um estado de filtro paralelo). Clicar de
+// novo no card ativo limpa o filtro (pedido do Roberto em 2026-08-14).
+function monCardClick(status){
+  const sel = document.getElementById('mon-f-status');
+  if(!sel) return;
+  sel.value = (sel.value === status) ? '' : status;
+  monRenderAll();
+}
 function monRenderKpis(now){
   const all = monTripsFront().map(t => ({ ...t, ...monDerive(t, now) }));
   const vistoDestino = new Set();
-  let pacotes = 0;
+  const vistoDestinoNome = new Set();
+  let pacotes = 0, packed = 0;
   all.forEach(t => {
     if(t.destino_codigo && !vistoDestino.has(t.destino_codigo)){
       vistoDestino.add(t.destino_codigo);
       pacotes += t.staged_pacotes || 0;
     }
+    if(t.destino && !vistoDestinoNome.has(t.destino)){
+      vistoDestinoNome.add(t.destino);
+      packed += MON_PACKED[t.destino] || 0;
+    }
   });
+  // CPT On Time (pedido do Roberto em 2026-08-14): entre as viagens que já
+  // partiram (ATD preenchido), % que saiu dentro do previsto (ATD <= STD).
+  // ATD depois do STD conta como atraso — mesmo critério do card "% CPT On
+  // Time" do Outbound (ver outboundCptOnTime), só que aqui em cima do STD
+  // em vez do cpt_planejado.
+  const partiram = all.filter(t => t.atdD);
+  const dentroDoPrevisto = partiram.filter(t => t.atdD <= t.stdD);
+  const pctCpt = partiram.length ? Math.round(dentroDoPrevisto.length/partiram.length*100) : 0;
+
+  const statusAtivo = document.getElementById('mon-f-status')?.value || '';
+  const cardStatus = (label, status, icon, type) => ({
+    label, value: all.filter(t=>t.status===status).length, icon,
+    type: statusAtivo===status ? type : '',
+    clickable: true, active: statusAtivo===status, onclickAttr: `monCardClick('${status}')`,
+  });
+
   buildKPIs('mon-kpis', [
-    { label:'Viagens do Dia', value: all.length, icon:'fa-route', type:'' },
-    { label:'Em Operação', value: all.filter(t=>t.status==='Em operação').length, icon:'fa-truck-ramp-box', type:'info' },
-    { label:'Fechamento ≤30 min', value: all.filter(t=>t.status==='Próxima do fechamento').length, icon:'fa-hourglass-half', type:'warning' },
-    { label:'Atrasadas', value: all.filter(t=>t.status==='Atrasada').length, icon:'fa-triangle-exclamation', type:'danger' },
-    { label:'Partidas Realizadas', value: all.filter(t=>t.status==='Realizada').length, icon:'fa-circle-check', type:'success' },
+    { label:'Viagens do Dia', value: all.length, icon:'fa-route', type:'',
+      clickable: true, active: !statusAtivo, onclickAttr: `monCardClick('')` },
+    cardStatus('Em Operação', 'Em operação', 'fa-truck-ramp-box', 'info'),
+    cardStatus('Fechamento ≤30 min', 'Próxima do fechamento', 'fa-hourglass-half', 'warning'),
+    cardStatus('Atrasadas', 'Atrasada', 'fa-triangle-exclamation', 'danger'),
+    cardStatus('Partidas Realizadas', 'Realizada', 'fa-circle-check', 'success'),
     { label:'Pacotes Endereçados', value: pacotes.toLocaleString('pt-BR'), icon:'fa-boxes-stacked', type:'' },
+    { label:'Pacotes Packed', value: packed.toLocaleString('pt-BR'), icon:'fa-box-open', type:'' },
+    { label:'CPT On Time', value: pctCpt+'%', sub: partiram.length+' comparáveis', icon:'fa-gauge-high',
+      type: partiram.length ? (pctCpt>=90?'success':(pctCpt>=75?'warning':'danger')) : '' },
   ]);
 }
 
