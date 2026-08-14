@@ -2236,7 +2236,14 @@
     .rej-empty b{ color:var(--green); }
 
     .rej-trend-wrap{ display:flex; gap:20px; align-items:flex-end; flex-wrap:wrap; }
-    .rej-trend-svg{ flex:1 1 420px; min-width:280px; }
+    /* Altura travada em 280px (mesmo padrão dos gráficos Chart.js do resto
+       do site — LH/FM/Backlog/ASM/Conveyor usam wrapper de 320px) — sem
+       isso o SVG crescia junto com a largura (viewBox preservando aspect
+       ratio) e ficava enorme em telas largas. preserveAspectRatio="none"
+       no <svg> (ver rejRenderTendencia) faz ele esticar exatamente pro
+       box, igual o canvas do Chart.js. Reportado pelo Roberto em 2026-08-14.
+       */
+    .rej-trend-svg{ flex:1 1 420px; min-width:280px; height:280px; }
     .rej-trend-legend{ display:flex; flex-direction:column; gap:8px; font-size:12px; color:var(--text-muted); min-width:190px; max-width:260px; }
     .rej-trend-lg{ display:flex; align-items:center; gap:8px; }
     .rej-trend-sw{ width:16px; height:3px; border-radius:2px; display:inline-block; flex:none; }
@@ -3528,7 +3535,7 @@
             <div id="rej-motivos" style="margin-top:8px"></div>
           </div>
 
-          <div class="table-card full" style="margin-top:16px;padding:0">
+          <div class="table-card full" style="margin-top:16px;padding:0;border:2px solid var(--cyan)">
             <div class="table-toolbar-title" style="padding:16px 16px 0">Investigação detalhada · por máquina <span style="font-weight:400;color:var(--text-muted);font-size:12px">heatmap por hora — clique numa máquina pra ver o detalhe</span></div>
             <div class="rej-table-wrap" id="rej-table-wrap"></div>
             <div style="font-size:11px;color:var(--text-muted);padding:10px 16px">Cada célula é a janela cheia daquela hora (06h = 06:00–07:00). "Dia" recalcula a taxa sobre o total do dia, não é média das horas.</div>
@@ -11763,7 +11770,7 @@ function rejRenderTendencia(series){
 
   wrap.innerHTML = `
     <div class="rej-trend-wrap">
-      <svg class="rej-trend-svg" viewBox="0 0 ${W} ${H}">${targetSvg}${corpoSvg}${xLabels}${yTicks}</svg>
+      <svg class="rej-trend-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">${targetSvg}${corpoSvg}${xLabels}${yTicks}</svg>
       <div class="rej-trend-legend">
         ${series.map(s => {
           const validos = s.pontos.filter(p => p.taxa!=null);
