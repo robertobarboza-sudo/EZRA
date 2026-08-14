@@ -1460,6 +1460,16 @@
     .spr-filter-group { display: flex; align-items: stretch; gap: 6px; flex-wrap: wrap; }
     .spr-period-label { font-size: 11px; color: var(--text-muted); margin-bottom: 16px; }
 
+    /* Painel do card "Transportadoras Ofensoras" (Leftover) */
+    .pulso-ofensoras-panel{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:12px 14px; margin-bottom:16px; }
+    .pulso-ofensoras-title{ font-size:12px; font-weight:700; color:var(--text); margin-bottom:8px; }
+    .pulso-ofensoras-row{ display:flex; align-items:baseline; gap:8px; padding:6px 0; border-top:1px solid var(--border); font-size:12px; }
+    .pulso-ofensoras-row:first-of-type{ border-top:none; }
+    .pulso-ofensoras-nome{ font-weight:600; color:var(--text); min-width:160px; }
+    .pulso-ofensoras-pct{ font-weight:700; color:var(--orange); }
+    .pulso-ofensoras-detalhe{ color:var(--text-muted); }
+    .pulso-ofensoras-empty{ font-size:12px; color:var(--text-muted); padding:6px 0; }
+
     /* Altura única pra tudo na barra de filtros ficar alinhado */
     .spr-filters .bkl-tabs { padding: 3px; height: 34px; box-sizing: border-box; }
     .spr-filters .bkl-tab { height: 100%; box-sizing: border-box; display: flex; align-items: center; padding: 0 16px; }
@@ -6029,9 +6039,12 @@ function pulsoRenderKpis(key, atual, delta){
       // filtra a tabela pros registros que batem com o card (clicar de novo
       // limpa). Cards sem rowFilter (médias, %, totais gerais) não têm um
       // subconjunto de linhas óbvio pra filtrar, então ficam normais.
-      clickable: !!k.rowFilter,
+      // customClick: mesma ideia, mas pra cards cujo clique abre um painel
+      // próprio em vez de filtrar a tabela (ex: Transportadoras Ofensoras
+      // do Leftover) — literal onclick, não passa pelo pulsoCardClick.
+      clickable: !!k.rowFilter || !!k.customClick,
       active: PULSO_ACTIVE_CARD[key] === k.key,
-      onclickAttr: k.rowFilter ? `pulsoCardClick('${key}','${k.key}')` : '',
+      onclickAttr: k.rowFilter ? `pulsoCardClick('${key}','${k.key}')` : (k.customClick || ''),
     };
   });
   buildKPIs('pulso-kpis-'+key, kpis);
@@ -7078,7 +7091,9 @@ pulsoRegister({
     { key:'pctExterno',         label:'% Impacto Externo',     icon:'fa-truck-ramp-box', isPercent:true },
     { key:'pacotesExterno',     label:'Pacotes (Externo)',     icon:'fa-truck-ramp-box', countKey:'registrosExterno', countSuffix:'occ',
       rowFilter: r => { const c = String(r.leftover_until_cap_causa_l1||''); return !c.startsWith('[SOC]') && !c.startsWith('[GOV]'); } },
+    { key:'transportadorasOfensoras', label:'Transportadoras Ofensoras', icon:'fa-truck-field', customClick:'leftoverToggleOfensoras()' },
   ],
+  extraHtml: `<div class="pulso-ofensoras-panel" id="leftover-ofensoras-panel" style="display:none"></div>`,
   table: {
     title: 'Registros de Leftover do período selecionado',
     rowsField: 'leftovers', totalField: 'leftoversTotal',
@@ -7143,6 +7158,35 @@ pulsoRegister({
     return out;
   },
 });
+
+// Painel do card "Transportadoras Ofensoras" (pedido do Roberto em
+// 2026-08-14): lista cada transportadora com leftover no período, % de
+// impacto sobre o total identificado e (pacotes em N viagens realizadas).
+// PULSO_DATA.leftover é a última resposta completa de /api/leftover
+// (guardada pelo motor genérico), já traz porTransportadora pronto.
+function leftoverToggleOfensoras(){
+  const panel = document.getElementById('leftover-ofensoras-panel');
+  if(!panel) return;
+  const abrir = panel.style.display === 'none';
+  panel.style.display = abrir ? '' : 'none';
+  if(abrir) leftoverRenderOfensoras();
+}
+function leftoverRenderOfensoras(){
+  const panel = document.getElementById('leftover-ofensoras-panel');
+  if(!panel) return;
+  const lista = PULSO_DATA['leftover']?.porTransportadora || [];
+  if(!lista.length){
+    panel.innerHTML = `<div class="pulso-ofensoras-empty">Nenhuma transportadora identificada no período (fora da janela de cruzamento com o Outbound).</div>`;
+    return;
+  }
+  panel.innerHTML = `<div class="pulso-ofensoras-title">Transportadoras Ofensoras — leftover do período</div>` +
+    lista.map(t => `
+      <div class="pulso-ofensoras-row">
+        <span class="pulso-ofensoras-nome">${pulsoEscHtml(t.transportadora)}</span>
+        <span class="pulso-ofensoras-pct">${t.pct}%</span>
+        <span class="pulso-ofensoras-detalhe">(${t.pacotes.toLocaleString('pt-BR')} pacotes em ${t.viagensRealizadas.toLocaleString('pt-BR')} viagem${t.viagensRealizadas===1?'':'s'} realizada${t.viagensRealizadas===1?'':'s'})</span>
+      </div>`).join('');
+}
 
 /* ── Outbound — uma página só, modo "hoje" (padrão, fixo no cutoff mais
    recente) ou "histórico" (De/Até escolhidos no calendário) — decidido com
@@ -7849,6 +7893,10 @@ function lhRenderKpis(){
   const atrasadas = realizadas.filter(r => r.atrasoMin > 0);
   const antecipadas = realizadas.filter(r => r.atrasoMin < 0);
   const atrasoMedio = atrasadas.length ? Math.round(atrasadas.reduce((s,r)=>s+r.atrasoMin,0)/atrasadas.length) : 0;
+  // "Fechada" = descarga realizada (pedido do Roberto em 2026-08-14) — usa
+  // r.descarregada (fim_descarga preenchido) em vez de r.realizada
+  // (eta_destino_realizado), que só indica chegada, não descarga concluída.
+  const descarregados = rows.filter(r => r.descarregada);
   const pacotes = rows.reduce((s,r)=>s+r.pacotes,0);
   const tos = rows.reduce((s,r)=>s+r.tos,0);
   const porStatus = k => rows.filter(r=>r.status===k).length;
@@ -7875,7 +7923,7 @@ function lhRenderKpis(){
   buildKPIs('lh-kpis', [
     { label:'Viagens', value:rows.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck' },
     { label:'% On Time', value:pctOnTime+'%', delta:'', trend:'up', type: pctOnTime>=90?'success':(pctOnTime>=75?'warning':'danger'), icon:'fa-clock' },
-    { label:'Atraso Médio (min)', value:atrasoMedio.toLocaleString('pt-BR'), sub:'só viagens atrasadas', delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
+    { label:'Atraso Médio (h)', value:pulsoFmtHoraVirgula(atrasoMedio), sub:'só viagens atrasadas', delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
     { label:'Chegada Antecipada', value:antecipadas.length.toLocaleString('pt-BR'), delta:'', trend:'up',
       type: LH_ACTIVE_CARD==='antecipada'?'info':'', icon:'fa-forward',
       clickable: true, active: LH_ACTIVE_CARD==='antecipada', onclickAttr: `lhCardClick('antecipada')` },
@@ -7883,6 +7931,9 @@ function lhRenderKpis(){
     { label:'Tempo de Descarga (h)', value:pulsoFmtHoraVirgula(mediaCampoMin('tempoDescargaMin')), sub:'Início → Fim Descarga', delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
     { label:'Pacotes Recebidos', value:pacotes.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
     { label:'TOs Recebidos', value:tos.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-clipboard-list' },
+    { label:'Veículos Descarregados', value:descarregados.length.toLocaleString('pt-BR'), sub:'LT fechada (descarga realizada)', delta:'', trend:'up', type:'success', icon:'fa-truck-ramp-box' },
+    { label:'No Prazo', value:onTime.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-circle-check' },
+    { label:'Em Atraso', value:atrasadas.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-triangle-exclamation' },
     cardStatus('canceladas', 'Canceladas', 'CANCELADO', 'fa-ban'),
     cardStatus('noshow', 'No Show', 'NO SHOW', 'fa-user-slash'),
     cardStatus('infrutifera', 'Infrutífera', 'INFRUTÍFERA', 'fa-triangle-exclamation'),
@@ -8112,6 +8163,11 @@ function fmRenderKpis(){
   const tempoDescarga = avg(rows.map(r=>r.tempoDescargaMin));
   const dentroMeta = rows.filter(r=>r.performanceDoca==='Dentro da Meta').length;
   const pctMeta = rows.length ? Math.round(dentroMeta/rows.length*100) : 0;
+  // Em fila = já fez checkin mas ainda não finalizou a descarga (aproximação
+  // — essa base é um monitor de viagens concluídas, não tem um campo de
+  // "ainda docado agora"; pedido do Roberto em 2026-08-14).
+  const emFila = rows.filter(r => r.checkinDriver && !r.finalizacaoJornada);
+  const pacotesEmFila = emFila.reduce((s,r)=>s+r.pacotes,0);
 
   // Médias "por hora" usam só as horas com dado (não /24) — mesmo padrão
   // usado no Backlog. Trocou o card Desvio Médio por esses 3 (pedido do
@@ -8136,6 +8192,8 @@ function fmRenderKpis(){
     { label:'Média de Carros/Hora', value:mediaCarrosHora.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck' },
     { label:'Total de Pacotes Recebidos', value:totalPacotes.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
     { label:'Média de Pacotes/Hora', value:mediaPacotesHora.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-chart-column' },
+    { label:'Veículos em Fila', value:emFila.length.toLocaleString('pt-BR'), sub:'checkin feito, sem finalização', delta:'', trend:'up', type: emFila.length?'warning':'', icon:'fa-truck-field' },
+    { label:'Pacotes em Fila', value:pacotesEmFila.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
   ]);
 }
 
@@ -11700,6 +11758,29 @@ function cnvRenderGroupCards(){
       </div>`}
     </div>`;
   }).join('');
+
+  // Cards agregados OBs (OBA/OBB + OBC/OBD) e Esteiras (Esteira A + Esteira
+  // B + Termoplástica) — pedido do Roberto em 2026-08-14. Somam grupos já
+  // existentes em CONVEYOR_DATA.grupos, não são filtro clicável (agregado
+  // sintético, sem "grupo" próprio na planilha).
+  const cnvAgregado = (nome, icone, gruposAlvo) => {
+    const rowsAgregado = rows.filter(r => gruposAlvo.includes(r.grupo));
+    const rowsHora = diaTodo ? rowsAgregado : rowsAgregado.filter(r => r.hora === h);
+    const valorHora = rowsHora.reduce((s, r) => s + r.totalProcessamento, 0);
+    const acumuladoDia = diaTodo ? valorHora : rowsAgregado.filter(r => r.hora <= h).reduce((s, r) => s + r.totalProcessamento, 0);
+    return `<div class="switch-card">
+      <div class="switch-card-top">
+        <div class="switch-card-name"><i class="fas ${icone}" style="color:var(--orange);margin-right:8px"></i>${nome}</div>
+      </div>
+      <div style="font-size:26px;font-weight:800;color:var(--text)">${valorHora.toLocaleString('pt-BR')}</div>
+      <div class="switch-card-desc">processado ${rotuloHora} · ${gruposAlvo.join(' + ')}</div>
+      ${diaTodo ? '' : `<div style="font-size:11px;color:var(--text-muted);margin-top:2px;padding-top:8px;border-top:1px solid var(--border)">
+        Acumulado do dia: <strong style="color:var(--text)">${acumuladoDia.toLocaleString('pt-BR')}</strong>
+      </div>`}
+    </div>`;
+  };
+  wrap.innerHTML += cnvAgregado('OBs', 'fa-layer-group', ['OBA/OBB', 'OBC/OBD'])
+    + cnvAgregado('Esteiras', 'fa-conveyor-belt', ['Esteira A', 'Esteira B', 'Termoplástica']);
 }
 
 function cnvGrupoClick(grupo){

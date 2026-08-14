@@ -54,6 +54,11 @@ function aggregate(rows) {
     else { pacotesExterno += qtd; registrosExterno++; }
   });
 
+  // Transportadoras ofensoras = transportadoras identificadas (join com
+  // rawdata_out_pulso, ver __transportadora) com pelo menos 1 registro de
+  // leftover no período (pedido do Roberto em 2026-08-14).
+  const transportadorasOfensoras = new Set(rows.map(r => r.__transportadora).filter(Boolean)).size;
+
   return {
     registros,
     destinos,
@@ -66,6 +71,7 @@ function aggregate(rows) {
     pctExterno: pacotesLeftover ? +(pacotesExterno / pacotesLeftover * 100).toFixed(1) : 0,
     pacotesExterno,
     pacotesInconsistencia,
+    transportadorasOfensoras,
   };
 }
 
@@ -89,7 +95,7 @@ module.exports = async (req, res) => {
   const transportadoraDe = r => transportadoraPorChave.get(`${r.hub}|${r.cpt_planejado}`) || null;
 
   const withDate = rows
-    .map(r => ({ ...r, __date: r.data ? new Date(r.data + 'T00:00:00Z') : null }))
+    .map(r => ({ ...r, __date: r.data ? new Date(r.data + 'T00:00:00Z') : null, __transportadora: transportadoraDe(r) }))
     .filter(r => r.__date && !isNaN(r.__date));
 
   const dim = ['day', 'week', 'month'].includes(req.query.dim) ? req.query.dim : 'day';
@@ -128,6 +134,38 @@ module.exports = async (req, res) => {
   const delta = {};
   Object.keys(atual).forEach(k => { delta[k] = pctDelta(atual[k], anterior[k]); });
 
+  // Transportadoras Ofensoras (pedido do Roberto em 2026-08-14): quebra por
+  // transportadora do leftover do período, com % de impacto e quantas
+  // viagens realizadas ela teve no mesmo período (conta via
+  // rawdata_out_pulso, cpt_realizado preenchido + mesma janela de data pelo
+  // cpt_scheduled_origin_edited) — pra dar noção de proporção, não só
+  // volume absoluto de leftover.
+  const viagensRealizadasPorTransportadora = new Map();
+  outRows.forEach(r => {
+    if (!r.used_agency_name || !r.cpt_realizado || !r.cpt_scheduled_origin_edited) return;
+    const d = new Date(String(r.cpt_scheduled_origin_edited).replace(' ', 'T') + 'Z');
+    if (isNaN(d) || d < inicio || d >= fim) return;
+    viagensRealizadasPorTransportadora.set(r.used_agency_name, (viagensRealizadasPorTransportadora.get(r.used_agency_name) || 0) + 1);
+  });
+  const totalPacotesComTransportadora = doPeriodo.reduce((s, r) => s + (r.__transportadora ? toNum(r.leftover_until_cap) : 0), 0);
+  const porTransportadoraMap = new Map();
+  doPeriodo.forEach(r => {
+    if (!r.__transportadora) return;
+    const acc = porTransportadoraMap.get(r.__transportadora) || { pacotes: 0, registros: 0 };
+    acc.pacotes += toNum(r.leftover_until_cap);
+    acc.registros++;
+    porTransportadoraMap.set(r.__transportadora, acc);
+  });
+  const porTransportadora = [...porTransportadoraMap.entries()]
+    .map(([transportadora, acc]) => ({
+      transportadora,
+      pacotes: acc.pacotes,
+      registros: acc.registros,
+      pct: totalPacotesComTransportadora ? +(acc.pacotes / totalPacotesComTransportadora * 100).toFixed(1) : 0,
+      viagensRealizadas: viagensRealizadasPorTransportadora.get(transportadora) || 0,
+    }))
+    .sort((a, b) => b.pacotes - a.pacotes);
+
   const uniq = key => [...new Set(withDate.map(r => r[key]).filter(Boolean))].sort();
 
   // Cobertura real da base (não o período filtrado) — pra avisar até quando os dados vão.
@@ -162,6 +200,7 @@ module.exports = async (req, res) => {
     cobertura: { inicio: fmtDate(dataMinima), fim: fmtDate(dataMaxima) },
     atual, anterior, delta,
     leftovers, leftoversTotal: doPeriodo.length,
+    porTransportadora,
     opcoesFiltro: {
       turno: uniq('turno'),
       type_cpt: uniq('type_cpt'),

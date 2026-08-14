@@ -90,6 +90,10 @@ module.exports = async (req, res) => {
       planejado: r.eta_destino_planejado || '',
       realizado: r.eta_destino_realizado || '',
       realizada: !!r.eta_destino_realizado,
+      // "Fechada" = descarga realizada (pedido do Roberto em 2026-08-14,
+      // substitui o proxy antigo de "realizada" por eta_destino_realizado
+      // pra decidir se a LT já foi atendida) — presença de fim_descarga.
+      descarregada: !!fimDescarga,
       atrasoMin,
       onTime: atrasoMin !== null ? atrasoMin <= 0 : null,
       checkinDestino: r.checkin_destino || '',
