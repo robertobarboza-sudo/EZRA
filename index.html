@@ -3920,8 +3920,8 @@
         <div class="mon-toolbar">
           <select class="filter-select" id="fq-f-status" onchange="filaSetFilter('status', this.value)">
             <option value="">Status: Todos</option>
-            <option value="Pending">Em Fila</option>
-            <option value="Assigned">Atribuído</option>
+            <option value="Pending">Planejado</option>
+            <option value="Assigned">Em andamento</option>
             <option value="Occupied">Docado</option>
             <option value="Ended">Finalizado</option>
           </select>
@@ -3929,7 +3929,8 @@
           <input class="filter-select" type="text" id="fq-f-busca" placeholder="Buscar motorista, placa, viagem…" oninput="filaSetFilter('q', this.value)" style="min-width:200px"/>
           <div class="mon-view-switcher">
             <div class="mon-view-btn active" data-view="todas" onclick="filaSetView('todas')">Todas</div>
-            <div class="mon-view-btn" data-view="fila" onclick="filaSetView('fila')">Em Fila</div>
+            <div class="mon-view-btn" data-view="planejado" onclick="filaSetView('planejado')">Planejado</div>
+            <div class="mon-view-btn" data-view="andamento" onclick="filaSetView('andamento')">Em andamento</div>
             <div class="mon-view-btn" data-view="docado" onclick="filaSetView('docado')">Docado</div>
             <div class="mon-view-btn" data-view="finalizado" onclick="filaSetView('finalizado')">Finalizado</div>
           </div>
@@ -3953,11 +3954,11 @@
             <div class="mon-rows" id="fq-rows"></div>
           </div>
           <div class="mon-legend">
-            <span><i style="background:var(--amber)"></i>Em Fila</span>
-            <span><i style="background:var(--cyan)"></i>Atribuído</span>
-            <span><i style="background:var(--orange)"></i>Docado</span>
+            <span><i style="background:var(--text-muted)"></i>Planejado</span>
+            <span><i style="background:var(--amber)"></i>Em andamento</span>
+            <span><i style="background:var(--cyan)"></i>Docado</span>
             <span><i style="background:var(--green)"></i>Finalizado</span>
-            <span><i style="background:var(--red)"></i>Fora do threshold</span>
+            <span><i style="background:var(--red)"></i>Atrasado</span>
             <span><i style="background:var(--green);border-radius:2px;width:14px"></i>Viagem dentro do prazo</span>
             <span><i style="background:var(--red);border-radius:2px;width:14px"></i>Viagem fora do prazo</span>
           </div>
@@ -8687,19 +8688,34 @@ let FILA_DAY_START = null;
 let FILA_FILTERS = { status:'', agencia:'', q:'' };
 let FILA_VIEW = 'todas';
 let FILA_TICK_STARTED = false;
-const FILA_STATUS_LABEL = { Pending:'Em Fila', Assigned:'Atribuído', Occupied:'Docado', Ended:'Finalizado' };
-const FILA_STATUS_COLOR = { Pending:'var(--amber)', Assigned:'var(--cyan)', Occupied:'var(--orange)', Ended:'var(--green)' };
+let FILA_REFRESH_STARTED = false;
+// Cores pedidas pelo Roberto em 2026-08-16: planejado cinza, em andamento
+// (Assigned) amarelo, docado azul, finalizado verde — "azul" segue o
+// mesmo padrão já usado no PULSO (var(--cyan)).
+const FILA_STATUS_LABEL = { Pending:'Planejado', Assigned:'Em andamento', Occupied:'Docado', Ended:'Finalizado' };
+const FILA_STATUS_COLOR = { Pending:'var(--text-muted)', Assigned:'var(--amber)', Occupied:'var(--cyan)', Ended:'var(--green)' };
 
 function filaRender(){
   if(!FILA_TICK_STARTED){
     FILA_TICK_STARTED = true;
     setInterval(filaTick, 1000);
   }
+  // Refresh de dado de verdade (refetch), separado do tick de 1s acima
+  // que só redesenha com o que já foi buscado — pedido do Roberto em
+  // 2026-08-16 pra garantir a fila sempre atualizada a cada 5min.
+  if(!FILA_REFRESH_STARTED){
+    FILA_REFRESH_STARTED = true;
+    setInterval(filaAutoRefresh, 300000);
+  }
   if(!FILA_DIA) filaLoad(); else filaRenderAll();
 }
 function filaTick(){
   if(INBOUND_SUBPAGE !== 'fila') return;
   filaRenderAll();
+}
+function filaAutoRefresh(){
+  if(INBOUND_SUBPAGE !== 'fila') return;
+  filaLoad();
 }
 
 async function filaLoad(){
@@ -8745,6 +8761,10 @@ function filaFmtMin(min){
 function filaCor(t){
   if(t.outOfThreshold && t.status !== 'Ended') return 'var(--red)';
   return FILA_STATUS_COLOR[t.status] || 'var(--text-muted)';
+}
+function filaStatusLabel(t){
+  if(t.outOfThreshold && t.status !== 'Ended') return 'Atrasado';
+  return FILA_STATUS_LABEL[t.status] || t.status;
 }
 
 // Prazo Desc. = ETA planejado + 1h (tempo médio de descarregamento) —
@@ -8827,10 +8847,11 @@ function filaFilteredTrips(){
   return FILA_TRIPS.filter(t => {
     if(status && t.status !== status) return false;
     if(agencia && t.agency !== agencia) return false;
-    if(FILA_VIEW === 'fila' && t.status !== 'Pending' && t.status !== 'Assigned') return false;
+    if(FILA_VIEW === 'planejado' && t.status !== 'Pending') return false;
+    if(FILA_VIEW === 'andamento' && t.status !== 'Assigned') return false;
     if(FILA_VIEW === 'docado' && t.status !== 'Occupied') return false;
     if(FILA_VIEW === 'finalizado' && t.status !== 'Ended') return false;
-    if(FILA_VIEW === 'threshold' && !(t.outOfThreshold && t.status !== 'Ended')) return false;
+    if(FILA_VIEW === 'atrasado' && !(t.outOfThreshold && t.status !== 'Ended')) return false;
     if(busca){
       const hay = `${t.driver} ${t.veiculo} ${t.lhTripNumber} ${t.queueNumber} ${t.agency}`.toLowerCase();
       if(!hay.includes(busca)) return false;
@@ -8852,27 +8873,32 @@ function filaRenderAll(){
 }
 
 function filaRenderKpis(now){
-  const emFila = FILA_TRIPS.filter(t => t.status==='Pending' || t.status==='Assigned').length;
+  const planejado = FILA_TRIPS.filter(t => t.status==='Pending').length;
+  const andamento = FILA_TRIPS.filter(t => t.status==='Assigned').length;
   const docado = FILA_TRIPS.filter(t => t.status==='Occupied').length;
   const finalizado = FILA_TRIPS.filter(t => t.status==='Ended').length;
-  const foraThreshold = FILA_TRIPS.filter(t => t.outOfThreshold && t.status!=='Ended').length;
+  const atrasado = FILA_TRIPS.filter(t => t.outOfThreshold && t.status!=='Ended').length;
   const ativos = FILA_TRIPS.filter(t => t.status!=='Ended' && t.addToQueueD);
   const esperaMedia = ativos.length ? ativos.reduce((s,t) => s + (now - t.addToQueueD)/60000, 0) / ativos.length : null;
 
   // KPIs clicáveis — cada card filtra a Lineage abaixo (mesmo estado dos
-  // botões Todas/Em Fila/Docado/Finalizado do toolbar) — pedido do
-  // Roberto em 2026-08-15.
+  // botões do toolbar) — pedido do Roberto em 2026-08-15. Status/cores
+  // (Planejado cinza, Em andamento amarelo, Docado azul, Finalizado
+  // verde, Atrasado vermelho) redefinidos a pedido do Roberto em
+  // 2026-08-16.
   buildKPIs('fq-kpis', [
     { label:'Na Fila', value: FILA_TRIPS.length, icon:'fa-truck-ramp-box', type:'',
       clickable:true, active: FILA_VIEW==='todas', onclickAttr:"filaSetView('todas')" },
-    { label:'Em Fila', value: emFila, icon:'fa-hourglass-half', type:'warning',
-      clickable:true, active: FILA_VIEW==='fila', onclickAttr:"filaSetView('fila')" },
+    { label:'Planejado', value: planejado, icon:'fa-clipboard-list', type:'',
+      clickable:true, active: FILA_VIEW==='planejado', onclickAttr:"filaSetView('planejado')" },
+    { label:'Em Andamento', value: andamento, icon:'fa-hourglass-half', type:'warning',
+      clickable:true, active: FILA_VIEW==='andamento', onclickAttr:"filaSetView('andamento')" },
     { label:'Docado', value: docado, icon:'fa-warehouse', type:'info',
       clickable:true, active: FILA_VIEW==='docado', onclickAttr:"filaSetView('docado')" },
     { label:'Finalizados', value: finalizado, icon:'fa-circle-check', type:'success',
       clickable:true, active: FILA_VIEW==='finalizado', onclickAttr:"filaSetView('finalizado')" },
-    { label:'Fora do Threshold', value: foraThreshold, icon:'fa-triangle-exclamation', type: foraThreshold?'danger':'success',
-      clickable:true, active: FILA_VIEW==='threshold', onclickAttr:"filaSetView('threshold')" },
+    { label:'Atrasado', value: atrasado, icon:'fa-triangle-exclamation', type: atrasado?'danger':'success',
+      clickable:true, active: FILA_VIEW==='atrasado', onclickAttr:"filaSetView('atrasado')" },
     { label:'Espera Média (ativos)', value: filaFmtMin(esperaMedia), icon:'fa-clock', type:'' },
   ]);
 }
@@ -8881,7 +8907,7 @@ function filaRowHtml(t, nowLeft){
   const color = filaCor(t);
   const left = filaPos(t.addToQueueD);
   const label = t.lhTripNumber || ('Veículo ' + (t.veiculo || '—'));
-  const statusLabel = FILA_STATUS_LABEL[t.status] || t.status;
+  const statusLabel = filaStatusLabel(t);
   const tip = `Entrada na fila: ${filaFmtHM(t.addToQueueD)} · ${statusLabel}`;
 
   // Barra da Lineage vinda do join com inbound_lh_pulso (só existe quando
