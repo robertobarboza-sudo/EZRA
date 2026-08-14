@@ -240,8 +240,19 @@ module.exports = async (req, res) => {
   // das horas que já passaram — comparar contra o planejado do dia inteiro
   // sempre pareceria "atrasado" de manhã, mesmo no ritmo certo). Horário de
   // Brasília fixo (UTC-3, mesma conta de hojeOperacionalIso em _period.js).
+  //
+  // "Já passou" tem que respeitar a ordem do dia operacional (corte às 6h,
+  // vira a meia-noite) — não a ordem do relógio de 0-23h. Bug corrigido em
+  // 2026-08-14: comparando `r.hora <= horaAgora` cru, de madrugada (ex.
+  // horaAgora=0, ainda dentro do dia operacional que começou às 6h do dia
+  // anterior) `laborAteAgora` só pegava a hora 0 (18h de planejado "perdidas"
+  // do meio pro fim do dia), enquanto o realizado somava o dia inteiro —
+  // pctAtingimento inflava pra milhares de %. Mesma ordenação de
+  // asmHourOrder() em index.html (hora>=6 ? hora-6 : hora+18).
   const horaAgora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours();
-  const laborAteAgora = labor ? labor.rows.filter(r => r.hora <= horaAgora) : [];
+  const ordemHora = h => h >= 6 ? h - 6 : h + 18;
+  const ordemAgora = ordemHora(horaAgora);
+  const laborAteAgora = labor ? labor.rows.filter(r => ordemHora(r.hora) <= ordemAgora) : [];
   const laborAgora = labor && labor.rows.length
     ? (labor.rows.find(r => r.hora === horaAgora) || [...labor.rows].sort((a, b) => Math.abs(a.hora - horaAgora) - Math.abs(b.hora - horaAgora))[0])
     : null;
