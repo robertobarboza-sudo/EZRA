@@ -1,9 +1,11 @@
 /**
- * TEMPORÁRIO — lista as abas (título + gid) de uma planilha nova, pra
- * descobrir a estrutura real antes de configurar o CONFIG de /api/dados.
- * Restrito a IDs conhecidos (nunca aceita spreadsheetId arbitrário via
- * query, pra não virar um scanner de qualquer planilha da Service Account).
- * Remover depois do onboarding.
+ * Lista as abas (título + gid) de uma planilha, e por aba: colunas +
+ * amostra de linhas. Nasceu como ferramenta temporária de onboarding, mas
+ * hoje também alimenta o Grafo de Dados (Mapa de Dados > Grafo de Dados)
+ * — o `?id=...&gid=...` (sem outros parâmetros) é usado ao vivo pra
+ * mostrar colunas + 1 linha de amostra ao clicar num nó. Restrito a IDs
+ * conhecidos (nunca aceita spreadsheetId arbitrário via query, pra não
+ * virar um scanner de qualquer planilha da Service Account).
  */
 const { listTabs, fetchTabByGid, fetchTabRawValues } = require('./_google');
 

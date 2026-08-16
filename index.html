@@ -3159,6 +3159,7 @@
       </div>
       <div class="nav-subgroup" id="navsub-mapadados">
         <div class="nav-subitem active" data-subkey="datamap" onclick="navSidebarSubpage(this,'mapadados','datamap','mapadados')">Mapa de Dados</div>
+        <div class="nav-subitem" data-subkey="datagraph" onclick="navSidebarSubpage(this,'mapadados','datagraph','mapadados')">Grafo de Dados</div>
         <div class="nav-subitem" data-subkey="jarvis" onclick="navSidebarSubpage(this,'mapadados','jarvis','mapadados')">Jarvis</div>
       </div>
       <div class="nav-item" data-section="jornal" data-label="Jornal" onclick="navigateTo('jornal',this)">
@@ -3977,6 +3978,17 @@
       </div>
     </div>
 
+    <!-- Grafo de Dados — detalhe da aba (colunas + amostra transposta) -->
+    <div class="modal-overlay" id="datagraph-detail-overlay" onclick="if(event.target===this) dataGraphCloseDetail()">
+      <div class="modal" style="max-width:560px">
+        <div class="modal-header">
+          <span class="modal-title" id="datagraph-detail-title"><i class="fas fa-table" style="color:var(--orange);margin-right:8px"></i>Aba</span>
+          <button class="modal-close" onclick="dataGraphCloseDetail()"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div id="datagraph-detail-body"></div>
+      </div>
+    </div>
+
     <!-- CLUSTERIZAÇÃO -->
         <section id="section-clusterizacao" class="section">
       <div class="section-header" id="section-clusterizacao-header">
@@ -4738,6 +4750,7 @@
 
       <div class="bkl-tabs" id="mapadados-subpage-tabs" style="margin-bottom:16px">
         <div class="bkl-tab active" id="subtab-datamap" onclick="mapadadosSwitchSubpage('datamap',this)">Mapa de Dados</div>
+        <div class="bkl-tab" id="subtab-datagraph" onclick="mapadadosSwitchSubpage('datagraph',this)">Grafo de Dados</div>
         <div class="bkl-tab" id="subtab-jarvis" onclick="mapadadosSwitchSubpage('jarvis',this)">Jarvis</div>
       </div>
 
@@ -4757,6 +4770,20 @@
         <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
           <button class="btn btn-primary" onclick="addDataEntry()"><i class="fas fa-plus"></i> Adicionar Entrada</button>
         </div>
+      </div>
+
+      <!-- Grafo de Dados — ER/rede de nós das abas da planilha PULSO,
+           agrupadas por área com as chaves de join confirmadas no código
+           das APIs. Clique num nó pra ver colunas + 1 linha de amostra
+           (via /api/debug-meta), transposto (coluna | valor). Pedido do
+           Roberto em 2026-08-16 pra virar o modelo padrão de "mapa de
+           dados/relacionamentos" do site. -->
+      <div id="mapadados-panel-datagraph" style="display:none">
+        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:16px;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-lg)">
+          <span style="font-size:12px;color:var(--text-muted)"><i class="fas fa-circle-info" style="margin-right:6px"></i>Clique num nó pra ver as colunas e uma amostra real da aba.</span>
+          <div id="datagraph-legend" style="display:flex;flex-wrap:wrap;gap:12px;margin-left:auto"></div>
+        </div>
+        <div class="resp-table-wrap" style="overflow:auto;border-radius:var(--radius-lg);background:var(--surface-2);border:1px solid var(--border)" id="datagraph-svg-wrap"></div>
       </div>
 
       <div id="mapadados-panel-jarvis" style="display:none">
@@ -10931,12 +10958,158 @@ function mapadadosSwitchSubpage(key, el){
   document.querySelectorAll('#mapadados-subpage-tabs .bkl-tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('mapadados-panel-datamap').style.display = key==='datamap' ? '' : 'none';
+  document.getElementById('mapadados-panel-datagraph').style.display = key==='datagraph' ? '' : 'none';
   document.getElementById('mapadados-panel-jarvis').style.display = key==='jarvis' ? '' : 'none';
   if(key==='jarvis'){ renderJarvisCatalog(); jarvisCarouselBuildCatalogSlides(); jarvisCarouselRender(); }
+  if(key==='datagraph') dataGraphRender();
 }
 
 function renderMapaDados(){
   buildDataMap('all');
+}
+
+/* ================================================================
+   GRAFO DE DADOS — mapa de nós das abas da planilha PULSO (grafo de
+   dados/ER), agrupadas por área e ligadas pelas chaves de join reais
+   encontradas no código dos endpoints (não inventadas). Clique num nó
+   -> /api/debug-meta?id=...&gid=... traz colunas + 1 linha de amostra,
+   renderizada transposta (coluna | valor). Pedido do Roberto em
+   2026-08-16 pra ser o modelo padrão de mapa de relacionamentos do site.
+================================================================ */
+const DATAGRAPH_SHEET_ID = '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4';
+const DATAGRAPH_AREAS = {
+  inbound:       { label:'Inbound',            color:'var(--cyan)' },
+  outbound:      { label:'Outbound',           color:'var(--orange)' },
+  asmconveyor:   { label:'ASM / Conveyor',     color:'var(--green)' },
+  clusterizacao: { label:'Clusterização',      color:'#a855f7' },
+  planejamento:  { label:'Planejamento',       color:'var(--amber)' },
+  outros:        { label:'Não utilizada ainda', color:'var(--text-muted)' },
+};
+// used:false = aba existe na planilha mas nenhum endpoint do PULSO lê dela
+// hoje (confirmado por ausência do gid em api/*.js) — aparece cinza no
+// grafo mesmo que a área conceitual seja outra (ex.: triagem_pulso é
+// "inbound" mas ainda não tem consumidor).
+const DATAGRAPH_NODES = [
+  { gid:'1485919739', title:'inbound_lh_pulso',        area:'inbound', used:true,  usedBy:'Inbound · Line Haul' },
+  { gid:'1682611336', title:'fila_pulso',                area:'inbound', used:true,  usedBy:'Inbound · Monitor - Fila' },
+  { gid:'1026737209', title:'inbound_fm_pulso',          area:'inbound', used:true,  usedBy:'Inbound · First Mile' },
+  { gid:'1711953035', title:'triagem_pulso',             area:'inbound', used:false, usedBy:'Sem consumidor — Triagem ainda não publica dado' },
+  { gid:'1123528024', title:'docas_pulso',               area:'inbound', used:false, usedBy:'Sem consumidor no momento' },
+  { gid:'360571552',  title:'fmbeep_pulso',               area:'inbound', used:false, usedBy:'Sem consumidor no momento' },
+  { gid:'1776828985', title:'asm_pulso',                  area:'asmconveyor', used:true, usedBy:'ASM Performance' },
+  { gid:'1109902999', title:'sorting_exception_pulso',    area:'asmconveyor', used:true, usedBy:'ASM · Sorting Exception' },
+  { gid:'1013894222', title:'conveyor_pulso',             area:'asmconveyor', used:true, usedBy:'Conveyor · Packing Out ASM / Conveyor' },
+  { gid:'960444672',  title:'balanceamento_pulso',        area:'asmconveyor', used:true, usedBy:'Conveyor · Esteira On-time' },
+  { gid:'0',           title:'rawdata_out_pulso',          area:'outbound', used:true, usedBy:'Outbound + Leftover + Clusterização' },
+  { gid:'352174025',  title:'leftover_hub_pulso',         area:'outbound', used:true, usedBy:'Leftover' },
+  { gid:'1386791246', title:'outbound_monitor_pulso',     area:'outbound', used:true, usedBy:'Outbound · Monitor - Live' },
+  { gid:'1506357496', title:'monitor_tags_pulso',         area:'outbound', used:true, usedBy:'Outbound · Monitor - Live (tags)' },
+  { gid:'1276487267', title:'spr_pulso',                  area:'outbound', used:true, usedBy:'SPR' },
+  { gid:'646168208',  title:'cluster_pulso',              area:'clusterizacao', used:true, usedBy:'Clusterização + Outbound (endereçamento)' },
+  { gid:'1408724077', title:'config',                     area:'clusterizacao', used:true, usedBy:'De-para de rua/doca da Clusterização' },
+  { gid:'202012183',  title:'forecast_backlog_pulso',     area:'planejamento', used:true, usedBy:'Backlog (A-G) + Forecast (H-M)' },
+  { gid:'1065816747', title:'labor_pulso',                area:'planejamento', used:true, usedBy:'Overview · Labor Plan' },
+  { gid:'25033403',   title:'árvore_pulso',                area:'planejamento', used:true, usedBy:'Árvore de KPIs' },
+  { gid:'1457405344', title:'telemetria_pulso',           area:'outros', used:false, usedBy:'Sem consumidor no momento' },
+  { gid:'743265268',  title:'performance_pulso',          area:'outros', used:false, usedBy:'Sem consumidor no momento' },
+  { gid:'1123040881', title:'Sugestão',                   area:'outros', used:false, usedBy:'Planilha de apoio, fora do fluxo do site' },
+  { gid:'1465426311', title:'readme',                     area:'outros', used:false, usedBy:'Documentação da planilha, fora do fluxo do site' },
+];
+// Chaves de join confirmadas no código (não relação especulada).
+const DATAGRAPH_EDGES = [
+  { from:'1682611336', to:'1485919739', label:'LH Trip Number = viagem' },
+  { from:'352174025',  to:'0',          label:'hub+cpt_planejado = destination_station_code+cpt_scheduled_origin_edited' },
+  { from:'646168208',  to:'1408724077', label:'staging area = staging area id' },
+  { from:'1386791246', to:'0',          label:'trip_number' },
+  { from:'1506357496', to:'0',          label:'trip_number' },
+];
+
+let DATAGRAPH_BUILT = false;
+function dataGraphRender(){
+  if(DATAGRAPH_BUILT) return;
+  DATAGRAPH_BUILT = true;
+
+  const legend = document.getElementById('datagraph-legend');
+  if(legend){
+    legend.innerHTML = Object.values(DATAGRAPH_AREAS).map(a =>
+      `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted)"><i style="width:9px;height:9px;border-radius:50%;display:inline-block;background:${a.color}"></i>${pulsoEscHtml(a.label)}</span>`
+    ).join('');
+  }
+
+  const cx = 450, cy = 380, r = 260;
+  const N = DATAGRAPH_NODES.length;
+  const pos = {};
+  DATAGRAPH_NODES.forEach((n, i) => {
+    const ang = -Math.PI/2 + (i / N) * Math.PI * 2;
+    pos[n.gid] = { x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang), cos: Math.cos(ang), sin: Math.sin(ang) };
+  });
+
+  const edgesHtml = DATAGRAPH_EDGES.map(e => {
+    const a = pos[e.from], b = pos[e.to];
+    if(!a || !b) return '';
+    const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
+    const ctrlX = midX + (cx - midX) * 0.35, ctrlY = midY + (cy - midY) * 0.35;
+    return `<path d="M${a.x.toFixed(1)},${a.y.toFixed(1)} Q${ctrlX.toFixed(1)},${ctrlY.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}" fill="none" stroke="var(--text-accent)" stroke-width="1.5" stroke-opacity=".55"><title>${pulsoEscHtml(e.label)}</title></path>`;
+  }).join('');
+
+  const nodesHtml = DATAGRAPH_NODES.map(n => {
+    const p = pos[n.gid];
+    const color = n.used ? DATAGRAPH_AREAS[n.area].color : DATAGRAPH_AREAS.outros.color;
+    let anchor = 'middle', dx = 0, dy = 4;
+    if(p.cos > 0.15){ anchor = 'start'; dx = 14; }
+    else if(p.cos < -0.15){ anchor = 'end'; dx = -14; }
+    else { dy = p.sin > 0 ? 20 : -12; }
+    return `<g class="dg-node" style="cursor:pointer" onclick="dataGraphOpenDetail('${n.gid}')">
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="8" fill="${color}" fill-opacity="${n.used?1:.55}" stroke="var(--surface-2)" stroke-width="2" ${n.used?'':'stroke-dasharray="2,2"'}><title>${pulsoEscHtml(n.title)} — ${pulsoEscHtml(n.usedBy)}</title></circle>
+      <text x="${(p.x+dx).toFixed(1)}" y="${(p.y+dy).toFixed(1)}" text-anchor="${anchor}" font-size="11" fill="var(--text-secondary)">${pulsoEscHtml(n.title)}</text>
+    </g>`;
+  }).join('');
+
+  const wrap = document.getElementById('datagraph-svg-wrap');
+  if(wrap) wrap.innerHTML = `<svg width="900" height="760" style="display:block;margin:0 auto" viewBox="0 0 900 760">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,4"/>
+    ${edgesHtml}
+    ${nodesHtml}
+  </svg>`;
+}
+
+function dataGraphOpenDetail(gid){
+  const node = DATAGRAPH_NODES.find(n => n.gid === gid);
+  const title = document.getElementById('datagraph-detail-title');
+  const body = document.getElementById('datagraph-detail-body');
+  if(title) title.innerHTML = `<i class="fas fa-table" style="color:var(--orange);margin-right:8px"></i>${pulsoEscHtml(node ? node.title : gid)}`;
+  if(body) body.innerHTML = `<div class="mon-empty" style="padding:20px 0">Carregando…</div>`;
+  document.getElementById('datagraph-detail-overlay').classList.add('open');
+
+  fetch(`/api/debug-meta?id=${DATAGRAPH_SHEET_ID}&gid=${gid}`)
+    .then(r => r.json())
+    .then(j => {
+      if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+      if(!body) return;
+      const usedByHtml = node ? `<div style="font-size:12px;color:${node.used?'var(--text-muted)':'var(--amber)'};margin-bottom:14px">${node.used?'<i class="fas fa-circle-check" style="margin-right:5px;color:var(--green)"></i>':'<i class="fas fa-triangle-exclamation" style="margin-right:5px"></i>'}${pulsoEscHtml(node.usedBy)}</div>` : '';
+      if(!j.columns.length || !j.sample.length){
+        body.innerHTML = `${usedByHtml}<div class="mon-empty" style="padding:20px 0">Aba sem linhas de dados no momento (${j.totalRows} linha(s)).</div>`;
+        return;
+      }
+      const amostra = j.sample[0];
+      const rows = j.columns.map(c => {
+        const v = amostra[c];
+        const vTxt = (v === undefined || v === null || v === '') ? '—' : pulsoEscHtml(String(v));
+        return `<tr><td style="font-weight:600">${pulsoEscHtml(c)}</td><td>${vTxt}</td></tr>`;
+      }).join('');
+      body.innerHTML = `${usedByHtml}
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${j.totalRows.toLocaleString('pt-BR')} linha(s) · ${j.columns.length} coluna(s)</div>
+        <div class="resp-table-wrap"><table class="resp-table" style="min-width:0">
+          <thead><tr><th>Coluna</th><th>Exemplo (1ª linha)</th></tr></thead>
+          <tbody>${rows}</tbody>
+        </table></div>`;
+    })
+    .catch(err => {
+      if(body) body.innerHTML = `<div class="mon-empty" style="padding:20px 0">Erro ao carregar: ${pulsoEscHtml(err.message)}</div>`;
+    });
+}
+function dataGraphCloseDetail(){
+  document.getElementById('datagraph-detail-overlay').classList.remove('open');
 }
 
 /* ================================================================
