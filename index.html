@@ -4916,6 +4916,7 @@
         <div class="jornal-tab" onclick="jornalTab('aniversariantes',this)"><i class="fas fa-cake-candles"></i> Aniversariantes</div>
         <div class="jornal-tab" onclick="jornalTab('rh',this)"><i class="fas fa-bullhorn"></i> Avisos de RH</div>
         <div class="jornal-tab" onclick="jornalTab('campanhas',this)"><i class="fas fa-flag"></i> Campanhas</div>
+        <div class="jornal-tab" onclick="jornalTab('informativos',this)"><i class="fas fa-paperclip"></i> Informativos</div>
       </div>
 
       <!-- ── JORNAL SEMANAL (RJ2 News — edições reais em PDF, /jornais) ── -->
@@ -4971,6 +4972,18 @@
           <button class="btn btn-primary" onclick="addCampanha()"><i class="fas fa-plus"></i> Nova Campanha</button>
         </div>
         <div class="campanha-grid" id="campanha-grid"></div>
+      </div>
+
+      <!-- ── INFORMATIVOS (acervo real de pôsteres/avisos em imagem, /informativos) ── -->
+      <div class="jornal-panel" id="jornal-panel-informativos">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px">
+          <div>
+            <div style="font-size:16px;font-weight:700;color:var(--text);margin-bottom:4px">📎 Informativos</div>
+            <div style="font-size:12px;color:var(--text-muted)">Anexos com informações importantes da operação — frequências de rádio, procedimentos, avisos oficiais</div>
+          </div>
+          <button class="btn btn-primary" onclick="informativoAdminModal()"><i class="fas fa-plus"></i> Adicionar Informativo</button>
+        </div>
+        <div class="campanha-grid" id="informativo-grid"></div>
       </div>
 
     </section>
@@ -5068,6 +5081,33 @@
             <li>Salve o PDF da edição como <strong style="color:var(--text)">ANO-WXX.pdf</strong> (ex: <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">2026-W31.pdf</code>) dentro de <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">jornais/</code>.</li>
             <li>Adicione a edição em <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">jornais/manifest.json</code> (semana, ano e arquivo).</li>
             <li>Publique — a nova edição aparece aqui automaticamente.</li>
+          </ol>
+          <p style="font-size:12px;color:var(--text-muted)">O envio direto por upload nesta tela vai ser habilitado junto com o controle de acesso admin.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visualizador de Informativo — tela cheia, mesma casca do jrn-viewer-full -->
+    <div class="jrn-viewer-full" id="informativo-viewer-overlay">
+      <button class="jrn-viewer-close" onclick="informativoCloseViewer()" title="Fechar (Esc)"><i class="fas fa-xmark"></i></button>
+      <div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;padding:30px;box-sizing:border-box">
+        <img id="informativo-viewer-img" style="max-width:100%;max-height:100%;object-fit:contain;border-radius:8px" alt=""/>
+      </div>
+    </div>
+
+    <!-- Adicionar informativo (admin) -->
+    <div class="modal-overlay" id="informativo-admin-overlay" onclick="if(event.target===this) this.classList.remove('open')">
+      <div class="modal" style="max-width:520px">
+        <div class="modal-header">
+          <span class="modal-title"><i class="fas fa-paperclip" style="color:var(--orange);margin-right:8px"></i>Adicionar Informativo</span>
+          <button class="modal-close" onclick="document.getElementById('informativo-admin-overlay').classList.remove('open')"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div style="font-size:13px;color:var(--text-sub);line-height:1.7">
+          <p style="margin-bottom:10px">Os informativos ficam na pasta <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">informativos/</code> do site:</p>
+          <ol style="margin:0 0 12px 18px">
+            <li>Salve a imagem/pôster dentro de <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">informativos/</code>.</li>
+            <li>Adicione a entrada em <code style="background:var(--surface-2);padding:2px 6px;border-radius:4px">informativos/manifest.json</code> (título, categoria, data e arquivo).</li>
+            <li>Publique — o novo informativo aparece aqui automaticamente.</li>
           </ol>
           <p style="font-size:12px;color:var(--text-muted)">O envio direto por upload nesta tela vai ser habilitado junto com o controle de acesso admin.</p>
         </div>
@@ -11607,6 +11647,7 @@ function renderJornal(){
   buildAniversariantes();
   buildAvisos();
   buildCampanhas();
+  buildInformativos();
   setJornalDates();
 }
 
@@ -13968,10 +14009,76 @@ function jornalCloseViewer(){
 
 document.addEventListener('keydown', e => {
   if(e.key === 'Escape' && document.getElementById('jrn-viewer-overlay')?.classList.contains('open')) jornalCloseViewer();
+  if(e.key === 'Escape' && document.getElementById('informativo-viewer-overlay')?.classList.contains('open')) informativoCloseViewer();
 });
 
 function jornalAdminModal(){
   document.getElementById('jrn-admin-overlay').classList.add('open');
+}
+
+/* ── Informativos — acervo real de pôsteres/avisos em imagem (/informativos),
+   mesmo padrão do Jornal Semanal: imagem entra em informativos/ + registro em
+   informativos/manifest.json (ver modal "Adicionar Informativo"). */
+let INFORMATIVOS = null;
+let INFORMATIVOS_SORTED = [];
+
+async function buildInformativos(){
+  const grid = document.getElementById('informativo-grid');
+  if(!grid) return;
+
+  if(!INFORMATIVOS){
+    try{
+      const r = await fetch('/informativos/manifest.json', { cache:'no-store' });
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      INFORMATIVOS = (await r.json()).informativos || [];
+    }catch(err){
+      grid.innerHTML = `<div style="grid-column:1/-1;color:var(--text-muted);font-size:13px;padding:40px;text-align:center">Não foi possível carregar os informativos.</div>`;
+      return;
+    }
+  }
+
+  INFORMATIVOS_SORTED = [...INFORMATIVOS].sort((a,b) => (b.data||'').localeCompare(a.data||''));
+
+  if(!INFORMATIVOS_SORTED.length){
+    grid.innerHTML = `<div style="grid-column:1/-1;color:var(--text-muted);font-size:13px;padding:40px;text-align:center">
+      <i class="fas fa-paperclip" style="font-size:32px;display:block;margin-bottom:12px;opacity:.3"></i>
+      Nenhum informativo publicado ainda. Clique em "Adicionar Informativo" pra ver como incluir.
+    </div>`;
+    return;
+  }
+
+  grid.innerHTML = INFORMATIVOS_SORTED.map((inf, i) => `
+    <div class="campanha-card">
+      <div class="campanha-thumb" onclick="informativoOpen(${i})">
+        <img src="${inf.arquivo}" alt="${pulsoEscHtml(inf.titulo)}"/>
+        <div class="campanha-thumb-overlay">
+          <span style="color:#fff;font-size:12px;font-weight:700"><i class="fas fa-expand"></i> Ver completo</span>
+        </div>
+      </div>
+      <div class="campanha-body">
+        <div class="campanha-tag">${pulsoEscHtml(inf.categoria || 'Informativo')}</div>
+        <div class="campanha-title" style="cursor:pointer" onclick="informativoOpen(${i})">${pulsoEscHtml(inf.titulo)}</div>
+      </div>
+      <div class="campanha-footer">
+        <span>${inf.data ? new Date(inf.data+'T00:00:00').toLocaleDateString('pt-BR') : ''}</span>
+      </div>
+    </div>`).join('');
+}
+
+function informativoOpen(i){
+  const inf = INFORMATIVOS_SORTED[i];
+  if(!inf) return;
+  const img = document.getElementById('informativo-viewer-img');
+  img.src = inf.arquivo;
+  img.alt = inf.titulo;
+  document.getElementById('informativo-viewer-overlay').classList.add('open');
+}
+function informativoCloseViewer(){
+  document.getElementById('informativo-viewer-overlay').classList.remove('open');
+  document.getElementById('informativo-viewer-img').src = '';
+}
+function informativoAdminModal(){
+  document.getElementById('informativo-admin-overlay').classList.add('open');
 }
 
 /* ── Aniversariantes ── */
