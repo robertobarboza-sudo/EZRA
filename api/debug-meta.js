@@ -46,7 +46,9 @@ module.exports = async (req, res) => {
     }
     if (req.query.gid !== undefined && req.query.raw !== undefined) {
       const { title, values } = await fetchTabRawValues(id, req.query.gid);
-      res.status(200).json({ ok: true, title, totalRows: values.length, sample: values.slice(0, 15) });
+      const from = Math.max(0, parseInt(req.query.rawFrom, 10) || 0);
+      const count = Math.min(5000, Math.max(1, parseInt(req.query.rawCount, 10) || 15));
+      res.status(200).json({ ok: true, title, totalRows: values.length, sample: values.slice(from, from + count) });
       return;
     }
     // freshCol=coluna -> maior timestamp válido encontrado na coluna, entre
