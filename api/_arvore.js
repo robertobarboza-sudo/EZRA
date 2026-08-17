@@ -372,7 +372,7 @@ async function buildArvore() {
 
   return {
     meta: {
-      fonte: 'árvore_pulso',
+      fonte: 'ÁRVORE_INPUT',
       lastRealDate,
       refWeeks,
       atualizadoEm: new Date().toISOString(),

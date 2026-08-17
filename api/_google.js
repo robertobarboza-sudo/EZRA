@@ -110,6 +110,16 @@ async function resolveTabTitle(token, spreadsheetId, gid) {
   return sheet.properties.title;
 }
 
+// Wrapper público de resolveTabTitle — pro código que escreve numa aba
+// própria (hoje só monitor_tags_pulso, ver api/outbound.js) resolver o
+// título ATUAL pelo gid em vez de fixar o nome numa string, e não quebrar
+// se a aba for renomeada (pedido do Roberto em 2026-08-17, planilha
+// passando por reorganização de nomes). Usa o mesmo cache de 10min.
+async function resolveTitle(spreadsheetId, gid) {
+  const token = await getAccessToken();
+  return resolveTabTitle(token, spreadsheetId, gid);
+}
+
 // Lista as abas (título + gid) de uma planilha — usado só pra onboarding manual
 // de novas planilhas, nunca chamado pelo front-end.
 async function listTabs(spreadsheetId) {
@@ -243,4 +253,4 @@ async function ensureSheetExists(spreadsheetId, title) {
   }
 }
 
-module.exports = { fetchTabByGid, fetchTabRawValues, fetchTabFormatting, listTabs, readRange, writeRange, batchUpdateValues, ensureSheetExists };
+module.exports = { fetchTabByGid, fetchTabRawValues, fetchTabFormatting, resolveTitle, listTabs, readRange, writeRange, batchUpdateValues, ensureSheetExists };

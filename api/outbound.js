@@ -19,7 +19,7 @@
  *   destino, agencia, veiculo   listas separadas por vírgula
  *   q                        busca livre em lh_trips
  */
-const { fetchTabByGid, readRange, writeRange, ensureSheetExists } = require('./_google');
+const { fetchTabByGid, readRange, writeRange, ensureSheetExists, resolveTitle } = require('./_google');
 const { parseCSV, hojeOperacionalIso, dataOperacionalDe, toNum } = require('./_period');
 const { enrich, pertenceAoTurno, aggregate, toCarroRow } = require('./_outbound');
 
@@ -187,7 +187,13 @@ async function buildEnderecamentoPorDestino() {
 // trip_number; expira sozinha 10 dias sem nenhuma atividade (tag OU
 // snapshot) — TTL ancorado em `atualizado_em`, não mais em `criado_em`
 // (provisório até a feature de login definir o "perfil" de quem marcou).
-const TAGS_TAB_TITLE = 'monitor_tags_pulso';
+//
+// Título resolvido pelo GID (não fixo em string) — a planilha está sendo
+// reorganizada (pedido do Roberto em 2026-08-17: monitor_tags_pulso vai
+// virar MONITOR_TAGS_INPUT) e esse é o único lugar do projeto que
+// dependia do nome da aba em vez do gid pra montar range. Resolver por
+// gid sobrevive ao rename sem precisar tocar no código de novo.
+const TAGS_TAB_GID = '1506357496';
 // `transportadora` no fim de propósito (pedido do Roberto em 2026-08-14,
 // depois da aba já ter registros reais gravados): inserir no meio
 // deslocaria a posição de todas as colunas seguintes, corrompendo a
@@ -202,8 +208,24 @@ const TAGS_HEADER = [
   'atd', 'to_atd', 'pacotes_atd', 'packed_atd',
   'atualizado_em', 'transportadora',
 ];
-const TAGS_RANGE = `'${TAGS_TAB_TITLE}'!A:${String.fromCharCode(64 + TAGS_HEADER.length)}`;
 const TAGS_TTL_MS = 10 * 24 * 60 * 60 * 1000;
+
+// Resolve o título atual da aba pelo gid; se ela ainda não existir (feature
+// nunca usada nessa planilha), cria com o nome padrão e passa a resolver
+// por gid dali em diante — cobre tanto o primeiro uso quanto um rename
+// futuro sem precisar mexer no código de novo.
+async function tagsTitle() {
+  try {
+    return await resolveTitle(MONITOR_SHEET.spreadsheetId, TAGS_TAB_GID);
+  } catch (err) {
+    await ensureSheetExists(MONITOR_SHEET.spreadsheetId, 'monitor_tags_pulso');
+    return 'monitor_tags_pulso';
+  }
+}
+async function tagsRange() {
+  const title = await tagsTitle();
+  return `'${title}'!A:${String.fromCharCode(64 + TAGS_HEADER.length)}`;
+}
 
 function linhaParaRegistro(r) {
   const o = {};
@@ -220,7 +242,7 @@ function registroParaLinha(o) {
 async function readMonitorRegistros() {
   let values;
   try {
-    values = await readRange(MONITOR_SHEET.spreadsheetId, TAGS_RANGE);
+    values = await readRange(MONITOR_SHEET.spreadsheetId, await tagsRange());
   } catch (err) {
     return [];
   }
@@ -231,7 +253,7 @@ async function readMonitorRegistros() {
 }
 async function writeMonitorRegistros(registros) {
   const values = [TAGS_HEADER, ...registros.map(registroParaLinha)];
-  await writeRange(MONITOR_SHEET.spreadsheetId, TAGS_RANGE, values);
+  await writeRange(MONITOR_SHEET.spreadsheetId, await tagsRange(), values);
 }
 
 // POST /api/outbound?monitor=1&tag=1  body: { trip_number, tag, usuario }
@@ -247,7 +269,6 @@ async function handleTagWrite(req, res) {
     return;
   }
   try {
-    await ensureSheetExists(MONITOR_SHEET.spreadsheetId, TAGS_TAB_TITLE);
     const atuais = await readMonitorRegistros();
     const existente = atuais.find(r => r.trip_number === trip_number);
     const atualizado = {
@@ -276,7 +297,6 @@ async function handleTagWrite(req, res) {
 // volta na planilha quando alguma viagem realmente precisa de snapshot
 // novo, pra não gastar a cota de escrita a cada refresh à toa.
 async function syncMonitorSnapshots(viagens, packedPorDestino) {
-  await ensureSheetExists(MONITOR_SHEET.spreadsheetId, TAGS_TAB_TITLE);
   const atuais = await readMonitorRegistros();
   const porTrip = new Map(atuais.map(r => [r.trip_number, r]));
   let mudou = false;
