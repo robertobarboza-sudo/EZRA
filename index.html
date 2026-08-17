@@ -4790,12 +4790,21 @@
            amostra (mesma inspeção de antes). -->
       <div id="mapadados-panel-datagraph" style="display:none">
         <div id="datagraph-kpis" style="margin-bottom:16px"></div>
-        <div class="resp-table-wrap"><table class="resp-table" id="datagraph-table">
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:12px">
+          <div class="mon-view-switcher" id="datagraph-view-toggle">
+            <div class="mon-view-btn dg-view-btn active" data-view="table" onclick="dataGraphSwitchView('table')"><i class="fas fa-table-list" style="margin-right:5px"></i>Tabela</div>
+            <div class="mon-view-btn dg-view-btn" data-view="web" onclick="dataGraphSwitchView('web')"><i class="fas fa-circle-nodes" style="margin-right:5px"></i>Teia</div>
+          </div>
+          <span style="font-size:11px;color:var(--text-muted)"><i class="fas fa-hand-pointer" style="margin-right:5px"></i>Clique em Área, Fonte ou Status pra filtrar</span>
+          <div id="datagraph-filter-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-left:auto"></div>
+        </div>
+        <div class="resp-table-wrap" id="datagraph-table-wrap"><table class="resp-table" id="datagraph-table">
           <thead><tr>
-            <th>Aba</th><th>Área</th><th>Fonte</th><th>Cadência esperada</th><th>Última atualização</th><th>Status</th>
+            <th>Aba</th><th>Área</th><th>Fonte</th><th>Última atualização</th><th>Status</th>
           </tr></thead>
           <tbody id="datagraph-tbody"></tbody>
         </table></div>
+        <div id="datagraph-web-wrap" style="display:none;overflow:auto;border-radius:var(--radius-lg);background:var(--surface-2);border:1px solid var(--border);padding:10px"></div>
       </div>
 
       <div id="mapadados-panel-jarvis" style="display:none">
@@ -10983,14 +10992,22 @@ function renderMapaDados(){
 /* ================================================================
    GRAFO DE DADOS — monitor de saúde das abas da planilha PULSO: quando
    cada uma recebeu dado pela última vez e se está dentro da cadência
-   esperada. Reformulado do zero a pedido do Roberto em 2026-08-16 (a
-   versão anterior era um grafo de nós/ER — essa é um monitor de
-   atualização, no template de cores do site, sem visual próprio).
-   "Última atualização" = maior timestamp encontrado na coluna de
-   referência de cada aba, via /api/debug-meta?freshCol=... — o Sheets
-   API não expõe "última edição" por aba (só por planilha inteira), então
-   usamos o dado em si como proxy: a data/hora mais recente já registrada
-   é a melhor evidência de quando a aba recebeu input de verdade.
+   esperada. "Última atualização" = maior timestamp encontrado na coluna
+   de referência de cada aba, via /api/debug-meta?freshCol=... — o Sheets
+   API não expõe "última edição" por aba (só por planilha inteira), e a
+   aba readme (fonte da legenda de cores abaixo) também não guarda um
+   valor de cadência em texto, só a cor da categoria — então usamos o
+   dado em si como proxy: a data/hora mais recente já registrada é a
+   melhor evidência de quando a aba recebeu input de verdade.
+
+   Categorias (FLAG) confirmadas via cor de fundo real da aba `readme`
+   (lida com fetchTabFormatting, /api/debug-meta?format=1) e validadas
+   com o Roberto em 2026-08-16 — não são mais rascunho:
+   cinza=config editável, azul=histórico/SQL Data Suite (lote),
+   vermelho=on time/API (tempo real), laranja=input manual.
+   Rosa (Base Externa) existe na legenda mas nenhuma aba do PULSO usa —
+   é só do workflow SCORECARD (planilha externa, fora do escopo aqui).
+   inbound_fm_pulso não aparece na aba readme — flag fica "indefinida".
 ================================================================ */
 const DATAGRAPH_SHEET_ID = '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4';
 const DATAGRAPH_AREAS = {
@@ -11001,46 +11018,50 @@ const DATAGRAPH_AREAS = {
   planejamento:  { label:'Planejamento',       color:'var(--amber)' },
   outros:        { label:'Não utilizada ainda', color:'var(--text-muted)' },
 };
-// source: RASCUNHO a confirmar com o Roberto (2026-08-16) — o código só
-// sabe LER a planilha, não sabe COMO cada aba é preenchida. api =
-// alimentada por integração/API automática (cadência ~5min, conforme o
-// Roberto descreveu); manual = preenchida por e-mail do Data Suite
-// (cadência diária/sob demanda, mesmo padrão "backoffice" já usado no
-// catálogo Jarvis). AJUSTAR se algo estiver errado.
-const DATAGRAPH_SOURCE_META = {
-  api:    { label:'On-Time · via API',          icon:'fa-bolt',          badge:'ok' },
-  manual: { label:'Manual · e-mail Data Suite', icon:'fa-envelope',      badge:'neutral' },
-  none:   { label:'Sem alimentação ativa',      icon:'fa-circle-minus',  badge:'muted' },
+// Cores reais da aba readme (não são semânticas de status — são a
+// categoria/origem do dado, igual à legenda que o Roberto usa lá).
+const DATAGRAPH_FLAG_META = {
+  config:    { label:'Configuração, editável',    color:'#9e9e9e' },
+  historico: { label:'Histórico · SQL Data Suite', color:'#3c78d8' },
+  ontime:    { label:'On time · API',              color:'#e06666' },
+  manual:    { label:'Input Manual',               color:'#e69138' },
+  externa:   { label:'Base Externa',               color:'#c27ba0' },
+  indef:     { label:'Não documentada no readme',  color:'var(--text-muted)' },
 };
-// freshCol = coluna de timestamp usada como proxy de "última atualização"
-// (confirmada via debug-meta, não chutada) — null quando a aba não tem
-// uma coluna de data/hora confiável pra isso (ex.: config, planejamento).
-// dayGranularity = coluna só tem DATA (sem hora), status compara por dia.
 const DATAGRAPH_NODES = [
-  { gid:'1485919739', title:'inbound_lh_pulso',     area:'inbound',      used:true,  usedBy:'Inbound · Line Haul',                     source:'api', cadenceLabel:'~5 min', freshCol:'checkin_destino' },
-  { gid:'1682611336', title:'fila_pulso',            area:'inbound',      used:true,  usedBy:'Inbound · Monitor - Fila',                source:'api', cadenceLabel:'~5 min', freshCol:'add to queue time' },
-  { gid:'1026737209', title:'inbound_fm_pulso',      area:'inbound',      used:true,  usedBy:'Inbound · First Mile',                    source:'api', cadenceLabel:'~5 min', freshCol:'checkin_driver' },
-  { gid:'1711953035', title:'triagem_pulso',         area:'inbound',      used:false, usedBy:'Sem consumidor — Triagem ainda não publica dado', source:'none', cadenceLabel:'—', freshCol:null },
-  { gid:'1123528024', title:'docas_pulso',           area:'inbound',      used:false, usedBy:'Sem consumidor no momento',               source:'none', cadenceLabel:'—', freshCol:null },
-  { gid:'360571552',  title:'fmbeep_pulso',          area:'inbound',      used:false, usedBy:'Sem consumidor no momento',               source:'none', cadenceLabel:'—', freshCol:null },
-  { gid:'1776828985', title:'asm_pulso',             area:'asmconveyor',  used:true,  usedBy:'ASM Performance',                          source:'api', cadenceLabel:'~5 min', freshCol:'actual_sort_time' },
-  { gid:'1109902999', title:'sorting_exception_pulso', area:'asmconveyor', used:true, usedBy:'ASM · Sorting Exception',                  source:'api', cadenceLabel:'~5 min', freshCol:null },
-  { gid:'1013894222', title:'conveyor_pulso',        area:'asmconveyor',  used:true,  usedBy:'Conveyor · Packing Out ASM / Conveyor',    source:'api', cadenceLabel:'~5 min', freshCol:'data extração' },
-  { gid:'960444672',  title:'balanceamento_pulso',   area:'asmconveyor',  used:true,  usedBy:'Conveyor · Esteira On-time',               source:'api', cadenceLabel:'~5 min', freshCol:'data_ajustada', dayGranularity:true },
-  { gid:'0',           title:'rawdata_out_pulso',     area:'outbound',     used:true,  usedBy:'Outbound + Leftover + Clusterização',      source:'api', cadenceLabel:'~5 min', freshCol:'cpt_realizado' },
-  { gid:'352174025',  title:'leftover_hub_pulso',    area:'outbound',     used:true,  usedBy:'Leftover',                                 source:'api', cadenceLabel:'~5 min', freshCol:'data', dayGranularity:true },
-  { gid:'1386791246', title:'outbound_monitor_pulso', area:'outbound',    used:true,  usedBy:'Outbound · Monitor - Live',                source:'api', cadenceLabel:'~5 min', freshCol:'atd' },
-  { gid:'1506357496', title:'monitor_tags_pulso',    area:'outbound',     used:true,  usedBy:'Outbound · Monitor - Live (tags)',         source:'api', cadenceLabel:'~5 min', freshCol:'atualizado_em' },
-  { gid:'1276487267', title:'spr_pulso',             area:'outbound',     used:true,  usedBy:'SPR',                                      source:'api', cadenceLabel:'~5 min', freshCol:'cutoff_date', dayGranularity:true },
-  { gid:'646168208',  title:'cluster_pulso',         area:'clusterizacao', used:true, usedBy:'Clusterização + Outbound (endereçamento)', source:'api', cadenceLabel:'~5 min', freshCol:'create time' },
-  { gid:'1408724077', title:'config',                area:'clusterizacao', used:true, usedBy:'De-para de rua/doca da Clusterização',    source:'manual', cadenceLabel:'Sob demanda', freshCol:null },
-  { gid:'202012183',  title:'forecast_backlog_pulso', area:'planejamento', used:true, usedBy:'Backlog (A-G) + Forecast (H-M)',           source:'api', cadenceLabel:'~5 min', freshCol:'snapshot_hora' },
-  { gid:'1065816747', title:'labor_pulso',           area:'planejamento', used:true,  usedBy:'Overview · Labor Plan',                    source:'manual', cadenceLabel:'Diário', freshCol:null },
-  { gid:'25033403',   title:'árvore_pulso',          area:'planejamento', used:true,  usedBy:'Árvore de KPIs',                           source:'manual', cadenceLabel:'Diário', freshCol:null },
-  { gid:'1457405344', title:'telemetria_pulso',      area:'outros',       used:false, usedBy:'Sem consumidor no momento',                source:'none', cadenceLabel:'—', freshCol:null },
-  { gid:'743265268',  title:'performance_pulso',     area:'outros',       used:false, usedBy:'Sem consumidor no momento',                source:'none', cadenceLabel:'—', freshCol:null },
-  { gid:'1123040881', title:'Sugestão',              area:'outros',       used:false, usedBy:'Planilha de apoio, fora do fluxo do site', source:'none', cadenceLabel:'—', freshCol:null },
-  { gid:'1465426311', title:'readme',                area:'outros',       used:false, usedBy:'Documentação da planilha, fora do fluxo do site', source:'none', cadenceLabel:'—', freshCol:null },
+  { gid:'1485919739', title:'inbound_lh_pulso',     area:'inbound',      used:true,  usedBy:'Inbound · Line Haul',                     flag:'historico', freshCol:'checkin_destino' },
+  { gid:'1682611336', title:'fila_pulso',            area:'inbound',      used:true,  usedBy:'Inbound · Monitor - Fila',                flag:'ontime', freshCol:'add to queue time' },
+  { gid:'1026737209', title:'inbound_fm_pulso',      area:'inbound',      used:true,  usedBy:'Inbound · First Mile',                    flag:'indef', freshCol:'checkin_driver' },
+  { gid:'1711953035', title:'triagem_pulso',         area:'inbound',      used:false, usedBy:'Sem consumidor — Triagem ainda não publica dado', flag:'historico', freshCol:null },
+  { gid:'1123528024', title:'docas_pulso',           area:'inbound',      used:false, usedBy:'Sem consumidor no momento',               flag:'ontime', freshCol:null },
+  { gid:'360571552',  title:'fmbeep_pulso',          area:'inbound',      used:false, usedBy:'Sem consumidor no momento',               flag:'ontime', freshCol:null },
+  { gid:'1776828985', title:'asm_pulso',             area:'asmconveyor',  used:true,  usedBy:'ASM Performance',                          flag:'ontime', freshCol:'actual_sort_time' },
+  { gid:'1109902999', title:'sorting_exception_pulso', area:'asmconveyor', used:true, usedBy:'ASM · Sorting Exception',                  flag:'ontime', freshCol:null },
+  { gid:'1013894222', title:'conveyor_pulso',        area:'asmconveyor',  used:true,  usedBy:'Conveyor · Packing Out ASM / Conveyor',    flag:'ontime', freshCol:'data extração' },
+  { gid:'960444672',  title:'balanceamento_pulso',   area:'asmconveyor',  used:true,  usedBy:'Conveyor · Esteira On-time',               flag:'historico', freshCol:'data_ajustada', dayGranularity:true },
+  { gid:'0',           title:'rawdata_out_pulso',     area:'outbound',     used:true,  usedBy:'Outbound + Leftover + Clusterização',      flag:'historico', freshCol:'cpt_realizado' },
+  { gid:'352174025',  title:'leftover_hub_pulso',    area:'outbound',     used:true,  usedBy:'Leftover',                                 flag:'historico', freshCol:'data', dayGranularity:true },
+  { gid:'1386791246', title:'outbound_monitor_pulso', area:'outbound',    used:true,  usedBy:'Outbound · Monitor - Live',                flag:'ontime', freshCol:'atd' },
+  { gid:'1506357496', title:'monitor_tags_pulso',    area:'outbound',     used:true,  usedBy:'Outbound · Monitor - Live (tags)',         flag:'manual', freshCol:'atualizado_em' },
+  { gid:'1276487267', title:'spr_pulso',             area:'outbound',     used:true,  usedBy:'SPR',                                      flag:'historico', freshCol:'cutoff_date', dayGranularity:true },
+  { gid:'646168208',  title:'cluster_pulso',         area:'clusterizacao', used:true, usedBy:'Clusterização + Outbound (endereçamento)', flag:'ontime', freshCol:'create time' },
+  { gid:'1408724077', title:'config',                area:'clusterizacao', used:true, usedBy:'De-para de rua/doca da Clusterização',    flag:'config', freshCol:null },
+  { gid:'202012183',  title:'forecast_backlog_pulso', area:'planejamento', used:true, usedBy:'Backlog (A-G) + Forecast (H-M)',           flag:'historico', freshCol:'snapshot_hora' },
+  { gid:'1065816747', title:'labor_pulso',           area:'planejamento', used:true,  usedBy:'Overview · Labor Plan',                    flag:'manual', freshCol:null },
+  { gid:'25033403',   title:'árvore_pulso',          area:'planejamento', used:true,  usedBy:'Árvore de KPIs',                           flag:'manual', freshCol:null },
+  { gid:'1457405344', title:'telemetria_pulso',      area:'outros',       used:false, usedBy:'Sem consumidor no momento',                flag:'ontime', freshCol:null },
+  { gid:'743265268',  title:'performance_pulso',     area:'outros',       used:false, usedBy:'Sem consumidor no momento',                flag:'historico', freshCol:null },
+  { gid:'1123040881', title:'Sugestão',              area:'outros',       used:false, usedBy:'Planilha de apoio, fora do fluxo do site', flag:'indef', freshCol:null },
+  { gid:'1465426311', title:'readme',                area:'outros',       used:false, usedBy:'Documentação da planilha, fora do fluxo do site', flag:'indef', freshCol:null },
+];
+// Chaves de join confirmadas no código (não relação especulada) — usadas
+// só na visão "Teia".
+const DATAGRAPH_EDGES = [
+  { from:'1682611336', to:'1485919739', label:'LH Trip Number = viagem' },
+  { from:'352174025',  to:'0',          label:'hub+cpt_planejado = destination_station_code+cpt_scheduled_origin_edited' },
+  { from:'646168208',  to:'1408724077', label:'staging area = staging area id' },
+  { from:'1386791246', to:'0',          label:'trip_number' },
+  { from:'1506357496', to:'0',          label:'trip_number' },
 ];
 
 function dataGraphFmtAge(ms){
@@ -11053,18 +11074,19 @@ function dataGraphFmtAge(ms){
   return `há ${d}d`;
 }
 
-// Status ok/atenção/atrasado. Limiares alargados a partir da 1ª leitura
-// ao vivo em 2026-08-16: o timestamp de um EVENTO de negócio (checkin,
-// scan, etc.) não é a mesma coisa que "a tabela está sendo alimentada" —
-// há lacunas naturais entre eventos reais mesmo com o pipeline saudável,
-// então 20/60min gerava "Atrasada" em quase tudo, falso alarme. RASCUNHO
-// — pedir pro Roberto validar se essas janelas fazem sentido por aba.
+// Status ok/atenção/atrasado. Limiares por FLAG: "ontime" (API tempo
+// real) usa janela apertada; "historico" (lote SQL) usa janela larga por
+// dia, já que é atualizado por rotina, não continuamente. "manual" e
+// "config" não recebem veredito automático — não sabemos a cadência real
+// de um input humano, só mostramos a última data quando disponível.
 function dataGraphStatus(node, maxIso){
   if(!node.used) return { key:'unused', label:'Não utilizada', badge:'muted' };
-  if(!node.freshCol) return { key:'manual', label:'Sem verificação automática', badge:'neutral' };
+  if(node.flag === 'config' || node.flag === 'manual' || node.flag === 'externa' || node.flag === 'indef' || !node.freshCol){
+    return { key:'manual', label:'Sem verificação automática', badge:'neutral' };
+  }
   if(!maxIso) return { key:'nodata', label:'Sem dado recente', badge:'error' };
   const ageMs = Date.now() - new Date(maxIso).getTime();
-  if(node.dayGranularity){
+  if(node.dayGranularity || node.flag === 'historico'){
     const days = ageMs / 86400000;
     if(days <= 2) return { key:'ok', label:'OK', badge:'ok' };
     if(days <= 5) return { key:'atencao', label:'Atenção', badge:'loading' };
@@ -11076,15 +11098,61 @@ function dataGraphStatus(node, maxIso){
   return { key:'atrasado', label:'Atrasada', badge:'error' };
 }
 
+// Filtro por clique nas colunas Área/Fonte/Status — pedido do Roberto em
+// 2026-08-16. Um valor ativo por dimensão; clicar de novo no mesmo valor
+// limpa. Afeta tabela e teia igualmente.
+let DATAGRAPH_FILTERS = { area:null, flag:null, status:null };
+let DATAGRAPH_VIEW = 'table';
+
+function dataGraphVisibleNodes(){
+  return DATAGRAPH_NODES.filter(n => {
+    if(DATAGRAPH_FILTERS.area && n.area !== DATAGRAPH_FILTERS.area) return false;
+    if(DATAGRAPH_FILTERS.flag && n.flag !== DATAGRAPH_FILTERS.flag) return false;
+    if(DATAGRAPH_FILTERS.status && dataGraphStatus(n, n._maxIso).key !== DATAGRAPH_FILTERS.status) return false;
+    return true;
+  });
+}
+
+function dataGraphSetFilter(dim, value){
+  DATAGRAPH_FILTERS[dim] = (DATAGRAPH_FILTERS[dim] === value) ? null : value;
+  dataGraphRenderFilterChips();
+  dataGraphRenderTable();
+  if(DATAGRAPH_VIEW === 'web') dataGraphRenderWeb();
+}
+function dataGraphClearFilters(){
+  DATAGRAPH_FILTERS = { area:null, flag:null, status:null };
+  dataGraphRenderFilterChips();
+  dataGraphRenderTable();
+  if(DATAGRAPH_VIEW === 'web') dataGraphRenderWeb();
+}
+function dataGraphRenderFilterChips(){
+  const el = document.getElementById('datagraph-filter-chips');
+  if(!el) return;
+  const chips = [];
+  if(DATAGRAPH_FILTERS.area) chips.push({ dim:'area', label: DATAGRAPH_AREAS[DATAGRAPH_FILTERS.area].label });
+  if(DATAGRAPH_FILTERS.flag) chips.push({ dim:'flag', label: DATAGRAPH_FLAG_META[DATAGRAPH_FILTERS.flag].label });
+  if(DATAGRAPH_FILTERS.status) chips.push({ dim:'status', label: DATAGRAPH_FILTERS.status });
+  if(!chips.length){ el.innerHTML = ''; return; }
+  el.innerHTML = chips.map(c => `<span class="ds-badge neutral" style="cursor:pointer" onclick="dataGraphSetFilter('${c.dim}', null)">${pulsoEscHtml(c.label)} <i class="fas fa-xmark" style="margin-left:4px"></i></span>`).join(' ')
+    + ` <button class="btn" style="font-size:11px;padding:3px 10px" onclick="dataGraphClearFilters()">Limpar filtros</button>`;
+}
+
+function dataGraphSwitchView(view){
+  DATAGRAPH_VIEW = view;
+  document.querySelectorAll('#datagraph-view-toggle .dg-view-btn').forEach(b => b.classList.toggle('active', b.dataset.view === view));
+  document.getElementById('datagraph-table-wrap').style.display = view === 'table' ? '' : 'none';
+  document.getElementById('datagraph-web-wrap').style.display = view === 'web' ? '' : 'none';
+  if(view === 'web') dataGraphRenderWeb();
+}
+
 let DATAGRAPH_BUILT = false;
 async function dataGraphRender(){
   if(DATAGRAPH_BUILT) return;
   DATAGRAPH_BUILT = true;
 
-  const tbody = document.getElementById('datagraph-tbody');
-  if(!tbody) return;
-  tbody.innerHTML = DATAGRAPH_NODES.map(n => dataGraphRowHtml(n, null, true)).join('');
+  dataGraphRenderTable();
   dataGraphRenderKpis();
+  dataGraphRenderFilterChips();
 
   await Promise.all(DATAGRAPH_NODES.map(async n => {
     if(n.used && n.freshCol){
@@ -11096,9 +11164,9 @@ async function dataGraphRender(){
     } else {
       n._maxIso = null;
     }
-    const row = document.getElementById('dg-row-'+n.gid);
-    if(row) row.outerHTML = dataGraphRowHtml(n, n._maxIso, false);
+    dataGraphRenderTable();
     dataGraphRenderKpis();
+    if(DATAGRAPH_VIEW === 'web') dataGraphRenderWeb();
   }));
 }
 
@@ -11114,21 +11182,87 @@ function dataGraphRenderKpis(){
   ]);
 }
 
-function dataGraphRowHtml(n, maxIso, loading){
+function dataGraphRenderTable(){
+  const tbody = document.getElementById('datagraph-tbody');
+  if(!tbody) return;
+  const visible = dataGraphVisibleNodes();
+  if(!visible.length){
+    tbody.innerHTML = `<tr><td colspan="6" class="mon-empty" style="padding:20px 0">Nenhuma aba com os filtros atuais.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = visible.map(n => dataGraphRowHtml(n)).join('');
+}
+
+function dataGraphRowHtml(n){
+  const loading = n._maxIso === undefined;
   const areaMeta = DATAGRAPH_AREAS[n.area];
-  const sm = DATAGRAPH_SOURCE_META[n.source] || DATAGRAPH_SOURCE_META.none;
-  const status = loading ? { key:'loading', label:'…', badge:'loading' } : dataGraphStatus(n, maxIso);
+  const flagMeta = DATAGRAPH_FLAG_META[n.flag] || DATAGRAPH_FLAG_META.indef;
+  const status = loading ? { key:'loading', label:'…', badge:'loading' } : dataGraphStatus(n, n._maxIso);
   const ultima = loading
     ? '<span style="color:var(--text-muted)">verificando…</span>'
-    : (maxIso ? `${dataGraphFmtAge(Date.now()-new Date(maxIso).getTime())} <span style="color:var(--text-muted);font-size:11px">(${new Date(maxIso).toLocaleString('pt-BR')})</span>` : '<span style="color:var(--text-muted)">—</span>');
+    : (n._maxIso ? `${dataGraphFmtAge(Date.now()-new Date(n._maxIso).getTime())} <span style="color:var(--text-muted);font-size:11px">(${new Date(n._maxIso).toLocaleString('pt-BR')})</span>` : '<span style="color:var(--text-muted)">—</span>');
   return `<tr id="dg-row-${n.gid}" ${n.used ? `style="cursor:pointer" onclick="dataGraphOpenDetail('${n.gid}')"` : ''}>
     <td style="font-weight:600">${pulsoEscHtml(n.title)}</td>
-    <td><span style="display:inline-flex;align-items:center;gap:6px"><i style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${areaMeta.color}"></i>${pulsoEscHtml(areaMeta.label)}</span></td>
-    <td><span class="ds-badge ${sm.badge}"><i class="fas ${sm.icon}"></i>${pulsoEscHtml(sm.label)}</span></td>
-    <td>${pulsoEscHtml(n.cadenceLabel)}</td>
+    <td><span style="display:inline-flex;align-items:center;gap:6px;cursor:pointer" onclick="event.stopPropagation();dataGraphSetFilter('area','${n.area}')"><i style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${areaMeta.color}"></i>${pulsoEscHtml(areaMeta.label)}</span></td>
+    <td><span style="display:inline-flex;align-items:center;gap:6px;cursor:pointer" onclick="event.stopPropagation();dataGraphSetFilter('flag','${n.flag}')"><i style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${flagMeta.color}"></i>${pulsoEscHtml(flagMeta.label)}</span></td>
     <td>${ultima}</td>
-    <td><span class="ds-badge ${status.badge}">${pulsoEscHtml(status.label)}</span></td>
+    <td><span class="ds-badge ${status.badge}" style="cursor:pointer" onclick="event.stopPropagation();dataGraphSetFilter('status','${status.key}')">${pulsoEscHtml(status.label)}</span></td>
   </tr>`;
+}
+
+// Visão "Teia" — layout circular por área (mesmo agrupamento da tabela),
+// nós coloridos pela FLAG (categoria/origem real do readme) com anel
+// colorido pelo status de atualização, e as chaves de join reais como
+// linhas conectando os nós — respeitando os filtros ativos.
+function dataGraphRenderWeb(){
+  const wrap = document.getElementById('datagraph-web-wrap');
+  if(!wrap) return;
+  const nodes = dataGraphVisibleNodes();
+  if(!nodes.length){
+    wrap.innerHTML = `<div class="mon-empty" style="padding:30px 0">Nenhuma aba com os filtros atuais.</div>`;
+    return;
+  }
+  const cx = 450, cy = 380, r = 260;
+  const N = nodes.length;
+  const pos = {};
+  nodes.forEach((n, i) => {
+    const ang = -Math.PI/2 + (i / N) * Math.PI * 2;
+    pos[n.gid] = { x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang), cos: Math.cos(ang), sin: Math.sin(ang) };
+  });
+
+  const edgesHtml = DATAGRAPH_EDGES.map(e => {
+    const a = pos[e.from], b = pos[e.to];
+    if(!a || !b) return '';
+    const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
+    const ctrlX = midX + (cx - midX) * 0.35, ctrlY = midY + (cy - midY) * 0.35;
+    return `<path d="M${a.x.toFixed(1)},${a.y.toFixed(1)} Q${ctrlX.toFixed(1)},${ctrlY.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}" fill="none" stroke="var(--text-accent)" stroke-width="1.5" stroke-opacity=".55"><title>${pulsoEscHtml(e.label)}</title></path>`;
+  }).join('');
+
+  const STATUS_RING = { ok:'var(--green)', atencao:'var(--amber)', atrasado:'var(--red)', nodata:'var(--red)', manual:'var(--border)', unused:'var(--border)', loading:'var(--border)' };
+  const nodesHtml = nodes.map(n => {
+    const p = pos[n.gid];
+    const flagMeta = DATAGRAPH_FLAG_META[n.flag] || DATAGRAPH_FLAG_META.indef;
+    const status = n._maxIso === undefined ? { key:'loading' } : dataGraphStatus(n, n._maxIso);
+    let anchor = 'middle', dx = 0, dy = 4;
+    if(p.cos > 0.15){ anchor = 'start'; dx = 16; }
+    else if(p.cos < -0.15){ anchor = 'end'; dx = -16; }
+    else { dy = p.sin > 0 ? 22 : -14; }
+    return `<g class="dg-node" style="cursor:pointer" onclick="dataGraphOpenDetail('${n.gid}')">
+      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="10" fill="${flagMeta.color}" fill-opacity="${n.used?1:.5}" stroke="${STATUS_RING[status.key]}" stroke-width="3"><title>${pulsoEscHtml(n.title)} — ${pulsoEscHtml(flagMeta.label)}</title></circle>
+      <text x="${(p.x+dx).toFixed(1)}" y="${(p.y+dy).toFixed(1)}" text-anchor="${anchor}" font-size="11" fill="var(--text-secondary)">${pulsoEscHtml(n.title)}</text>
+    </g>`;
+  }).join('');
+
+  wrap.innerHTML = `<svg width="900" height="780" style="display:block;margin:0 auto" viewBox="0 0 900 780">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,4"/>
+    ${edgesHtml}
+    ${nodesHtml}
+  </svg>
+  <div style="display:flex;flex-wrap:wrap;gap:14px;justify-content:center;margin-top:10px;padding:10px;font-size:11px;color:var(--text-muted)">
+    ${Object.values(DATAGRAPH_FLAG_META).filter(f=>f!==DATAGRAPH_FLAG_META.indef).map(f=>`<span style="display:inline-flex;align-items:center;gap:5px"><i style="width:9px;height:9px;border-radius:50%;display:inline-block;background:${f.color}"></i>${pulsoEscHtml(f.label)}</span>`).join('')}
+    <span style="width:1px;background:var(--border);align-self:stretch"></span>
+    <span style="display:inline-flex;align-items:center;gap:5px"><i style="width:9px;height:9px;border-radius:50%;display:inline-block;border:2px solid var(--green)"></i>Anel = status de atualização</span>
+  </div>`;
 }
 
 function dataGraphOpenDetail(gid){
@@ -11138,8 +11272,8 @@ function dataGraphOpenDetail(gid){
   const body = document.getElementById('datagraph-detail-body');
   if(title) title.innerHTML = `<i class="fas fa-table" style="color:var(--orange);margin-right:8px"></i>${pulsoEscHtml(node ? node.title : gid)}`;
   if(meta && node){
-    const sm = DATAGRAPH_SOURCE_META[node.source] || DATAGRAPH_SOURCE_META.none;
-    meta.innerHTML = `<span class="ds-badge ${sm.badge}"><i class="fas ${sm.icon}"></i>${pulsoEscHtml(sm.label)}</span>
+    const flagMeta = DATAGRAPH_FLAG_META[node.flag] || DATAGRAPH_FLAG_META.indef;
+    meta.innerHTML = `<span class="ds-badge neutral"><i style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${flagMeta.color}"></i> ${pulsoEscHtml(flagMeta.label)}</span>
       <span style="margin-left:10px;font-size:12px;color:var(--text-muted)">${pulsoEscHtml(node.usedBy)}</span>`;
   }
   if(body) body.innerHTML = `<div class="mon-empty" style="padding:20px 0">Carregando…</div>`;
