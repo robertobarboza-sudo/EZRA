@@ -24,7 +24,18 @@ function normalizePrivateKey(raw) {
   return key;
 }
 
+// Cache do access token em memória do módulo — reaproveitado entre
+// invocações "quentes" da mesma function na Vercel (cada api/*.js é uma
+// function separada, não compartilha memória entre si, mas dentro da
+// mesma function isso evita assinar um JWT novo (RSA, CPU de verdade) e
+// bater no OAuth do Google a cada request; token dura 1h, guardamos com
+// 5min de margem antes de expirar. Otimização de CPU pedida pelo Roberto
+// em 2026-08-16 — sem isso, todo fetchTabByGid pagava esse custo do zero.
+let _tokenCache = { token: null, expiresAtMs: 0 };
+
 async function getAccessToken() {
+  if (_tokenCache.token && Date.now() < _tokenCache.expiresAtMs) return _tokenCache.token;
+
   const email = process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL;
   const rawKey = process.env.GOOGLE_PRIVATE_KEY;
   if (!email || !rawKey) throw new Error('GOOGLE_SERVICE_ACCOUNT_EMAIL/GOOGLE_PRIVATE_KEY não configuradas');
@@ -63,6 +74,7 @@ async function getAccessToken() {
   });
   const body = await r.json();
   if (!r.ok) throw new Error('OAuth token: ' + (body.error_description || body.error || r.status));
+  _tokenCache = { token: body.access_token, expiresAtMs: Date.now() + 55 * 60 * 1000 };
   return body.access_token;
 }
 
@@ -76,9 +88,23 @@ async function fetchSheetsMeta(token, spreadsheetId) {
   return body.sheets || [];
 }
 
+// Cache do mapa gid->título por planilha — título de aba praticamente
+// nunca muda, então evitamos bater no Google só pra resolver isso a cada
+// fetchTabByGid (antes: 1 chamada de metadata extra por aba buscada,
+// mesmo dentro do mesmo request quando a página lê 2+ abas).
+const _titleCache = new Map(); // spreadsheetId -> { sheets, expiresAtMs }
+const TITLE_CACHE_TTL_MS = 10 * 60 * 1000;
+
 // Resolve o título real da aba a partir do gid (evita depender do nome, que pode mudar)
 async function resolveTabTitle(token, spreadsheetId, gid) {
-  const sheets = await fetchSheetsMeta(token, spreadsheetId);
+  const cached = _titleCache.get(spreadsheetId);
+  let sheets;
+  if (cached && Date.now() < cached.expiresAtMs) {
+    sheets = cached.sheets;
+  } else {
+    sheets = await fetchSheetsMeta(token, spreadsheetId);
+    _titleCache.set(spreadsheetId, { sheets, expiresAtMs: Date.now() + TITLE_CACHE_TTL_MS });
+  }
   const sheet = sheets.find(s => String(s.properties.sheetId) === String(gid));
   if (!sheet) throw new Error('Aba com gid ' + gid + ' não encontrada na planilha');
   return sheet.properties.title;
