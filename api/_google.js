@@ -235,6 +235,25 @@ async function batchUpdateValues(spreadsheetId, data) {
   return body;
 }
 
+// Renomeia uma aba pelo gid — usado na reorganização de nomes da
+// planilha (pedido do Roberto em 2026-08-17), exposto via
+// api/debug-meta.js (?gid=X&rename=NOVO_NOME) pra rodar sob demanda, uma
+// aba de cada vez, sem virar um endpoint/feature permanente do site.
+async function renameTab(spreadsheetId, gid, newTitle) {
+  const token = await getAccessToken();
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      requests: [{ updateSheetProperties: { properties: { sheetId: Number(gid), title: newTitle }, fields: 'title' } }],
+    }),
+  });
+  const body = await r.json();
+  if (!r.ok) throw new Error('Sheets rename: ' + (body.error?.message || r.status));
+  _titleCache.delete(spreadsheetId); // invalida o cache de título — próxima leitura já pega o nome novo
+  return body;
+}
+
 // Cria a aba se ainda não existir (idempotente) — usado pra provisionar
 // monitor_tags_pulso no primeiro uso da feature de tags, sem exigir setup
 // manual do Roberto na planilha.
@@ -253,4 +272,4 @@ async function ensureSheetExists(spreadsheetId, title) {
   }
 }
 
-module.exports = { fetchTabByGid, fetchTabRawValues, fetchTabFormatting, resolveTitle, listTabs, readRange, writeRange, batchUpdateValues, ensureSheetExists };
+module.exports = { fetchTabByGid, fetchTabRawValues, fetchTabFormatting, resolveTitle, listTabs, readRange, writeRange, batchUpdateValues, ensureSheetExists, renameTab };

@@ -7,7 +7,7 @@
  * conhecidos (nunca aceita spreadsheetId arbitrário via query, pra não
  * virar um scanner de qualquer planilha da Service Account).
  */
-const { listTabs, fetchTabByGid, fetchTabRawValues, fetchTabFormatting } = require('./_google');
+const { listTabs, fetchTabByGid, fetchTabRawValues, fetchTabFormatting, renameTab } = require('./_google');
 
 const PERMITIDAS = new Set([
   '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4',
@@ -20,6 +20,18 @@ module.exports = async (req, res) => {
     return;
   }
   try {
+    // Rename de aba sob demanda (reorganização de nomes da planilha, pedido
+    // do Roberto em 2026-08-17) — POST só, pra não disparar num GET
+    // acidental. Uma aba de cada vez, ?gid=X&rename=NOVO_NOME.
+    if (req.query.gid !== undefined && req.query.rename !== undefined) {
+      if (req.method !== 'POST') {
+        res.status(405).json({ ok: false, erro: 'Use POST' });
+        return;
+      }
+      const resultado = await renameTab(id, req.query.gid, req.query.rename);
+      res.status(200).json({ ok: true, resultado });
+      return;
+    }
     if (req.query.gid !== undefined && req.query.uniq !== undefined) {
       const { rows } = await fetchTabByGid(id, req.query.gid);
       const col = req.query.uniq;
