@@ -44,6 +44,25 @@ module.exports = async (req, res) => {
       res.status(200).json({ ok: true, title, totalRows: values.length, sample: values.slice(0, 15) });
       return;
     }
+    // freshCol=coluna -> maior timestamp válido encontrado na coluna, entre
+    // todas as linhas (não só a amostra) — usado pelo Grafo de Dados
+    // (Mapa de Dados) pra saber quando cada aba recebeu dado pela última
+    // vez. A coluna tem que ser um timestamp real ("YYYY-MM-DD HH:MM:SS"
+    // ou "YYYY-MM-DD"); linhas em branco/ilegíveis são ignoradas.
+    if (req.query.gid !== undefined && req.query.freshCol !== undefined) {
+      const { rows } = await fetchTabByGid(id, req.query.gid);
+      const col = req.query.freshCol;
+      let maxDate = null, maxValue = null;
+      rows.forEach(r => {
+        const raw = r[col];
+        if (!raw) return;
+        const d = new Date(String(raw).replace(' ', 'T'));
+        if (!isNaN(d) && (!maxDate || d > maxDate)) { maxDate = d; maxValue = raw; }
+      });
+      res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
+      res.status(200).json({ ok: true, totalRows: rows.length, column: col, maxValue, maxIso: maxDate ? maxDate.toISOString() : null });
+      return;
+    }
     // filterCol=coluna&filterVal=valor -> até 30 linhas (objeto) que batem, pra
     // investigar padrões sem baixar a aba inteira.
     if (req.query.gid !== undefined && req.query.filterCol !== undefined) {

@@ -837,55 +837,10 @@
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
 
-    /* Grafo de Dados — modal "técnico": fundo cinza grafite com grid sutil
-       + barra de scan animada, pedido do Roberto em 2026-08-16 pra deixar
-       a tela de detalhe de aba "bem viva". Escopado só ao .dg-modal, não
-       mexe nos outros modais do site. */
-    .dg-modal{
-      background:
-        repeating-linear-gradient(0deg, rgba(255,255,255,.035) 0px, rgba(255,255,255,.035) 1px, transparent 1px, transparent 26px),
-        repeating-linear-gradient(90deg, rgba(255,255,255,.035) 0px, rgba(255,255,255,.035) 1px, transparent 1px, transparent 26px),
-        linear-gradient(165deg, #24262c 0%, #191a1e 100%);
-      border: 1px solid rgba(255,255,255,.08);
-      position: relative; overflow: hidden;
-    }
-    .dg-modal::before{
-      content:''; position:absolute; top:0; left:-40%; width:40%; height:2px;
-      background: linear-gradient(90deg, transparent, var(--orange), transparent);
-      animation: dgScan 3.2s linear infinite; opacity:.8;
-    }
-    @keyframes dgScan{ from{ left:-40%; } to{ left:100%; } }
-    .dg-livedot{
-      display:inline-block; width:7px; height:7px; border-radius:50%;
-      background:var(--green); margin-right:6px; box-shadow:0 0 0 0 rgba(63,174,130,.6);
-      animation: dgPulse 1.6s ease-out infinite;
-    }
-    @keyframes dgPulse{
-      0%{ box-shadow:0 0 0 0 rgba(63,174,130,.55); }
-      70%{ box-shadow:0 0 0 6px rgba(63,174,130,0); }
-      100%{ box-shadow:0 0 0 0 rgba(63,174,130,0); }
-    }
-    .dg-source-badge{
-      display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700;
-      padding:3px 9px; border-radius:20px; letter-spacing:.02em;
-    }
-    .dg-source-badge.api{ background:rgba(63,174,130,.15); color:#7be0b3; }
-    .dg-source-badge.manual{ background:rgba(238,166,45,.15); color:#f2c265; }
-    .dg-mono{ font-family: 'Consolas', 'SF Mono', monospace; }
-    .dg-tabs{ display:flex; gap:6px; margin-bottom:16px; border-bottom:1px solid rgba(255,255,255,.08); }
-    .dg-tab{
-      padding:8px 14px; font-size:12px; font-weight:700; color:rgba(255,255,255,.5);
-      cursor:pointer; border-bottom:2px solid transparent; user-select:none;
-    }
-    .dg-tab.active{ color:#fff; border-bottom-color:var(--orange); }
-    .dg-tab:hover:not(.active){ color:rgba(255,255,255,.8); }
-    /* Fundo fixo (não segue tema claro/escuro do site) — força contraste
-       próprio pra manter o visual "técnico" consistente nos dois temas. */
-    .dg-modal .modal-title, .dg-modal .modal-close{ color:#fff; }
-    .dg-modal .modal-close:hover{ background:rgba(255,255,255,.08); color:#fff; }
-    .dg-modal .resp-table th{ background:rgba(255,255,255,.04); color:rgba(255,255,255,.55); border-bottom:1px solid rgba(255,255,255,.08); }
-    .dg-modal .resp-table td{ color:rgba(255,255,255,.92); border-bottom:1px solid rgba(255,255,255,.06); }
-    .dg-modal .mon-empty{ color:rgba(255,255,255,.5); }
+    /* Grafo de Dados — badges extras de status, no mesmo padrão visual do
+       .ds-badge (verde/âmbar/vermelho) já usado no resto do site. */
+    .ds-badge.neutral{ background: rgba(148,151,176,.15); color: #b6b9d4; }
+    .ds-badge.muted{ background: rgba(148,151,176,.08); color: var(--text-muted); }
 
     /* ── MOBILE ──────────────────────────────────────────────── */
     #sidebar-overlay {
@@ -4030,18 +3985,13 @@
 
     <!-- Grafo de Dados — detalhe da aba (colunas + amostra transposta) -->
     <div class="modal-overlay" id="datagraph-detail-overlay" onclick="if(event.target===this) dataGraphCloseDetail()">
-      <div class="modal dg-modal" style="max-width:620px">
+      <div class="modal" style="max-width:560px">
         <div class="modal-header">
-          <span class="modal-title dg-mono" id="datagraph-detail-title"><i class="fas fa-table" style="color:var(--orange);margin-right:8px"></i>Aba</span>
+          <span class="modal-title" id="datagraph-detail-title"><i class="fas fa-table" style="color:var(--orange);margin-right:8px"></i>Aba</span>
           <button class="modal-close" onclick="dataGraphCloseDetail()"><i class="fas fa-xmark"></i></button>
         </div>
         <div id="datagraph-detail-meta" style="margin-bottom:14px"></div>
-        <div class="dg-tabs">
-          <div class="dg-tab active" data-dgtab="preview" onclick="dataGraphSwitchTab('preview')"><i class="fas fa-eye" style="margin-right:6px"></i>Preview Data</div>
-          <div class="dg-tab" data-dgtab="conexoes" onclick="dataGraphSwitchTab('conexoes')"><i class="fas fa-diagram-project" style="margin-right:6px"></i>Conexões</div>
-        </div>
-        <div id="datagraph-detail-preview"></div>
-        <div id="datagraph-detail-conexoes" style="display:none"></div>
+        <div id="datagraph-detail-body"></div>
       </div>
     </div>
 
@@ -4828,18 +4778,24 @@
         </div>
       </div>
 
-      <!-- Grafo de Dados — ER/rede de nós das abas da planilha PULSO,
-           agrupadas por área com as chaves de join confirmadas no código
-           das APIs. Clique num nó pra ver colunas + 1 linha de amostra
-           (via /api/debug-meta), transposto (coluna | valor). Pedido do
-           Roberto em 2026-08-16 pra virar o modelo padrão de "mapa de
-           dados/relacionamentos" do site. -->
+      <!-- Grafo de Dados — monitor de saúde das abas da planilha PULSO:
+           quando cada uma recebeu dado pela última vez e se está dentro
+           da cadência esperada. Reformulado do zero a pedido do Roberto em
+           2026-08-16 (a versão anterior era um grafo de nós/ER; essa é um
+           monitor de atualização). "Última atualização" = maior timestamp
+           encontrado na coluna de referência de cada aba (via
+           /api/debug-meta?freshCol=...), não é metadado do arquivo — o
+           Google Sheets API não expõe "última edição" por aba, só por
+           planilha inteira. Clique numa linha pra ver colunas + 1 linha de
+           amostra (mesma inspeção de antes). -->
       <div id="mapadados-panel-datagraph" style="display:none">
-        <div style="display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-bottom:16px;padding:10px 14px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius-lg)">
-          <span style="font-size:12px;color:var(--text-muted)"><i class="fas fa-circle-info" style="margin-right:6px"></i>Clique num nó pra ver as colunas e uma amostra real da aba.</span>
-          <div id="datagraph-legend" style="display:flex;flex-wrap:wrap;gap:12px;margin-left:auto"></div>
-        </div>
-        <div class="resp-table-wrap" style="overflow:auto;border-radius:var(--radius-lg);background:var(--surface-2);border:1px solid var(--border)" id="datagraph-svg-wrap"></div>
+        <div id="datagraph-kpis" style="margin-bottom:16px"></div>
+        <div class="resp-table-wrap"><table class="resp-table" id="datagraph-table">
+          <thead><tr>
+            <th>Aba</th><th>Área</th><th>Fonte</th><th>Cadência esperada</th><th>Última atualização</th><th>Status</th>
+          </tr></thead>
+          <tbody id="datagraph-tbody"></tbody>
+        </table></div>
       </div>
 
       <div id="mapadados-panel-jarvis" style="display:none">
@@ -11025,12 +10981,16 @@ function renderMapaDados(){
 }
 
 /* ================================================================
-   GRAFO DE DADOS — mapa de nós das abas da planilha PULSO (grafo de
-   dados/ER), agrupadas por área e ligadas pelas chaves de join reais
-   encontradas no código dos endpoints (não inventadas). Clique num nó
-   -> /api/debug-meta?id=...&gid=... traz colunas + 1 linha de amostra,
-   renderizada transposta (coluna | valor). Pedido do Roberto em
-   2026-08-16 pra ser o modelo padrão de mapa de relacionamentos do site.
+   GRAFO DE DADOS — monitor de saúde das abas da planilha PULSO: quando
+   cada uma recebeu dado pela última vez e se está dentro da cadência
+   esperada. Reformulado do zero a pedido do Roberto em 2026-08-16 (a
+   versão anterior era um grafo de nós/ER — essa é um monitor de
+   atualização, no template de cores do site, sem visual próprio).
+   "Última atualização" = maior timestamp encontrado na coluna de
+   referência de cada aba, via /api/debug-meta?freshCol=... — o Sheets
+   API não expõe "última edição" por aba (só por planilha inteira), então
+   usamos o dado em si como proxy: a data/hora mais recente já registrada
+   é a melhor evidência de quando a aba recebeu input de verdade.
 ================================================================ */
 const DATAGRAPH_SHEET_ID = '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4';
 const DATAGRAPH_AREAS = {
@@ -11041,217 +11001,169 @@ const DATAGRAPH_AREAS = {
   planejamento:  { label:'Planejamento',       color:'var(--amber)' },
   outros:        { label:'Não utilizada ainda', color:'var(--text-muted)' },
 };
-// source/cadência: RASCUNHO a confirmar com o Roberto (2026-08-16) — o
-// código só sabe LER a planilha, não sabe COMO cada aba é preenchida.
-// api = alimentada por chamada de API/integração automática; manual =
-// preenchida por e-mail do Data Suite. Cadência aqui segue o "~5min" que
-// o Roberto descreveu pras abas operacionais; abas de planejamento
-// (labor/árvore/forecast) tratadas como manuais, no padrão "backoffice"
-// já usado no catálogo Jarvis. AJUSTAR se algo estiver errado.
+// source: RASCUNHO a confirmar com o Roberto (2026-08-16) — o código só
+// sabe LER a planilha, não sabe COMO cada aba é preenchida. api =
+// alimentada por integração/API automática (cadência ~5min, conforme o
+// Roberto descreveu); manual = preenchida por e-mail do Data Suite
+// (cadência diária/sob demanda, mesmo padrão "backoffice" já usado no
+// catálogo Jarvis). AJUSTAR se algo estiver errado.
 const DATAGRAPH_SOURCE_META = {
-  api:    { label:'On-Time · via API',            badge:'api' },
-  manual: { label:'Manual · e-mail Data Suite',   badge:'manual' },
-  none:   { label:'Sem alimentação ativa',         badge:'manual' },
+  api:    { label:'On-Time · via API',          icon:'fa-bolt',          badge:'ok' },
+  manual: { label:'Manual · e-mail Data Suite', icon:'fa-envelope',      badge:'neutral' },
+  none:   { label:'Sem alimentação ativa',      icon:'fa-circle-minus',  badge:'muted' },
 };
-// used:false = aba existe na planilha mas nenhum endpoint do PULSO lê dela
-// hoje (confirmado por ausência do gid em api/*.js) — aparece cinza no
-// grafo mesmo que a área conceitual seja outra (ex.: triagem_pulso é
-// "inbound" mas ainda não tem consumidor).
+// freshCol = coluna de timestamp usada como proxy de "última atualização"
+// (confirmada via debug-meta, não chutada) — null quando a aba não tem
+// uma coluna de data/hora confiável pra isso (ex.: config, planejamento).
+// dayGranularity = coluna só tem DATA (sem hora), status compara por dia.
 const DATAGRAPH_NODES = [
-  { gid:'1485919739', title:'inbound_lh_pulso',        area:'inbound', used:true,  usedBy:'Inbound · Line Haul',        source:'api',    cadence:'~5 min' },
-  { gid:'1682611336', title:'fila_pulso',                area:'inbound', used:true,  usedBy:'Inbound · Monitor - Fila',   source:'api',    cadence:'~5 min' },
-  { gid:'1026737209', title:'inbound_fm_pulso',          area:'inbound', used:true,  usedBy:'Inbound · First Mile',       source:'api',    cadence:'~5 min' },
-  { gid:'1711953035', title:'triagem_pulso',             area:'inbound', used:false, usedBy:'Sem consumidor — Triagem ainda não publica dado', source:'none', cadence:'—' },
-  { gid:'1123528024', title:'docas_pulso',               area:'inbound', used:false, usedBy:'Sem consumidor no momento', source:'none', cadence:'—' },
-  { gid:'360571552',  title:'fmbeep_pulso',               area:'inbound', used:false, usedBy:'Sem consumidor no momento', source:'none', cadence:'—' },
-  { gid:'1776828985', title:'asm_pulso',                  area:'asmconveyor', used:true, usedBy:'ASM Performance',                          source:'api', cadence:'~5 min' },
-  { gid:'1109902999', title:'sorting_exception_pulso',    area:'asmconveyor', used:true, usedBy:'ASM · Sorting Exception',                   source:'api', cadence:'~5 min' },
-  { gid:'1013894222', title:'conveyor_pulso',             area:'asmconveyor', used:true, usedBy:'Conveyor · Packing Out ASM / Conveyor',      source:'api', cadence:'~5 min' },
-  { gid:'960444672',  title:'balanceamento_pulso',        area:'asmconveyor', used:true, usedBy:'Conveyor · Esteira On-time',                 source:'api', cadence:'~5 min' },
-  { gid:'0',           title:'rawdata_out_pulso',          area:'outbound', used:true, usedBy:'Outbound + Leftover + Clusterização',    source:'api', cadence:'~5 min' },
-  { gid:'352174025',  title:'leftover_hub_pulso',         area:'outbound', used:true, usedBy:'Leftover',                                source:'api', cadence:'~5 min' },
-  { gid:'1386791246', title:'outbound_monitor_pulso',     area:'outbound', used:true, usedBy:'Outbound · Monitor - Live',               source:'api', cadence:'~5 min' },
-  { gid:'1506357496', title:'monitor_tags_pulso',         area:'outbound', used:true, usedBy:'Outbound · Monitor - Live (tags)',        source:'api', cadence:'~5 min' },
-  { gid:'1276487267', title:'spr_pulso',                  area:'outbound', used:true, usedBy:'SPR',                                     source:'api', cadence:'~5 min' },
-  { gid:'646168208',  title:'cluster_pulso',              area:'clusterizacao', used:true, usedBy:'Clusterização + Outbound (endereçamento)', source:'api', cadence:'~5 min' },
-  { gid:'1408724077', title:'config',                     area:'clusterizacao', used:true, usedBy:'De-para de rua/doca da Clusterização',     source:'manual', cadence:'Sob demanda' },
-  { gid:'202012183',  title:'forecast_backlog_pulso',     area:'planejamento', used:true, usedBy:'Backlog (A-G) + Forecast (H-M)', source:'manual', cadence:'Diário' },
-  { gid:'1065816747', title:'labor_pulso',                area:'planejamento', used:true, usedBy:'Overview · Labor Plan',          source:'manual', cadence:'Diário' },
-  { gid:'25033403',   title:'árvore_pulso',                area:'planejamento', used:true, usedBy:'Árvore de KPIs',                 source:'manual', cadence:'Diário' },
-  { gid:'1457405344', title:'telemetria_pulso',           area:'outros', used:false, usedBy:'Sem consumidor no momento', source:'none', cadence:'—' },
-  { gid:'743265268',  title:'performance_pulso',          area:'outros', used:false, usedBy:'Sem consumidor no momento', source:'none', cadence:'—' },
-  { gid:'1123040881', title:'Sugestão',                   area:'outros', used:false, usedBy:'Planilha de apoio, fora do fluxo do site', source:'none', cadence:'—' },
-  { gid:'1465426311', title:'readme',                     area:'outros', used:false, usedBy:'Documentação da planilha, fora do fluxo do site', source:'none', cadence:'—' },
+  { gid:'1485919739', title:'inbound_lh_pulso',     area:'inbound',      used:true,  usedBy:'Inbound · Line Haul',                     source:'api', cadenceLabel:'~5 min', freshCol:'checkin_destino' },
+  { gid:'1682611336', title:'fila_pulso',            area:'inbound',      used:true,  usedBy:'Inbound · Monitor - Fila',                source:'api', cadenceLabel:'~5 min', freshCol:'add to queue time' },
+  { gid:'1026737209', title:'inbound_fm_pulso',      area:'inbound',      used:true,  usedBy:'Inbound · First Mile',                    source:'api', cadenceLabel:'~5 min', freshCol:'checkin_driver' },
+  { gid:'1711953035', title:'triagem_pulso',         area:'inbound',      used:false, usedBy:'Sem consumidor — Triagem ainda não publica dado', source:'none', cadenceLabel:'—', freshCol:null },
+  { gid:'1123528024', title:'docas_pulso',           area:'inbound',      used:false, usedBy:'Sem consumidor no momento',               source:'none', cadenceLabel:'—', freshCol:null },
+  { gid:'360571552',  title:'fmbeep_pulso',          area:'inbound',      used:false, usedBy:'Sem consumidor no momento',               source:'none', cadenceLabel:'—', freshCol:null },
+  { gid:'1776828985', title:'asm_pulso',             area:'asmconveyor',  used:true,  usedBy:'ASM Performance',                          source:'api', cadenceLabel:'~5 min', freshCol:'actual_sort_time' },
+  { gid:'1109902999', title:'sorting_exception_pulso', area:'asmconveyor', used:true, usedBy:'ASM · Sorting Exception',                  source:'api', cadenceLabel:'~5 min', freshCol:null },
+  { gid:'1013894222', title:'conveyor_pulso',        area:'asmconveyor',  used:true,  usedBy:'Conveyor · Packing Out ASM / Conveyor',    source:'api', cadenceLabel:'~5 min', freshCol:'data extração' },
+  { gid:'960444672',  title:'balanceamento_pulso',   area:'asmconveyor',  used:true,  usedBy:'Conveyor · Esteira On-time',               source:'api', cadenceLabel:'~5 min', freshCol:'data_ajustada', dayGranularity:true },
+  { gid:'0',           title:'rawdata_out_pulso',     area:'outbound',     used:true,  usedBy:'Outbound + Leftover + Clusterização',      source:'api', cadenceLabel:'~5 min', freshCol:'cpt_realizado' },
+  { gid:'352174025',  title:'leftover_hub_pulso',    area:'outbound',     used:true,  usedBy:'Leftover',                                 source:'api', cadenceLabel:'~5 min', freshCol:'data', dayGranularity:true },
+  { gid:'1386791246', title:'outbound_monitor_pulso', area:'outbound',    used:true,  usedBy:'Outbound · Monitor - Live',                source:'api', cadenceLabel:'~5 min', freshCol:'atd' },
+  { gid:'1506357496', title:'monitor_tags_pulso',    area:'outbound',     used:true,  usedBy:'Outbound · Monitor - Live (tags)',         source:'api', cadenceLabel:'~5 min', freshCol:'atualizado_em' },
+  { gid:'1276487267', title:'spr_pulso',             area:'outbound',     used:true,  usedBy:'SPR',                                      source:'api', cadenceLabel:'~5 min', freshCol:'cutoff_date', dayGranularity:true },
+  { gid:'646168208',  title:'cluster_pulso',         area:'clusterizacao', used:true, usedBy:'Clusterização + Outbound (endereçamento)', source:'api', cadenceLabel:'~5 min', freshCol:'create time' },
+  { gid:'1408724077', title:'config',                area:'clusterizacao', used:true, usedBy:'De-para de rua/doca da Clusterização',    source:'manual', cadenceLabel:'Sob demanda', freshCol:null },
+  { gid:'202012183',  title:'forecast_backlog_pulso', area:'planejamento', used:true, usedBy:'Backlog (A-G) + Forecast (H-M)',           source:'api', cadenceLabel:'~5 min', freshCol:'snapshot_hora' },
+  { gid:'1065816747', title:'labor_pulso',           area:'planejamento', used:true,  usedBy:'Overview · Labor Plan',                    source:'manual', cadenceLabel:'Diário', freshCol:null },
+  { gid:'25033403',   title:'árvore_pulso',          area:'planejamento', used:true,  usedBy:'Árvore de KPIs',                           source:'manual', cadenceLabel:'Diário', freshCol:null },
+  { gid:'1457405344', title:'telemetria_pulso',      area:'outros',       used:false, usedBy:'Sem consumidor no momento',                source:'none', cadenceLabel:'—', freshCol:null },
+  { gid:'743265268',  title:'performance_pulso',     area:'outros',       used:false, usedBy:'Sem consumidor no momento',                source:'none', cadenceLabel:'—', freshCol:null },
+  { gid:'1123040881', title:'Sugestão',              area:'outros',       used:false, usedBy:'Planilha de apoio, fora do fluxo do site', source:'none', cadenceLabel:'—', freshCol:null },
+  { gid:'1465426311', title:'readme',                area:'outros',       used:false, usedBy:'Documentação da planilha, fora do fluxo do site', source:'none', cadenceLabel:'—', freshCol:null },
 ];
-// Chaves de join confirmadas no código (não relação especulada).
-const DATAGRAPH_EDGES = [
-  { from:'1682611336', to:'1485919739', label:'LH Trip Number = viagem' },
-  { from:'352174025',  to:'0',          label:'hub+cpt_planejado = destination_station_code+cpt_scheduled_origin_edited' },
-  { from:'646168208',  to:'1408724077', label:'staging area = staging area id' },
-  { from:'1386791246', to:'0',          label:'trip_number' },
-  { from:'1506357496', to:'0',          label:'trip_number' },
-];
-function dataGraphNodesFor(gid){
-  return DATAGRAPH_EDGES.filter(e => e.from === gid || e.to === gid)
-    .map(e => ({ other: e.from === gid ? e.to : e.from, label: e.label }));
+
+function dataGraphFmtAge(ms){
+  const min = Math.floor(ms/60000);
+  if(min < 1) return 'agora mesmo';
+  if(min < 60) return `há ${min}min`;
+  const h = Math.floor(min/60);
+  if(h < 24) return `há ${h}h${String(min%60).padStart(2,'0')}min`;
+  const d = Math.floor(h/24);
+  return `há ${d}d`;
+}
+
+// Status ok/atenção/atrasado — nós com cadência de minutos usam 20/60min
+// como corte; nós com só data (dayGranularity) comparam por dia (0/1/2+).
+function dataGraphStatus(node, maxIso){
+  if(!node.used) return { key:'unused', label:'Não utilizada', badge:'muted' };
+  if(!node.freshCol) return { key:'manual', label:'Sem verificação automática', badge:'neutral' };
+  if(!maxIso) return { key:'nodata', label:'Sem dado recente', badge:'error' };
+  const ageMs = Date.now() - new Date(maxIso).getTime();
+  if(node.dayGranularity){
+    const days = ageMs / 86400000;
+    if(days <= 1.2) return { key:'ok', label:'OK', badge:'ok' };
+    if(days <= 2.5) return { key:'atencao', label:'Atenção', badge:'loading' };
+    return { key:'atrasado', label:'Atrasada', badge:'error' };
+  }
+  const min = ageMs / 60000;
+  if(min <= 20) return { key:'ok', label:'OK', badge:'ok' };
+  if(min <= 60) return { key:'atencao', label:'Atenção', badge:'loading' };
+  return { key:'atrasado', label:'Atrasada', badge:'error' };
 }
 
 let DATAGRAPH_BUILT = false;
-function dataGraphRender(){
+async function dataGraphRender(){
   if(DATAGRAPH_BUILT) return;
   DATAGRAPH_BUILT = true;
 
-  const legend = document.getElementById('datagraph-legend');
-  if(legend){
-    const areaLegend = Object.values(DATAGRAPH_AREAS).map(a =>
-      `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted)"><i style="width:9px;height:9px;border-radius:50%;display:inline-block;background:${a.color}"></i>${pulsoEscHtml(a.label)}</span>`
-    ).join('');
-    const sourceLegend = `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted)"><i class="fas fa-bolt" style="color:var(--green);font-size:10px"></i>On-Time · via API</span>
-      <span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-muted)"><i class="fas fa-envelope" style="color:var(--amber);font-size:10px"></i>Manual · Data Suite</span>`;
-    legend.innerHTML = areaLegend + '<span style="width:1px;background:var(--border);align-self:stretch"></span>' + sourceLegend;
-  }
+  const tbody = document.getElementById('datagraph-tbody');
+  if(!tbody) return;
+  tbody.innerHTML = DATAGRAPH_NODES.map(n => dataGraphRowHtml(n, null, true)).join('');
+  dataGraphRenderKpis();
 
-  const cx = 450, cy = 380, r = 260;
-  const N = DATAGRAPH_NODES.length;
-  const pos = {};
-  DATAGRAPH_NODES.forEach((n, i) => {
-    const ang = -Math.PI/2 + (i / N) * Math.PI * 2;
-    pos[n.gid] = { x: cx + r * Math.cos(ang), y: cy + r * Math.sin(ang), cos: Math.cos(ang), sin: Math.sin(ang) };
-  });
-
-  const edgesHtml = DATAGRAPH_EDGES.map(e => {
-    const a = pos[e.from], b = pos[e.to];
-    if(!a || !b) return '';
-    const midX = (a.x + b.x) / 2, midY = (a.y + b.y) / 2;
-    const ctrlX = midX + (cx - midX) * 0.35, ctrlY = midY + (cy - midY) * 0.35;
-    return `<path d="M${a.x.toFixed(1)},${a.y.toFixed(1)} Q${ctrlX.toFixed(1)},${ctrlY.toFixed(1)} ${b.x.toFixed(1)},${b.y.toFixed(1)}" fill="none" stroke="var(--text-accent)" stroke-width="1.5" stroke-opacity=".55"><title>${pulsoEscHtml(e.label)}</title></path>`;
-  }).join('');
-
-  // Ícone da fonte (raio = API, envelope = manual) via glyph da Font Awesome
-  // dentro do SVG — o webfont já está carregado no site (mesmo CDN do
-  // resto da página), então dá pra usar <text> com font-family em vez de
-  // reimplementar o ícone como path.
-  const SOURCE_GLYPH = { api: '', manual: '', none: '' };
-  const nodesHtml = DATAGRAPH_NODES.map(n => {
-    const p = pos[n.gid];
-    const color = n.used ? DATAGRAPH_AREAS[n.area].color : DATAGRAPH_AREAS.outros.color;
-    let anchor = 'middle', dx = 0, dy = 4, dyCad = 16;
-    if(p.cos > 0.15){ anchor = 'start'; dx = 14; }
-    else if(p.cos < -0.15){ anchor = 'end'; dx = -14; }
-    else { dy = p.sin > 0 ? 20 : -12; dyCad = dy + (p.sin > 0 ? 12 : -12); }
-    const glyph = SOURCE_GLYPH[n.source] || '';
-    const glyphColor = n.source === 'api' ? 'var(--green)' : (n.source === 'manual' ? 'var(--amber)' : 'var(--text-muted)');
-    return `<g class="dg-node" style="cursor:pointer" onclick="dataGraphOpenDetail('${n.gid}')">
-      <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="8" fill="${color}" fill-opacity="${n.used?1:.55}" stroke="var(--surface-2)" stroke-width="2" ${n.used?'':'stroke-dasharray="2,2"'}><title>${pulsoEscHtml(n.title)} — ${pulsoEscHtml(n.usedBy)}</title></circle>
-      <text x="${(p.x+dx).toFixed(1)}" y="${(p.y+dy).toFixed(1)}" text-anchor="${anchor}" font-size="11" fill="var(--text-secondary)">${pulsoEscHtml(n.title)}</text>
-      <text x="${(p.x+dx+(anchor==='start'?14:(anchor==='end'?-14:0))).toFixed(1)}" y="${(p.y+dyCad).toFixed(1)}" text-anchor="${anchor}" font-size="9" fill="${glyphColor}">${glyph ? `<tspan font-family="'Font Awesome 6 Free'" font-weight="900">${glyph}</tspan> ` : ''}${pulsoEscHtml(n.cadence)}</text>
-    </g>`;
-  }).join('');
-
-  const wrap = document.getElementById('datagraph-svg-wrap');
-  if(wrap) wrap.innerHTML = `<svg width="900" height="780" style="display:block;margin:0 auto" viewBox="0 0 900 780">
-    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="1" stroke-dasharray="3,4"/>
-    ${edgesHtml}
-    ${nodesHtml}
-  </svg>`;
+  await Promise.all(DATAGRAPH_NODES.map(async n => {
+    if(!n.used || !n.freshCol) return;
+    try{
+      const r = await fetch(`/api/debug-meta?id=${DATAGRAPH_SHEET_ID}&gid=${n.gid}&freshCol=${encodeURIComponent(n.freshCol)}`, { cache:'no-store' });
+      const j = await r.json();
+      n._maxIso = j.ok ? j.maxIso : null;
+    }catch(e){ n._maxIso = null; }
+    const row = document.getElementById('dg-row-'+n.gid);
+    if(row) row.outerHTML = dataGraphRowHtml(n, n._maxIso, false);
+    dataGraphRenderKpis();
+  }));
 }
 
-let DATAGRAPH_CURRENT_GID = null;
+function dataGraphRenderKpis(){
+  const counts = { ok:0, atencao:0, atrasado:0, nodata:0, manual:0, unused:0 };
+  DATAGRAPH_NODES.forEach(n => { counts[dataGraphStatus(n, n._maxIso).key]++; });
+  buildKPIs('datagraph-kpis', [
+    { label:'Abas monitoradas', value: DATAGRAPH_NODES.filter(n=>n.used && n.freshCol).length, icon:'fa-database', type:'' },
+    { label:'OK', value: counts.ok, icon:'fa-circle-check', type:'success' },
+    { label:'Atenção', value: counts.atencao, icon:'fa-triangle-exclamation', type: counts.atencao?'warning':'success' },
+    { label:'Atrasada / sem dado', value: counts.atrasado+counts.nodata, icon:'fa-circle-exclamation', type: (counts.atrasado+counts.nodata)?'danger':'success' },
+    { label:'Manual / não utilizada', value: counts.manual+counts.unused, icon:'fa-envelope', type:'' },
+  ]);
+}
+
+function dataGraphRowHtml(n, maxIso, loading){
+  const areaMeta = DATAGRAPH_AREAS[n.area];
+  const sm = DATAGRAPH_SOURCE_META[n.source] || DATAGRAPH_SOURCE_META.none;
+  const status = loading ? { key:'loading', label:'…', badge:'loading' } : dataGraphStatus(n, maxIso);
+  const ultima = loading
+    ? '<span style="color:var(--text-muted)">verificando…</span>'
+    : (maxIso ? `${dataGraphFmtAge(Date.now()-new Date(maxIso).getTime())} <span style="color:var(--text-muted);font-size:11px">(${new Date(maxIso).toLocaleString('pt-BR')})</span>` : '<span style="color:var(--text-muted)">—</span>');
+  return `<tr id="dg-row-${n.gid}" ${n.used ? `style="cursor:pointer" onclick="dataGraphOpenDetail('${n.gid}')"` : ''}>
+    <td style="font-weight:600">${pulsoEscHtml(n.title)}</td>
+    <td><span style="display:inline-flex;align-items:center;gap:6px"><i style="width:8px;height:8px;border-radius:50%;display:inline-block;background:${areaMeta.color}"></i>${pulsoEscHtml(areaMeta.label)}</span></td>
+    <td><span class="ds-badge ${sm.badge}"><i class="fas ${sm.icon}"></i>${pulsoEscHtml(sm.label)}</span></td>
+    <td>${pulsoEscHtml(n.cadenceLabel)}</td>
+    <td>${ultima}</td>
+    <td><span class="ds-badge ${status.badge}">${pulsoEscHtml(status.label)}</span></td>
+  </tr>`;
+}
+
 function dataGraphOpenDetail(gid){
-  DATAGRAPH_CURRENT_GID = gid;
   const node = DATAGRAPH_NODES.find(n => n.gid === gid);
   const title = document.getElementById('datagraph-detail-title');
   const meta = document.getElementById('datagraph-detail-meta');
-  const preview = document.getElementById('datagraph-detail-preview');
-  if(title) title.innerHTML = `<span class="dg-livedot"></span>${pulsoEscHtml(node ? node.title : gid)}`;
-
+  const body = document.getElementById('datagraph-detail-body');
+  if(title) title.innerHTML = `<i class="fas fa-table" style="color:var(--orange);margin-right:8px"></i>${pulsoEscHtml(node ? node.title : gid)}`;
   if(meta && node){
     const sm = DATAGRAPH_SOURCE_META[node.source] || DATAGRAPH_SOURCE_META.none;
-    meta.innerHTML = `
-      <span class="dg-source-badge ${sm.badge}"><i class="fas ${node.source==='api'?'fa-bolt':(node.source==='manual'?'fa-envelope':'fa-circle-minus')}"></i>${pulsoEscHtml(sm.label)}</span>
-      <span style="margin-left:10px;font-size:11px;color:rgba(255,255,255,.55)"><i class="fas fa-clock" style="margin-right:4px"></i>Atualiza a cada ${pulsoEscHtml(node.cadence)}</span>
-      <div style="font-size:11px;color:rgba(255,255,255,.4);margin-top:8px"><i class="fas ${node.used?'fa-circle-check':'fa-triangle-exclamation'}" style="margin-right:5px;color:${node.used?'var(--green)':'var(--amber)'}"></i>${pulsoEscHtml(node.usedBy)}</div>`;
+    meta.innerHTML = `<span class="ds-badge ${sm.badge}"><i class="fas ${sm.icon}"></i>${pulsoEscHtml(sm.label)}</span>
+      <span style="margin-left:10px;font-size:12px;color:var(--text-muted)">${pulsoEscHtml(node.usedBy)}</span>`;
   }
-
-  dataGraphSwitchTab('preview');
-  if(preview) preview.innerHTML = `<div class="mon-empty" style="padding:20px 0">Carregando…</div>`;
+  if(body) body.innerHTML = `<div class="mon-empty" style="padding:20px 0">Carregando…</div>`;
   document.getElementById('datagraph-detail-overlay').classList.add('open');
 
   fetch(`/api/debug-meta?id=${DATAGRAPH_SHEET_ID}&gid=${gid}`)
     .then(r => r.json())
     .then(j => {
       if(!j.ok) throw new Error(j.erro || 'resposta inválida');
-      if(!preview) return;
+      if(!body) return;
       if(!j.columns.length || !j.sample.length){
-        preview.innerHTML = `<div class="mon-empty" style="padding:20px 0">Aba sem linhas de dados no momento (${j.totalRows} linha(s)).</div>`;
+        body.innerHTML = `<div class="mon-empty" style="padding:20px 0">Aba sem linhas de dados no momento (${j.totalRows} linha(s)).</div>`;
         return;
       }
       const amostra = j.sample[0];
       const rows = j.columns.map(c => {
         const v = amostra[c];
         const vTxt = (v === undefined || v === null || v === '') ? '—' : pulsoEscHtml(String(v));
-        return `<tr><td class="dg-mono" style="font-weight:600">${pulsoEscHtml(c)}</td><td class="dg-mono">${vTxt}</td></tr>`;
+        return `<tr><td style="font-weight:600">${pulsoEscHtml(c)}</td><td>${vTxt}</td></tr>`;
       }).join('');
-      preview.innerHTML = `
-        <div style="font-size:11px;color:rgba(255,255,255,.4);margin-bottom:10px">${j.totalRows.toLocaleString('pt-BR')} linha(s) · ${j.columns.length} coluna(s)</div>
+      body.innerHTML = `
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:10px">${j.totalRows.toLocaleString('pt-BR')} linha(s) · ${j.columns.length} coluna(s)</div>
         <div class="resp-table-wrap"><table class="resp-table" style="min-width:0">
           <thead><tr><th>Coluna</th><th>Exemplo (1ª linha)</th></tr></thead>
           <tbody>${rows}</tbody>
         </table></div>`;
     })
     .catch(err => {
-      if(preview) preview.innerHTML = `<div class="mon-empty" style="padding:20px 0">Erro ao carregar: ${pulsoEscHtml(err.message)}</div>`;
+      if(body) body.innerHTML = `<div class="mon-empty" style="padding:20px 0">Erro ao carregar: ${pulsoEscHtml(err.message)}</div>`;
     });
 }
-
-function dataGraphSwitchTab(tab){
-  document.querySelectorAll('#datagraph-detail-overlay .dg-tab').forEach(t => t.classList.toggle('active', t.dataset.dgtab === tab));
-  document.getElementById('datagraph-detail-preview').style.display = tab==='preview' ? '' : 'none';
-  document.getElementById('datagraph-detail-conexoes').style.display = tab==='conexoes' ? '' : 'none';
-  if(tab === 'conexoes') dataGraphRenderConnections(DATAGRAPH_CURRENT_GID);
-}
-
-// "Teia" de conexões do nó clicado — mesmo estilo visual do grafo
-// principal, só que centralizado nesse nó e mostrando as chaves de join
-// (coluna = coluna) como rótulo de cada linha.
-function dataGraphRenderConnections(gid){
-  const el = document.getElementById('datagraph-detail-conexoes');
-  if(!el) return;
-  const node = DATAGRAPH_NODES.find(n => n.gid === gid);
-  const links = dataGraphNodesFor(gid);
-  if(!links.length){
-    el.innerHTML = `<div class="mon-empty" style="padding:20px 0;color:rgba(255,255,255,.5)">Esta aba não tem relacionamento de join mapeado com outras abas.</div>`;
-    return;
-  }
-  const cx = 260, cy = 180;
-  const R = 130;
-  const nodesHtml = links.map((l, i) => {
-    const other = DATAGRAPH_NODES.find(n => n.gid === l.other);
-    const ang = -Math.PI/2 + (i / links.length) * Math.PI * 2;
-    const x = cx + R * Math.cos(ang), y = cy + R * Math.sin(ang);
-    const color = other ? (other.used ? DATAGRAPH_AREAS[other.area].color : DATAGRAPH_AREAS.outros.color) : 'var(--text-muted)';
-    const anchor = Math.cos(ang) > 0.15 ? 'start' : (Math.cos(ang) < -0.15 ? 'end' : 'middle');
-    const dx = anchor==='start' ? 12 : (anchor==='end' ? -12 : 0);
-    const dy = anchor==='middle' ? (Math.sin(ang) > 0 ? 18 : -10) : 4;
-    return {
-      edge: `<path d="M${cx},${cy} L${x.toFixed(1)},${y.toFixed(1)}" fill="none" stroke="var(--text-accent)" stroke-width="1.5" stroke-opacity=".6"/>`,
-      label: `<text x="${((cx+x)/2).toFixed(1)}" y="${((cy+y)/2-6).toFixed(1)}" text-anchor="middle" font-size="9" fill="rgba(255,255,255,.55)" class="dg-mono">${pulsoEscHtml(l.label)}</text>`,
-      node: `<g style="cursor:pointer" onclick="dataGraphOpenDetail('${l.other}')">
-        <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="9" fill="${color}" stroke="#191a1e" stroke-width="2"/>
-        <text x="${(x+dx).toFixed(1)}" y="${(y+dy).toFixed(1)}" text-anchor="${anchor}" font-size="11" fill="#fff">${pulsoEscHtml(other ? other.title : l.other)}</text>
-      </g>`,
-    };
-  });
-  el.innerHTML = `<svg width="100%" height="360" viewBox="0 0 520 360">
-    ${nodesHtml.map(n=>n.edge).join('')}
-    ${nodesHtml.map(n=>n.label).join('')}
-    <circle cx="${cx}" cy="${cy}" r="13" fill="var(--orange)" stroke="#191a1e" stroke-width="2"/>
-    <text x="${cx}" y="${cy+4}" text-anchor="middle" font-size="14" fill="#fff"><tspan font-family="'Font Awesome 6 Free'" font-weight="900">&#xf013;</tspan></text>
-    <text x="${cx}" y="${cy-22}" text-anchor="middle" font-size="11" fill="#fff" font-weight="700">${pulsoEscHtml(node ? node.title : gid)}</text>
-    ${nodesHtml.map(n=>n.node).join('')}
-  </svg>`;
-}
-
 function dataGraphCloseDetail(){
   document.getElementById('datagraph-detail-overlay').classList.remove('open');
 }
