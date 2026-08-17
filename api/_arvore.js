@@ -387,21 +387,25 @@ async function buildArvore() {
 // Preenchimento manual (pedido do Roberto em 2026-08-17) — a aba já vem com
 // o ano inteiro pré-criado (1 linha por Data × Bloco/PIC/Sub Bloco/KPI,
 // Valor default "-"), então escrever é achar a linha existente e trocar só
-// a célula Valor (coluna H) — nunca insere linha nova.
+// as células Valor (coluna H) e Observação (coluna I) — nunca insere linha
+// nova.
 //
-// Regra por célula (entries[i] = { bloco, pic, subBloco, kpi, data, valor }):
-//   valor digitado (não vazio)      -> sobrescreve, seja lá o que tinha antes
-//   valor vazio + célula já tinha dado real -> mantém (não escreve nada)
-//   valor vazio + célula já estava vazia/"-" -> escreve "-" (mesmo texto
+// Regra por célula (entries[i] = { bloco, pic, subBloco, kpi, data, valor, observacao }):
+//   Valor digitado (não vazio)      -> sobrescreve, seja lá o que tinha antes
+//   Valor vazio + célula já tinha dado real -> mantém (não escreve nada)
+//   Valor vazio + célula já estava vazia/"-" -> escreve "-" (mesmo texto
 //                                                que a planilha já usa)
+//   Observação: sem o mesmo problema de ambíguidade do Valor (comentário
+//   vazio não precisa de placeholder pra não virar "zero") — digitada
+//   sobrescreve, vazia sempre mantém o que já tinha, nunca força "-".
 async function writeArvoreValores(entries) {
   const { title, values } = await fetchTabRawValues(ARVORE_SHEET.spreadsheetId, ARVORE_SHEET.gid);
 
-  const idx = new Map(); // "bloco|pic|sub|kpi|data" -> { rowNum, valorAtual }
+  const idx = new Map(); // "bloco|pic|sub|kpi|data" -> { rowNum, valorAtual, obsAtual }
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
     const chave = [row[1] || '', row[2] || '', row[3] || '', row[4] || '', row[0] || ''].join('|');
-    idx.set(chave, { rowNum: i + 1, valorAtual: row[7] || '' });
+    idx.set(chave, { rowNum: i + 1, valorAtual: row[7] || '', obsAtual: row[8] || '' });
   }
 
   const updates = [];
@@ -412,15 +416,20 @@ async function writeArvoreValores(entries) {
     if (!alvo) { naoEncontrados.push(chave); return; }
 
     const digitado = String(e.valor == null ? '' : e.valor).trim();
-    let novo;
+    let novoValor;
     if (digitado !== '') {
-      novo = digitado;
+      novoValor = digitado;
     } else {
       const atual = String(alvo.valorAtual || '').trim();
-      novo = (atual === '' || VAZIOS.has(atual.toUpperCase())) ? '-' : null; // null = mantém, não escreve
+      novoValor = (atual === '' || VAZIOS.has(atual.toUpperCase())) ? '-' : null; // null = mantém, não escreve
     }
-    if (novo !== null && novo !== alvo.valorAtual) {
-      updates.push({ range: `'${title}'!H${alvo.rowNum}`, values: [[novo]] });
+    if (novoValor !== null && novoValor !== alvo.valorAtual) {
+      updates.push({ range: `'${title}'!H${alvo.rowNum}`, values: [[novoValor]] });
+    }
+
+    const comentario = String(e.observacao == null ? '' : e.observacao).trim();
+    if (comentario !== '' && comentario !== alvo.obsAtual) {
+      updates.push({ range: `'${title}'!I${alvo.rowNum}`, values: [[comentario]] });
     }
   });
 
