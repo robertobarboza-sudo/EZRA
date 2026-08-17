@@ -118,6 +118,29 @@ async function listTabs(spreadsheetId) {
   return sheets.map(s => ({ title: s.properties.title, gid: s.properties.sheetId }));
 }
 
+// Lê formatação de célula (cor de fundo) + notas — a API de values.get não
+// traz isso, só texto. Usado pra investigar a aba readme (legenda de cores
+// do Grafo de Dados, pedido do Roberto em 2026-08-16) — includeGridData
+// pega só a aba pedida via range.
+async function fetchTabFormatting(spreadsheetId, gid) {
+  const token = await getAccessToken();
+  const title = await resolveTabTitle(token, spreadsheetId, gid);
+  const range = `'${title.replace(/'/g, "''")}'`;
+  const fields = 'sheets.data.rowData.values(formattedValue,note,userEnteredFormat.backgroundColor,effectiveFormat.backgroundColor)';
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?ranges=${encodeURIComponent(range)}&fields=${encodeURIComponent(fields)}&includeGridData=true`,
+    { headers: { Authorization: 'Bearer ' + token } }
+  );
+  const body = await r.json();
+  if (!r.ok) throw new Error('Sheets formatting: ' + (body.error?.message || r.status));
+  const rows = body.sheets?.[0]?.data?.[0]?.rowData || [];
+  return { title, rows: rows.map(r => (r.values || []).map(v => ({
+    value: v.formattedValue || '',
+    note: v.note || '',
+    bg: v.effectiveFormat?.backgroundColor || v.userEnteredFormat?.backgroundColor || null,
+  }))) };
+}
+
 function rowsToObjects(values) {
   if (!values || values.length < 2) return [];
   const headers = values[0].map(h => String(h).trim().toLowerCase());
@@ -201,4 +224,4 @@ async function ensureSheetExists(spreadsheetId, title) {
   }
 }
 
-module.exports = { fetchTabByGid, fetchTabRawValues, listTabs, readRange, writeRange, ensureSheetExists };
+module.exports = { fetchTabByGid, fetchTabRawValues, fetchTabFormatting, listTabs, readRange, writeRange, ensureSheetExists };

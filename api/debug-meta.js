@@ -7,7 +7,7 @@
  * conhecidos (nunca aceita spreadsheetId arbitrário via query, pra não
  * virar um scanner de qualquer planilha da Service Account).
  */
-const { listTabs, fetchTabByGid, fetchTabRawValues } = require('./_google');
+const { listTabs, fetchTabByGid, fetchTabRawValues, fetchTabFormatting } = require('./_google');
 
 const PERMITIDAS = new Set([
   '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4',
@@ -37,6 +37,11 @@ module.exports = async (req, res) => {
         jsonBytes: Buffer.byteLength(json),
         jsonBytesGzipEstimate: require('zlib').gzipSync(json).length,
       });
+      return;
+    }
+    if (req.query.gid !== undefined && req.query.format !== undefined) {
+      const { title, rows } = await fetchTabFormatting(id, req.query.gid);
+      res.status(200).json({ ok: true, title, rows: rows.slice(0, 30) });
       return;
     }
     if (req.query.gid !== undefined && req.query.raw !== undefined) {
