@@ -11053,8 +11053,12 @@ function dataGraphFmtAge(ms){
   return `há ${d}d`;
 }
 
-// Status ok/atenção/atrasado — nós com cadência de minutos usam 20/60min
-// como corte; nós com só data (dayGranularity) comparam por dia (0/1/2+).
+// Status ok/atenção/atrasado. Limiares alargados a partir da 1ª leitura
+// ao vivo em 2026-08-16: o timestamp de um EVENTO de negócio (checkin,
+// scan, etc.) não é a mesma coisa que "a tabela está sendo alimentada" —
+// há lacunas naturais entre eventos reais mesmo com o pipeline saudável,
+// então 20/60min gerava "Atrasada" em quase tudo, falso alarme. RASCUNHO
+// — pedir pro Roberto validar se essas janelas fazem sentido por aba.
 function dataGraphStatus(node, maxIso){
   if(!node.used) return { key:'unused', label:'Não utilizada', badge:'muted' };
   if(!node.freshCol) return { key:'manual', label:'Sem verificação automática', badge:'neutral' };
@@ -11062,13 +11066,13 @@ function dataGraphStatus(node, maxIso){
   const ageMs = Date.now() - new Date(maxIso).getTime();
   if(node.dayGranularity){
     const days = ageMs / 86400000;
-    if(days <= 1.2) return { key:'ok', label:'OK', badge:'ok' };
-    if(days <= 2.5) return { key:'atencao', label:'Atenção', badge:'loading' };
+    if(days <= 2) return { key:'ok', label:'OK', badge:'ok' };
+    if(days <= 5) return { key:'atencao', label:'Atenção', badge:'loading' };
     return { key:'atrasado', label:'Atrasada', badge:'error' };
   }
   const min = ageMs / 60000;
-  if(min <= 20) return { key:'ok', label:'OK', badge:'ok' };
-  if(min <= 60) return { key:'atencao', label:'Atenção', badge:'loading' };
+  if(min <= 120) return { key:'ok', label:'OK', badge:'ok' };
+  if(min <= 720) return { key:'atencao', label:'Atenção', badge:'loading' };
   return { key:'atrasado', label:'Atrasada', badge:'error' };
 }
 
@@ -11083,12 +11087,15 @@ async function dataGraphRender(){
   dataGraphRenderKpis();
 
   await Promise.all(DATAGRAPH_NODES.map(async n => {
-    if(!n.used || !n.freshCol) return;
-    try{
-      const r = await fetch(`/api/debug-meta?id=${DATAGRAPH_SHEET_ID}&gid=${n.gid}&freshCol=${encodeURIComponent(n.freshCol)}`, { cache:'no-store' });
-      const j = await r.json();
-      n._maxIso = j.ok ? j.maxIso : null;
-    }catch(e){ n._maxIso = null; }
+    if(n.used && n.freshCol){
+      try{
+        const r = await fetch(`/api/debug-meta?id=${DATAGRAPH_SHEET_ID}&gid=${n.gid}&freshCol=${encodeURIComponent(n.freshCol)}`, { cache:'no-store' });
+        const j = await r.json();
+        n._maxIso = j.ok ? j.maxIso : null;
+      }catch(e){ n._maxIso = null; }
+    } else {
+      n._maxIso = null;
+    }
     const row = document.getElementById('dg-row-'+n.gid);
     if(row) row.outerHTML = dataGraphRowHtml(n, n._maxIso, false);
     dataGraphRenderKpis();
