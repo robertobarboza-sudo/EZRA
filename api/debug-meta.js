@@ -68,13 +68,15 @@ module.exports = async (req, res) => {
       res.status(200).json({ ok: true, totalRows: rows.length, column: col, maxValue, maxIso: maxDate ? maxDate.toISOString() : null });
       return;
     }
-    // filterCol=coluna&filterVal=valor -> até 30 linhas (objeto) que batem, pra
-    // investigar padrões sem baixar a aba inteira.
+    // filterCol=coluna&filterVal=valor -> até 30 linhas (objeto, ou mais via
+    // filterLimit até 200) que batem, pra investigar padrões sem baixar a
+    // aba inteira.
     if (req.query.gid !== undefined && req.query.filterCol !== undefined) {
       const { rows } = await fetchTabByGid(id, req.query.gid);
       const col = req.query.filterCol, val = req.query.filterVal;
+      const limit = Math.min(200, Math.max(1, parseInt(req.query.filterLimit, 10) || 30));
       const filtradas = rows.filter(r => String(r[col] ?? '') === String(val ?? ''));
-      res.status(200).json({ ok: true, column: col, value: val, matchCount: filtradas.length, sample: filtradas.slice(0, 30) });
+      res.status(200).json({ ok: true, column: col, value: val, matchCount: filtradas.length, sample: filtradas.slice(0, limit) });
       return;
     }
     if (req.query.gid !== undefined) {
