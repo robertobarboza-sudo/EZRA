@@ -39,7 +39,7 @@
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
-const { buildArvore, writeArvoreValores, freezeArvoreChunk } = require('./_arvore');
+const { buildArvore, writeArvoreValores, freezeArvoreAll } = require('./_arvore');
 
 // Planejamento de capacidade (labor_pulso) — inline em vez de um endpoint
 // próprio (api/labor.js): Overview é o único consumidor hoje, e o limite de
@@ -153,18 +153,17 @@ module.exports = async (req, res) => {
   // antes do GET normal; ver writeArvoreValores em api/_arvore.js pra
   // regra de sobrescrever/manter/"-" por célula.
   // "Copiar e colar como valor" no lugar (?arvore=1&freeze=1, POST) —
-  // congela o resultado atual do IMPORTRANGE em valor fixo, um chunk por
-  // chamada (?chunkStart=N&chunkSize=M). Uso único/administrativo, pedido
-  // do Roberto em 2026-08-17 — ver freezeArvoreChunk em api/_arvore.js.
+  // congela o resultado atual do IMPORTRANGE em valor fixo, leitura +
+  // escrita únicas cobrindo a aba inteira (não em chunks — ver o porquê
+  // em freezeArvoreAll, api/_arvore.js). Uso único/administrativo, pedido
+  // do Roberto em 2026-08-17.
   if (req.query.arvore !== undefined && req.query.freeze !== undefined) {
     if (req.method !== 'POST') {
       res.status(405).json({ ok: false, erro: 'Use POST' });
       return;
     }
     try {
-      const chunkStart = Math.max(0, parseInt(req.query.chunkStart, 10) || 0);
-      const chunkSize = Math.min(8000, Math.max(500, parseInt(req.query.chunkSize, 10) || 5000));
-      const resultado = await freezeArvoreChunk(chunkStart, chunkSize);
+      const resultado = await freezeArvoreAll();
       res.status(200).json({ ok: true, ...resultado });
     } catch (err) {
       res.status(502).json({ ok: false, erro: err.message });

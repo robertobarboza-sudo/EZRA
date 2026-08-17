@@ -443,29 +443,27 @@ async function writeArvoreValores(entries) {
 // a aba para de depender da planilha de origem e passa a ser editada só
 // pelo preenchimento manual (writeArvoreValores acima).
 //
-// Roda em CHUNKS (uma chamada por pedaço, não a planilha inteira de uma
-// vez): 53 mil linhas × 10 colunas não cabe com folga no tempo de uma
-// function da Vercel, e escrever tudo de uma vez sem clear-antes (ver
-// updateRangeRaw) significa que um chunk que falha no meio não deixa
-// nenhum trecho apagado — só not-yet-frozen, ainda servido pela fórmula
-// até a próxima chamada terminar o resto. Cada chamada relê a aba inteira
-// (não só o chunk) pra sempre converter o dado mais recente, já que a
-// fonte pode estar em recálculo entre uma chamada e outra.
-async function freezeArvoreChunk(chunkStart, chunkSize) {
+// UMA LEITURA + UMA ESCRITA cobrindo a aba inteira, de propósito — versão
+// anterior tentava em chunks (uma chamada por pedaço) achando que a
+// fórmula continuaria servindo o restante ainda não tocado. Errado: é
+// UM ARRAYFORMULA só cobrindo a aba inteira, então o primeiro chunk já
+// quebra a fórmula de ponta a ponta — as linhas "ainda não processadas"
+// não ficam esperando, ficam órfãs (viraram ~53 mil linhas em branco,
+// incidente real em 2026-08-17). Ler tudo de uma vez ANTES de escrever
+// qualquer coisa garante que a leitura pega o dado saudável inteiro
+// antes da fórmula quebrar.
+async function freezeArvoreAll() {
   const { title, values } = await fetchTabRawValues(ARVORE_SHEET.spreadsheetId, ARVORE_SHEET.gid);
   const NUM_COLS = 10; // A..J (Data..Link)
   const total = values.length;
-  if (chunkStart >= total) return { done: true, totalRows: total, escritas: 0, nextStart: total };
-
-  const end = Math.min(total, chunkStart + chunkSize);
-  const slice = values.slice(chunkStart, end).map(row => {
+  const padded = values.map(row => {
     const r = row.slice(0, NUM_COLS);
     while (r.length < NUM_COLS) r.push('');
     return r;
   });
-  const range = `'${title}'!A${chunkStart + 1}:J${end}`;
-  await updateRangeRaw(ARVORE_SHEET.spreadsheetId, range, slice);
-  return { done: end >= total, totalRows: total, escritas: slice.length, nextStart: end };
+  const range = `'${title}'!A1:J${total}`;
+  await updateRangeRaw(ARVORE_SHEET.spreadsheetId, range, padded);
+  return { totalRows: total };
 }
 
-module.exports = { buildArvore, writeArvoreValores, freezeArvoreChunk };
+module.exports = { buildArvore, writeArvoreValores, freezeArvoreAll };
