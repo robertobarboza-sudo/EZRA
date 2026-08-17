@@ -16,7 +16,7 @@
  * módulo de api/overview.js (modo ?arvore=1), não como endpoint próprio —
  * mesmo padrão de ?esteira=1 (cluster) e ?monitor=1 (outbound).
  */
-const { fetchTabByGid, fetchTabRawValues, batchUpdateValues } = require('./_google');
+const { fetchTabByGid, fetchTabRawValues, batchUpdateValues, updateRangeRaw } = require('./_google');
 
 const ARVORE_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '25033403' };
 
@@ -437,4 +437,35 @@ async function writeArvoreValores(entries) {
   return { escritos: updates.length, naoEncontrados };
 }
 
-module.exports = { buildArvore, writeArvoreValores };
+// "Copiar e colar como valor" no lugar (pedido do Roberto em 2026-08-17)
+// — congela o resultado ATUAL do IMPORTRANGE/ARRAYFORMULA em texto/número
+// fixo, célula por célula, sem mudar formatação nem posição. A partir daí
+// a aba para de depender da planilha de origem e passa a ser editada só
+// pelo preenchimento manual (writeArvoreValores acima).
+//
+// Roda em CHUNKS (uma chamada por pedaço, não a planilha inteira de uma
+// vez): 53 mil linhas × 10 colunas não cabe com folga no tempo de uma
+// function da Vercel, e escrever tudo de uma vez sem clear-antes (ver
+// updateRangeRaw) significa que um chunk que falha no meio não deixa
+// nenhum trecho apagado — só not-yet-frozen, ainda servido pela fórmula
+// até a próxima chamada terminar o resto. Cada chamada relê a aba inteira
+// (não só o chunk) pra sempre converter o dado mais recente, já que a
+// fonte pode estar em recálculo entre uma chamada e outra.
+async function freezeArvoreChunk(chunkStart, chunkSize) {
+  const { title, values } = await fetchTabRawValues(ARVORE_SHEET.spreadsheetId, ARVORE_SHEET.gid);
+  const NUM_COLS = 10; // A..J (Data..Link)
+  const total = values.length;
+  if (chunkStart >= total) return { done: true, totalRows: total, escritas: 0, nextStart: total };
+
+  const end = Math.min(total, chunkStart + chunkSize);
+  const slice = values.slice(chunkStart, end).map(row => {
+    const r = row.slice(0, NUM_COLS);
+    while (r.length < NUM_COLS) r.push('');
+    return r;
+  });
+  const range = `'${title}'!A${chunkStart + 1}:J${end}`;
+  await updateRangeRaw(ARVORE_SHEET.spreadsheetId, range, slice);
+  return { done: end >= total, totalRows: total, escritas: slice.length, nextStart: end };
+}
+
+module.exports = { buildArvore, writeArvoreValores, freezeArvoreChunk };

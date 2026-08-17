@@ -216,6 +216,22 @@ async function writeRange(spreadsheetId, range, values) {
   if (!r.ok) throw new Error('Sheets values (write): ' + (body.error?.message || r.status));
 }
 
+// PUT direto num range, sem o clear-antes do writeRange (que apagaria o
+// range inteiro de um golpe — perigoso ao escrever em pedaços/chunks,
+// deixaria uma janela com dado apagado e ainda não reescrito). Usado pra
+// converter fórmula em valor fixo (ver api/_arvore.js freezeArvoreChunk),
+// onde cada chunk sobrescreve exatamente o range que ele mesmo define.
+async function updateRangeRaw(spreadsheetId, range, values) {
+  const token = await getAccessToken();
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
+    { method: 'PUT', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ values }) }
+  );
+  const body = await r.json();
+  if (!r.ok) throw new Error('Sheets values (update): ' + (body.error?.message || r.status));
+  return body;
+}
+
 // Atualiza várias células espalhadas (linhas/colunas diferentes) numa única
 // chamada — usado pelo preenchimento manual da Árvore de KPI's (ver
 // api/_arvore.js writeArvoreValores), que escreve só a célula Valor de
@@ -272,4 +288,4 @@ async function ensureSheetExists(spreadsheetId, title) {
   }
 }
 
-module.exports = { fetchTabByGid, fetchTabRawValues, fetchTabFormatting, resolveTitle, listTabs, readRange, writeRange, batchUpdateValues, ensureSheetExists, renameTab };
+module.exports = { fetchTabByGid, fetchTabRawValues, fetchTabFormatting, resolveTitle, listTabs, readRange, writeRange, updateRangeRaw, batchUpdateValues, ensureSheetExists, renameTab };
