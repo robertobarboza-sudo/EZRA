@@ -2532,7 +2532,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
   // Colunas de valor (target/ref/week/day) alargadas pra caber números até
   // 7 dígitos (ex.: 1.999.999) sem cortar — pedido do Roberto em 2026-08-14.
-  const COLW = { bloco: 34, pic: 92, sub: 132, kpi: 224, target: 76, ref: 76, week: 92, day: 76 };
+  const COLW = { bloco: 34, pic: 92, sub: 132, kpi: 224, target: 76, week: 92, day: 76 };
   const ROW1_H = 24; // altura da linha de Mês
   const ROW2_H = 26; // altura da linha de Semana
   const ROW3_H = 32; // altura da linha de Dia
@@ -2570,8 +2570,6 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     const allKpis = DataService.getKPIs();
     const blocks = DataService.getBlocks();
     const pics = useMemo(() => Array.from(new Set(allKpis.map((k) => k.pic).filter(Boolean))).sort(), []);
-    const refWeekLabels = DataService.getRefWeeks();
-    const refWeeks = refWeekLabels.map((l) => DataService.getWeekByLabel(l)).filter(Boolean);
     const days = DataService.getDays();
     const allWeeks = DataService.getWeeks();
 
@@ -2702,8 +2700,6 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
       off.sub = acc; acc += COLW.sub;
       off.kpi = acc; acc += COLW.kpi;
       off.target = acc; acc += COLW.target;
-      off.ref1 = acc; acc += COLW.ref;
-      off.ref2 = acc; acc += COLW.ref;
       frozenTotal = acc;
     }
 
@@ -2826,8 +2822,6 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
                 <col style={{ width: COLW.sub }} />
                 <col style={{ width: COLW.kpi }} />
                 <col style={{ width: COLW.target }} />
-                {refWeeks[0] && <col style={{ width: COLW.ref }} />}
-                {refWeeks[1] && <col style={{ width: COLW.ref }} />}
                 {leaves.map((l) => <col key={l.key} style={{ width: l.width }} />)}
               </colgroup>
               <thead>
@@ -2837,8 +2831,6 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
                   <FrozenTh label="Sub Bloco" left={off.sub} width={COLW.sub} />
                   <FrozenTh label="KPI" left={off.kpi} width={COLW.kpi} className="text-left" />
                   <FrozenTh label="Target" left={off.target} width={COLW.target} />
-                  {refWeeks[0] && <FrozenTh label={refWeeks[0].label} left={off.ref1} width={COLW.ref} className="bg-brand-dark" title="Semana de referência" />}
-                  {refWeeks[1] && <FrozenTh label={refWeeks[1].label} left={off.ref2} width={COLW.ref} className="bg-brand-dark" title="Semana de referência" />}
 
                   {monthGroups.map((g) => (
                     <th key={g.monthKey} colSpan={g.leafCount}
@@ -2926,9 +2918,6 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
                       <td className="frozen-col bg-neutral-50 text-center align-middle text-[11.5px] text-neutral-500 border-r border-b border-neutral-100" style={{ left: off.target, width: COLW.target, minWidth: COLW.target }}>
                         {Fmt.formatTarget(kpi)}
                       </td>
-
-                      {refWeeks[0] && <DataCell kpi={kpi} colKey={refWeeks[0].label} frozen left={off.ref1} />}
-                      {refWeeks[1] && <DataCell kpi={kpi} colKey={refWeeks[1].label} frozen left={off.ref2} />}
 
                       {leaves.map((l) => (
                         <DataCell
