@@ -16,7 +16,7 @@
  * módulo de api/overview.js (modo ?arvore=1), não como endpoint próprio —
  * mesmo padrão de ?esteira=1 (cluster) e ?monitor=1 (outbound).
  */
-const { fetchTabByGid } = require('./_google');
+const { fetchTabByGid, fetchTabRawValues, batchUpdateValues } = require('./_google');
 
 const ARVORE_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '25033403' };
 
@@ -384,4 +384,48 @@ async function buildArvore() {
   };
 }
 
-module.exports = { buildArvore };
+// Preenchimento manual (pedido do Roberto em 2026-08-17) — a aba já vem com
+// o ano inteiro pré-criado (1 linha por Data × Bloco/PIC/Sub Bloco/KPI,
+// Valor default "-"), então escrever é achar a linha existente e trocar só
+// a célula Valor (coluna H) — nunca insere linha nova.
+//
+// Regra por célula (entries[i] = { bloco, pic, subBloco, kpi, data, valor }):
+//   valor digitado (não vazio)      -> sobrescreve, seja lá o que tinha antes
+//   valor vazio + célula já tinha dado real -> mantém (não escreve nada)
+//   valor vazio + célula já estava vazia/"-" -> escreve "-" (mesmo texto
+//                                                que a planilha já usa)
+async function writeArvoreValores(entries) {
+  const { title, values } = await fetchTabRawValues(ARVORE_SHEET.spreadsheetId, ARVORE_SHEET.gid);
+
+  const idx = new Map(); // "bloco|pic|sub|kpi|data" -> { rowNum, valorAtual }
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+    const chave = [row[1] || '', row[2] || '', row[3] || '', row[4] || '', row[0] || ''].join('|');
+    idx.set(chave, { rowNum: i + 1, valorAtual: row[7] || '' });
+  }
+
+  const updates = [];
+  const naoEncontrados = [];
+  entries.forEach(e => {
+    const chave = [e.bloco || '', e.pic || '', e.subBloco || '', e.kpi || '', e.data || ''].join('|');
+    const alvo = idx.get(chave);
+    if (!alvo) { naoEncontrados.push(chave); return; }
+
+    const digitado = String(e.valor == null ? '' : e.valor).trim();
+    let novo;
+    if (digitado !== '') {
+      novo = digitado;
+    } else {
+      const atual = String(alvo.valorAtual || '').trim();
+      novo = (atual === '' || VAZIOS.has(atual.toUpperCase())) ? '-' : null; // null = mantém, não escreve
+    }
+    if (novo !== null && novo !== alvo.valorAtual) {
+      updates.push({ range: `'${title}'!H${alvo.rowNum}`, values: [[novo]] });
+    }
+  });
+
+  if (updates.length) await batchUpdateValues(ARVORE_SHEET.spreadsheetId, updates);
+  return { escritos: updates.length, naoEncontrados };
+}
+
+module.exports = { buildArvore, writeArvoreValores };

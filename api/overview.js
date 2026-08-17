@@ -39,7 +39,7 @@
  */
 const { fetchTabByGid } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
-const { buildArvore } = require('./_arvore');
+const { buildArvore, writeArvoreValores } = require('./_arvore');
 
 // Planejamento de capacidade (labor_pulso) — inline em vez de um endpoint
 // próprio (api/labor.js): Overview é o único consumidor hoje, e o limite de
@@ -148,6 +148,28 @@ module.exports = async (req, res) => {
   // com o fan-out do Overview abaixo, então curto-circuita antes dele. Mora
   // aqui e não num endpoint próprio por causa do teto de 12 funções do plano
   // Hobby da Vercel (ver api/_arvore.js).
+  // Preenchimento manual (?arvore=1&write=1, POST) — usado pelo botão
+  // "Preencher dados" da Árvore de KPI's (arvore.html). Curto-circuita
+  // antes do GET normal; ver writeArvoreValores em api/_arvore.js pra
+  // regra de sobrescrever/manter/"-" por célula.
+  if (req.query.arvore !== undefined && req.query.write !== undefined) {
+    if (req.method !== 'POST') {
+      res.status(405).json({ ok: false, erro: 'Use POST' });
+      return;
+    }
+    try {
+      const entries = (req.body || {}).entries;
+      if (!Array.isArray(entries) || !entries.length) {
+        res.status(400).json({ ok: false, erro: 'entries obrigatório' });
+        return;
+      }
+      const resultado = await writeArvoreValores(entries);
+      res.status(200).json({ ok: true, ...resultado });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
   if (req.query.arvore !== undefined) {
     try {
       const dados = await buildArvore();

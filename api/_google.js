@@ -206,6 +206,25 @@ async function writeRange(spreadsheetId, range, values) {
   if (!r.ok) throw new Error('Sheets values (write): ' + (body.error?.message || r.status));
 }
 
+// Atualiza várias células espalhadas (linhas/colunas diferentes) numa única
+// chamada — usado pelo preenchimento manual da Árvore de KPI's (ver
+// api/_arvore.js writeArvoreValores), que escreve só a célula Valor de
+// cada linha já existente, não a linha inteira.
+async function batchUpdateValues(spreadsheetId, data) {
+  const token = await getAccessToken();
+  const r = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values:batchUpdate`,
+    {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ valueInputOption: 'RAW', data }),
+    }
+  );
+  const body = await r.json();
+  if (!r.ok) throw new Error('Sheets values (batchUpdate): ' + (body.error?.message || r.status));
+  return body;
+}
+
 // Cria a aba se ainda não existir (idempotente) — usado pra provisionar
 // monitor_tags_pulso no primeiro uso da feature de tags, sem exigir setup
 // manual do Roberto na planilha.
@@ -224,4 +243,4 @@ async function ensureSheetExists(spreadsheetId, title) {
   }
 }
 
-module.exports = { fetchTabByGid, fetchTabRawValues, fetchTabFormatting, listTabs, readRange, writeRange, ensureSheetExists };
+module.exports = { fetchTabByGid, fetchTabRawValues, fetchTabFormatting, listTabs, readRange, writeRange, batchUpdateValues, ensureSheetExists };

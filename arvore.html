@@ -976,6 +976,8 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     Target: (p) => <Icon {...p}><circle cx="12" cy="12" r="8.5" /><circle cx="12" cy="12" r="4.5" /><circle cx="12" cy="12" r=".8" fill="currentColor" stroke="none" /></Icon>,
     Users: (p) => <Icon {...p}><circle cx="9" cy="8" r="3.2" /><path d="M2.5 19.5c.7-3.4 3.2-5.5 6.5-5.5s5.8 2.1 6.5 5.5" /><circle cx="17.3" cy="8.6" r="2.6" /><path d="M15.5 14.3c2.5.4 4.2 2.2 4.7 5.2" /></Icon>,
     Clock: (p) => <Icon {...p}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3.5 2" /></Icon>,
+    Edit: (p) => <Icon {...p}><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></Icon>,
+    Save: (p) => <Icon {...p}><path d="M5 3h11l3 3v15H5V3Z" /><path d="M8 3v6h8V3" /><path d="M8 21v-7h8v7" /></Icon>,
   };
 
   window.Icons = Icons;
@@ -1370,7 +1372,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 (function () {
   const { useState } = React;
 
-  function Header({ selectedIso, onDateChange }) {
+  function Header({ selectedIso, onDateChange, onOpenFillData }) {
     const [refreshState, setRefreshState] = useState("idle"); // idle | loading | done
     const [updatedAt, setUpdatedAt] = useState(new Date());
     const [toast, setToast] = useState(null);
@@ -1401,6 +1403,14 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={onOpenFillData}
+            data-tip="Preencher dados manualmente"
+            className="flex items-center gap-1.5 rounded-lg border border-white/30 bg-white/10 hover:bg-white/20 transition-colors px-3 py-1.5 text-xs font-medium"
+          >
+            <Icons.Edit size={13} /> Preencher dados
+          </button>
+
           <button
             onClick={handleRefresh}
             data-tip="Buscar dados mais recentes"
@@ -2226,6 +2236,159 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
   window.Components = window.Components || {};
   window.Components.KPIModal = KPIModal;
+})();
+
+</script>
+<script type="text/babel" data-presets="react">
+// components/FillDataModal.js — preenchimento manual da árvore direto do
+// front (pedido do Roberto em 2026-08-17). Escolhe uma data + um PIC, e
+// só então aparecem os Sub Blocos/KPIs daquele PIC pra preencher.
+//
+// Regra de escrita (a mesma pro backend, ver api/_arvore.js
+// writeArvoreValores): campo preenchido -> sobrescreve a célula; campo
+// vazio E já tinha valor real na planilha -> mantém como está (não
+// escreve); campo vazio E a célula já estava vazia/"-" -> escreve "-"
+// (mesmo texto que a própria planilha já usa pra "sem dado"). O front
+// manda TODOS os KPIs do PIC (preenchidos ou não) pro backend aplicar
+// essa regra linha a linha — não só os que o usuário digitou.
+(function () {
+  const { useState, useMemo } = React;
+
+  function FillDataModal({ onClose }) {
+    const [date, setDate] = useState(DataService.getDefaultDate());
+    const [pic, setPic] = useState("");
+    const [values, setValues] = useState({}); // kpiId -> texto digitado
+    const [saving, setSaving] = useState(false);
+    const [result, setResult] = useState(null); // { ok, message }
+
+    const picOptions = useMemo(() => {
+      const set = new Set(DataService.getKPIs().map((k) => k.pic).filter(Boolean));
+      return [...set].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    }, []);
+
+    // Bloco -> Sub Bloco -> KPIs, só do PIC selecionado (reaproveita o
+    // mesmo agrupador da tabela principal, já preserva a ordem da planilha).
+    const grupos = useMemo(() => {
+      if (!pic) return [];
+      return DataService.getGroupedKPIs((k) => k.pic === pic).flatMap((b) =>
+        b.pics.flatMap((p) => p.subs.map((s) => ({ bloco: b.bloco, subBloco: s.subBloco, kpis: s.kpis })))
+      );
+    }, [pic]);
+
+    function setValue(kpiId, text) {
+      setValues((v) => ({ ...v, [kpiId]: text }));
+    }
+
+    async function handleSave() {
+      if (!pic || saving) return;
+      setSaving(true);
+      setResult(null);
+      const kpisDoGrupo = grupos.flatMap((g) => g.kpis);
+      const entries = kpisDoGrupo.map((k) => ({
+        bloco: k.bloco, pic: k.pic, subBloco: k.subBloco, kpi: k.kpi, data: date,
+        valor: (values[k.id] || "").trim(),
+      }));
+      try {
+        const r = await fetch("/api/overview?arvore=1&write=1", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entries }),
+        });
+        const j = await r.json();
+        if (!j.ok) throw new Error(j.erro || "Falha ao salvar");
+        setResult({ ok: true, message: `${j.escritos} célula(s) atualizada(s)${j.naoEncontrados && j.naoEncontrados.length ? ` · ${j.naoEncontrados.length} não encontrada(s)` : ""}.` });
+        setValues({});
+        setTimeout(() => window.location.reload(), 1400);
+      } catch (err) {
+        setResult({ ok: false, message: err.message });
+      } finally {
+        setSaving(false);
+      }
+    }
+
+    return (
+      <div className="fixed inset-0 z-50 bg-black/30 flex items-center justify-center p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+        <div className="anim-pop bg-white rounded-xl shadow-panel w-full max-w-2xl max-h-[88vh] flex flex-col" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-neutral-100">
+            <div className="flex items-center gap-2.5">
+              <div className="h-8 w-8 rounded-lg bg-brand/10 text-brand flex items-center justify-center"><Icons.Edit size={16} /></div>
+              <div>
+                <h3 className="text-[15px] font-bold text-neutral-800">Preencher dados</h3>
+                <div className="text-[11px] text-neutral-400">Escreve direto na planilha árvore_pulso</div>
+              </div>
+            </div>
+            <button onClick={onClose} className="p-1.5 rounded-full hover:bg-neutral-100 text-neutral-500"><Icons.X size={18} /></button>
+          </div>
+
+          <div className="px-5 py-4 border-b border-neutral-100 flex flex-wrap gap-3 items-end">
+            <div>
+              <label className="block text-[11px] font-medium text-neutral-500 mb-1">Data</label>
+              <input type="date" value={date} onChange={(e) => setDate(e.target.value)}
+                className="rounded-lg border border-neutral-300 px-3 py-1.5 text-sm" />
+            </div>
+            <div className="flex-1 min-w-[180px]">
+              <label className="block text-[11px] font-medium text-neutral-500 mb-1">PIC</label>
+              <select value={pic} onChange={(e) => { setPic(e.target.value); setValues({}); setResult(null); }}
+                className="w-full rounded-lg border border-neutral-300 px-3 py-1.5 text-sm bg-white">
+                <option value="">Selecione um PIC…</option>
+                {picOptions.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto px-5 py-4">
+            {!pic && (
+              <div className="text-center text-sm text-neutral-400 py-10">Selecione um PIC pra ver os KPIs dele.</div>
+            )}
+            {pic && grupos.length === 0 && (
+              <div className="text-center text-sm text-neutral-400 py-10">Nenhum KPI encontrado pra esse PIC.</div>
+            )}
+            {grupos.map((g) => (
+              <div key={g.bloco + "|" + g.subBloco} className="mb-5">
+                <div className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide mb-2">{g.bloco} · {g.subBloco}</div>
+                <div className="space-y-2">
+                  {g.kpis.map((k) => {
+                    const atual = Calc.getValue(k, date);
+                    return (
+                      <div key={k.id} className="flex items-center gap-3 rounded-lg border border-neutral-200 px-3 py-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[13px] text-neutral-700 truncate">{k.kpi}</div>
+                          <div className="text-[11px] text-neutral-400">Atual em {Fmt.formatDateShort(date)}: {Fmt.formatKpiValue(k, atual)}</div>
+                        </div>
+                        <input
+                          type="text"
+                          value={values[k.id] || ""}
+                          onChange={(e) => setValue(k.id, e.target.value)}
+                          placeholder={k.unit === "percent" ? "ex: 85,3%" : "novo valor"}
+                          className="w-32 rounded-lg border border-neutral-300 px-2.5 py-1.5 text-sm text-right"
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="px-5 py-4 border-t border-neutral-100 flex items-center gap-3">
+            {result && (
+              <span className={"text-[12.5px] flex-1 " + (result.ok ? "text-ok-text" : "text-bad-text")}>{result.message}</span>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={!pic || saving}
+              className="ml-auto flex items-center gap-2 rounded-lg bg-brand hover:bg-brand-dark text-white text-sm font-medium px-4 py-2 transition-colors disabled:opacity-50"
+            >
+              <Icons.Save size={15} /> {saving ? "Salvando…" : "Salvar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  window.Components = window.Components || {};
+  window.Components.FillDataModal = FillDataModal;
 })();
 
 </script>
@@ -3374,6 +3537,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     const [active, setActive] = useState(defaultScreen);
     const [selectedIso, setSelectedIso] = useState(DataService.getDefaultDate());
     const [selectedKpiId, setSelectedKpiId] = useState(null);
+    const [fillDataOpen, setFillDataOpen] = useState(false);
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => readLS("kpi.sidebarCollapsed", false));
     const [filters, setFilters] = useState({ search: "", bloco: "", pic: "" });
     const [density, setDensity] = useState(() => readLS("kpi.density", "comfortable"));
@@ -3400,7 +3564,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
     return (
       <div className="min-h-screen">
-        <Components.Header selectedIso={selectedIso} onDateChange={setSelectedIso} />
+        <Components.Header selectedIso={selectedIso} onDateChange={setSelectedIso} onOpenFillData={() => setFillDataOpen(true)} />
         <Components.Sidebar
           active={active}
           onNavigate={setActive}
@@ -3454,6 +3618,10 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
         {selectedKpi && (
           <Components.KPIModal kpi={selectedKpi} selectedIso={selectedIso} onClose={() => setSelectedKpiId(null)} />
+        )}
+
+        {fillDataOpen && (
+          <Components.FillDataModal onClose={() => setFillDataOpen(false)} />
         )}
       </div>
     );
