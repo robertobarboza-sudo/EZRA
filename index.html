@@ -7631,6 +7631,7 @@ function leftoverToggleChartView(){
   leftoverRenderChart(PULSO_DATA['leftover']);
 }
 function leftoverRenderChart(data){
+  if(chartInstances['chart-leftover-hora']){ chartInstances['chart-leftover-hora'].destroy(); delete chartInstances['chart-leftover-hora']; }
   const rows = data?.leftovers || [];
   const title = document.getElementById('leftover-chart-title');
   const labels = Array.from({length:24}, (_,h) => String(h).padStart(2,'0')+'h');
