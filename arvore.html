@@ -899,16 +899,6 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     };
   }
 
-  // Simula uma atualização assíncrona (troque por fetch real quando a
-  // fonte de dados deixar de ser o snapshot estático).
-  function refreshData() {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve({ ok: true, updatedAt: new Date() });
-      }, 900 + Math.random() * 500);
-    });
-  }
-
   window.DataService = {
     getMeta,
     getWeeks,
@@ -925,7 +915,6 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     getMonthOptions,
     getGroupedKPIs,
     computeOverviewStats,
-    refreshData,
   };
 })();
 
@@ -1385,16 +1374,15 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     const [updatedAt, setUpdatedAt] = useState(new Date());
     const [toast, setToast] = useState(null);
 
+    // Recarrega a página pulando o cache do CDN (mesmo mecanismo do
+    // reload pós-"Preencher dados", ver FillDataModal) — antes esse botão
+    // só fingia atualizar (DataService.refreshData() era um mock com
+    // setTimeout, nunca buscava dado novo de verdade). Pedido do Roberto
+    // em 2026-08-18.
     function handleRefresh() {
       if (refreshState === "loading") return;
       setRefreshState("loading");
-      DataService.refreshData().then((res) => {
-        setUpdatedAt(res.updatedAt);
-        setRefreshState("done");
-        setToast("Dados atualizados com sucesso.");
-        setTimeout(() => setRefreshState("idle"), 1400);
-        setTimeout(() => setToast(null), 3200);
-      });
+      window.location.href = window.location.pathname + "?_fresh=" + Date.now();
     }
 
     return (
