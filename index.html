@@ -8828,7 +8828,12 @@ async function filaLoad(){
 }
 
 function filaParse(r){
-  return { ...r, addToQueueD: filaDate(r.addToQueueTime) };
+  // Viagem ainda sem passagem física pelo monitor (emFila:false) não tem
+  // addToQueueTime — usa o ETA planejado (inbound_lh_pulso) só pra
+  // posicionar o marcador na timeline, sem fingir que é uma chegada real
+  // (marker some do "Entrada na fila" pro tooltip, ver filaRowHtml).
+  const posD = filaDate(r.addToQueueTime) || (r.lh ? filaDate(r.lh.etaDestinoPlanejado) : null);
+  return { ...r, addToQueueD: posD };
 }
 function filaDate(s){ return s ? new Date(String(s).replace(' ','T')) : null; }
 function filaPos(d){
@@ -8966,17 +8971,24 @@ function filaRenderKpis(now){
   const docado = FILA_TRIPS.filter(t => t.status==='Occupied').length;
   const finalizado = FILA_TRIPS.filter(t => t.status==='Ended').length;
   const atrasado = FILA_TRIPS.filter(t => t.outOfThreshold && t.status!=='Ended').length;
-  const ativos = FILA_TRIPS.filter(t => t.status!=='Ended' && t.addToQueueD);
+  // Espera média só conta quem já passou pela catraca de verdade (emFila)
+  // — viagem só no plano usa o ETA planejado como posição do marcador
+  // (ver filaParse), e isso não é "tempo de espera" real.
+  const emFilaFisica = FILA_TRIPS.filter(t => t.emFila).length;
+  const ativos = FILA_TRIPS.filter(t => t.emFila && t.status!=='Ended' && t.addToQueueD);
   const esperaMedia = ativos.length ? ativos.reduce((s,t) => s + (now - t.addToQueueD)/60000, 0) / ativos.length : null;
 
   // KPIs clicáveis — cada card filtra a Lineage abaixo (mesmo estado dos
   // botões do toolbar) — pedido do Roberto em 2026-08-15. Status/cores
   // (Planejado cinza, Em andamento amarelo, Docado azul, Finalizado
   // verde, Atrasado vermelho) redefinidos a pedido do Roberto em
-  // 2026-08-16.
+  // 2026-08-16. "Na Fila" = viagens já registradas fisicamente no monitor
+  // (emFila); "Total" = todo o plano do dia + monitor — distinção pedida
+  // pelo Roberto em 2026-08-18 junto com o join plano×monitor.
   buildKPIs('fq-kpis', [
-    { label:'Na Fila', value: FILA_TRIPS.length, icon:'fa-truck-ramp-box', type:'',
+    { label:'Total', value: FILA_TRIPS.length, icon:'fa-truck-ramp-box', type:'',
       clickable:true, active: FILA_VIEW==='todas', onclickAttr:"filaSetView('todas')" },
+    { label:'Na Fila (física)', value: emFilaFisica, icon:'fa-warehouse', type:'' },
     { label:'Planejado', value: planejado, icon:'fa-clipboard-list', type:'',
       clickable:true, active: FILA_VIEW==='planejado', onclickAttr:"filaSetView('planejado')" },
     { label:'Em Andamento', value: andamento, icon:'fa-hourglass-half', type:'warning',
@@ -8996,7 +9008,9 @@ function filaRowHtml(t, nowLeft){
   const left = filaPos(t.addToQueueD);
   const label = t.lhTripNumber || ('Veículo ' + (t.veiculo || '—'));
   const statusLabel = filaStatusLabel(t);
-  const tip = `Entrada na fila: ${filaFmtHM(t.addToQueueD)} · ${statusLabel}`;
+  const tip = t.emFila
+    ? `Entrada na fila: ${filaFmtHM(t.addToQueueD)} · ${statusLabel}`
+    : `ETA planejado: ${filaFmtHM(t.addToQueueD)} · ainda sem chegada registrada no monitor`;
 
   // Barra da Lineage vinda do join com inbound_lh_pulso (só existe quando
   // a viagem já foi vinculada) — início = chegada antecipada (checkin

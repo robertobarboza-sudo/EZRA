@@ -44,12 +44,70 @@ function horaDe(v) {
 }
 
 // Monitor - Fila (subaba nova dentro de Inbound, pedido do Roberto em
-// 2026-08-15) — timeline ao vivo da fila de descarga (fila_pulso), com
-// join em inbound_lh_pulso (chave: fila."lh trip number" = lh.viagem) pra
-// trazer os dados da viagem quando já tiver sido vinculada. Cabeçalhos de
-// fila_pulso vêm com espaço/parênteses (ex.: "waiting time (s)") — só essa
-// aba no PULSO usa esse formato, por isso o acesso é sempre via colchete.
+// 2026-08-15) — timeline ao vivo da fila de descarga. Base = viagens
+// PLANEJADAS de inbound_lh_pulso do dia (fila_pulso sozinha só registra
+// quem já chegou fisicamente no portão — com ~80 viagens/dia planejadas e
+// só um punhado passando pela catraca a qualquer momento, usar fila_pulso
+// como base fazia a tela mostrar "4 carros" em vez das 80 viagens do dia,
+// bug relatado pelo Roberto em 2026-08-18). Join por LT (fila."lh trip
+// number" = lh.viagem); quando a viagem já está em fila_pulso, os campos
+// operacionais (status, motorista, doca, etc.) vêm de lá com prioridade —
+// fila_pulso é sempre o dado mais atual porque é alimentada ao vivo pelo
+// sistema de portaria, enquanto inbound_lh_pulso é o plano. Pedido do
+// Roberto em 2026-08-18. Cabeçalhos de fila_pulso vêm com espaço/
+// parênteses (ex.: "waiting time (s)") — só essa aba no PULSO usa esse
+// formato, por isso o acesso é sempre via colchete.
 const FILA_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1682611336' };
+
+function filaRowFromMonitor(r) {
+  return {
+    queueNumber: r['queue number'] || '',
+    status: r.status || '',
+    driver: r.driver || '',
+    agency: r.agency || '',
+    veiculo: r['vehicle number'] || '',
+    arrivalType: r['arrival type'] || '',
+    addToQueueTime: r['add to queue time'] || '',
+    waitingTimeS: toNum(r['waiting time (s)']),
+    outOfThreshold: String(r['out of threshold'] || '').trim().toLowerCase() === 'sim',
+    assignedDock: r['assigned dock'] || '',
+    occupiedDock: r['occupied dock'] || '',
+    onHoldDock: r['on hold dock'] || '',
+    orderQuantity: toNum(r['order quantity']),
+    lhTripName: r['lh trip name'] || '',
+  };
+}
+
+function filaLhDetalhe(lh) {
+  if (!lh) return null;
+  return {
+    viagem: lh.viagem || '',
+    numeroVeiculo: lh.numero_veiculo || '',
+    lacre: lh.lacre || '',
+    etaDestinoPlanejado: lh.eta_destino_planejado || '',
+    checkinDestino: lh.checkin_destino || '',
+    aberturaBau: lh.abertura_bau || '',
+    inicioDescarga: lh.inicio_descarga || '',
+    fimDescarga: lh.fim_descarga || '',
+    totalPacotes: toNum(lh.total_pacotes),
+    totalTos: toNum(lh.total_tos),
+    pacotesSaca: toNum(lh.pacotes_saca),
+    pacotesScuttle: toNum(lh.pacotes_scuttle),
+    pacotesPallet: toNum(lh.pacotes_pallet),
+    tosSaca: toNum(lh.tos_saca),
+    tosScuttle: toNum(lh.tos_scuttle),
+    tosPallet: toNum(lh.tos_pallet),
+    tosOutros: toNum(lh.tos_outros),
+    pacotesBulk: toNum(lh.pacotes_bulk),
+    pacotesG: toNum(lh.pacotes_g),
+    pacotesM: toNum(lh.pacotes_m),
+    pacotesP: toNum(lh.pacotes_p),
+    pacotesPP: toNum(lh.pacotes_pp),
+    pacotesNaoClassificados: toNum(lh.pacotes_nao_classificados),
+    solicitacaoAgrupado: lh.solicitation_agrupado || '',
+    docaDescarga: lh.doca_descarga || '',
+  };
+}
 
 async function buildFila(req, res) {
   let filaRows, lhRows;
@@ -63,87 +121,62 @@ async function buildFila(req, res) {
     return;
   }
 
-  // viagem é única em inbound_lh_pulso (mesma garantia usada no resto do
-  // arquivo) — lookup direto por chave.
-  const lhPorViagem = new Map();
-  lhRows.forEach(r => { if (r.viagem) lhPorViagem.set(r.viagem, r); });
-
-  const comHora = filaRows.filter(r => r['add to queue time']);
-  const comDia = comHora
-    .map(r => ({ ...r, __dia: dataOperacionalDe(r['add to queue time']) }))
-    .filter(r => r.__dia);
-  const diasDisponiveis = [...new Set(comDia.map(r => r.__dia))].sort();
+  const lhDoDia = lhRows.filter(r => r.cutoff_eta_planejado);
+  const diasDisponiveis = [...new Set(lhDoDia.map(r => r.cutoff_eta_planejado))].sort();
   const hojeIso = hojeOperacionalIso();
   const dia = diasDisponiveis.includes(hojeIso) ? hojeIso : (diasDisponiveis[diasDisponiveis.length - 1] || hojeIso);
-  // Inclusão (pedido do Roberto em 2026-08-15): quem ainda está ATIVO na
-  // fila (Pending/Assigned/Occupied) aparece sempre, não importa de qual
-  // dia — um carro que entrou ontem e ainda não finalizou (atrasado de
-  // ETA, por exemplo) continua na tela até finalizar a viagem. Só quem
-  // já FINALIZOU (Ended) é que fica restrito ao dia resolvido — senão a
-  // tela acumularia meses de histórico de viagens já encerradas. Isso já
-  // cobre sozinho o caso de "carro do dia seguinte que chega antecipado"
-  // (aparece porque ainda está ativo ou porque seu add_to_queue_time já
-  // cai no dia resolvido).
-  const doDia = comDia.filter(r => r.status !== 'Ended' || r.__dia === dia);
+  const planoDoDia = lhDoDia.filter(r => r.cutoff_eta_planejado === dia);
 
-  const filas = doDia.map(r => {
-    const lhTripNumber = r['lh trip number'] || '';
-    const lh = lhTripNumber ? lhPorViagem.get(lhTripNumber) : null;
+  // fila_pulso por LT — última linha da aba vence em caso de duplicidade
+  // (mesma LT registrada mais de uma vez, ex. reprocesso da catraca).
+  const filaPorLT = new Map();
+  filaRows.forEach(r => { const lt = r['lh trip number'] || ''; if (lt) filaPorLT.set(lt, r); });
+
+  const usadas = new Set();
+  const doPlano = planoDoDia.map(lh => {
+    const lt = lh.viagem || '';
+    const monitor = lt ? filaPorLT.get(lt) : null;
+    if (monitor) usadas.add(lt);
+    const fimDescarga = !!lh.fim_descarga;
     return {
-      queueNumber: r['queue number'] || '',
-      status: r.status || '',
-      driver: r.driver || '',
-      agency: r.agency || '',
-      veiculo: r['vehicle number'] || '',
-      arrivalType: r['arrival type'] || '',
-      addToQueueTime: r['add to queue time'] || '',
-      waitingTimeS: toNum(r['waiting time (s)']),
-      outOfThreshold: String(r['out of threshold'] || '').trim().toLowerCase() === 'sim',
-      assignedDock: r['assigned dock'] || '',
-      occupiedDock: r['occupied dock'] || '',
-      onHoldDock: r['on hold dock'] || '',
-      orderQuantity: toNum(r['order quantity']),
-      lhTripNumber,
-      lhTripName: r['lh trip name'] || '',
-      // Campos pedidos pro card clicável — só existem quando o join acha a
-      // viagem em inbound_lh_pulso (lh trip number pode vir vazio na fila
-      // até o vínculo ser feito no sistema de origem).
-      lh: lh ? {
-        viagem: lh.viagem || '',
-        numeroVeiculo: lh.numero_veiculo || '',
-        lacre: lh.lacre || '',
-        etaDestinoPlanejado: lh.eta_destino_planejado || '',
-        checkinDestino: lh.checkin_destino || '',
-        aberturaBau: lh.abertura_bau || '',
-        inicioDescarga: lh.inicio_descarga || '',
-        fimDescarga: lh.fim_descarga || '',
-        totalPacotes: toNum(lh.total_pacotes),
-        totalTos: toNum(lh.total_tos),
-        pacotesSaca: toNum(lh.pacotes_saca),
-        pacotesScuttle: toNum(lh.pacotes_scuttle),
-        pacotesPallet: toNum(lh.pacotes_pallet),
-        tosSaca: toNum(lh.tos_saca),
-        tosScuttle: toNum(lh.tos_scuttle),
-        tosPallet: toNum(lh.tos_pallet),
-        tosOutros: toNum(lh.tos_outros),
-        pacotesBulk: toNum(lh.pacotes_bulk),
-        pacotesG: toNum(lh.pacotes_g),
-        pacotesM: toNum(lh.pacotes_m),
-        pacotesP: toNum(lh.pacotes_p),
-        pacotesPP: toNum(lh.pacotes_pp),
-        pacotesNaoClassificados: toNum(lh.pacotes_nao_classificados),
-        solicitacaoAgrupado: lh.solicitation_agrupado || '',
-        docaDescarga: lh.doca_descarga || '',
-      } : null,
+      lhTripNumber: lt,
+      emFila: !!monitor,
+      // Sem registro no monitor: status inferido do próprio plano (Ended
+      // se a descarga já terminou — cobre viagem antiga/histórica sem
+      // passagem pela catraca; Pending = ainda não chegou fisicamente).
+      status: monitor ? (monitor.status || '') : (fimDescarga ? 'Ended' : 'Pending'),
+      queueNumber: '', driver: '', agency: '', veiculo: lh.veiculo_utilizado || '',
+      arrivalType: '', addToQueueTime: '', waitingTimeS: null, outOfThreshold: false,
+      assignedDock: '', occupiedDock: '', onHoldDock: '',
+      orderQuantity: toNum(lh.total_pacotes),
+      lhTripName: '',
+      ...(monitor ? filaRowFromMonitor(monitor) : {}),
+      lh: filaLhDetalhe(lh),
     };
   });
+
+  // Sobras de fila_pulso não vinculadas a uma viagem do plano de hoje —
+  // sem LT (ainda não vinculada no sistema de origem) ou LT de outro dia.
+  // Mesma regra de sempre (pedido do Roberto em 2026-08-15): quem ainda
+  // está ATIVO (Pending/Assigned/Occupied) aparece independente do dia;
+  // quem já FINALIZOU só entra se o dia bater, senão a tela acumularia
+  // histórico morto.
+  const orfas = filaRows
+    .filter(r => { const lt = r['lh trip number'] || ''; return !lt || !usadas.has(lt); })
+    .filter(r => r.status !== 'Ended' || dataOperacionalDe(r['add to queue time']) === dia)
+    .map(r => ({
+      lhTripNumber: r['lh trip number'] || '',
+      emFila: true,
+      ...filaRowFromMonitor(r),
+      lh: null,
+    }));
 
   res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=180');
   res.status(200).json({
     ok: true,
     dia,
     cobertura: { inicio: diasDisponiveis[0] || null, fim: diasDisponiveis[diasDisponiveis.length - 1] || null },
-    rows: filas,
+    rows: [...doPlano, ...orfas],
   });
 }
 
