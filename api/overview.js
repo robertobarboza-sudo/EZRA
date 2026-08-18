@@ -191,7 +191,16 @@ module.exports = async (req, res) => {
   if (req.query.arvore !== undefined) {
     try {
       const dados = await buildArvore();
-      res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+      // ?_fresh=... (arvore.html manda isso logo após "Preencher dados"
+      // salvar e recarregar a página) pula o cache do CDN — sem isso o
+      // reload caía dentro da janela de 5min e mostrava o valor antigo,
+      // parecendo que o preenchimento não tinha funcionado (achado pelo
+      // Roberto em 2026-08-17).
+      if (req.query._fresh !== undefined) {
+        res.setHeader('Cache-Control', 'no-store');
+      } else {
+        res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=600');
+      }
       res.status(200).json({ ok: true, ...dados });
     } catch (err) {
       res.status(502).json({ ok: false, erro: err.message });

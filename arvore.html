@@ -185,11 +185,18 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
 <!-- Camada de dados — AO VIVO, não mais snapshot estático (pedido do
      Roberto em 2026-08-14): busca /api/overview?arvore=1 antes do resto da
-     página carregar (XHR síncrono — ver comentário no código-fonte). -->
+     página carregar (XHR síncrono — ver comentário no código-fonte).
+     ?arvore=1 tem Cache-Control de 5min (poupa CPU nas navegações normais)
+     — mas isso escondia o dado recém-salvo logo após "Preencher dados"
+     recarregar a página (achado pelo Roberto em 2026-08-17: reload caía
+     dentro da janela de cache do CDN e mostrava o valor antigo). Se a URL
+     tiver ?_fresh=..., força bypass do cache só nesse load específico. -->
 <script>
 (function () {
   var xhr = new XMLHttpRequest();
-  xhr.open('GET', '/api/overview?arvore=1', false);
+  var fresh = new URLSearchParams(window.location.search).get('_fresh');
+  var url = '/api/overview?arvore=1' + (fresh ? '&_fresh=' + encodeURIComponent(fresh) : '');
+  xhr.open('GET', url, false);
   xhr.send(null);
   if (xhr.status !== 200) throw new Error('Falha ao carregar a árvore (HTTP ' + xhr.status + ')');
   var j = JSON.parse(xhr.responseText);
@@ -2310,7 +2317,10 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
         setValues({});
         setComments({});
         setOpenComments({});
-        setTimeout(() => window.location.reload(), 1400);
+        // Cache-buster (_fresh) — sem isso o reload caía dentro da janela
+        // de 5min de cache do CDN e mostrava o valor antigo, mesmo com a
+        // escrita já confirmada (achado pelo Roberto em 2026-08-17).
+        setTimeout(() => { window.location.href = window.location.pathname + "?_fresh=" + Date.now(); }, 1400);
       } catch (err) {
         setResult({ ok: false, message: err.message });
       } finally {
