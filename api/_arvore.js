@@ -161,7 +161,7 @@ const ARVORE_META = {
   "Esteira|COP|ABS|Aderência Medidas Disciplinares":"pl",
   "Esteira|COP|ABS|Aderência Entrevista de ABS":"pl",
   "Outbound|COP|Outbound|% Leftover Total":"pl",
-  "Outbound|COP|Outbound|Leftover Total":"pl",
+  "Outbound|COP|Outbound|Leftover Total":"nl",
   "Outbound|COP|Outbound|% Leftover Ops":"pl",
   "Outbound|COP|Outbound|% Leftover Field":"pl",
   "Outbound|COP|Outbound|% Orders Outbounded within 24h":"ph",
