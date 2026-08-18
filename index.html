@@ -6195,7 +6195,8 @@ function pulsoBuildHTML(cfg){
         </table>
       </div>
       <div class="spr-lt-footer" id="pulso-footer-${cfg.key}"></div>
-    </div>`;
+    </div>
+    ${cfg.belowTableHtml || ''}`;
 }
 
 // Delegação: evita ter que escapar valores dinâmicos dentro de atributos onclick/onchange
@@ -7513,6 +7514,15 @@ pulsoRegister({
     { key:'transportadorasOfensoras', label:'Transportadoras Ofensoras', icon:'fa-truck-field', customClick:'leftoverToggleOfensoras()' },
   ],
   extraHtml: `<div class="pulso-ofensoras-panel" id="leftover-ofensoras-panel" style="display:none"></div>`,
+  belowTableHtml: `
+    <div class="table-card" style="margin-top:16px">
+      <div class="table-toolbar">
+        <div class="table-toolbar-title" id="leftover-chart-title">Leftover por horário — pacotes</div>
+        <button type="button" class="spr-ms-action-btn" id="leftover-chart-toggle" onclick="leftoverToggleChartView()">Ver Viagens</button>
+      </div>
+      <div style="height:320px;margin-top:12px"><canvas id="chart-leftover-hora"></canvas></div>
+    </div>`,
+  onData(j){ leftoverRenderChart(j); },
   table: {
     title: 'Registros de Leftover do período selecionado',
     rowsField: 'leftovers', totalField: 'leftoversTotal',
@@ -7605,6 +7615,42 @@ function leftoverRenderOfensoras(){
         <span class="pulso-ofensoras-pct">${t.pct}%</span>
         <span class="pulso-ofensoras-detalhe">(${t.pacotes.toLocaleString('pt-BR')} pacotes em ${t.viagensRealizadas.toLocaleString('pt-BR')} ${t.viagensRealizadas===1?'viagem realizada':'viagens realizadas'})</span>
       </div>`).join('');
+}
+
+// Gráfico "Leftover por horário" (pedido do Roberto em 2026-08-18), abaixo
+// da tabela de registros. Duas visões no mesmo botão: pacotes de leftover
+// somados por hora (default) ou quantidade de viagens/registros por hora —
+// mesma agregação da tabela (j.leftovers), sem precisar de outro pedido à
+// API. `hora` é a hora crua da linha (0-23), sem cutoff — o CPT do Leftover
+// não segue o mesmo corte operacional do Inbound.
+let LEFTOVER_CHART_VIEW = 'pacotes';
+function leftoverToggleChartView(){
+  LEFTOVER_CHART_VIEW = LEFTOVER_CHART_VIEW === 'pacotes' ? 'viagens' : 'pacotes';
+  const btn = document.getElementById('leftover-chart-toggle');
+  if(btn) btn.textContent = LEFTOVER_CHART_VIEW === 'pacotes' ? 'Ver Viagens' : 'Ver Pacotes';
+  leftoverRenderChart(PULSO_DATA['leftover']);
+}
+function leftoverRenderChart(data){
+  const rows = data?.leftovers || [];
+  const title = document.getElementById('leftover-chart-title');
+  const labels = Array.from({length:24}, (_,h) => String(h).padStart(2,'0')+'h');
+
+  if(LEFTOVER_CHART_VIEW === 'viagens'){
+    if(title) title.textContent = 'Leftover por horário — viagens (registros)';
+    const porHora = Array(24).fill(0);
+    rows.forEach(r => { if(r.hora>=0 && r.hora<=23) porHora[r.hora]++; });
+    mkBar('chart-leftover-hora', labels, [
+      { label:'Viagens com leftover', data:porHora, backgroundColor:'#75809b' },
+    ]);
+    return;
+  }
+
+  if(title) title.textContent = 'Leftover por horário — pacotes';
+  const porHora = Array(24).fill(0);
+  rows.forEach(r => { if(r.hora>=0 && r.hora<=23) porHora[r.hora] += (r.leftover_until_cap||0); });
+  mkBar('chart-leftover-hora', labels, [
+    { label:'Pacotes leftover', data:porHora, backgroundColor:'#ee4d2d' },
+  ]);
 }
 
 /* ── Outbound — uma página só, modo "hoje" (padrão, fixo no cutoff mais
