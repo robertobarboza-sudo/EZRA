@@ -82,6 +82,21 @@ module.exports = async (req, res) => {
       res.status(200).json({ ok: true, totalRows: rows.length, column: col, maxValue, maxIso: maxDate ? maxDate.toISOString() : null });
       return;
     }
+    // Varredura da aba inteira procurando "vírgula-como-milhar" numa coluna
+    // (padrão "123,456" — vírgula seguida de exatamente 3 dígitos, o
+    // clássico separador de milhar em inglês que o parser pt-BR do PULSO lê
+    // errado como decimal). Regex fixa no servidor (não aceita padrão livre
+    // via query, pra não virar vetor de ReDoS) — usado pra levantar a lista
+    // completa de células suspeitas da árvore_pulso, pedido do Roberto em
+    // 2026-08-18.
+    if (req.query.gid !== undefined && req.query.virgulaMilhar !== undefined) {
+      const col = req.query.col || 'valor';
+      const { rows } = await fetchTabByGid(id, req.query.gid);
+      const PADRAO = /^-?\d{1,3},\d{3}$/;
+      const suspeitas = rows.filter(r => PADRAO.test(String(r[col] || '').trim()));
+      res.status(200).json({ ok: true, coluna: col, totalRows: rows.length, suspeitas: suspeitas.length, sample: suspeitas });
+      return;
+    }
     // filterCol=coluna&filterVal=valor -> até 30 linhas (objeto, ou mais via
     // filterLimit até 200) que batem, pra investigar padrões sem baixar a
     // aba inteira.
