@@ -7886,8 +7886,8 @@ pulsoRegister({
   extraHtml: `
     <div class="table-card" style="margin-top:16px">
       <div class="table-toolbar">
-        <div class="table-toolbar-title" id="outbound-chart-title">Carros por Hora — CPT Planejado</div>
-        <button type="button" class="spr-ms-action-btn" id="outbound-chart-metric-toggle" onclick="outboundToggleChartMetric()">Ver Média</button>
+        <div class="table-toolbar-title" id="outbound-chart-title">Volume de Carros — CPT Planejado</div>
+        <button type="button" class="spr-ms-action-btn" id="outbound-chart-metric-toggle" onclick="outboundToggleChartMetric()" style="flex:none;margin-left:auto;padding:5px 10px">Ver Média</button>
       </div>
       <div style="height:260px;padding:8px 16px 16px"><canvas id="chart-outbound-eta"></canvas></div>
     </div>`,
@@ -7930,8 +7930,8 @@ function outboundRenderChart(data){
   const media = OUTBOUND_CHART_METRIC === 'media';
   const fmt = arr => rotHoraCutoff(arr).map(v => media ? +(v/dias).toFixed(1) : v);
   if(titleEl) titleEl.textContent = media
-    ? `Carros por Hora — CPT Planejado · média por dia (${dias} dia${dias===1?'':'s'})`
-    : 'Carros por Hora — CPT Planejado · total do período';
+    ? `Volume de Carros — CPT Planejado · média por dia (${dias} dia${dias===1?'':'s'})`
+    : 'Volume de Carros — CPT Planejado · total do período';
   chartInstances['chart-outbound-eta']?.destroy();
   mkLine('chart-outbound-eta', HORAS_CUTOFF_LABELS, [
     { label:'Planejado', data:fmt(data.porHoraCpt.planejado), borderColor:'#5c6bc0', backgroundColor:'transparent', tension:.3 },
