@@ -5933,7 +5933,7 @@ const sectionMeta = {
 /* ── Itens de nav que só abrem um link externo em nova aba, sem navegação
    interna (não têm data-section/currentSection nem seção correspondente). ── */
 const LINK_ABSENTEISMO = 'https://presencaops-production.up.railway.app/';
-const LINK_TRATATIVAS_AUD = 'https://cartacontrole.vercel.app/';
+const LINK_TRATATIVAS_AUD = 'https://spx-reverse.vercel.app/';
 const LINK_COP_ACADEMY = 'https://cop-academy.vercel.app';
 
 function pulsoNavExternal(url){
@@ -11404,8 +11404,8 @@ const JARVIS_CATALOG = [
     subpages:[ {label:'TV Mode Config', sub:null, target:'tvconfig'}, {label:'Live SoC', sub:null, target:'livesoc', wip:true} ],
     features:['Botão de TV Mode (fullscreen) em cada página com dado','Configurações salvas e nomeadas, com rotação por intervalo'] },
   { key:'tratativas-aud', composite:{base:'fa-user-check', badgeIcon:'fa-crosshairs'}, title:'Tratativas e Aud.', tag:'hourly',
-    desc:'Integração externa (Carta Controle) pra registro de tratativas e auditorias.',
-    detail:'Ferramenta externa integrada direto no menu lateral — abre o Carta Controle, usado pra registrar tratativas e auditorias da operação, sem precisar sair do fluxo do JARVIS pra procurar o link.',
+    desc:'Integração externa (SPX Reverse) pra registro de tratativas e auditorias.',
+    detail:'Ferramenta externa integrada direto no menu lateral — abre o SPX Reverse, usado pra registrar tratativas e auditorias da operação, sem precisar sair do fluxo do JARVIS pra procurar o link.',
     external: LINK_TRATATIVAS_AUD,
     features:['Acesso direto pelo menu, sem precisar do link solto'] },
   { key:'absenteismo', icon:'fa-user-clock', title:'Absenteísmo', tag:'ontime',
