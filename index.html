@@ -7964,6 +7964,7 @@ function drawAllLabels(chart){
 
   if(type==='line'){
     chart.data.datasets.forEach((ds,di)=>{
+      if(!chart.isDatasetVisible(di)) return; // linha escondida (legenda) não pode deixar label solto — ponto guarda a última posição mesmo oculto
       const meta=chart.getDatasetMeta(di);
       meta.data.forEach((pt,i)=>{
         const label=fmtVal(ds.data[i]); if(!label) return;
@@ -7976,6 +7977,7 @@ function drawAllLabels(chart){
 
   } else if(type==='bar'){
     chart.data.datasets.forEach((ds,di)=>{
+      if(!chart.isDatasetVisible(di)) return;
       const meta=chart.getDatasetMeta(di);
       meta.data.forEach((bar,i)=>{
         const label=fmtVal(ds.data[i]); if(!label||label==='0') return;
@@ -7999,6 +8001,7 @@ function drawAllLabels(chart){
 
   } else if(type==='pie'||type==='doughnut'){
     chart.data.datasets.forEach((ds,di)=>{
+      if(!chart.isDatasetVisible(di)) return;
       const meta=chart.getDatasetMeta(di);
       const total=ds.data.reduce((a,b)=>a+(b||0),0);
       meta.data.forEach((arc,i)=>{
