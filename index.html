@@ -8023,18 +8023,35 @@ function drawAllLabels(chart){
 /* Draw line labels (kept for BKL manual charts) */
 function drawLineLabels(chart){ drawAllLabels(chart); }
 
+// Clicar numa linha da legenda isola ela (esconde as outras); clicar de
+// novo (já isolada) restaura todas. Pedido do Roberto em 2026-08-18 — ele
+// gostou desse comportamento no gráfico do Outbound (lá só tem 2 linhas,
+// então "esconder uma" já dava o mesmo efeito de "isolar a outra") e
+// pediu em todo gráfico de linha do PULSO, inclusive os com 3+ linhas
+// (ASM/Conveyor por zona etc.), onde só dá pra isolar com esse onClick
+// próprio — o toggle padrão do Chart.js exigiria clicar em cada uma das
+// outras uma por uma.
+function legendIsolateClick(e, legendItem, legend){
+  const chart = legend.chart;
+  const idx = legendItem.datasetIndex;
+  const total = chart.data.datasets.length;
+  const jaIsolada = chart.data.datasets.every((_, i) => i === idx || !chart.isDatasetVisible(i));
+  for(let i=0;i<total;i++) chart.setDatasetVisibility(i, jaIsolada ? true : i === idx);
+  chart.update();
+}
+
 function mkLine(id,labels,datasets,opts={}){
   const d=cd();
   const c=document.getElementById(id); if(!c) return;
-  chartInstances[id]=new Chart(c,{
-    type:'line',
-    data:{labels,datasets},
-    options:{
-      responsive:true,maintainAspectRatio:false,
-      plugins:d.plugins,scales:d.scales,...opts,
-      animation:{ onComplete(){ drawAllLabels(chartInstances[id]); } },
-    }
-  });
+  const options={
+    responsive:true,maintainAspectRatio:false,
+    plugins:d.plugins,scales:d.scales,...opts,
+    animation:{ onComplete(){ drawAllLabels(chartInstances[id]); } },
+  };
+  // Mesclado por último pra sobreviver a qualquer `opts.plugins.legend`
+  // customizado que os chamadores já passem (ex: label color próprio).
+  options.plugins={ ...options.plugins, legend:{ ...options.plugins.legend, onClick:legendIsolateClick } };
+  chartInstances[id]=new Chart(c,{ type:'line', data:{labels,datasets}, options });
 }
 function mkBar(id,labels,datasets,opts={}){
   const d=cd();
