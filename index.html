@@ -7935,8 +7935,8 @@ function outboundRenderChart(data){
   chartInstances['chart-outbound-eta']?.destroy();
   mkLine('chart-outbound-eta', HORAS_CUTOFF_LABELS, [
     { label:'Planejado', data:fmt(data.porHoraCpt.planejado), borderColor:'#5c6bc0', backgroundColor:'transparent', tension:.3 },
-    { label:'Realizado', data:fmt(data.porHoraCpt.realizado), borderColor:'var(--orange)', backgroundColor:'transparent', tension:.3 },
-    { label:'Cancelado', data:fmt(data.porHoraCpt.cancelado), borderColor:'var(--red)', backgroundColor:'transparent', tension:.3 },
+    { label:'Realizado', data:fmt(data.porHoraCpt.realizado), borderColor:'#ee4d2d', backgroundColor:'transparent', tension:.3 },
+    { label:'Cancelado', data:fmt(data.porHoraCpt.cancelado), borderColor:'#ef4444', backgroundColor:'transparent', tension:.3 },
   ]);
 }
 
@@ -8056,20 +8056,19 @@ function drawAllLabels(chart){
 /* Draw line labels (kept for BKL manual charts) */
 function drawLineLabels(chart){ drawAllLabels(chart); }
 
-// Clicar numa linha da legenda isola ela (esconde as outras); clicar de
-// novo (já isolada) restaura todas. Pedido do Roberto em 2026-08-18 — ele
-// gostou desse comportamento no gráfico do Outbound (lá só tem 2 linhas,
-// então "esconder uma" já dava o mesmo efeito de "isolar a outra") e
-// pediu em todo gráfico de linha do PULSO, inclusive os com 3+ linhas
-// (ASM/Conveyor por zona etc.), onde só dá pra isolar com esse onClick
-// próprio — o toggle padrão do Chart.js exigiria clicar em cada uma das
-// outras uma por uma.
+// Clicar numa linha da legenda tira SÓ ela (clicar de novo devolve) — não
+// isola as outras. Pedido original do Roberto em 2026-08-18 era baseado no
+// gráfico do Outbound (só 2 linhas, onde "tirar uma" e "isolar a outra"
+// davam o mesmo resultado); com 3+ linhas (ASM/Conveyor por zona etc.) um
+// modo de isolar-tudo-menos-uma foi tentado, mas ele voltou atrás em
+// 2026-08-18: quer conseguir combinar 2 de 3 linhas escondendo só uma,
+// não ficar preso a ver 1 linha por vez. Toggle simples por dataset,
+// independente das outras — mesmo efeito do onClick padrão do Chart.js,
+// só que explícito aqui pra não depender do default silencioso da lib.
 function legendIsolateClick(e, legendItem, legend){
   const chart = legend.chart;
   const idx = legendItem.datasetIndex;
-  const total = chart.data.datasets.length;
-  const jaIsolada = chart.data.datasets.every((_, i) => i === idx || !chart.isDatasetVisible(i));
-  for(let i=0;i<total;i++) chart.setDatasetVisibility(i, jaIsolada ? true : i === idx);
+  chart.setDatasetVisibility(idx, !chart.isDatasetVisible(idx));
   chart.update();
 }
 
