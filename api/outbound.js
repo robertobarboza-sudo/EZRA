@@ -21,7 +21,7 @@
  */
 const { fetchTabByGid, readRange, writeRange, ensureSheetExists, resolveTitle } = require('./_google');
 const { parseCSV, hojeOperacionalIso, dataOperacionalDe, toNum } = require('./_period');
-const { enrich, pertenceAoTurno, aggregate, toCarroRow } = require('./_outbound');
+const { enrich, pertenceAoTurno, aggregate, toCarroRow, tipoCarregamento } = require('./_outbound');
 
 const OUTBOUND_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '0' };
 // Monitor - Live (subaba nova dentro de Outbound, pedido do Roberto em
@@ -467,6 +467,7 @@ module.exports = async (req, res) => {
   const destinos = parseCSV(req.query.destino);
   const agencias = parseCSV(req.query.agencia);
   const veiculos = parseCSV(req.query.veiculo);
+  const tipos = parseCSV(req.query.tipo);
   const busca = (req.query.q || '').trim().toLowerCase();
 
   // FECHADA no filtro de Status = tem cpt_realizado preenchido (confirmado
@@ -483,6 +484,7 @@ module.exports = async (req, res) => {
     (!destinos.length || destinos.includes(r.destination_station_code)) &&
     (!agencias.length || agencias.includes(r.used_agency_name)) &&
     (!veiculos.length || veiculos.includes(r.used_vehicle)) &&
+    (!tipos.length || tipos.includes(tipoCarregamento(r.destination_station_code))) &&
     (!busca || String(r.lh_trips || '').toLowerCase().includes(busca));
 
   const filtradas = doIntervalo.filter(passaFiltros);

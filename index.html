@@ -7728,7 +7728,14 @@ pulsoRegister({
   // escolhido (hoje ou De/Até), não um dashboard tipo SPR.
   dateRange: true,
   hideDelta: true,
-  toggleGroups: [ { key:'turno', static:['T1','T2','T3'] } ],
+  toggleGroups: [
+    { key:'turno', static:['T1','T2','T3'] },
+    // Tipo de carregamento (pedido do Roberto em 2026-08-18): classifica o
+    // destino pelo prefixo do código (HUB-/XPT-/SOC-, resto = 3PL — ver
+    // tipoCarregamento em api/_outbound.js). Toggle multi-seleção, mesmo
+    // padrão do turno (clicar em mais de um bota os dois no filtro).
+    { key:'tipo', static:['XPT','HUB','SOC','3PL'] },
+  ],
   multiselects: OUTBOUND_MULTISELECTS,
   kpis: OUTBOUND_KPIS,
   extraHtml: `

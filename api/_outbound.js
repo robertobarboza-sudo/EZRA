@@ -31,6 +31,20 @@ function turnoSeguinte(t) {
   return i === -1 ? null : TURNO_ORDEM[(i + 1) % TURNO_ORDEM.length];
 }
 
+// Tipo de carregamento (pedido do Roberto em 2026-08-18, filtro multi-
+// seleção na página Outbound): classifica destination_station_code pelo
+// prefixo — mesma regra "solta" já usada na Esteira On-time
+// (esteiraDestinoCategoria em api/cluster.js), só que sem reaproveitar
+// aquela função pra não acoplar as duas páginas. HUB/XPT/SOC = prefixo
+// bate; qualquer outro (parceiro 3PL) cai no "3PL".
+function tipoCarregamento(destino) {
+  const d = String(destino || '');
+  if (/^HUB/i.test(d)) return 'HUB';
+  if (/^XPT/i.test(d)) return 'XPT';
+  if (/^SOC/i.test(d)) return 'SOC';
+  return '3PL';
+}
+
 function turnoDeHora(hora) {
   if (hora >= 6 && hora <= 13) return 'T1';
   if (hora >= 14 && hora <= 21) return 'T2';
@@ -167,4 +181,4 @@ function toCarroRow(r) {
   };
 }
 
-module.exports = { turnoDeHora, turnoDeDataHora, enrich, pertenceAoTurno, aggregate, toCarroRow };
+module.exports = { turnoDeHora, turnoDeDataHora, enrich, pertenceAoTurno, aggregate, toCarroRow, tipoCarregamento };
