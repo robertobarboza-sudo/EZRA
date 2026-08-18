@@ -6393,8 +6393,15 @@ function pulsoRenderPeriodo(key, p){
 function pulsoRenderIntervalo(key, data){
   const el = document.getElementById('pulso-period-'+key);
   if(el){
+    // 'hoje' (Outbound: fixo no dia operacional atual) e 'recente' (SPR/
+    // Leftover: sem De/Até escolhido, mostra só o dia mais recente da
+    // base) têm o mesmo formato de texto — só muda o rótulo, já que
+    // "recente" pode não ser literalmente hoje se a planilha estiver
+    // atrasada.
     el.textContent = data.modo === 'hoje'
       ? `Hoje (${pulsoFmtDataBr(data.intervalo.inicio)}) · turno atual`
+      : data.modo === 'recente'
+      ? `Mais recente: ${pulsoFmtDataBr(data.intervalo.inicio)}`
       : `Histórico: ${pulsoFmtDataBr(data.intervalo.inicio)} até ${pulsoFmtDataBr(data.intervalo.fim)}`;
   }
   const deInput = document.getElementById('pulso-date-de-'+key), ateInput = document.getElementById('pulso-date-ate-'+key);
@@ -7406,6 +7413,9 @@ pulsoRegister({
   key: 'spr',
   label: 'SPR',
   apiPath: '/api/spr',
+  // De/Até no lugar do antigo dia/semana/mês — mesmo modelo do Outbound,
+  // pedido do Roberto em 2026-08-18 ("fica melhor").
+  dateRange: true,
   toggleGroups: [
     { key:'turno', static:['T1','T2','T3'] },
     { key:'canal', dynamic:'canal' }, // não existe coluna de canal; opções vêm de opcoesFiltro.canal (ver api/spr.js)
@@ -7491,6 +7501,9 @@ pulsoRegister({
   key: 'leftover',
   label: 'Leftover',
   apiPath: '/api/leftover',
+  // De/Até no lugar do antigo dia/semana/mês — mesmo modelo do Outbound,
+  // pedido do Roberto em 2026-08-18 ("fica melhor").
+  dateRange: true,
   toggleGroups: [
     { key:'turno', static:['T1','T2','T3'] },
     { key:'type_cpt', dynamic:'type_cpt' },

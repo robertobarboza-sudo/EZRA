@@ -14,7 +14,7 @@
  *   demais ([LH], [3PL], [XPT], [EXT], [INFO], outros) -> Externo
  *
  * Query params:
- *   dim, date                          iguais ao /api/spr
+ *   de, ate                            iguais ao /api/spr (De/Até, mesmo modelo do Outbound)
  *   turno, type_cpt                    listas separadas por vírgula
  *   hub, causa1 (causa_l1), causa2 (causa_l2)  idem
  *   q                                  busca livre em hub + observacao
@@ -27,7 +27,7 @@
  * ~3 semanas de histórico); fora disso os campos ficam vazios.
  */
 const { fetchTabByGid } = require('./_google');
-const { periodStart, periodEnd, periodBefore, fmtDate, toNum, parseCSV, pctDelta } = require('./_period');
+const { fmtDate, toNum, parseCSV, pctDelta } = require('./_period');
 
 const LEFTOVER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '352174025' };
 const OUTBOUND_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '0' };
@@ -98,9 +98,8 @@ module.exports = async (req, res) => {
     .map(r => ({ ...r, __date: r.data ? new Date(r.data + 'T00:00:00Z') : null, __transportadora: transportadoraDe(r) }))
     .filter(r => r.__date && !isNaN(r.__date));
 
-  const dim = ['day', 'week', 'month'].includes(req.query.dim) ? req.query.dim : 'day';
   const maisRecente = withDate.reduce((max, r) => (r.__date > max ? r.__date : max), withDate[0]?.__date || new Date());
-  const refDate = req.query.date ? new Date(req.query.date + 'T00:00:00Z') : maisRecente;
+  const maisAntiga = withDate.reduce((min, r) => (r.__date < min ? r.__date : min), withDate[0]?.__date || maisRecente);
 
   const turnos = parseCSV(req.query.turno);
   const tiposCpt = parseCSV(req.query.type_cpt);
@@ -121,10 +120,24 @@ module.exports = async (req, res) => {
 
   const filtradas = withDate.filter(passaFiltros);
 
-  const inicio = periodStart(refDate, dim);
-  const fim = periodEnd(inicio, dim);
-  const inicioAnt = periodBefore(inicio, dim);
+  // Sem de/ate: só o dia mais recente disponível ("recente"). Com de e/ou
+  // ate: intervalo livre ("historico"), lado que faltar usa o limite da
+  // base — mesmo modelo do Outbound (api/outbound.js), trocado do antigo
+  // dim (dia/semana/mês) pedido do Roberto em 2026-08-18.
+  const deQuery = req.query.de ? new Date(req.query.de + 'T00:00:00Z') : null;
+  const ateQuery = req.query.ate ? new Date(req.query.ate + 'T00:00:00Z') : null;
+  const semFiltro = !deQuery && !ateQuery;
+  const modo = semFiltro ? 'recente' : 'historico';
+  const inicio = semFiltro ? maisRecente : (deQuery || maisAntiga);
+  const fimBase = semFiltro ? maisRecente : (ateQuery || maisRecente);
+  const fim = new Date(fimBase.getTime() + 86400000); // exclusivo
+
+  // Período anterior = janela de mesma duração imediatamente antes de
+  // `inicio` — generalização do antigo periodBefore(dim) pra um intervalo
+  // de tamanho livre.
+  const diasNoPeriodo = Math.round((fim - inicio) / 86400000);
   const fimAnt = inicio;
+  const inicioAnt = new Date(inicio.getTime() - diasNoPeriodo * 86400000);
 
   const doPeriodo = filtradas.filter(r => r.__date >= inicio && r.__date < fim);
   const doPeriodoAnterior = filtradas.filter(r => r.__date >= inicioAnt && r.__date < fimAnt);
@@ -169,7 +182,7 @@ module.exports = async (req, res) => {
   const uniq = key => [...new Set(withDate.map(r => r[key]).filter(Boolean))].sort();
 
   // Cobertura real da base (não o período filtrado) — pra avisar até quando os dados vão.
-  const dataMinima = withDate.reduce((min, r) => (r.__date < min ? r.__date : min), withDate[0]?.__date || refDate);
+  const dataMinima = maisAntiga;
   const dataMaxima = maisRecente;
 
   // Limite alto: com a paginação no front (100/página), dá pra mandar o
@@ -196,7 +209,8 @@ module.exports = async (req, res) => {
   res.status(200).json({
     ok: true,
     atualizadoEm: new Date().toISOString(),
-    periodo: { dim, inicio: fmtDate(inicio), fim: fmtDate(new Date(fim - 86400000)), inicioAnterior: fmtDate(inicioAnt), fimAnterior: fmtDate(new Date(fimAnt - 86400000)) },
+    modo,
+    intervalo: { inicio: fmtDate(inicio), fim: fmtDate(new Date(fim - 86400000)) },
     cobertura: { inicio: fmtDate(dataMinima), fim: fmtDate(dataMaxima) },
     atual, anterior, delta,
     leftovers, leftoversTotal: doPeriodo.length,

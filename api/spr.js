@@ -7,8 +7,12 @@
  * pros cards (+ as opções disponíveis pra popular os filtros).
  *
  * Query params:
- *   dim         'day' | 'week' | 'month' (default 'day')
- *   date        data de referência 'YYYY-MM-DD' (default: data mais recente na base)
+ *   de, ate     YYYY-MM-DD (opcionais). Sem os dois: mostra só o dia mais
+ *               recente disponível na base ("recente"). Com de/ate: intervalo
+ *               livre ("histórico") — lado que faltar usa o limite da base.
+ *               Trocado do antigo dim (dia/semana/mês) + data única pro
+ *               mesmo modelo De/Até do Outbound, pedido do Roberto em
+ *               2026-08-18 ("fica melhor").
  *   turno       lista separada por vírgula (ex: T1,T2)
  *   solicitation_by, destination, vehicle, agency  idem, listas separadas por vírgula
  *   canal       lista separada por vírgula (ex: HUB,SOC) — prefixo de destination_station_code
@@ -16,7 +20,7 @@
  *   q           texto livre pra busca em destination_station_code (contains)
  */
 const { fetchTabByGid } = require('./_google');
-const { periodStart, periodEnd, periodBefore, fmtDate, toNum, parseCSV, pctDelta } = require('./_period');
+const { fmtDate, toNum, parseCSV, pctDelta } = require('./_period');
 
 const SPR_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1276487267' };
 
@@ -64,9 +68,8 @@ module.exports = async (req, res) => {
     .map(r => ({ ...r, __date: r.cutoff_date ? new Date(r.cutoff_date + 'T00:00:00Z') : null }))
     .filter(r => r.__date && !isNaN(r.__date));
 
-  const dim = ['day', 'week', 'month'].includes(req.query.dim) ? req.query.dim : 'day';
   const maisRecente = withDate.reduce((max, r) => (r.__date > max ? r.__date : max), withDate[0]?.__date || new Date());
-  const refDate = req.query.date ? new Date(req.query.date + 'T00:00:00Z') : maisRecente;
+  const maisAntiga = withDate.reduce((min, r) => (r.__date < min ? r.__date : min), withDate[0]?.__date || maisRecente);
 
   const turnos = parseCSV(req.query.turno);
   const solicitantes = parseCSV(req.query.solicitation_by);
@@ -87,10 +90,23 @@ module.exports = async (req, res) => {
 
   const filtradas = withDate.filter(passaFiltros);
 
-  const inicio = periodStart(refDate, dim);
-  const fim = periodEnd(inicio, dim);
-  const inicioAnt = periodBefore(inicio, dim);
+  // Sem de/ate: só o dia mais recente disponível ("recente"). Com de e/ou
+  // ate: intervalo livre ("historico"), lado que faltar usa o limite da
+  // base — mesmo modelo do Outbound (api/outbound.js).
+  const deQuery = req.query.de ? new Date(req.query.de + 'T00:00:00Z') : null;
+  const ateQuery = req.query.ate ? new Date(req.query.ate + 'T00:00:00Z') : null;
+  const semFiltro = !deQuery && !ateQuery;
+  const modo = semFiltro ? 'recente' : 'historico';
+  const inicio = semFiltro ? maisRecente : (deQuery || maisAntiga);
+  const fimBase = semFiltro ? maisRecente : (ateQuery || maisRecente);
+  const fim = new Date(fimBase.getTime() + 86400000); // exclusivo, mesma convenção do periodEnd antigo
+
+  // Período anterior = janela de mesma duração imediatamente antes de
+  // `inicio` — generalização do antigo periodBefore(dim) pra um intervalo
+  // de tamanho livre.
+  const diasNoPeriodo = Math.round((fim - inicio) / 86400000);
   const fimAnt = inicio;
+  const inicioAnt = new Date(inicio.getTime() - diasNoPeriodo * 86400000);
 
   const doPeriodo = filtradas.filter(r => r.__date >= inicio && r.__date < fim);
   const doPeriodoAnterior = filtradas.filter(r => r.__date >= inicioAnt && r.__date < fimAnt);
@@ -103,7 +119,7 @@ module.exports = async (req, res) => {
   const uniq = key => [...new Set(withDate.map(r => r[key]).filter(Boolean))].sort();
 
   // Cobertura real da base (não o período filtrado) — pra avisar até quando os dados vão.
-  const dataMinima = withDate.reduce((min, r) => (r.__date < min ? r.__date : min), withDate[0]?.__date || refDate);
+  const dataMinima = maisAntiga;
   const dataMaxima = maisRecente;
 
   // Limite alto: com a paginação no front (100/página), dá pra mandar o
@@ -127,7 +143,8 @@ module.exports = async (req, res) => {
   res.status(200).json({
     ok: true,
     atualizadoEm: new Date().toISOString(),
-    periodo: { dim, inicio: fmtDate(inicio), fim: fmtDate(new Date(fim - 86400000)), inicioAnterior: fmtDate(inicioAnt), fimAnterior: fmtDate(new Date(fimAnt - 86400000)) },
+    modo,
+    intervalo: { inicio: fmtDate(inicio), fim: fmtDate(new Date(fim - 86400000)) },
     cobertura: { inicio: fmtDate(dataMinima), fim: fmtDate(dataMaxima) },
     atual, anterior, delta,
     viagens, viagensTotal: doPeriodo.length,
