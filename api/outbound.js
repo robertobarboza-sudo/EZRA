@@ -14,14 +14,17 @@
  *
  * Query params:
  *   de, ate                  YYYY-MM-DD (opcionais — presença de qualquer um ativa o modo histórico)
- *   turno                    lista separada por vírgula (T1,T2,T3) — ver api/_outbound.js pra a regra de compartilhado
+ *   turno                    lista separada por vírgula (T1,T2,T3) — filtro direto em turno_shipped
+ *                            (turno do CPT planejado, mesma dimensão do gráfico; trocado do antigo
+ *                            pertenceAoTurno/compartilhado — que misturava o turno do ETA de origem —
+ *                            pedido do Roberto em 2026-08-18: "CPT planejado como dimensão")
  *   status, solicitante      listas separadas por vírgula (status_agrupado, solicitation_by)
  *   destino, agencia, veiculo   listas separadas por vírgula
  *   q                        busca livre em lh_trips
  */
 const { fetchTabByGid, readRange, writeRange, ensureSheetExists, resolveTitle } = require('./_google');
 const { parseCSV, hojeOperacionalIso, dataOperacionalDe, toNum } = require('./_period');
-const { enrich, pertenceAoTurno, aggregate, toCarroRow, tipoCarregamento } = require('./_outbound');
+const { enrich, aggregate, toCarroRow, tipoCarregamento } = require('./_outbound');
 
 const OUTBOUND_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '0' };
 // Monitor - Live (subaba nova dentro de Outbound, pedido do Roberto em
@@ -478,7 +481,7 @@ module.exports = async (req, res) => {
   const bateStatus = (r, s) => s === 'FECHADA' ? !!r.cpt_realizado : r.status_agrupado === s;
 
   const passaFiltros = r =>
-    (!turnos.length || turnos.some(t => pertenceAoTurno(r, t))) &&
+    (!turnos.length || turnos.includes(r.turno_shipped)) &&
     (!status.length || status.some(s => bateStatus(r, s))) &&
     (!solicitantes.length || solicitantes.includes(r.solicitation_by)) &&
     (!destinos.length || destinos.includes(r.destination_station_code)) &&
@@ -500,20 +503,25 @@ module.exports = async (req, res) => {
 
   const uniq = key => [...new Set(doIntervalo.map(r => r[key]).filter(Boolean))].sort();
 
-  // ETA de destino por hora do dia: planejado vs realizado, pra curva de
-  // antecipação/fila de chegada — usa as colunas de hora já extraídas na planilha.
-  const etaPlanejadoPorHora = Array(24).fill(0);
-  const etaRealizadoPorHora = Array(24).fill(0);
+  // Carros por hora do CPT PLANEJADO (pedido do Roberto em 2026-08-18,
+  // substitui a curva antiga por hora do ETA destino): 3 linhas — Planejado
+  // (todo carro daquela hora, qualquer status), Realizado (tem cpt_realizado)
+  // e Cancelado (status_agrupado CANCELADO) — pra enxergar volume de carros
+  // por horário de CPT e melhorar a adequação do planejamento. diasNoPeriodo
+  // = dias operacionais distintos entre as `filtradas` (cutoff), usado pelo
+  // front pro toggle Média/Total (Total = soma bruta, Média = soma/dias).
+  const cptPlanejadoPorHora = Array(24).fill(0);
+  const cptRealizadoPorHora = Array(24).fill(0);
+  const cptCanceladoPorHora = Array(24).fill(0);
   filtradas.forEach(r => {
-    if (r.hora_eta_destino_planejado !== '' && r.hora_eta_destino_planejado != null) {
-      const hp = Number(r.hora_eta_destino_planejado);
-      if (Number.isInteger(hp) && hp >= 0 && hp <= 23) etaPlanejadoPorHora[hp]++;
-    }
-    if (r.hora_eta_destino_realizado !== '' && r.hora_eta_destino_realizado != null) {
-      const hr = Number(r.hora_eta_destino_realizado);
-      if (Number.isInteger(hr) && hr >= 0 && hr <= 23) etaRealizadoPorHora[hr]++;
-    }
+    if (r.hora_cpt_planejado === '' || r.hora_cpt_planejado == null) return;
+    const h = Number(r.hora_cpt_planejado);
+    if (!Number.isInteger(h) || h < 0 || h > 23) return;
+    cptPlanejadoPorHora[h]++;
+    if (r.cpt_realizado) cptRealizadoPorHora[h]++;
+    if (r.status_agrupado === 'CANCELADO') cptCanceladoPorHora[h]++;
   });
+  const diasNoPeriodo = new Set(filtradas.map(r => r.cutoff).filter(Boolean)).size || 1;
 
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
@@ -523,7 +531,8 @@ module.exports = async (req, res) => {
     intervalo: { inicio, fim },
     cobertura: { inicio: dataMinima, fim: dataMaxima },
     atual,
-    porHoraEta: { planejado: etaPlanejadoPorHora, realizado: etaRealizadoPorHora },
+    porHoraCpt: { planejado: cptPlanejadoPorHora, realizado: cptRealizadoPorHora, cancelado: cptCanceladoPorHora },
+    diasNoPeriodo,
     carros, carrosTotal: filtradas.length,
     opcoesFiltro: {
       turno: ['T1', 'T2', 'T3'],

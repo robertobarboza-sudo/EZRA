@@ -7885,7 +7885,10 @@ pulsoRegister({
   kpis: OUTBOUND_KPIS,
   extraHtml: `
     <div class="table-card" style="margin-top:16px">
-      <div class="table-toolbar"><div class="table-toolbar-title">ETA Destino — Planejado vs Realizado por Hora</div></div>
+      <div class="table-toolbar">
+        <div class="table-toolbar-title" id="outbound-chart-title">Carros por Hora — CPT Planejado</div>
+        <button type="button" class="spr-ms-action-btn" id="outbound-chart-metric-toggle" onclick="outboundToggleChartMetric()">Ver Média</button>
+      </div>
       <div style="height:260px;padding:8px 16px 16px"><canvas id="chart-outbound-eta"></canvas></div>
     </div>`,
   table: {
@@ -7897,18 +7900,45 @@ pulsoRegister({
     columns: OUTBOUND_TABLE_COLUMNS,
   },
   onData(data){
-    const title = document.querySelector('#pulso-root-outbound .table-toolbar-title');
+    // 2 elementos batem com .table-toolbar-title (o do card do gráfico e o
+    // da tabela de baixo) — filtra pelo id pra não sobrescrever o título
+    // errado (bug pré-existente, corrigido de passagem ao mexer aqui).
+    const title = [...document.querySelectorAll('#pulso-root-outbound .table-toolbar-title')].find(el => el.id !== 'outbound-chart-title');
     if(title) title.textContent = data.modo === 'hoje' ? 'Carros previstos — hoje' : 'Carros previstos — histórico';
-    if(data.porHoraEta){
-      chartInstances['chart-outbound-eta']?.destroy();
-      mkLine('chart-outbound-eta', HORAS_CUTOFF_LABELS, [
-        { label:'Planejado', data:rotHoraCutoff(data.porHoraEta.planejado), borderColor:'#5c6bc0', backgroundColor:'transparent', tension:.3 },
-        { label:'Realizado', data:rotHoraCutoff(data.porHoraEta.realizado), borderColor:'var(--orange)', backgroundColor:'transparent', tension:.3 },
-      ]);
-    }
+    outboundRenderChart(data);
   },
   insights: outboundInsights,
 });
+
+// Carros por Hora — CPT Planejado (pedido do Roberto em 2026-08-18,
+// substitui a curva antiga de ETA destino): Planejado/Realizado/Cancelado
+// por hora do CPT, com toggle Total (soma bruta do período) vs Média
+// (soma / dias operacionais distintos no período) — pra enxergar volume
+// típico por horário e ajustar o planejamento de CPTs sem o total do
+// período distorcer pela quantidade de dias selecionada.
+let OUTBOUND_CHART_METRIC = 'total';
+function outboundToggleChartMetric(){
+  OUTBOUND_CHART_METRIC = OUTBOUND_CHART_METRIC === 'total' ? 'media' : 'total';
+  const btn = document.getElementById('outbound-chart-metric-toggle');
+  if(btn) btn.textContent = OUTBOUND_CHART_METRIC === 'total' ? 'Ver Média' : 'Ver Total';
+  outboundRenderChart(PULSO_DATA.outbound);
+}
+function outboundRenderChart(data){
+  if(!data || !data.porHoraCpt) return;
+  const titleEl = document.getElementById('outbound-chart-title');
+  const dias = data.diasNoPeriodo || 1;
+  const media = OUTBOUND_CHART_METRIC === 'media';
+  const fmt = arr => rotHoraCutoff(arr).map(v => media ? +(v/dias).toFixed(1) : v);
+  if(titleEl) titleEl.textContent = media
+    ? `Carros por Hora — CPT Planejado · média por dia (${dias} dia${dias===1?'':'s'})`
+    : 'Carros por Hora — CPT Planejado · total do período';
+  chartInstances['chart-outbound-eta']?.destroy();
+  mkLine('chart-outbound-eta', HORAS_CUTOFF_LABELS, [
+    { label:'Planejado', data:fmt(data.porHoraCpt.planejado), borderColor:'#5c6bc0', backgroundColor:'transparent', tension:.3 },
+    { label:'Realizado', data:fmt(data.porHoraCpt.realizado), borderColor:'var(--orange)', backgroundColor:'transparent', tension:.3 },
+    { label:'Cancelado', data:fmt(data.porHoraCpt.cancelado), borderColor:'var(--red)', backgroundColor:'transparent', tension:.3 },
+  ]);
+}
 
 /* ================================================================
    CHARTS
