@@ -1492,6 +1492,21 @@
     .pulso-ofensoras-detalhe{ color:var(--text-muted); }
     .pulso-ofensoras-empty{ font-size:12px; color:var(--text-muted); padding:6px 0; }
 
+    /* "Gestão de Performance" — bloco no COP Boy do Leftover, pedido do
+       Roberto em 2026-08-18: causas de leftover agrupadas em Impactos
+       Externos/Operacionais, mesmo formato dos relatórios semanais manuais
+       que ele já monta. */
+    .pulso-gestao-performance{ background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:12px 14px; margin-bottom:16px; }
+    .pulso-gestao-impacto{ padding:10px 0; border-top:1px solid var(--border); }
+    .pulso-gestao-impacto:first-of-type{ border-top:none; padding-top:0; }
+    .pulso-gestao-impacto-head{ display:flex; align-items:baseline; flex-wrap:wrap; gap:8px; margin-bottom:4px; }
+    .pulso-gestao-impacto-label{ font-size:12.5px; font-weight:700; color:var(--text); }
+    .pulso-gestao-impacto-pct{ font-size:13px; font-weight:800; color:var(--orange); }
+    .pulso-gestao-impacto-tags{ font-size:11px; color:var(--text-muted); }
+    .pulso-gestao-impacto-meta{ font-size:11.5px; color:var(--text-muted); margin-bottom:6px; }
+    .pulso-gestao-causas-title{ font-size:11px; font-weight:700; color:var(--text-sub); text-transform:uppercase; letter-spacing:.02em; margin:8px 0 2px; }
+    .pulso-gestao-resumo{ font-size:12px; color:var(--text-sub); line-height:1.55; margin-top:10px; padding-top:10px; border-top:1px solid var(--border); }
+
     /* Altura única pra tudo na barra de filtros ficar alinhado */
     .spr-filters .bkl-tabs { padding: 3px; height: 34px; box-sizing: border-box; }
     .spr-filters .bkl-tab { height: 100%; box-sizing: border-box; display: flex; align-items: center; padding: 0 16px; }
@@ -6641,7 +6656,11 @@ function pulsoOpenPipboy(key){
 
   clearTimeout(PULSO_PIPBOY_TIMER);
   PULSO_PIPBOY_TIMER = setTimeout(() => {
-    body.innerHTML = insights.map(it => `
+    // pipboyExtra: bloco de HTML pronto (não é um insight de 1 linha),
+    // renderizado ANTES da lista de insights — ex: "Gestão de Performance"
+    // do Leftover (ver leftoverGestaoPerformanceHtml).
+    const extraHtml = cfg.pipboyExtra ? (cfg.pipboyExtra(data, rows) || '') : '';
+    body.innerHTML = extraHtml + insights.map(it => `
       <div class="spr-pipboy-insight">
         <i class="fas ${it.icon}"></i>
         <div class="spr-pipboy-insight-text">${it.html}</div>
@@ -7599,6 +7618,7 @@ pulsoRegister({
     }
     return out;
   },
+  pipboyExtra: leftoverGestaoPerformanceHtml,
 });
 
 // Painel do card "Transportadoras Ofensoras" (pedido do Roberto em
@@ -7628,6 +7648,118 @@ function leftoverRenderOfensoras(){
         <span class="pulso-ofensoras-pct">${t.pct}%</span>
         <span class="pulso-ofensoras-detalhe">(${t.pacotes.toLocaleString('pt-BR')} pacotes em ${t.viagensRealizadas.toLocaleString('pt-BR')} ${t.viagensRealizadas===1?'viagem realizada':'viagens realizadas'})</span>
       </div>`).join('');
+}
+
+// "Gestão de Performance" (pedido do Roberto em 2026-08-18): bloco novo no
+// COP Boy do Leftover, no mesmo formato dos relatórios semanais manuais
+// que ele já monta (Impactos Externos/Operacionais, causas, % , Type CPT,
+// resumo). Duas categorias só: Operacional = causa_l1 começando com
+// [SOC], Externo = todo o resto (LH/3PL/XPT/EXT/GOV) — confirmado pelos
+// insumos que ele mandou, onde [GOV] aparece dentro de Impactos Externos.
+// [INFO] Sem Volumes a Justificar (e leftover=0) não é impacto de verdade,
+// fica de fora do relatório.
+function leftoverImpactoDe(causa1){
+  return String(causa1||'').startsWith('[SOC]') ? 'operacional' : 'externo';
+}
+function leftoverTagDe(causa){
+  const m = String(causa||'').match(/^\[([A-Za-z0-9]+)\]/);
+  return m ? m[1].toUpperCase() : null;
+}
+const TYPE_CPT_ORDEM = ['AM', 'PM1', 'PM2', 'PM3'];
+function leftoverGestaoPerformanceHtml(data, todasAsRows){
+  const rows = (todasAsRows || []).filter(r =>
+    r.leftover_until_cap_causa_l1 && !r.leftover_until_cap_causa_l1.startsWith('[INFO]') && (r.leftover_until_cap || 0) > 0);
+  if(!rows.length) return '';
+
+  const totalGeral = rows.reduce((s, r) => s + r.leftover_until_cap, 0);
+  if(!totalGeral) return '';
+
+  const buckets = { externo: rows.filter(r => leftoverImpactoDe(r.leftover_until_cap_causa_l1) === 'externo'),
+    operacional: rows.filter(r => leftoverImpactoDe(r.leftover_until_cap_causa_l1) === 'operacional') };
+
+  const somaPacotes = list => list.reduce((s, r) => s + r.leftover_until_cap, 0);
+
+  function tagsDoBucket(list){
+    const porTag = new Map();
+    list.forEach(r => {
+      const tag = leftoverTagDe(r.leftover_until_cap_causa_l1);
+      if(!tag) return;
+      porTag.set(tag, (porTag.get(tag) || 0) + r.leftover_until_cap);
+    });
+    return [...porTag.entries()].sort((a, b) => b[1] - a[1]).map(([tag]) => `[${tag}]`);
+  }
+
+  function typeCptLinha(list){
+    const porTipo = new Map();
+    list.forEach(r => { const t = r.type_cpt || null; if(t) porTipo.set(t, (porTipo.get(t) || 0) + 1); });
+    if(!porTipo.size) return '';
+    const total = list.length;
+    const ordenados = [...porTipo.keys()].sort((a, b) => {
+      const ia = TYPE_CPT_ORDEM.indexOf(a), ib = TYPE_CPT_ORDEM.indexOf(b);
+      return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+    });
+    return ordenados.map(t => `${pulsoEscHtml(t)}: ${porTipo.get(t)} (${(porTipo.get(t)/total*100).toFixed(1).replace('.', ',')}%)`).join(' · ');
+  }
+
+  function causasHtml(list){
+    const totalBucket = somaPacotes(list);
+    const porCausa = new Map();
+    list.forEach(r => {
+      const c = r.leftover_until_cap_causa_l2 || r.leftover_until_cap_causa_l1;
+      const acc = porCausa.get(c) || { pacotes: 0, occ: 0 };
+      acc.pacotes += r.leftover_until_cap;
+      acc.occ++;
+      porCausa.set(c, acc);
+    });
+    return [...porCausa.entries()]
+      .sort((a, b) => b[1].pacotes - a[1].pacotes)
+      .map(([causa, acc]) => `
+        <div class="pulso-ofensoras-row">
+          <span class="pulso-ofensoras-nome">${pulsoEscHtml(causa)}</span>
+          <span class="pulso-ofensoras-pct">${totalBucket ? (acc.pacotes/totalBucket*100).toFixed(1).replace('.', ',') : '0,0'}%</span>
+          <span class="pulso-ofensoras-detalhe">${acc.pacotes.toLocaleString('pt-BR')} pacotes (${acc.occ} occ)</span>
+        </div>`).join('');
+  }
+
+  function blocoHtml(label, list){
+    if(!list.length) return '';
+    const pacotes = somaPacotes(list);
+    const pct = (pacotes/totalGeral*100).toFixed(1).replace('.', ',');
+    const tipoCpt = typeCptLinha(list);
+    return `
+      <div class="pulso-gestao-impacto">
+        <div class="pulso-gestao-impacto-head">
+          <span class="pulso-gestao-impacto-label">[Impactos ${label}]</span>
+          <span class="pulso-gestao-impacto-pct">${pct}%</span>
+          <span class="pulso-gestao-impacto-tags">${tagsDoBucket(list).join(' ')}</span>
+        </div>
+        <div class="pulso-gestao-impacto-meta">Ocorrências: <strong style="color:var(--text)">${list.length}</strong> · Leftover: <strong style="color:var(--text)">${pacotes.toLocaleString('pt-BR')} pacotes</strong></div>
+        ${tipoCpt ? `<div class="pulso-gestao-impacto-meta">Type CPT: ${tipoCpt}</div>` : ''}
+        <div class="pulso-gestao-causas-title">Principais causas</div>
+        ${causasHtml(list)}
+      </div>`;
+  }
+
+  const top = list => { const m = new Map(); list.forEach(r => { const c = r.leftover_until_cap_causa_l2 || r.leftover_until_cap_causa_l1; m.set(c, (m.get(c)||0) + r.leftover_until_cap); }); return [...m.entries()].sort((a,b)=>b[1]-a[1])[0]; };
+  const topExterno = top(buckets.externo), topOperacional = top(buckets.operacional);
+  const pctExt = (somaPacotes(buckets.externo)/totalGeral*100).toFixed(1).replace('.', ',');
+  const pctOp = (somaPacotes(buckets.operacional)/totalGeral*100).toFixed(1).replace('.', ',');
+  const resumoPartes = [];
+  if(buckets.externo.length) resumoPartes.push(`Os impactos externos representam <strong>${pctExt}%</strong> do volume total${topExterno ? `, concentrados principalmente em <strong>${pulsoEscHtml(topExterno[0])}</strong>` : ''}.`);
+  if(buckets.operacional.length) resumoPartes.push(`Os impactos operacionais representam <strong>${pctOp}%</strong>${topOperacional ? `, com <strong>${pulsoEscHtml(topOperacional[0])}</strong> como principal causa` : ''}.`);
+
+  const periodoTxt = data?.intervalo ? (data.intervalo.inicio === data.intervalo.fim ? pulsoFmtDataBr(data.intervalo.inicio) : `${pulsoFmtDataBr(data.intervalo.inicio)} a ${pulsoFmtDataBr(data.intervalo.fim)}`) : '';
+
+  return `
+    <div class="pulso-gestao-performance">
+      <div class="pulso-ofensoras-title">Gestão de Performance${periodoTxt ? ` — ${periodoTxt}` : ''}</div>
+      ${blocoHtml('Externos', buckets.externo)}
+      ${blocoHtml('Operacionais', buckets.operacional)}
+      <div class="pulso-gestao-resumo">
+        Total: <strong style="color:var(--text)">${rows.length}</strong> ocorrências · <strong style="color:var(--text)">${totalGeral.toLocaleString('pt-BR')}</strong> pacotes de leftover no período.<br/>
+        ${resumoPartes.join(' ')}
+      </div>
+    </div>`;
 }
 
 // Gráfico "Leftover por horário" (pedido do Roberto em 2026-08-18), abaixo
