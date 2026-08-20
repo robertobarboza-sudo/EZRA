@@ -347,6 +347,36 @@ async function buildArvore() {
   const comDado = weeks.filter(w => w.hasRealData);
   const refWeeks = comDado.slice(-2).map(w => w.label);
 
+  // KPIs calculados automaticamente (pedido do Roberto em 2026-08-18) — a
+  // célula "Valor" dessas linhas na planilha deixa de valer: o valor vira
+  // sempre numerador/denominador de outros 2 KPIs da própria árvore, pra
+  // cada data/semana em que os dois tiverem número (sem os dois, sem
+  // ponto — não inventa dado). Fração 0–1 (mesma convenção de todo KPI
+  // "percent" aqui, ver num() acima — o front multiplica por 100 na hora
+  // de exibir).
+  const KPI_CALCULADOS = [
+    { alvo: 'RETURNS|COP|EHA | RETURNS|% EHA X Recevied',
+      numerador: 'RETURNS|COP|EHA | RETURNS|Recevied EHA inbound',
+      denominador: 'Inbound|COP|LH|Received' },
+    { alvo: 'Planejamento|Rodrigo (PCP)||(%) Desvio de Forecast',
+      numerador: 'Planejamento|Rodrigo (PCP)|Forecast|Received Inbound Total',
+      denominador: 'Planejamento|Rodrigo (PCP)|Forecast|Inbound Forecast S&OP' },
+    { alvo: 'Planejamento|Rodrigo (PCP)|Planejamento|(%) Aderência ao Plano All',
+      numerador: 'Planejamento|Rodrigo (PCP)|Planejamento|Packed Real D-1',
+      denominador: 'Planejamento|Rodrigo (PCP)|Planejamento|Packed Planejado D-1' },
+  ];
+  KPI_CALCULADOS.forEach(({ alvo, numerador, denominador }) => {
+    const kAlvo = kpiPorChave.get(alvo), kNum = kpiPorChave.get(numerador), kDen = kpiPorChave.get(denominador);
+    if (!kAlvo || !kNum || !kDen) return;
+    kAlvo.calculado = true;
+    kAlvo.valores = {};
+    new Set([...Object.keys(kNum.valores), ...Object.keys(kDen.valores)]).forEach(data => {
+      const n = kNum.valores[data], d = kDen.valores[data];
+      if (n == null || !d) return;
+      kAlvo.valores[data] = Math.round((n / d) * 1e6) / 1e6;
+    });
+  });
+
   const kpis = [...kpiPorChave.values()];
   // Quebra por turno (pedido do Roberto em 2026-08-13, mockup "arvore-kpis"
   // bundle): dentro do mesmo Bloco/PIC/Sub Bloco, se existir KPI nomeado

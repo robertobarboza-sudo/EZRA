@@ -2266,10 +2266,15 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
     // Bloco -> Sub Bloco -> KPIs, só do PIC selecionado (reaproveita o
     // mesmo agrupador da tabela principal, já preserva a ordem da planilha).
+    // KPIs calculados (k.calculado, ver api/_arvore.js) não entram aqui —
+    // são derivados de outros 2 KPIs da árvore, digitar valor neles não
+    // faz nada (a próxima carga sobrescreve com o cálculo automático).
     const grupos = useMemo(() => {
       if (!pic) return [];
       return DataService.getGroupedKPIs((k) => k.pic === pic).flatMap((b) =>
-        b.pics.flatMap((p) => p.subs.map((s) => ({ bloco: b.bloco, subBloco: s.subBloco, kpis: s.kpis })))
+        b.pics.flatMap((p) => p.subs
+          .map((s) => ({ bloco: b.bloco, subBloco: s.subBloco, kpis: s.kpis.filter((k) => !k.calculado) }))
+          .filter((s) => s.kpis.length))
       );
     }, [pic]);
 
