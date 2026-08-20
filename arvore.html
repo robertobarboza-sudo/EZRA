@@ -367,11 +367,33 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     NA: { key: "na", text: "Sem dado", dot: "⚪", color: "na" },
   };
 
+  // >24 horas / >48 horas / >72 horas / >10 dias (Stuck) não têm target
+  // próprio na planilha — herdam o status de "%> 24 horas" do mesmo grupo
+  // (bloco/pic/sub bloco), quando essa métrica existir ali. Pedido do
+  // Roberto em 2026-08-18: "ficam fora do target se o KPI %> 24 horas
+  // estiver acima do target dele". Só o Status muda — o valor exibido
+  // continua sendo a contagem real, e a tendência (melhorando/piorando)
+  // continua calculada em cima do valor/polaridade do próprio KPI.
+  const TARGET_LINKED_KPIS = new Set([">24 horas", ">48 horas", ">72 horas", ">10 dias"]);
+  const TARGET_LINK_SOURCE = "%> 24 horas";
+  function findLinkedTargetKpi(kpi) {
+    if (!TARGET_LINKED_KPIS.has(kpi.kpi)) return null;
+    if (typeof DataService === "undefined" || !DataService.getKPIs) return null;
+    return DataService.getKPIs().find((k) =>
+      k.kpi === TARGET_LINK_SOURCE && k.bloco === kpi.bloco && k.pic === kpi.pic && k.subBloco === kpi.subBloco
+    ) || null;
+  }
+
   // value = resultado a avaliar; compareValue = resultado do período de
   // comparação (ex.: D-1), usado só para achar a tendência. Sem compareValue
   // disponível, a tendência é tratada como estável (não inventa "melhora"/"piora").
-  function computeStatusLabel(kpi, value, compareValue) {
-    const within = isWithinTarget(kpi, value);
+  // date (opcional) = chave da coluna (iso ou "W..") sendo avaliada — só é
+  // usado pra buscar o valor do KPI vinculado (ver TARGET_LINKED_KPIS acima).
+  function computeStatusLabel(kpi, value, compareValue, date) {
+    const linked = date !== undefined ? findLinkedTargetKpi(kpi) : null;
+    const within = linked && typeof Calc !== "undefined"
+      ? isWithinTarget(linked, Calc.getValue(linked, date))
+      : isWithinTarget(kpi, value);
     if (within === null) return STATUS5.NA;
 
     let trendState = "stable";
@@ -549,7 +571,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
         const sibling = DataService.getKPIById(kpi.turnoRefs[tKey]);
         const value = sibling ? getValue(sibling, colKey) : null;
         const prevValue = sibling ? getValue(sibling, prevDayIso(colKey)) : null;
-        const statusLabel = sibling ? StatusUtil.computeStatusLabel(sibling, value, prevValue) : StatusUtil.STATUS5.NA;
+        const statusLabel = sibling ? StatusUtil.computeStatusLabel(sibling, value, prevValue, colKey) : StatusUtil.STATUS5.NA;
         return { turno: tKey, kpi: sibling, value, statusLabel };
       });
   }
@@ -851,7 +873,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     kpis.forEach((kpi) => {
       const value = Calc.getValue(kpi, refIso);
       const prevValue = Calc.getValue(kpi, Calc.prevDayIso(refIso));
-      const statusLabel = StatusUtil.computeStatusLabel(kpi, value, prevValue);
+      const statusLabel = StatusUtil.computeStatusLabel(kpi, value, prevValue, refIso);
       const inTarget = statusLabel.key === "in_target" || statusLabel.key === "in_target_stable";
       const warnish = statusLabel.key === "in_target_worsening" || statusLabel.key === "out_target_improving";
       const outBad = statusLabel.key === "out_target_worsening";
@@ -1576,7 +1598,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
       const values = series.map((p) => (p.value === null ? null : (kpi.unit === "percent" ? p.value * 100 : p.value)));
       const pointColors = series.map((p) => {
         const compareValue = Calc.getValue(kpi, Calc.prevPeriodKey(p.key));
-        const st = StatusUtil.computeStatusLabel(kpi, p.value, compareValue);
+        const st = StatusUtil.computeStatusLabel(kpi, p.value, compareValue, p.key);
         return STATUS_HEX[st.color];
       });
       const pointRadii = series.map((p) => (p.key === selectedIso ? 6 : p.isWeek ? 4 : 3));
@@ -2113,7 +2135,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
     // status único (5 rótulos), calculado uma vez e reaproveitado em todo o
     // painel — tendência em relação ao D-1, que é a comparação mais recente.
-    const statusLabel = StatusUtil.computeStatusLabel(kpi, value, valuePrev);
+    const statusLabel = StatusUtil.computeStatusLabel(kpi, value, valuePrev, selectedIso);
     const sc = StatusUtil.STATUS_CLASSES[statusLabel.color];
 
     const refWeeks = DataService.getRefWeeks();
@@ -2770,7 +2792,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     function DataCell({ kpi, colKey, frozen, left, monthStart, aggregate }) {
       const value = Calc.getValue(kpi, colKey);
       const compareValue = Calc.getValue(kpi, Calc.prevPeriodKey(colKey));
-      const statusLabel = StatusUtil.computeStatusLabel(kpi, value, compareValue);
+      const statusLabel = StatusUtil.computeStatusLabel(kpi, value, compareValue, colKey);
       const sc = StatusUtil.STATUS_CLASSES[statusLabel.color];
       const display = Fmt.formatKpiValue(kpi, value);
       const isSelected = kpi.id === selectedKpiId;
@@ -3368,7 +3390,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
                     {selectedKpis.map((k, i) => {
                       const value = Calc.getValue(k, endIso);
                       const prevValue = Calc.getValue(k, Calc.prevDayIso(endIso));
-                      const statusLabel = StatusUtil.computeStatusLabel(k, value, prevValue);
+                      const statusLabel = StatusUtil.computeStatusLabel(k, value, prevValue, endIso);
                       const sc = StatusUtil.STATUS_CLASSES[statusLabel.color];
                       const st = Calc.stats(Calc.getDailySeries(k, days).map((p) => p.value));
                       return (
