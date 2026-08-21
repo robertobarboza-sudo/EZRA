@@ -1534,16 +1534,6 @@
     .tv-mode-active #main-content { padding: 32px 40px !important; }
     .tv-mode-active .section-dl-group, .tv-mode-active .spr-filters, .tv-mode-active .table-search, .tv-mode-active .pdf-menu-wrap { display: none !important; }
     .tv-rotation-badge { position: fixed; top: 16px; right: 16px; z-index: 9999; background: rgba(0,0,0,.55); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
-    /* Card SPP Scuttle sozinho estica pro grid inteiro por causa do
-       auto-fill/1fr do .kpi-strip padrão (pedido do Roberto em 2026-08-21:
-       "está muito grande, otimize o espaço") — trava largura e encolhe
-       padding/fonte, mesmo padrão já usado em .ovw-accordion. */
-    #cnv-spp-scuttle .kpi-strip { grid-template-columns: minmax(160px, 220px); margin-bottom: 12px; }
-    #cnv-spp-scuttle .kpi-strip-item { padding: 11px 14px; }
-    #cnv-spp-scuttle .kpi-strip-value { font-size: 18px; margin-bottom: 2px; }
-    #cnv-spp-scuttle .kpi-strip-label { font-size: 9px; margin-bottom: 3px; }
-    #cnv-spp-scuttle .kpi-strip-sub { font-size: 9px; margin-top: -2px; margin-bottom: 0; }
-    #cnv-spp-scuttle .kpi-strip-icon { font-size: 14px; top: 9px; right: 9px; }
     .tvcfg-group { border:1px solid var(--border); border-radius:var(--radius); margin-bottom:10px; overflow:hidden; }
     .tvcfg-group-header { display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer; font-size:13px; font-weight:700; color:var(--text); }
     .tvcfg-group-caret { font-size:11px; color:var(--text-muted); transition:transform .15s; }
@@ -3661,7 +3651,6 @@
       </div>
 
       <div class="pulso-coverage" id="cnv-coverage"></div>
-      <div id="cnv-spp-scuttle" style="margin-top:12px"></div>
       <div class="switch-grid" id="cnv-group-cards" style="margin-top:12px"></div>
 
       <div class="chart-card full" style="margin-top:16px">
@@ -14113,23 +14102,6 @@ function cnvRenderAll(){
   cnvRenderGroupCards();
   cnvRenderChart();
   cnvRenderTable();
-  cnvRenderSppScuttle();
-}
-
-// SPP Scuttle (pedido do Roberto em 2026-08-19): TO Pack médio das
-// Scuttles no piso agora, via cluster_pulso — essa aba não tem data/turno
-// (é sempre "ao vivo"), então o card não respeita o filtro de data/turno
-// da tela, diferente dos outros cards do Conveyor. Deixa isso explícito no
-// rótulo pra não parecer que o card ignorou o filtro por bug.
-function cnvRenderSppScuttle(){
-  const el = document.getElementById('cnv-spp-scuttle');
-  if(!el || !CONVEYOR_DATA) return;
-  const spp = CONVEYOR_DATA.sppScuttle;
-  buildKPIs('cnv-spp-scuttle', [
-    spp !== null && spp !== undefined
-      ? { label:'SPP Scuttle', value:spp.toLocaleString('pt-BR'), sub:'ao vivo · TO piso agora (cluster_pulso)', delta:'', trend:'up', type:'', icon:'fa-box' }
-      : { label:'SPP Scuttle', value:'—', sub:'sem Scuttle no piso agora', delta:'', trend:'up', type:'', icon:'fa-box' },
-  ]);
 }
 
 /* ================================================================
@@ -14531,11 +14503,26 @@ function cnvRenderGroupCards(){
     </div>`;
   };
 
-  // Layout fixo em 3 linhas de 3 (pedido do Roberto em 2026-08-15) — ver
+  // SPP Scuttle (pedido do Roberto em 2026-08-19, reposicionado em
+  // 2026-08-21 pra ficar do mesmo tamanho dos demais cards, à direita de
+  // Termoplástica) — TO Pack médio das Scuttles no piso agora, via
+  // cluster_pulso. Essa aba não tem data/turno (é sempre "ao vivo"), então
+  // o card não respeita o filtro de data/turno da tela como os outros —
+  // deixa isso explícito no texto pra não parecer bug.
+  const spp = CONVEYOR_DATA.sppScuttle;
+  const sppScuttleHtml = `<div class="switch-card">
+    <div class="switch-card-top">
+      <div class="switch-card-name"><i class="fas fa-box" style="color:var(--orange);margin-right:8px"></i>SPP Scuttle</div>
+    </div>
+    <div style="font-size:26px;font-weight:800;color:var(--text)">${spp !== null && spp !== undefined ? spp.toLocaleString('pt-BR') : '—'}</div>
+    <div class="switch-card-desc">${spp !== null && spp !== undefined ? 'ao vivo · TO piso agora (cluster_pulso)' : 'sem Scuttle no piso agora'}</div>
+  </div>`;
+
+  // Layout fixo em linhas de 3 (pedido do Roberto em 2026-08-15) — ver
   // #cnv-group-cards no CSS (grid de 3 colunas, não auto-fit, pra manter
   // essas linhas estáveis independente da largura da tela):
   //   L1: Packing Total, Esteiras (agregado), OBs (agregado)
-  //   L2: Esteira A, Esteira B, Termoplástica
+  //   L2: Esteira A, Esteira B, Termoplástica, SPP Scuttle
   //   L3: OBA/OBB, OBC/OBD, Tintas+TO-Audit+Non-TO (1 card só)
   // Na subaba "Conveyor" (CONVEYOR_SCOPE_GRUPOS setado) só faz sentido a
   // L2 — os cards de OBs/Tintas/TO-Audit/Non-TO nem existem no escopo.
@@ -14544,6 +14531,7 @@ function cnvRenderGroupCards(){
     cardGrupo('Esteira A'),
     cardGrupo('Esteira B'),
     cardGrupo('Termoplástica'),
+    sppScuttleHtml,
   ].join('') : [
     packingTotalHtml,
     cnvAgregado('Esteiras', 'fa-conveyor-belt', ['Esteira A', 'Esteira B', 'Termoplástica']),
@@ -14551,6 +14539,7 @@ function cnvRenderGroupCards(){
     cardGrupo('Esteira A'),
     cardGrupo('Esteira B'),
     cardGrupo('Termoplástica'),
+    sppScuttleHtml,
     cardGrupo('OBA/OBB'),
     cardGrupo('OBC/OBD'),
     cnvAgregado('Tintas / TO-Audit / Non-TO', 'fa-layer-group', ['Tintas', 'TO-Audit', 'Non-TO']),
