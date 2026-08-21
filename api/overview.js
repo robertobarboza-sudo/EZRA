@@ -37,7 +37,7 @@
  * uma. Cada chamada é isolada em try/catch — a queda de uma fonte não
  * derruba o Overview inteiro, só zera aquele bloco (`erros` sinaliza qual).
  */
-const { fetchTabByGid } = require('./_google');
+const { fetchTabByGid, readRange, writeRange, ensureSheetExists } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
 const { buildArvore, writeArvoreValores, freezeArvoreAll } = require('./_arvore');
 
@@ -70,6 +70,12 @@ async function getLabor() {
         nv1: toNum(r['nv.1']), nv2: toNum(r['nv.2']), nv3: toNum(r['nv.3']),
         packingEsteira: toNum(r['packing esteira']),
         packingVolumoso: toNum(r['packing volumoso']),
+        // Metas por hora de Esteira A/B/Termo (pedido do Roberto em
+        // 2026-08-19, feature de Justificativas — item 8.1) — colunas já
+        // existem em labor_pulso, só não eram lidas até então.
+        targetEsteiraA: toNum(r['target esteira a']),
+        targetEsteiraB: toNum(r['target esteira b']),
+        targetTermo: toNum(r['target termo']),
       };
     })
     .filter(Boolean);
@@ -143,7 +149,195 @@ async function getJson(base, path) {
   return j;
 }
 
+/* ================================================================
+   JUSTIFICATIVAS (?justificativas=1) — pedido do Roberto em 2026-08-19,
+   itens 8-12. Quando ASM ou uma das 3 áreas do Conveyor (Esteira A,
+   Esteira B, Termo) fecham uma hora abaixo da meta de labor_pulso, essa
+   hora×área vira uma PENDÊNCIA de justificativa; preencher grava um
+   snapshot histórico permanente (nunca sobrescreve meta/realizado/gap
+   de um snapshot já existente — só status/reason/responsável mudam numa
+   resubmissão).
+
+   Guardado em aba própria (JUSTIFICATIVAS_INPUT, criada sob demanda) —
+   não em labor_pulso (que é a fonte de META mantida pelo time de
+   planejamento; misturar leitura de meta com escrita de justificativa na
+   mesma aba arrisca colisão/corrupção do que o time já mantém à mão).
+   Mesmo padrão de escrita do Monitor-Live (api/outbound.js): sem gid
+   fixo ainda (aba nova, ninguém vai renomear por fora), leitura por nome
+   com ensureSheetExists no primeiro uso.
+
+   ponytail: read-modify-write da aba inteira a cada gravação (sem lock,
+   sem append incremental — mesma limitação já documentada no
+   Monitor-Live). Escala bem pra o volume de "horas fora da meta por dia"
+   (baixa dezena), reavaliar se crescer muito.
+================================================================ */
+const JUST_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4' };
+const JUST_TAB_NAME = 'JUSTIFICATIVAS_INPUT';
+const JUST_HEADER = [
+  'data', 'hora', 'area', 'tipo_operacao', 'meta', 'realizado', 'gap',
+  'pct_atendimento', 'status', 'reason', 'responsavel', 'preenchido_em',
+];
+const JUST_AREAS = ['ASM', 'Conveyor A', 'Conveyor B', 'Termo'];
+
+async function justRange() {
+  return `'${JUST_TAB_NAME}'!A:${String.fromCharCode(64 + JUST_HEADER.length)}`;
+}
+function justLinhaParaRegistro(r) {
+  const o = {};
+  JUST_HEADER.forEach((campo, i) => { o[campo] = r[i] != null ? r[i] : ''; });
+  return o;
+}
+function justRegistroParaLinha(o) {
+  return JUST_HEADER.map(campo => o[campo] != null ? o[campo] : '');
+}
+async function readJust() {
+  let values;
+  try {
+    values = await readRange(JUST_SHEET.spreadsheetId, await justRange());
+  } catch (err) {
+    return [];
+  }
+  return values.slice(1).map(justLinhaParaRegistro).filter(r => r.data && r.hora !== '' && r.area);
+}
+async function writeJust(registros) {
+  await ensureSheetExists(JUST_SHEET.spreadsheetId, JUST_TAB_NAME);
+  const values = [JUST_HEADER, ...registros.map(justRegistroParaLinha)];
+  await writeRange(JUST_SHEET.spreadsheetId, await justRange(), values);
+}
+const chaveJust = r => `${r.data}|${r.hora}|${r.area}`;
+
+// Horas por área x hora, comparando Realizado (ASM/Conveyor, já buscados
+// pelo fan-out principal) com Meta (labor_pulso) — só até a hora atual do
+// dia operacional (mesma lógica de "já passou" usada pro planejado até
+// agora do ASM/Conveyor no resto do Overview, ver horaAgora/ordemHora
+// acima). Hora futura não pode "exigir justificativa" — ainda não rodou.
+function justHorasApuradas(labor, asmRows, conveyorRows, ordemHora, ordemAgora) {
+  const porHoraAsm = new Map();
+  (asmRows || []).forEach(r => porHoraAsm.set(r.hora, (porHoraAsm.get(r.hora) || 0) + r.scanNumbers));
+  const porHoraGrupo = new Map(); // "hora|grupo" -> total
+  (conveyorRows || []).forEach(r => {
+    const chave = `${r.hora}|${r.grupo}`;
+    porHoraGrupo.set(chave, (porHoraGrupo.get(chave) || 0) + r.totalProcessamento);
+  });
+
+  const CONVEYOR_GRUPO_DA_AREA = { 'Conveyor A': 'Esteira A', 'Conveyor B': 'Esteira B', 'Termo': 'Termoplástica' };
+
+  const linhas = [];
+  (labor || []).forEach(l => {
+    if (ordemHora(l.hora) > ordemAgora) return; // hora ainda não rodou
+    const entradas = [
+      { area: 'ASM', meta: l.asmTarget, realizado: porHoraAsm.get(l.hora) || 0 },
+      { area: 'Conveyor A', meta: l.targetEsteiraA, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Conveyor A']}`) || 0 },
+      { area: 'Conveyor B', meta: l.targetEsteiraB, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Conveyor B']}`) || 0 },
+      { area: 'Termo', meta: l.targetTermo, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Termo']}`) || 0 },
+    ];
+    entradas.forEach(e => {
+      if (!e.meta) return; // sem meta cadastrada pra essa hora/área — não dá pra avaliar
+      linhas.push({
+        data: l.data, hora: l.hora, area: e.area,
+        meta: e.meta, realizado: e.realizado, gap: e.realizado - e.meta,
+        pctAtendimento: e.meta ? Math.round(e.realizado / e.meta * 100) : null,
+        exigeJustificativa: e.realizado < e.meta,
+      });
+    });
+  });
+  return linhas;
+}
+
+async function buildJustificativas(req, res) {
+  if (req.method === 'POST' && req.query.write !== undefined) {
+    const body = req.body || {};
+    const { data, hora, area, reason, responsavel } = body;
+    if (!data || hora === undefined || hora === null || !area) {
+      res.status(400).json({ ok: false, erro: 'data, hora e area são obrigatórios' });
+      return;
+    }
+    try {
+      const atuais = await readJust();
+      const chave = `${data}|${hora}|${area}`;
+      const existente = atuais.find(r => chaveJust(r) === chave);
+      // Meta/realizado/gap/pct só são gravados na CRIAÇÃO do snapshot (vêm
+      // do corpo, ecoados da lista de pendências que o front já mostrou pro
+      // usuário) — uma resubmissão (corrigir o reason, por exemplo) nunca
+      // reescreve esses números, só status/reason/responsável/timestamp.
+      // Regra 13.10 do pedido: não sobrescrever snapshot de hora encerrada.
+      const atualizado = {
+        data, hora: String(hora), area,
+        tipo_operacao: body.tipoOperacao || (existente ? existente.tipo_operacao : ''),
+        meta: existente ? existente.meta : String(body.meta ?? ''),
+        realizado: existente ? existente.realizado : String(body.realizado ?? ''),
+        gap: existente ? existente.gap : String(body.gap ?? ''),
+        pct_atendimento: existente ? existente.pct_atendimento : String(body.pctAtendimento ?? ''),
+        status: reason ? 'Justificado' : (body.status || 'Pendente'),
+        reason: reason || (existente ? existente.reason : ''),
+        responsavel: responsavel || (existente ? existente.responsavel : ''),
+        preenchido_em: new Date().toISOString(),
+      };
+      const semEssaChave = atuais.filter(r => chaveJust(r) !== chave);
+      await writeJust([...semEssaChave, atualizado]);
+      res.status(200).json({ ok: true, registro: atualizado });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+
+  try {
+    const proto = req.headers['x-forwarded-proto'] || 'https';
+    const base = `${proto}://${req.headers.host}`;
+    const [labor, asm, conveyor, historico] = await Promise.all([
+      getLabor(),
+      getJson(base, '/api/asm').catch(() => ({ rows: [] })),
+      getJson(base, '/api/conveyor').catch(() => ({ rows: [] })),
+      readJust(),
+    ]);
+
+    const horaAgora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours();
+    const ordemHora = h => h >= 6 ? h - 6 : h + 18;
+    const ordemAgora = ordemHora(horaAgora);
+
+    const apuradas = justHorasApuradas(labor.rows, asm.rows, conveyor.rows, ordemHora, ordemAgora);
+    const porChave = new Map(historico.map(r => [chaveJust(r), r]));
+
+    const linhas = apuradas.map(l => {
+      const salvo = porChave.get(`${l.data}|${l.hora}|${l.area}`);
+      return {
+        ...l,
+        status: salvo ? salvo.status : (l.exigeJustificativa ? 'Pendente' : 'OK'),
+        reason: salvo ? salvo.reason : '',
+        responsavel: salvo ? salvo.responsavel : '',
+        preenchidoEm: salvo ? salvo.preenchido_em : null,
+      };
+    });
+
+    const exigem = linhas.filter(l => l.exigeJustificativa);
+    const justificadas = exigem.filter(l => l.status === 'Justificado');
+    const pendentes = exigem.filter(l => l.status !== 'Justificado');
+
+    res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=180');
+    res.status(200).json({
+      ok: true,
+      atualizadoEm: new Date().toISOString(),
+      data: labor.rows[0] ? labor.rows[0].data : null,
+      indicadores: {
+        pctAderencia: exigem.length ? Math.round(justificadas.length / exigem.length * 100) : null,
+        horasPendentes: pendentes.length,
+        areasPendentes: [...new Set(pendentes.map(l => l.area))].sort(),
+      },
+      areas: JUST_AREAS,
+      pendencias: pendentes.sort((a, b) => a.hora - b.hora),
+      historicoRecente: historico.sort((a, b) => (b.preenchido_em || '').localeCompare(a.preenchido_em || '')).slice(0, 100),
+    });
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+  }
+}
+
 module.exports = async (req, res) => {
+  if (req.query.justificativas !== undefined) {
+    await buildJustificativas(req, res);
+    return;
+  }
   // Árvore de KPI's (?arvore=1) — fonte própria (árvore_pulso), nada a ver
   // com o fan-out do Overview abaixo, então curto-circuita antes dele. Mora
   // aqui e não num endpoint próprio por causa do teto de 12 funções do plano

@@ -3104,6 +3104,9 @@
         <div class="nav-subitem" data-subkey="conveyor" onclick="navSidebarSubpage(this,'conveyor','conveyor','conveyor')">Conveyor</div>
         <div class="nav-subitem" data-subkey="esteira" onclick="navSidebarSubpage(this,'conveyor','esteira','conveyor')">Esteira On-time</div>
       </div>
+      <div class="nav-item" data-section="justificativas" data-label="Justificativas" onclick="navigateTo('justificativas',this)">
+        <i class="fas fa-clipboard-check nav-icon"></i><span class="nav-label">Justificativas</span>
+      </div>
       <div class="nav-item" data-section="spr" data-label="Outbound" onclick="navigateToAndExpand('spr',this,'navsub-spr')">
         <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">Outbound</span>
         <i class="fas fa-chevron-down nav-expand-caret" onclick="event.stopPropagation(); toggleNavSubgroup('navsub-spr', this)"></i>
@@ -3265,6 +3268,7 @@
           <div class="section-subtitle">Retrato acumulado da operação</div>
         </div>
         <div class="section-dl-group">
+          <button class="spr-pipboy-btn" onclick="ovwAbrirJustificativas()" style="border-color:var(--red);color:var(--red)"><i class="fas fa-clipboard-check"></i> Justificativas Pendentes</button>
           <button class="spr-pipboy-btn" onclick="ovwOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
           <button class="dl-btn dl-btn-csv" onclick="loadOverview()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
@@ -4069,6 +4073,49 @@
         <div id="bkl-chart-wrap" style="height:320px;margin-top:12px"><canvas id="chart-backlog-faixa"></canvas></div>
         <div id="bkl-pivot-wrap" style="margin-top:12px;overflow-x:auto;display:none;max-height:480px">
           <table><thead id="bkl-pivot-thead"></thead><tbody id="bkl-pivot-tbody"></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <!-- JUSTIFICATIVAS -->
+        <section id="section-justificativas" class="section">
+      <div class="section-header" id="section-justificativas-header">
+        <div class="section-header-left">
+          <div class="section-title">Justificativas <span class="ds-badge ok" id="ds-badge-justificativas" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">ASM e Conveyor (Esteira A/B/Termo) abaixo da meta por hora, com histórico</div>
+        </div>
+        <div class="section-dl-group">
+          <button class="dl-btn dl-btn-csv" onclick="loadJustificativas()"><i class="fas fa-rotate-right"></i> Atualizar</button>
+        </div>
+      </div>
+
+      <div id="just-kpis" style="margin-top:8px"></div>
+
+      <div class="table-card" style="margin-top:16px">
+        <div class="table-toolbar">
+          <div class="table-toolbar-title">Pendências <span id="just-pendencias-count" style="font-weight:400;color:var(--text-muted)"></span></div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="resp-table" style="min-width:900px">
+            <thead><tr>
+              <th>Hora</th><th>Área</th><th>Meta</th><th>Realizado</th><th>Gap</th><th>% Atendimento</th><th>Justificativa</th>
+            </tr></thead>
+            <tbody id="just-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="table-card" style="margin-top:16px">
+        <div class="table-toolbar">
+          <div class="table-toolbar-title">Histórico recente</div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="resp-table" style="min-width:900px">
+            <thead><tr>
+              <th>Data</th><th>Hora</th><th>Área</th><th>Meta</th><th>Realizado</th><th>Gap</th><th>Status</th><th>Reason</th><th>Responsável</th><th>Preenchido em</th>
+            </tr></thead>
+            <tbody id="just-historico-tbody"></tbody>
+          </table>
         </div>
       </div>
     </section>
@@ -5133,6 +5180,33 @@
   </main>
 </div>
 
+<!-- Justificar hora fora da meta (ASM/Conveyor) -->
+<div class="modal-overlay" id="just-modal-overlay" onclick="if(event.target===this) justCloseForm()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="just-modal-label" style="max-width:480px">
+    <div class="modal-header">
+      <span class="modal-title" id="just-modal-label">
+        <i class="fas fa-clipboard-check" style="color:var(--orange-ll);margin-right:8px"></i>Justificar <span id="just-modal-subtitulo"></span>
+      </span>
+      <button class="modal-close" onclick="justCloseForm()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <form id="just-form" onsubmit="justSubmit(event)">
+      <div id="just-modal-resumo" style="font-size:12.5px;color:var(--text-sub);margin-bottom:14px;line-height:1.6"></div>
+      <div class="form-group">
+        <label class="form-label">Reason *</label>
+        <textarea class="form-input" id="just-reason" rows="3" placeholder="Motivo do não atingimento da meta…" required></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Responsável *</label>
+        <input class="form-input" id="just-responsavel" type="text" placeholder="Seu nome" required/>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="justCloseForm()">Cancelar</button>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Salvar Justificativa</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- MODAL -->
 <div class="modal-overlay" id="modal-overlay" onclick="handleOverlayClick(event)">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-label">
@@ -5518,7 +5592,7 @@ const ALL_SECTIONS = [
   'gestao','performance','spr','asm','conveyor','inbound','clusterizacao',
   'tratativas','laborplan','backlog','arvore','kpioverview','scorecard',
   'absenteismo','forecast','auditoria','organograma','configuracoes',
-  'tvconfig','livesoc','matriz','mapadados','jornal','switch'
+  'tvconfig','livesoc','matriz','mapadados','jornal','switch','justificativas'
 ];
 
 const GOV_SECTIONS = ['matriz','mapadados','jornal'];
@@ -5942,6 +6016,7 @@ const sectionMeta = {
   mapadados:   {title:'Mapa de Dados', sub:'Queries · Scripts · Links · Governança'},
   jornal:      {title:'Jornal',        sub:'Informativo Operacional · Governança'},
   switch:      {title:'Switch',        sub:'Painel de Controle de Automações · Governança'},
+  justificativas: {title:'Justificativas', sub:'ASM e Conveyor abaixo da meta · Histórico'},
 };
 
 
@@ -6046,7 +6121,8 @@ async function renderSection(section){
       configuracoes:renderConfiguracoes, forecast:()=>loadForecast(),
       auditoria:renderAuditoria, clusterizacao:()=>pulsoRender('clusterizacao'),
       matriz:renderMatriz, mapadados:renderMapaDados, jornal:renderJornal,
-      switch:renderSwitch, tvconfig:renderTvConfig, livesoc:renderLiveSoc};
+      switch:renderSwitch, tvconfig:renderTvConfig, livesoc:renderLiveSoc,
+      justificativas:()=>loadJustificativas()};
     if(fn[section]) fn[section](data);
     else renderPlaceholder(section);
   } catch(err){
@@ -13904,6 +13980,124 @@ function cnvRenderSppScuttle(){
       ? { label:'SPP Scuttle', value:spp.toLocaleString('pt-BR'), sub:'ao vivo · TO piso agora (cluster_pulso)', delta:'', trend:'up', type:'', icon:'fa-box' }
       : { label:'SPP Scuttle', value:'—', sub:'sem Scuttle no piso agora', delta:'', trend:'up', type:'', icon:'fa-box' },
   ]);
+}
+
+/* ================================================================
+   JUSTIFICATIVAS (pedido do Roberto em 2026-08-19, itens 8-12) — ASM e
+   Conveyor (Esteira A/B/Termo) abaixo da meta de labor_pulso viram
+   pendência por hora; preencher grava snapshot histórico permanente
+   (/api/overview?justificativas=1, GET lista + POST&write=1 salva).
+================================================================ */
+let JUST_DATA = null;
+let JUST_FORM_CTX = null; // {hora, area, meta, realizado, gap, pctAtendimento}
+
+async function loadJustificativas(){
+  setBadge('justificativas', 'loading');
+  try {
+    const r = await fetch('/api/overview?justificativas=1', { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    setBadge('justificativas', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    JUST_DATA = j;
+    justRenderAll();
+  } catch(err){
+    setBadge('justificativas', 'error', 'Erro: '+err.message);
+    console.error('[justificativas]', err);
+  }
+}
+
+function justRenderAll(){
+  if(!JUST_DATA) return;
+  const ind = JUST_DATA.indicadores;
+  buildKPIs('just-kpis', [
+    { label:'% Aderência ao Preenchimento', value: ind.pctAderencia===null?'—':ind.pctAderencia+'%', sub:'horas justificadas ÷ horas que exigem', delta:'', trend:'up', type: ind.pctAderencia===null?'':(ind.pctAderencia>=90?'success':(ind.pctAderencia>=60?'warning':'danger')), icon:'fa-check-double' },
+    { label:'Horas Pendentes', value: ind.horasPendentes.toLocaleString('pt-BR'), delta:'', trend:'up', type: ind.horasPendentes?'danger':'success', icon:'fa-hourglass-half' },
+    { label:'Áreas Pendentes', value: ind.areasPendentes.length ? ind.areasPendentes.join(', ') : '—', delta:'', trend:'up', type:'', icon:'fa-diagram-project' },
+  ]);
+
+  const countEl = document.getElementById('just-pendencias-count');
+  if(countEl) countEl.textContent = `(${JUST_DATA.pendencias.length})`;
+
+  const tbody = document.getElementById('just-tbody');
+  if(tbody){
+    tbody.innerHTML = JUST_DATA.pendencias.length ? JUST_DATA.pendencias.map(p => `
+      <tr>
+        <td>${String(p.hora).padStart(2,'0')}h</td>
+        <td>${pulsoEscHtml(p.area)}</td>
+        <td>${p.meta.toLocaleString('pt-BR')}</td>
+        <td>${p.realizado.toLocaleString('pt-BR')}</td>
+        <td style="color:var(--red)">${p.gap.toLocaleString('pt-BR')}</td>
+        <td>${p.pctAtendimento===null?'—':p.pctAtendimento+'%'}</td>
+        <td><button type="button" class="spr-ms-action-btn" onclick='justOpenForm(${JSON.stringify(p)})'>Justificar</button></td>
+      </tr>`).join('') : emptyRow(7);
+  }
+
+  const histTbody = document.getElementById('just-historico-tbody');
+  if(histTbody){
+    const hist = JUST_DATA.historicoRecente || [];
+    histTbody.innerHTML = hist.length ? hist.map(h => `
+      <tr>
+        <td>${pulsoEscHtml(h.data)}</td>
+        <td>${String(h.hora).padStart(2,'0')}h</td>
+        <td>${pulsoEscHtml(h.area)}</td>
+        <td>${Number(h.meta||0).toLocaleString('pt-BR')}</td>
+        <td>${Number(h.realizado||0).toLocaleString('pt-BR')}</td>
+        <td>${Number(h.gap||0).toLocaleString('pt-BR')}</td>
+        <td>${pulsoEscHtml(h.status||'—')}</td>
+        <td style="max-width:260px;white-space:normal">${pulsoEscHtml(h.reason||'—')}</td>
+        <td>${pulsoEscHtml(h.responsavel||'—')}</td>
+        <td>${pulsoFmtCell(h.preenchido_em,'date')}</td>
+      </tr>`).join('') : emptyRow(10);
+  }
+}
+
+function justOpenForm(pendencia){
+  JUST_FORM_CTX = pendencia;
+  document.getElementById('just-modal-subtitulo').textContent = `${pendencia.area} · ${String(pendencia.hora).padStart(2,'0')}h`;
+  document.getElementById('just-modal-resumo').innerHTML =
+    `Meta: <strong style="color:var(--text)">${pendencia.meta.toLocaleString('pt-BR')}</strong> · Realizado: <strong style="color:var(--text)">${pendencia.realizado.toLocaleString('pt-BR')}</strong> · Gap: <strong style="color:var(--red)">${pendencia.gap.toLocaleString('pt-BR')}</strong>`;
+  document.getElementById('just-reason').value = '';
+  document.getElementById('just-responsavel').value = '';
+  document.getElementById('just-modal-overlay').classList.add('open');
+}
+function justCloseForm(){
+  document.getElementById('just-modal-overlay').classList.remove('open');
+  JUST_FORM_CTX = null;
+}
+async function justSubmit(e){
+  e.preventDefault();
+  if(!JUST_FORM_CTX) return;
+  const btn = e.target.querySelector('[type=submit]');
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Salvando…';
+  const p = JUST_FORM_CTX;
+  try {
+    const r = await fetch('/api/overview?justificativas=1&write=1', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        data: JUST_DATA.data, hora: p.hora, area: p.area,
+        meta: p.meta, realizado: p.realizado, gap: p.gap, pctAtendimento: p.pctAtendimento,
+        reason: document.getElementById('just-reason').value.trim(),
+        responsavel: document.getElementById('just-responsavel').value.trim(),
+      }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao salvar');
+    justCloseForm();
+    showToast('Justificativa salva.');
+    loadJustificativas();
+  } catch(err){
+    showToast('Erro ao salvar: '+err.message, true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-check"></i> Salvar Justificativa';
+  }
+}
+
+// Botão do Overview (item 9) — navega direto pra tela de Justificativas.
+function ovwAbrirJustificativas(){
+  navigateTo('justificativas', document.querySelector('.nav-item[data-section="justificativas"]'));
 }
 
 // Base pros cards: todas as horas do dia (o card fatia por hora sozinho, pra
