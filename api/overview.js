@@ -52,41 +52,43 @@ function brToIso(v) {
   const m = String(v || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
   return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
 }
-async function getLabor() {
+function mapLaborRow(r) {
+  const dataIso = brToIso(r.data);
+  if (dataIso === null) return null;
+  const hora = toNum(r.hora);
+  const data = dataOperacionalDe(`${dataIso} ${String(hora).padStart(2, '0')}:00:00`);
+  if (data === null) return null;
+  return {
+    data, dataBr: r.data, hora,
+    asmTarget: toNum(r['asm target']),
+    asmZonas: toNum(r['asm (zonas)']),
+    esteiraTermo: toNum(r['esteira termo']),
+    esteiras: toNum(r.esteiras),
+    nv1: toNum(r['nv.1']), nv2: toNum(r['nv.2']), nv3: toNum(r['nv.3']),
+    packingEsteira: toNum(r['packing esteira']),
+    packingVolumoso: toNum(r['packing volumoso']),
+    // Metas por hora de Esteira A/B/Termo (pedido do Roberto em
+    // 2026-08-19, feature de Justificativas — item 8.1) — colunas já
+    // existem em labor_pulso, só não eram lidas até então.
+    targetEsteiraA: toNum(r['target esteira a']),
+    targetEsteiraB: toNum(r['target esteira b']),
+    targetTermo: toNum(r['target termo']),
+    // Justificativa gravada direto em labor_pulso, colunas T:AA
+    // (pedido do Roberto em 2026-08-19 — a aba própria JUSTIFICATIVAS_
+    // INPUT da 1ª versão foi descartada, tudo mora aqui agora, reason +
+    // gap lado a lado por área). Reason vazio = ainda não justificado.
+    justReasonAsm: r['reason asm'] || '', justGapAsm: r['gap asm'] || '',
+    justReasonEsteiraA: r['reason esteira a'] || '', justGapEsteiraA: r['gap esteira a'] || '',
+    justReasonEsteiraB: r['reason esteira b'] || '', justGapEsteiraB: r['gap esteira b'] || '',
+    justReasonTermo: r['reason termo'] || '', justGapTermo: r['gap termo'] || '',
+  };
+}
+async function getLaborTodos() {
   const { rows } = await fetchTabByGid(LABOR_SHEET.spreadsheetId, LABOR_SHEET.gid);
-  const labor = rows
-    .filter(r => r.data && r.hora !== '')
-    .map(r => {
-      const dataIso = brToIso(r.data);
-      if (dataIso === null) return null;
-      const hora = toNum(r.hora);
-      const data = dataOperacionalDe(`${dataIso} ${String(hora).padStart(2, '0')}:00:00`);
-      return {
-        data, dataBr: r.data, hora,
-        asmTarget: toNum(r['asm target']),
-        asmZonas: toNum(r['asm (zonas)']),
-        esteiraTermo: toNum(r['esteira termo']),
-        esteiras: toNum(r.esteiras),
-        nv1: toNum(r['nv.1']), nv2: toNum(r['nv.2']), nv3: toNum(r['nv.3']),
-        packingEsteira: toNum(r['packing esteira']),
-        packingVolumoso: toNum(r['packing volumoso']),
-        // Metas por hora de Esteira A/B/Termo (pedido do Roberto em
-        // 2026-08-19, feature de Justificativas — item 8.1) — colunas já
-        // existem em labor_pulso, só não eram lidas até então.
-        targetEsteiraA: toNum(r['target esteira a']),
-        targetEsteiraB: toNum(r['target esteira b']),
-        targetTermo: toNum(r['target termo']),
-        // Justificativa gravada direto em labor_pulso, colunas T:AA
-        // (pedido do Roberto em 2026-08-19 — a aba própria JUSTIFICATIVAS_
-        // INPUT da 1ª versão foi descartada, tudo mora aqui agora, reason +
-        // gap lado a lado por área). Reason vazio = ainda não justificado.
-        justReasonAsm: r['reason asm'] || '', justGapAsm: r['gap asm'] || '',
-        justReasonEsteiraA: r['reason esteira a'] || '', justGapEsteiraA: r['gap esteira a'] || '',
-        justReasonEsteiraB: r['reason esteira b'] || '', justGapEsteiraB: r['gap esteira b'] || '',
-        justReasonTermo: r['reason termo'] || '', justGapTermo: r['gap termo'] || '',
-      };
-    })
-    .filter(Boolean);
+  return rows.filter(r => r.data && r.hora !== '').map(mapLaborRow).filter(Boolean);
+}
+async function getLabor() {
+  const labor = await getLaborTodos();
   if (!labor.length) return { rows: [] };
   const datasDisponiveis = [...new Set(labor.map(r => r.data))].sort();
   const hojeIso = hojeOperacionalIso();
@@ -190,43 +192,128 @@ function colLetter(n) {
   return s;
 }
 
-// Horas por área x hora, comparando Realizado (ASM/Conveyor, já buscados
-// pelo fan-out principal) com Meta (labor_pulso) — só até a hora atual do
-// dia operacional (mesma lógica de "já passou" usada pro planejado até
-// agora do ASM/Conveyor no resto do Overview, ver horaAgora/ordemHora
-// acima). Hora futura não pode "exigir justificativa" — ainda não rodou.
-function justHorasApuradas(labor, asmRows, conveyorRows, ordemHora, ordemAgora) {
-  const porHoraAsm = new Map();
-  (asmRows || []).forEach(r => porHoraAsm.set(r.hora, (porHoraAsm.get(r.hora) || 0) + r.scanNumbers));
-  const porHoraGrupo = new Map(); // "hora|grupo" -> total
-  (conveyorRows || []).forEach(r => {
-    const chave = `${r.hora}|${r.grupo}`;
-    porHoraGrupo.set(chave, (porHoraGrupo.get(chave) || 0) + r.totalProcessamento);
+// Taxonomia fixa de motivos (pedido do Roberto em 2026-08-19, "Justificativas
+// de Perda de Capacidade") — Reason deixa de ser texto livre e vira um destes
+// 5 valores, gravados na mesma célula REASON <área> de sempre (sem mudança de
+// coluna/estrutura). "(Pendente)" não é um motivo de verdade, é o rótulo
+// sintético usado nos agregados (porJustificativa/porMes) pra representar a
+// perda que ainda não tem motivo registrado — sem ele o total perdido nas
+// tabelas de "por justificativa" não bateria com o total real.
+const JUST_MOTIVOS = ['Falta de HC', 'Equipamento', 'Falta de Material', 'Processo', 'Outros'];
+const JUST_PENDENTE_LABEL = '(Pendente)';
+
+// Semana ISO (segunda a domingo, mesma convenção usada em toda a
+// planilha/telas do PULSO) e mês "YYYY-MM" a partir de uma data operacional
+// (iso, "YYYY-MM-DD").
+function isoWeekLabel(dataIso) {
+  const d = new Date(dataIso + 'T00:00:00Z');
+  d.setUTCDate(d.getUTCDate() + 4 - ((d.getUTCDay() + 6) % 7 + 1));
+  const anoInicio = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  const semana = Math.ceil((((d - anoInicio) / 86400000) + 1) / 7);
+  return `W${String(semana).padStart(2, '0')}`;
+}
+function mesLabel(dataIso) { return dataIso.slice(0, 7); }
+
+// Mesma classificação de grupo de esteira do Conveyor (api/conveyor.js
+// classificarEsteira) — duplicada aqui (não exportada de lá) porque essa
+// tela lê conveyor_pulso direto, sem passar pelo endpoint /api/conveyor
+// (evita 1 fetch da aba inteira por dia do período, ver buildJustificativasHistorico).
+// Se aquele mapeamento mudar, mudar aqui também.
+function classificarEsteiraJust(esteira) {
+  const e = String(esteira || '').toUpperCase();
+  if (e === 'POBA' || e === 'POBB') return 'OBA/OBB';
+  if (e === 'POBC' || e === 'POBD') return 'OBC/OBD';
+  if (e === 'P4') return 'Termoplástica';
+  if (e === 'P1') return 'Esteira A';
+  if (e === 'P2') return 'Esteira B';
+  if (e === 'PTIN') return 'Tintas';
+  if (e === 'P_TO-AUDIT') return 'TO-Audit';
+  return 'Non-TO';
+}
+const CONVEYOR_GRUPO_DA_AREA = { 'Conveyor A': 'Esteira A', 'Conveyor B': 'Esteira B', 'Termo': 'Termoplástica' };
+const ASM_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1776828985' };
+const CONVEYOR_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1013894222' };
+
+// Linha por (data, hora, área) pro histórico inteiro disponível em
+// labor_pulso — meta de lá, realizado buscado direto em asm_pulso/
+// conveyor_pulso (1 fetch de cada aba inteira, não 1 por dia — ver
+// comentário de classificarEsteiraJust acima). "Perda" só existe quando
+// Realizado < Meta (bateu ou superou a meta não é perda, mesmo que o gap
+// apareça negativo/positivo pra referência). Hora futura (ainda não
+// rodou) nunca entra — nem pro dia de hoje nem, por construção, pra
+// datas futuras pré-criadas na planilha.
+function justLinhasHistorico(laborRows, asmRawRows, conveyorRawRows) {
+  const porHoraAsm = new Map(); // "cutoff|hora" -> scan_numbers
+  (asmRawRows || []).forEach(r => {
+    if (!r.cutoff) return;
+    const chave = `${r.cutoff}|${toNum(r.actual_sort_time_hour)}`;
+    porHoraAsm.set(chave, (porHoraAsm.get(chave) || 0) + toNum(r.scan_numbers));
   });
 
-  const CONVEYOR_GRUPO_DA_AREA = { 'Conveyor A': 'Esteira A', 'Conveyor B': 'Esteira B', 'Termo': 'Termoplástica' };
+  const porHoraGrupo = new Map(); // "data|hora|grupo" -> pacotes
+  (conveyorRawRows || []).forEach(r => {
+    if (!r['data extração'] || r.hora === '') return;
+    const hora = toNum(r.hora);
+    const dataIso = dataOperacionalDe(`${String(r['data extração']).slice(0, 10)} ${String(hora).padStart(2, '0')}:00:00`);
+    if (!dataIso) return;
+    const grupo = classificarEsteiraJust(r.esteira);
+    const chave = `${dataIso}|${hora}|${grupo}`;
+    porHoraGrupo.set(chave, (porHoraGrupo.get(chave) || 0) + toNum(r.pacotes));
+  });
+
+  const hojeIso = hojeOperacionalIso();
+  const horaAgora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours();
+  const ordemHora = h => h >= 6 ? h - 6 : h + 18;
+  const ordemAgora = ordemHora(horaAgora);
 
   const linhas = [];
-  (labor || []).forEach(l => {
-    if (ordemHora(l.hora) > ordemAgora) return; // hora ainda não rodou
+  (laborRows || []).forEach(l => {
+    if (l.data > hojeIso) return; // dia futuro, pré-criado na planilha — não rodou ainda
+    if (l.data === hojeIso && ordemHora(l.hora) > ordemAgora) return; // hoje, hora futura
     const entradas = [
-      { area: 'ASM', meta: l.asmTarget, realizado: porHoraAsm.get(l.hora) || 0, reason: l.justReasonAsm },
-      { area: 'Conveyor A', meta: l.targetEsteiraA, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Conveyor A']}`) || 0, reason: l.justReasonEsteiraA },
-      { area: 'Conveyor B', meta: l.targetEsteiraB, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Conveyor B']}`) || 0, reason: l.justReasonEsteiraB },
-      { area: 'Termo', meta: l.targetTermo, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Termo']}`) || 0, reason: l.justReasonTermo },
+      { area: 'ASM', meta: l.asmTarget, realizado: porHoraAsm.get(`${l.data}|${l.hora}`) || 0, reason: l.justReasonAsm },
+      { area: 'Conveyor A', meta: l.targetEsteiraA, realizado: porHoraGrupo.get(`${l.data}|${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Conveyor A']}`) || 0, reason: l.justReasonEsteiraA },
+      { area: 'Conveyor B', meta: l.targetEsteiraB, realizado: porHoraGrupo.get(`${l.data}|${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Conveyor B']}`) || 0, reason: l.justReasonEsteiraB },
+      { area: 'Termo', meta: l.targetTermo, realizado: porHoraGrupo.get(`${l.data}|${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Termo']}`) || 0, reason: l.justReasonTermo },
     ];
     entradas.forEach(e => {
       if (!e.meta) return; // sem meta cadastrada pra essa hora/área — não dá pra avaliar
+      const perda = Math.max(0, e.meta - e.realizado);
       linhas.push({
-        data: l.data, dataBr: l.dataBr, hora: l.hora, area: e.area,
-        meta: e.meta, realizado: e.realizado, gap: e.realizado - e.meta,
+        data: l.data, dataBr: l.dataBr, semana: isoWeekLabel(l.data), mes: mesLabel(l.data),
+        hora: l.hora, area: e.area,
+        meta: e.meta, realizado: e.realizado, gap: e.realizado - e.meta, perda,
         pctAtendimento: e.meta ? Math.round(e.realizado / e.meta * 100) : null,
-        exigeJustificativa: e.realizado < e.meta,
         reason: e.reason || '',
+        status: perda > 0 ? (e.reason ? 'Justificada' : 'Pendente') : 'OK',
       });
     });
   });
   return linhas;
+}
+
+// Agrega uma lista de linhas (já filtrada) num resumo {perda, justificada,
+// pendente, pctJustificada} — reutilizado pro resumo geral e por
+// semana/mês (todas as tabelas do pedido usam a mesma conta).
+function justResumo(linhas) {
+  const perdidas = linhas.filter(l => l.perda > 0);
+  const perdaTotal = perdidas.reduce((s, l) => s + l.perda, 0);
+  const justificada = perdidas.filter(l => l.reason).reduce((s, l) => s + l.perda, 0);
+  const pendente = perdaTotal - justificada;
+  return {
+    perdaTotal, justificada, pendente,
+    pctJustificada: perdaTotal ? +(justificada / perdaTotal * 100).toFixed(1) : null,
+  };
+}
+// Motivo (ou "(Pendente)") com maior perda dentro de uma lista de linhas.
+function justPrincipal(linhas) {
+  const porMotivo = new Map();
+  linhas.filter(l => l.perda > 0).forEach(l => {
+    const chave = l.reason || JUST_PENDENTE_LABEL;
+    porMotivo.set(chave, (porMotivo.get(chave) || 0) + l.perda);
+  });
+  const top = [...porMotivo.entries()].sort((a, b) => b[1] - a[1])[0];
+  return top ? top[0] : null;
 }
 
 // Acha a linha física de labor_pulso (Data BR + Hora) e escreve reason+gap
@@ -271,38 +358,123 @@ async function buildJustificativas(req, res) {
   }
 
   try {
-    const proto = req.headers['x-forwarded-proto'] || 'https';
-    const base = `${proto}://${req.headers.host}`;
-    const [labor, asm, conveyor] = await Promise.all([
-      getLabor(),
-      getJson(base, '/api/asm').catch(() => ({ rows: [] })),
-      getJson(base, '/api/conveyor').catch(() => ({ rows: [] })),
+    const [laborTodos, { rows: asmRaw }, { rows: conveyorRaw }] = await Promise.all([
+      getLaborTodos(),
+      fetchTabByGid(ASM_SHEET.spreadsheetId, ASM_SHEET.gid),
+      fetchTabByGid(CONVEYOR_SHEET.spreadsheetId, CONVEYOR_SHEET.gid),
     ]);
 
-    const horaAgora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours();
-    const ordemHora = h => h >= 6 ? h - 6 : h + 18;
-    const ordemAgora = ordemHora(horaAgora);
+    const todasLinhas = justLinhasHistorico(laborTodos, asmRaw, conveyorRaw);
+    const datasDisponiveis = [...new Set(laborTodos.map(l => l.data))].sort();
+    const hojeIso = hojeOperacionalIso();
 
-    const linhas = justHorasApuradas(labor.rows, asm.rows, conveyor.rows, ordemHora, ordemAgora);
+    // Sem de/ate: mês corrente até hoje (aba tem o ano inteiro pré-criado,
+    // não dá pra "mostrar tudo" por padrão sem carregar meses futuros vazios).
+    const inicioMesIso = hojeIso.slice(0, 8) + '01';
+    const de = (req.query.de && /^\d{4}-\d{2}-\d{2}$/.test(req.query.de)) ? req.query.de : inicioMesIso;
+    const ate = (req.query.ate && /^\d{4}-\d{2}-\d{2}$/.test(req.query.ate)) ? req.query.ate : hojeIso;
 
-    const exigem = linhas.filter(l => l.exigeJustificativa);
-    const justificadas = exigem.filter(l => l.reason);
-    const pendentes = exigem.filter(l => !l.reason);
+    const canal = req.query.canal || '';
+    const justificativa = req.query.justificativa || '';
+    const semanaFiltro = req.query.semana || '';
+    const mesFiltro = req.query.mes || '';
+    const statusFiltro = req.query.status || '';
+
+    const linhas = todasLinhas.filter(l =>
+      l.data >= de && l.data <= ate &&
+      (!canal || l.area === canal) &&
+      (!semanaFiltro || l.semana === semanaFiltro) &&
+      (!mesFiltro || l.mes === mesFiltro) &&
+      (!statusFiltro || l.status === statusFiltro) &&
+      (!justificativa || (justificativa === JUST_PENDENTE_LABEL ? !l.reason : l.reason === justificativa))
+    );
+    const perdidas = linhas.filter(l => l.perda > 0);
+
+    // Por semana (item 2) — sempre no range filtrado, ordenado cronológico.
+    const semanasNoRange = [...new Set(linhas.map(l => l.semana))].sort();
+    const porSemana = semanasNoRange.map(semana => {
+      const doGrupo = linhas.filter(l => l.semana === semana);
+      const r = justResumo(doGrupo);
+      return { semana, capacidadePerdida: r.perdaTotal, justificada: r.justificada, pendente: r.pendente, pctJustificada: r.pctJustificada, principalJustificativa: justPrincipal(doGrupo) };
+    });
+
+    // Por mês (item 3) — perda quebrada por motivo (colunas dinâmicas =
+    // JUST_MOTIVOS + "(Pendente)"), pra montar a tabela mês x motivo.
+    const mesesNoRange = [...new Set(linhas.map(l => l.mes))].sort();
+    const porMes = mesesNoRange.map(mes => {
+      const doGrupo = linhas.filter(l => l.mes === mes);
+      const porMotivo = {};
+      [...JUST_MOTIVOS, JUST_PENDENTE_LABEL].forEach(m => { porMotivo[m] = 0; });
+      doGrupo.filter(l => l.perda > 0).forEach(l => { porMotivo[l.reason || JUST_PENDENTE_LABEL] += l.perda; });
+      const total = Object.values(porMotivo).reduce((s, v) => s + v, 0);
+      return { mes, porMotivo, total };
+    });
+
+    // Por justificativa (item 6) — volume, ocorrências, % do total, canal e
+    // semana de maior impacto por motivo (incluindo "(Pendente)").
+    const motivosNoRange = [...new Set(perdidas.map(l => l.reason || JUST_PENDENTE_LABEL))];
+    const perdaTotalRange = perdidas.reduce((s, l) => s + l.perda, 0);
+    const porJustificativa = motivosNoRange.map(motivo => {
+      const doGrupo = perdidas.filter(l => (l.reason || JUST_PENDENTE_LABEL) === motivo);
+      const perda = doGrupo.reduce((s, l) => s + l.perda, 0);
+      const porCanal = new Map();
+      doGrupo.forEach(l => porCanal.set(l.area, (porCanal.get(l.area) || 0) + l.perda));
+      const canalTop = [...porCanal.entries()].sort((a, b) => b[1] - a[1])[0];
+      const porSemanaMotivo = new Map();
+      doGrupo.forEach(l => porSemanaMotivo.set(l.semana, (porSemanaMotivo.get(l.semana) || 0) + l.perda));
+      const semanaTop = [...porSemanaMotivo.entries()].sort((a, b) => b[1] - a[1])[0];
+      return {
+        motivo, perda, ocorrencias: doGrupo.length,
+        pctTotal: perdaTotalRange ? +(perda / perdaTotalRange * 100).toFixed(1) : 0,
+        canalMaisImpactado: canalTop ? canalTop[0] : null,
+        periodoMaiorImpacto: semanaTop ? semanaTop[0] : null,
+      };
+    }).sort((a, b) => b.perda - a.perda);
+
+    // Tabela na granularidade selecionada (item 5: Hora/Dia/Semana).
+    const granularidade = ['hora', 'dia', 'semana'].includes(req.query.granularidade) ? req.query.granularidade : 'dia';
+    let tabela;
+    if (granularidade === 'hora') {
+      tabela = linhas.map(l => ({
+        data: l.data, hora: l.hora, area: l.area, meta: l.meta, realizado: l.realizado,
+        perda: l.perda, reason: l.reason, status: l.status,
+      })).sort((a, b) => a.data === b.data ? a.hora - b.hora : a.data.localeCompare(b.data));
+    } else if (granularidade === 'semana') {
+      tabela = porSemana.map(s => ({
+        chave: s.semana, planejado: null, realizado: null,
+        perda: s.capacidadePerdida, pctPerda: null, justificativaPrincipal: s.principalJustificativa,
+      }));
+    } else {
+      const diasNoRange = [...new Set(linhas.map(l => l.data))].sort();
+      tabela = diasNoRange.map(data => {
+        const doDia = linhas.filter(l => l.data === data);
+        const planejado = doDia.reduce((s, l) => s + l.meta, 0);
+        const realizado = doDia.reduce((s, l) => s + l.realizado, 0);
+        const perda = doDia.reduce((s, l) => s + l.perda, 0);
+        return {
+          chave: data, planejado, realizado, perda,
+          pctPerda: planejado ? +(perda / planejado * 100).toFixed(1) : 0,
+          justificativaPrincipal: justPrincipal(doDia),
+        };
+      });
+    }
 
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=180');
     res.status(200).json({
       ok: true,
       atualizadoEm: new Date().toISOString(),
-      data: labor.rows[0] ? labor.rows[0].data : null,
-      dataBr: labor.rows[0] ? labor.rows[0].dataBr : null,
-      indicadores: {
-        pctAderencia: exigem.length ? Math.round(justificadas.length / exigem.length * 100) : null,
-        horasPendentes: pendentes.length,
-        areasPendentes: [...new Set(pendentes.map(l => l.area))].sort(),
-      },
+      intervalo: { inicio: de, fim: ate },
+      cobertura: { inicio: datasDisponiveis[0] || null, fim: datasDisponiveis[datasDisponiveis.length - 1] || null },
+      filtros: { canal, justificativa, semana: semanaFiltro, mes: mesFiltro, status: statusFiltro, granularidade },
+      motivos: JUST_MOTIVOS,
+      motivoPendenteLabel: JUST_PENDENTE_LABEL,
       areas: JUST_AREAS,
-      pendencias: pendentes.sort((a, b) => a.hora - b.hora),
-      historicoRecente: justificadas.sort((a, b) => b.hora - a.hora),
+      resumo: justResumo(linhas),
+      porSemana, porMes, porJustificativa, tabela,
+      // Compat com a versão anterior da tela (pendências "de hoje" + KPIs
+      // simples) — Overview usa só `resumo`/`porJustificativa` agora, mas o
+      // botão antigo ainda pode apontar aqui até o front terminar de migrar.
+      pendencias: linhas.filter(l => l.data === hojeIso && l.status === 'Pendente').sort((a, b) => a.hora - b.hora),
     });
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });
