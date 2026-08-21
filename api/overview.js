@@ -398,6 +398,18 @@ async function buildJustificativas(req, res) {
       return { semana, capacidadePerdida: r.perdaTotal, justificada: r.justificada, pendente: r.pendente, pctJustificada: r.pctJustificada, principalJustificativa: justPrincipal(doGrupo) };
     });
 
+    // Por grupo de canal (pedido do Roberto em 2026-08-19, card novo do
+    // Overview): ASM sozinho vs Conveyor (Esteira A+B+Termo somadas) — só
+    // 2 grupos, não as 4 áreas soltas. "Perda" aqui já é em pacotes (mesma
+    // unidade de scanNumbers/pacotes que alimenta meta/realizado), então
+    // serve tanto pra "perda por canal" quanto "pacotes perdidos por canal".
+    const GRUPO_DA_AREA = { 'ASM': 'ASM', 'Conveyor A': 'Conveyor', 'Conveyor B': 'Conveyor', 'Termo': 'Conveyor' };
+    const porCanalGrupo = ['ASM', 'Conveyor'].map(grupo => {
+      const doGrupo = linhas.filter(l => GRUPO_DA_AREA[l.area] === grupo);
+      const r = justResumo(doGrupo);
+      return { grupo, perda: r.perdaTotal, justificada: r.justificada, pendente: r.pendente, pctJustificada: r.pctJustificada };
+    });
+
     // Por mês (item 3) — perda quebrada por motivo (colunas dinâmicas =
     // JUST_MOTIVOS + "(Pendente)"), pra montar a tabela mês x motivo.
     const mesesNoRange = [...new Set(linhas.map(l => l.mes))].sort();
@@ -470,7 +482,7 @@ async function buildJustificativas(req, res) {
       motivoPendenteLabel: JUST_PENDENTE_LABEL,
       areas: JUST_AREAS,
       resumo: justResumo(linhas),
-      porSemana, porMes, porJustificativa, tabela,
+      porSemana, porMes, porJustificativa, porCanalGrupo, tabela,
       // Compat com a versão anterior da tela (pendências "de hoje" + KPIs
       // simples) — Overview usa só `resumo`/`porJustificativa` agora, mas o
       // botão antigo ainda pode apontar aqui até o front terminar de migrar.

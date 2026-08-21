@@ -8311,9 +8311,12 @@ async function loadOverview(){
 // 2026-08-19) — carregamento à parte do resto do Overview (endpoint e
 // payload diferentes), erro aqui não derruba o resto da página.
 let OVW_JUST_DATA = null;
+// Igual todo o resto do Overview, só o dia vigente (pedido do Roberto em
+// 2026-08-19) — antes era mês corrente até hoje, ficava fora do padrão
+// das outras seções que são sempre "hoje operacional".
 async function ovwLoadJustificativas(){
   try {
-    const r = await fetch('/api/overview?justificativas=1', { cache:'no-store' });
+    const r = await fetch('/api/overview?justificativas=1&de='+OVW_JUST_HOJE()+'&ate='+OVW_JUST_HOJE(), { cache:'no-store' });
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     OVW_JUST_DATA = j;
@@ -8323,16 +8326,28 @@ async function ovwLoadJustificativas(){
     buildKPIs('ovw-kpis-justificativas', [{ label:'Perda de Capacidade', value:'—', sub:'erro ao carregar', delta:'', trend:'up', type:'danger', icon:'fa-triangle-exclamation' }]);
   }
 }
+// "Hoje operacional" calculado no front só pra montar a query (cutoff 6h,
+// mesma conta do backend) — evita 1 round-trip extra só pra descobrir a data.
+function OVW_JUST_HOJE(){
+  const agora = new Date(Date.now() - 3*60*60*1000);
+  if(agora.getUTCHours() < 6) agora.setUTCDate(agora.getUTCDate()-1);
+  return agora.toISOString().slice(0,10);
+}
 function ovwRenderJustificativas(){
   const j = OVW_JUST_DATA;
   if(!j) return;
   const r = j.resumo;
   const top = j.porJustificativa && j.porJustificativa[0];
+  const canais = j.porCanalGrupo || [];
+  const asm = canais.find(c => c.grupo === 'ASM') || { perda:0, pctJustificada:null };
+  const conveyor = canais.find(c => c.grupo === 'Conveyor') || { perda:0, pctJustificada:null };
   buildKPIs('ovw-kpis-justificativas', [
-    { label:'Lost Capacity', value: r.perdaTotal.toLocaleString('pt-BR'), sub:'capacidade perdida no período', delta:'', trend:'up', type:'', icon:'fa-battery-quarter' },
+    { label:'Lost Capacity', value: r.perdaTotal.toLocaleString('pt-BR'), sub:'pacotes perdidos hoje', delta:'', trend:'up', type:'', icon:'fa-battery-quarter' },
     { label:'Pending Justifications', value: r.pendente.toLocaleString('pt-BR'), sub:'ainda sem motivo', delta:'', trend:'up', type: r.pendente?'danger':'success', icon:'fa-clipboard-question' },
     { label:'Justified vs. Pending', value: r.pctJustificada===null?'—':r.pctJustificada+'%', sub:'já justificado', delta:'', trend:'up', type: r.pctJustificada===null?'':(r.pctJustificada>=80?'success':(r.pctJustificada>=50?'warning':'danger')), icon:'fa-scale-balanced' },
-    { label:'Loss by Justification', value: top?top.motivo:'—', sub: top?`${top.perda.toLocaleString('pt-BR')} (${top.pctTotal}%) — maior motivo`:'sem perda no período', delta:'', trend:'up', type:'', icon:'fa-list-check' },
+    { label:'Loss by Justification', value: top?top.motivo:'—', sub: top?`${top.perda.toLocaleString('pt-BR')} pacotes (${top.pctTotal}%) — maior motivo`:'sem perda hoje', delta:'', trend:'up', type:'', icon:'fa-list-check' },
+    { label:'Perda — ASM', value: asm.perda.toLocaleString('pt-BR'), sub: asm.pctJustificada===null?'sem perda hoje':`${asm.pctJustificada}% justificado`, delta:'', trend:'up', type:'', icon:'fa-user-check' },
+    { label:'Perda — Conveyor', value: conveyor.perda.toLocaleString('pt-BR'), sub: conveyor.pctJustificada===null?'sem perda hoje':`${conveyor.pctJustificada}% justificado`, delta:'', trend:'up', type:'', icon:'fa-conveyor-belt' },
   ]);
 }
 
