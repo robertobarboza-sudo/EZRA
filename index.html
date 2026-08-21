@@ -14078,7 +14078,7 @@ async function justSubmit(e){
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dataBr: JUST_DATA.dataBr, hora: p.hora, area: p.area, gap: p.gap,
+        dataBr: p.dataBr, hora: p.hora, area: p.area, gap: p.gap,
         reason: document.getElementById('just-reason').value.trim(),
       }),
     });
