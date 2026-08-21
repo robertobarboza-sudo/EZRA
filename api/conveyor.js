@@ -37,6 +37,29 @@ const { fetchTabByGid } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1013894222' };
+// Capacidade por hora (pedido do Roberto em 2026-08-21): soma de TARGET
+// TERMO + TARGET ESTEIRA A + TARGET ESTEIRA B de labor_pulso — mesma aba
+// já lida em api/overview.js pra Justificativas, aqui só agregada por hora
+// (não por área) pra virar a linha "Capacidade" do gráfico do Conveyor.
+const LABOR_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1065816747' };
+function brToIso(v) {
+  const m = String(v || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+}
+async function getMetaPorHora(dataRef) {
+  const { rows } = await fetchTabByGid(LABOR_SHEET.spreadsheetId, LABOR_SHEET.gid);
+  const metaPorHora = Array(24).fill(0);
+  rows.forEach(r => {
+    if (r.hora === '' || r.hora === undefined) return;
+    const dataIso = brToIso(r.data);
+    if (dataIso === null) return;
+    const hora = toNum(r.hora);
+    const data = dataOperacionalDe(`${dataIso} ${String(hora).padStart(2, '0')}:00:00`);
+    if (data !== dataRef) return;
+    metaPorHora[hora] = toNum(r['target termo']) + toNum(r['target esteira a']) + toNum(r['target esteira b']);
+  });
+  return metaPorHora;
+}
 // SPP Scuttle (pedido do Roberto em 2026-08-19): lê cluster_pulso (mesma
 // aba que api/outbound.js já cruza pra endereçamento) só pra essa média —
 // aba "ao vivo", sem coluna de data/turno (aging calculado contra
@@ -119,6 +142,9 @@ module.exports = async (req, res) => {
   let sppScuttle = null;
   try { sppScuttle = await sppScuttleAoVivo(); } catch (err) { /* card opcional, não derruba o Conveyor */ }
 
+  let metaPorHora = null;
+  try { metaPorHora = await getMetaPorHora(dataRef); } catch (err) { /* linha de capacidade é opcional, não derruba o Conveyor */ }
+
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
   res.status(200).json({
     ok: true,
@@ -126,6 +152,7 @@ module.exports = async (req, res) => {
     rows: linhas,
     grupos,
     sppScuttle,
+    metaPorHora,
     cobertura: { inicio: dataMinima, fim: dataMaxima },
   });
 };

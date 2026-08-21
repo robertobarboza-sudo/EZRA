@@ -1534,6 +1534,16 @@
     .tv-mode-active #main-content { padding: 32px 40px !important; }
     .tv-mode-active .section-dl-group, .tv-mode-active .spr-filters, .tv-mode-active .table-search, .tv-mode-active .pdf-menu-wrap { display: none !important; }
     .tv-rotation-badge { position: fixed; top: 16px; right: 16px; z-index: 9999; background: rgba(0,0,0,.55); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+    /* Card SPP Scuttle sozinho estica pro grid inteiro por causa do
+       auto-fill/1fr do .kpi-strip padrão (pedido do Roberto em 2026-08-21:
+       "está muito grande, otimize o espaço") — trava largura e encolhe
+       padding/fonte, mesmo padrão já usado em .ovw-accordion. */
+    #cnv-spp-scuttle .kpi-strip { grid-template-columns: minmax(160px, 220px); margin-bottom: 12px; }
+    #cnv-spp-scuttle .kpi-strip-item { padding: 11px 14px; }
+    #cnv-spp-scuttle .kpi-strip-value { font-size: 18px; margin-bottom: 2px; }
+    #cnv-spp-scuttle .kpi-strip-label { font-size: 9px; margin-bottom: 3px; }
+    #cnv-spp-scuttle .kpi-strip-sub { font-size: 9px; margin-top: -2px; margin-bottom: 0; }
+    #cnv-spp-scuttle .kpi-strip-icon { font-size: 14px; top: 9px; right: 9px; }
     .tvcfg-group { border:1px solid var(--border); border-radius:var(--radius); margin-bottom:10px; overflow:hidden; }
     .tvcfg-group-header { display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer; font-size:13px; font-weight:700; color:var(--text); }
     .tvcfg-group-caret { font-size:11px; color:var(--text-muted); transition:transform .15s; }
@@ -3637,7 +3647,7 @@
       <div id="conveyor-panel-performance">
       <div class="switch-hint">
         <i class="fas fa-circle-info"></i>
-        Capacidade esperada (meta) por grupo de estação ainda não está disponível — será adicionada aqui futuramente.
+        Capacidade (meta) só existe no total geral (Target Termo + Esteira A + Esteira B de labor_pulso) — some do gráfico ao filtrar por grupo ou posto específico.
       </div>
 
       <div class="spr-filters">
@@ -14589,25 +14599,38 @@ function cnvRenderChart(){
 
   const porHoraOrdenada = HORAS_CUTOFF.map(h => rows.filter(r => r.hora === h).reduce((s, r) => s + r.totalProcessamento, 0));
   const rotulo = CONVEYOR_STATE.estacao || CONVEYOR_STATE.grupo || 'Total';
+  // Capacidade = TARGET TERMO + TARGET ESTEIRA A + TARGET ESTEIRA B de
+  // labor_pulso, já somados por hora no backend (pedido do Roberto em
+  // 2026-08-21) — só existe pro Total (não é possível quebrar a meta por
+  // grupo/estação individual), então some quando o filtro não é "Total".
+  const semFiltroDeGrupo = !CONVEYOR_STATE.estacao && !CONVEYOR_STATE.grupo;
+  const capacidadePorHora = (semFiltroDeGrupo && CONVEYOR_DATA.metaPorHora) ? rotHoraCutoff(CONVEYOR_DATA.metaPorHora) : null;
 
   if(CNV_CHART_VIEW === 'hora'){
-    mkLine('chart-cnv-hora', labels, [
+    const datasets = [
       { label: 'Realizado — '+rotulo, data: porHoraOrdenada,
         borderColor: '#ee4d2d', backgroundColor: 'rgba(238,77,45,.16)', fill: true, tension: .35, pointRadius: 2, borderWidth: 2.5 },
-    ]);
+    ];
+    if(capacidadePorHora) datasets.push({ label: 'Capacidade', data: capacidadePorHora,
+      borderColor: '#75809b', backgroundColor: 'transparent', borderDash: [6,4], fill: false, tension: .35, pointRadius: 0, borderWidth: 1.5 });
+    mkLine('chart-cnv-hora', labels, datasets);
     return;
   }
 
   // Acumulado — visão secundária, mantém o comportamento original.
   let acc = 0;
   const realizadoAcumulado = porHoraOrdenada.map(v => { acc += v; return acc; });
-  const capacidadeAcumulada = Array(24).fill(0); // placeholder até termos a meta real
-  mkLine('chart-cnv-hora', labels, [
+  const datasets = [
     { label: 'Realizado — '+rotulo, data: realizadoAcumulado,
       borderColor: '#ee4d2d', backgroundColor: 'rgba(238,77,45,.16)', fill: true, tension: .4, pointRadius: 0, borderWidth: 2.5 },
-    { label: 'Capacidade (em breve)', data: capacidadeAcumulada,
-      borderColor: '#75809b', backgroundColor: 'transparent', borderDash: [6,4], fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5 },
-  ]);
+  ];
+  if(capacidadePorHora){
+    let accCap = 0;
+    const capacidadeAcumulada = capacidadePorHora.map(v => { accCap += v; return accCap; });
+    datasets.push({ label: 'Capacidade', data: capacidadeAcumulada,
+      borderColor: '#75809b', backgroundColor: 'transparent', borderDash: [6,4], fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5 });
+  }
+  mkLine('chart-cnv-hora', labels, datasets);
 }
 
 // Uma linha por OPS Id, somando processamento das linhas retornadas por
