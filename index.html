@@ -14012,7 +14012,10 @@ function justRenderAll(){
   buildKPIs('just-kpis', [
     { label:'% Aderência ao Preenchimento', value: ind.pctAderencia===null?'—':ind.pctAderencia+'%', sub:'horas justificadas ÷ horas que exigem', delta:'', trend:'up', type: ind.pctAderencia===null?'':(ind.pctAderencia>=90?'success':(ind.pctAderencia>=60?'warning':'danger')), icon:'fa-check-double' },
     { label:'Horas Pendentes', value: ind.horasPendentes.toLocaleString('pt-BR'), delta:'', trend:'up', type: ind.horasPendentes?'danger':'success', icon:'fa-hourglass-half' },
-    { label:'Áreas Pendentes', value: ind.areasPendentes.length ? ind.areasPendentes.join(', ') : '—', delta:'', trend:'up', type:'', icon:'fa-diagram-project' },
+    // Valor = contagem (padrão do card, número curto) — nome das áreas vai
+    // no sub, texto menor, não no value (achado pelo Roberto em 2026-08-19,
+    // lista de nomes ali quebrava o padrão visual dos outros cards).
+    { label:'Áreas Pendentes', value: ind.areasPendentes.length.toLocaleString('pt-BR'), sub: ind.areasPendentes.length ? ind.areasPendentes.join(', ') : 'nenhuma', delta:'', trend:'up', type: ind.areasPendentes.length?'danger':'success', icon:'fa-diagram-project' },
   ]);
 
   const countEl = document.getElementById('just-pendencias-count');
