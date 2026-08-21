@@ -37,7 +37,7 @@
  * uma. Cada chamada é isolada em try/catch — a queda de uma fonte não
  * derruba o Overview inteiro, só zera aquele bloco (`erros` sinaliza qual).
  */
-const { fetchTabByGid, readRange, writeRange, ensureSheetExists } = require('./_google');
+const { fetchTabByGid, fetchTabRawValues, updateRangeRaw } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
 const { buildArvore, writeArvoreValores, freezeArvoreAll } = require('./_arvore');
 
@@ -62,7 +62,7 @@ async function getLabor() {
       const hora = toNum(r.hora);
       const data = dataOperacionalDe(`${dataIso} ${String(hora).padStart(2, '0')}:00:00`);
       return {
-        data, hora,
+        data, dataBr: r.data, hora,
         asmTarget: toNum(r['asm target']),
         asmZonas: toNum(r['asm (zonas)']),
         esteiraTermo: toNum(r['esteira termo']),
@@ -76,6 +76,14 @@ async function getLabor() {
         targetEsteiraA: toNum(r['target esteira a']),
         targetEsteiraB: toNum(r['target esteira b']),
         targetTermo: toNum(r['target termo']),
+        // Justificativa gravada direto em labor_pulso, colunas T:AA
+        // (pedido do Roberto em 2026-08-19 — a aba própria JUSTIFICATIVAS_
+        // INPUT da 1ª versão foi descartada, tudo mora aqui agora, reason +
+        // gap lado a lado por área). Reason vazio = ainda não justificado.
+        justReasonAsm: r['reason asm'] || '', justGapAsm: r['gap asm'] || '',
+        justReasonEsteiraA: r['reason esteira a'] || '', justGapEsteiraA: r['gap esteira a'] || '',
+        justReasonEsteiraB: r['reason esteira b'] || '', justGapEsteiraB: r['gap esteira b'] || '',
+        justReasonTermo: r['reason termo'] || '', justGapTermo: r['gap termo'] || '',
       };
     })
     .filter(Boolean);
@@ -153,58 +161,34 @@ async function getJson(base, path) {
    JUSTIFICATIVAS (?justificativas=1) — pedido do Roberto em 2026-08-19,
    itens 8-12. Quando ASM ou uma das 3 áreas do Conveyor (Esteira A,
    Esteira B, Termo) fecham uma hora abaixo da meta de labor_pulso, essa
-   hora×área vira uma PENDÊNCIA de justificativa; preencher grava um
-   snapshot histórico permanente (nunca sobrescreve meta/realizado/gap
-   de um snapshot já existente — só status/reason/responsável mudam numa
-   resubmissão).
+   hora×área vira uma PENDÊNCIA de justificativa.
 
-   Guardado em aba própria (JUSTIFICATIVAS_INPUT, criada sob demanda) —
-   não em labor_pulso (que é a fonte de META mantida pelo time de
-   planejamento; misturar leitura de meta com escrita de justificativa na
-   mesma aba arrisca colisão/corrupção do que o time já mantém à mão).
-   Mesmo padrão de escrita do Monitor-Live (api/outbound.js): sem gid
-   fixo ainda (aba nova, ninguém vai renomear por fora), leitura por nome
-   com ensureSheetExists no primeiro uso.
+   Gravado DIRETO em labor_pulso (pedido do Roberto em 2026-08-19,
+   revisando a decisão inicial de usar uma aba própria) — colunas novas
+   T em diante, reason+gap lado a lado por área:
+     T=REASON ASM, U=GAP ASM, V=REASON ESTEIRA A, W=GAP ESTEIRA A,
+     X=REASON ESTEIRA B, Y=GAP ESTEIRA B, Z=REASON TERMO, AA=GAP TERMO
+   Sempre no fim da aba (nunca inserida no meio — colunas existentes são
+   lidas por nome via cabeçalho, mas outras integrações podem depender da
+   posição; inserir no meio deslocaria tudo depois). Escreve na LINHA já
+   existente da planilha (Data+Hora já vêm pré-criados por quem mantém
+   labor_pulso) via updateRangeRaw — só as 2 células daquele par
+   reason/gap, nunca um clear+rewrite da aba inteira.
 
-   ponytail: read-modify-write da aba inteira a cada gravação (sem lock,
-   sem append incremental — mesma limitação já documentada no
-   Monitor-Live). Escala bem pra o volume de "horas fora da meta por dia"
-   (baixa dezena), reavaliar se crescer muito.
+   Reason vazio = ainda não justificado (é a própria fonte de verdade do
+   status, não precisa de coluna "Status" separada). Resubmissão
+   sobrescreve reason/gap (mesma célula, não tem histórico de versão —
+   ver CHANGELOG se algum dia precisar de append-only de verdade).
 ================================================================ */
-const JUST_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4' };
-const JUST_TAB_NAME = 'JUSTIFICATIVAS_INPUT';
-const JUST_HEADER = [
-  'data', 'hora', 'area', 'tipo_operacao', 'meta', 'realizado', 'gap',
-  'pct_atendimento', 'status', 'reason', 'responsavel', 'preenchido_em',
-];
 const JUST_AREAS = ['ASM', 'Conveyor A', 'Conveyor B', 'Termo'];
-
-async function justRange() {
-  return `'${JUST_TAB_NAME}'!A:${String.fromCharCode(64 + JUST_HEADER.length)}`;
+// Ordem tem que bater com JUST_AREAS — cada entrada é [colunaReason, colunaGap], 1-based (T=20).
+const JUST_COLS = { 'ASM': [20, 21], 'Conveyor A': [22, 23], 'Conveyor B': [24, 25], 'Termo': [26, 27] };
+const JUST_HEADER_ROW = { 'ASM': ['REASON ASM', 'GAP ASM'], 'Conveyor A': ['REASON ESTEIRA A', 'GAP ESTEIRA A'], 'Conveyor B': ['REASON ESTEIRA B', 'GAP ESTEIRA B'], 'Termo': ['REASON TERMO', 'GAP TERMO'] };
+function colLetter(n) {
+  let s = '';
+  while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); }
+  return s;
 }
-function justLinhaParaRegistro(r) {
-  const o = {};
-  JUST_HEADER.forEach((campo, i) => { o[campo] = r[i] != null ? r[i] : ''; });
-  return o;
-}
-function justRegistroParaLinha(o) {
-  return JUST_HEADER.map(campo => o[campo] != null ? o[campo] : '');
-}
-async function readJust() {
-  let values;
-  try {
-    values = await readRange(JUST_SHEET.spreadsheetId, await justRange());
-  } catch (err) {
-    return [];
-  }
-  return values.slice(1).map(justLinhaParaRegistro).filter(r => r.data && r.hora !== '' && r.area);
-}
-async function writeJust(registros) {
-  await ensureSheetExists(JUST_SHEET.spreadsheetId, JUST_TAB_NAME);
-  const values = [JUST_HEADER, ...registros.map(justRegistroParaLinha)];
-  await writeRange(JUST_SHEET.spreadsheetId, await justRange(), values);
-}
-const chaveJust = r => `${r.data}|${r.hora}|${r.area}`;
 
 // Horas por área x hora, comparando Realizado (ASM/Conveyor, já buscados
 // pelo fan-out principal) com Meta (labor_pulso) — só até a hora atual do
@@ -226,56 +210,60 @@ function justHorasApuradas(labor, asmRows, conveyorRows, ordemHora, ordemAgora) 
   (labor || []).forEach(l => {
     if (ordemHora(l.hora) > ordemAgora) return; // hora ainda não rodou
     const entradas = [
-      { area: 'ASM', meta: l.asmTarget, realizado: porHoraAsm.get(l.hora) || 0 },
-      { area: 'Conveyor A', meta: l.targetEsteiraA, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Conveyor A']}`) || 0 },
-      { area: 'Conveyor B', meta: l.targetEsteiraB, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Conveyor B']}`) || 0 },
-      { area: 'Termo', meta: l.targetTermo, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Termo']}`) || 0 },
+      { area: 'ASM', meta: l.asmTarget, realizado: porHoraAsm.get(l.hora) || 0, reason: l.justReasonAsm },
+      { area: 'Conveyor A', meta: l.targetEsteiraA, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Conveyor A']}`) || 0, reason: l.justReasonEsteiraA },
+      { area: 'Conveyor B', meta: l.targetEsteiraB, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Conveyor B']}`) || 0, reason: l.justReasonEsteiraB },
+      { area: 'Termo', meta: l.targetTermo, realizado: porHoraGrupo.get(`${l.hora}|${CONVEYOR_GRUPO_DA_AREA['Termo']}`) || 0, reason: l.justReasonTermo },
     ];
     entradas.forEach(e => {
       if (!e.meta) return; // sem meta cadastrada pra essa hora/área — não dá pra avaliar
       linhas.push({
-        data: l.data, hora: l.hora, area: e.area,
+        data: l.data, dataBr: l.dataBr, hora: l.hora, area: e.area,
         meta: e.meta, realizado: e.realizado, gap: e.realizado - e.meta,
         pctAtendimento: e.meta ? Math.round(e.realizado / e.meta * 100) : null,
         exigeJustificativa: e.realizado < e.meta,
+        reason: e.reason || '',
       });
     });
   });
   return linhas;
 }
 
+// Acha a linha física de labor_pulso (Data BR + Hora) e escreve reason+gap
+// só nas 2 células daquele par de colunas (T:AA) — nunca mexe em mais
+// nada da linha/aba. Escreve o cabeçalho da coluna na 1ª vez que aquele
+// par é usado (idempotente — só escreve se ainda estiver vazio).
+async function writeLaborJustificativa({ dataBr, hora, area, reason, gap }) {
+  const [colReason, colGap] = JUST_COLS[area];
+  const { title, values } = await fetchTabRawValues(LABOR_SHEET.spreadsheetId, LABOR_SHEET.gid);
+  const header = values[0] || [];
+  const idxData = header.indexOf('DATA'), idxHora = header.indexOf('HORA');
+  if (idxData === -1 || idxHora === -1) throw new Error('Colunas DATA/HORA não encontradas em labor_pulso');
+
+  const rowIndex = values.findIndex((row, i) => i > 0 && row[idxData] === dataBr && Number(row[idxHora]) === Number(hora));
+  if (rowIndex === -1) throw new Error(`Linha não encontrada em labor_pulso pra ${dataBr} ${hora}h`);
+  const sheetRow = rowIndex + 1; // values é 0-based, planilha é 1-based (values[0] = linha 1 = cabeçalho)
+
+  // Cabeçalho das colunas novas (T1:AA1) — só escreve o par que falta,
+  // não mexe nos outros 3 pares nem em nada anterior a T.
+  if (String(header[colReason - 1] || '').trim() === '') {
+    await updateRangeRaw(LABOR_SHEET.spreadsheetId, `'${title}'!${colLetter(colReason)}1:${colLetter(colGap)}1`, [JUST_HEADER_ROW[area]]);
+  }
+
+  await updateRangeRaw(LABOR_SHEET.spreadsheetId, `'${title}'!${colLetter(colReason)}${sheetRow}:${colLetter(colGap)}${sheetRow}`, [[reason, gap]]);
+}
+
 async function buildJustificativas(req, res) {
   if (req.method === 'POST' && req.query.write !== undefined) {
     const body = req.body || {};
-    const { data, hora, area, reason, responsavel } = body;
-    if (!data || hora === undefined || hora === null || !area) {
-      res.status(400).json({ ok: false, erro: 'data, hora e area são obrigatórios' });
+    const { dataBr, hora, area, reason, gap } = body;
+    if (!dataBr || hora === undefined || hora === null || !area || !JUST_COLS[area]) {
+      res.status(400).json({ ok: false, erro: 'dataBr, hora e area (válida) são obrigatórios' });
       return;
     }
     try {
-      const atuais = await readJust();
-      const chave = `${data}|${hora}|${area}`;
-      const existente = atuais.find(r => chaveJust(r) === chave);
-      // Meta/realizado/gap/pct só são gravados na CRIAÇÃO do snapshot (vêm
-      // do corpo, ecoados da lista de pendências que o front já mostrou pro
-      // usuário) — uma resubmissão (corrigir o reason, por exemplo) nunca
-      // reescreve esses números, só status/reason/responsável/timestamp.
-      // Regra 13.10 do pedido: não sobrescrever snapshot de hora encerrada.
-      const atualizado = {
-        data, hora: String(hora), area,
-        tipo_operacao: body.tipoOperacao || (existente ? existente.tipo_operacao : ''),
-        meta: existente ? existente.meta : String(body.meta ?? ''),
-        realizado: existente ? existente.realizado : String(body.realizado ?? ''),
-        gap: existente ? existente.gap : String(body.gap ?? ''),
-        pct_atendimento: existente ? existente.pct_atendimento : String(body.pctAtendimento ?? ''),
-        status: reason ? 'Justificado' : (body.status || 'Pendente'),
-        reason: reason || (existente ? existente.reason : ''),
-        responsavel: responsavel || (existente ? existente.responsavel : ''),
-        preenchido_em: new Date().toISOString(),
-      };
-      const semEssaChave = atuais.filter(r => chaveJust(r) !== chave);
-      await writeJust([...semEssaChave, atualizado]);
-      res.status(200).json({ ok: true, registro: atualizado });
+      await writeLaborJustificativa({ dataBr, hora, area, reason: reason || '', gap: gap ?? '' });
+      res.status(200).json({ ok: true });
     } catch (err) {
       res.status(502).json({ ok: false, erro: err.message });
     }
@@ -285,40 +273,28 @@ async function buildJustificativas(req, res) {
   try {
     const proto = req.headers['x-forwarded-proto'] || 'https';
     const base = `${proto}://${req.headers.host}`;
-    const [labor, asm, conveyor, historico] = await Promise.all([
+    const [labor, asm, conveyor] = await Promise.all([
       getLabor(),
       getJson(base, '/api/asm').catch(() => ({ rows: [] })),
       getJson(base, '/api/conveyor').catch(() => ({ rows: [] })),
-      readJust(),
     ]);
 
     const horaAgora = new Date(Date.now() - 3 * 60 * 60 * 1000).getUTCHours();
     const ordemHora = h => h >= 6 ? h - 6 : h + 18;
     const ordemAgora = ordemHora(horaAgora);
 
-    const apuradas = justHorasApuradas(labor.rows, asm.rows, conveyor.rows, ordemHora, ordemAgora);
-    const porChave = new Map(historico.map(r => [chaveJust(r), r]));
-
-    const linhas = apuradas.map(l => {
-      const salvo = porChave.get(`${l.data}|${l.hora}|${l.area}`);
-      return {
-        ...l,
-        status: salvo ? salvo.status : (l.exigeJustificativa ? 'Pendente' : 'OK'),
-        reason: salvo ? salvo.reason : '',
-        responsavel: salvo ? salvo.responsavel : '',
-        preenchidoEm: salvo ? salvo.preenchido_em : null,
-      };
-    });
+    const linhas = justHorasApuradas(labor.rows, asm.rows, conveyor.rows, ordemHora, ordemAgora);
 
     const exigem = linhas.filter(l => l.exigeJustificativa);
-    const justificadas = exigem.filter(l => l.status === 'Justificado');
-    const pendentes = exigem.filter(l => l.status !== 'Justificado');
+    const justificadas = exigem.filter(l => l.reason);
+    const pendentes = exigem.filter(l => !l.reason);
 
     res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=180');
     res.status(200).json({
       ok: true,
       atualizadoEm: new Date().toISOString(),
       data: labor.rows[0] ? labor.rows[0].data : null,
+      dataBr: labor.rows[0] ? labor.rows[0].dataBr : null,
       indicadores: {
         pctAderencia: exigem.length ? Math.round(justificadas.length / exigem.length * 100) : null,
         horasPendentes: pendentes.length,
@@ -326,7 +302,7 @@ async function buildJustificativas(req, res) {
       },
       areas: JUST_AREAS,
       pendencias: pendentes.sort((a, b) => a.hora - b.hora),
-      historicoRecente: historico.sort((a, b) => (b.preenchido_em || '').localeCompare(a.preenchido_em || '')).slice(0, 100),
+      historicoRecente: justificadas.sort((a, b) => b.hora - a.hora),
     });
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });

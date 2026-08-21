@@ -4107,12 +4107,12 @@
 
       <div class="table-card" style="margin-top:16px">
         <div class="table-toolbar">
-          <div class="table-toolbar-title">Histórico recente</div>
+          <div class="table-toolbar-title">Histórico recente <span style="font-weight:400;color:var(--text-muted);font-size:12px">(gravado em labor_pulso, colunas T:AA)</span></div>
         </div>
         <div style="overflow-x:auto">
           <table class="resp-table" style="min-width:900px">
             <thead><tr>
-              <th>Data</th><th>Hora</th><th>Área</th><th>Meta</th><th>Realizado</th><th>Gap</th><th>Status</th><th>Reason</th><th>Responsável</th><th>Preenchido em</th>
+              <th>Data</th><th>Hora</th><th>Área</th><th>Meta</th><th>Realizado</th><th>Gap</th><th>Reason</th>
             </tr></thead>
             <tbody id="just-historico-tbody"></tbody>
           </table>
@@ -5194,10 +5194,6 @@
       <div class="form-group">
         <label class="form-label">Reason *</label>
         <textarea class="form-input" id="just-reason" rows="3" placeholder="Motivo do não atingimento da meta…" required></textarea>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Responsável *</label>
-        <input class="form-input" id="just-responsavel" type="text" placeholder="Seu nome" required/>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" onclick="justCloseForm()">Cancelar</button>
@@ -14037,6 +14033,10 @@ function justRenderAll(){
 
   const histTbody = document.getElementById('just-historico-tbody');
   if(histTbody){
+    // historicoRecente agora vem direto de labor_pulso (reason/gap nas
+    // colunas T:AA daquela mesma linha) — sem status/responsável/timestamp
+    // separados (pedido do Roberto em 2026-08-19: só reason + gap, direto
+    // na planilha que o time já usa).
     const hist = JUST_DATA.historicoRecente || [];
     histTbody.innerHTML = hist.length ? hist.map(h => `
       <tr>
@@ -14046,11 +14046,8 @@ function justRenderAll(){
         <td>${Number(h.meta||0).toLocaleString('pt-BR')}</td>
         <td>${Number(h.realizado||0).toLocaleString('pt-BR')}</td>
         <td>${Number(h.gap||0).toLocaleString('pt-BR')}</td>
-        <td>${pulsoEscHtml(h.status||'—')}</td>
-        <td style="max-width:260px;white-space:normal">${pulsoEscHtml(h.reason||'—')}</td>
-        <td>${pulsoEscHtml(h.responsavel||'—')}</td>
-        <td>${pulsoFmtCell(h.preenchido_em,'date')}</td>
-      </tr>`).join('') : emptyRow(10);
+        <td style="max-width:320px;white-space:normal">${pulsoEscHtml(h.reason||'—')}</td>
+      </tr>`).join('') : emptyRow(7);
   }
 }
 
@@ -14060,7 +14057,6 @@ function justOpenForm(pendencia){
   document.getElementById('just-modal-resumo').innerHTML =
     `Meta: <strong style="color:var(--text)">${pendencia.meta.toLocaleString('pt-BR')}</strong> · Realizado: <strong style="color:var(--text)">${pendencia.realizado.toLocaleString('pt-BR')}</strong> · Gap: <strong style="color:var(--red)">${pendencia.gap.toLocaleString('pt-BR')}</strong>`;
   document.getElementById('just-reason').value = '';
-  document.getElementById('just-responsavel').value = '';
   document.getElementById('just-modal-overlay').classList.add('open');
 }
 function justCloseForm(){
@@ -14075,20 +14071,21 @@ async function justSubmit(e){
   btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Salvando…';
   const p = JUST_FORM_CTX;
   try {
+    // Grava direto em labor_pulso (colunas T:AA, reason+gap por área) —
+    // pedido do Roberto em 2026-08-19. dataBr é a data no formato da
+    // própria planilha (DD/MM/AAAA), usada pra achar a linha certa.
     const r = await fetch('/api/overview?justificativas=1&write=1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        data: JUST_DATA.data, hora: p.hora, area: p.area,
-        meta: p.meta, realizado: p.realizado, gap: p.gap, pctAtendimento: p.pctAtendimento,
+        dataBr: JUST_DATA.dataBr, hora: p.hora, area: p.area, gap: p.gap,
         reason: document.getElementById('just-reason').value.trim(),
-        responsavel: document.getElementById('just-responsavel').value.trim(),
       }),
     });
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'falha ao salvar');
     justCloseForm();
-    showToast('Justificativa salva.');
+    showToast('Justificativa salva em labor_pulso.');
     loadJustificativas();
   } catch(err){
     showToast('Erro ao salvar: '+err.message, true);
