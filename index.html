@@ -3073,6 +3073,9 @@
       <div class="nav-item" data-section="forecast" data-label="Forecast" onclick="navigateTo('forecast',this)">
         <span class="nav-icon-composite"><i class="fas fa-chart-column icon-base" style="font-size:13px"></i><span class="icon-badge" style="font-size:6.5px;padding:0 2px"><i class="fas fa-magnifying-glass" style="font-size:6px"></i></span></span><span class="nav-label">Forecast</span>
       </div>
+      <div class="nav-item" data-section="justificativas" data-label="Justificativas" onclick="navigateTo('justificativas',this)">
+        <i class="fas fa-clipboard-check nav-icon"></i><span class="nav-label">Justificativas</span>
+      </div>
     </div>
 
     <div class="nav-group">
@@ -3103,9 +3106,6 @@
         <div class="nav-subitem active" data-subkey="performance" onclick="navSidebarSubpage(this,'conveyor','performance','conveyor')">Packing Out ASM</div>
         <div class="nav-subitem" data-subkey="conveyor" onclick="navSidebarSubpage(this,'conveyor','conveyor','conveyor')">Conveyor</div>
         <div class="nav-subitem" data-subkey="esteira" onclick="navSidebarSubpage(this,'conveyor','esteira','conveyor')">Esteira On-time</div>
-      </div>
-      <div class="nav-item" data-section="justificativas" data-label="Justificativas" onclick="navigateTo('justificativas',this)">
-        <i class="fas fa-clipboard-check nav-icon"></i><span class="nav-label">Justificativas</span>
       </div>
       <div class="nav-item" data-section="spr" data-label="Outbound" onclick="navigateToAndExpand('spr',this,'navsub-spr')">
         <i class="fas fa-truck-fast nav-icon"></i><span class="nav-label">Outbound</span>
@@ -3281,6 +3281,12 @@
         <div class="chart-title">Capacidade vs Realizado — ASM + Conveyor</div>
         <div style="height:260px;margin-top:12px"><canvas id="chart-ovw-resumo"></canvas></div>
       </div>
+
+      <div class="table-toolbar" style="margin-top:20px;margin-bottom:0">
+        <div class="table-toolbar-title">Perda de Capacidade <span style="font-weight:400;color:var(--text-muted);font-size:12px">mês corrente até hoje</span></div>
+        <button type="button" class="spr-ms-action-btn" onclick="ovwAbrirJustificativas()">Ver detalhes <i class="fas fa-arrow-right"></i></button>
+      </div>
+      <div id="ovw-kpis-justificativas" style="margin-top:8px"></div>
 
       <div class="table-toolbar-title" style="margin-top:20px">Detalhamento</div>
 
@@ -4081,40 +4087,96 @@
         <section id="section-justificativas" class="section">
       <div class="section-header" id="section-justificativas-header">
         <div class="section-header-left">
-          <div class="section-title">Justificativas <span class="ds-badge ok" id="ds-badge-justificativas" style="margin-left:8px"></span></div>
-          <div class="section-subtitle">ASM e Conveyor (Esteira A/B/Termo) abaixo da meta por hora, com histórico</div>
+          <div class="section-title">Justificativa <span class="ds-badge ok" id="ds-badge-justificativas" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Perda de capacidade — ASM e Conveyor (Esteira A/B/Termo) vs meta de labor_pulso</div>
         </div>
         <div class="section-dl-group">
           <button class="dl-btn dl-btn-csv" onclick="loadJustificativas()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
 
-      <div id="just-kpis" style="margin-top:8px"></div>
+      <!-- Filtros: Data (De/Até), Canal, Justificativa, Semana, Mês, Status -->
+      <div class="spr-filters">
+        <div class="spr-filter-group">
+          <span style="font-size:11px;color:var(--text-muted);align-self:center">De</span>
+          <input type="date" class="filter-select pulso-date-input" id="just-de-input" onchange="justSetFiltro('de',this.value)" style="color-scheme:dark"/>
+          <span style="font-size:11px;color:var(--text-muted);align-self:center">Até</span>
+          <input type="date" class="filter-select pulso-date-input" id="just-ate-input" onchange="justSetFiltro('ate',this.value)" style="color-scheme:dark"/>
+        </div>
+        <div class="spr-filter-group">
+          <select class="filter-select" id="just-canal-input" onchange="justSetFiltro('canal',this.value)" style="height:34px"><option value="">Todos os canais</option></select>
+          <select class="filter-select" id="just-justificativa-input" onchange="justSetFiltro('justificativa',this.value)" style="height:34px"><option value="">Todas as justificativas</option></select>
+          <select class="filter-select" id="just-semana-input" onchange="justSetFiltro('semana',this.value)" style="height:34px"><option value="">Todas as semanas</option></select>
+          <select class="filter-select" id="just-mes-input" onchange="justSetFiltro('mes',this.value)" style="height:34px"><option value="">Todos os meses</option></select>
+          <select class="filter-select" id="just-status-input" onchange="justSetFiltro('status',this.value)" style="height:34px">
+            <option value="">Justificada + Pendente</option>
+            <option value="Justificada">Justificada</option>
+            <option value="Pendente">Pendente</option>
+          </select>
+          <button type="button" class="spr-ms-action-btn" onclick="justClearFiltros()">Limpar</button>
+        </div>
+      </div>
+      <div class="pulso-coverage" id="just-coverage"></div>
 
+      <div id="just-kpis" style="margin-top:12px"></div>
+
+      <!-- Granularidade Hora / Dia / Semana -->
       <div class="table-card" style="margin-top:16px">
         <div class="table-toolbar">
-          <div class="table-toolbar-title">Pendências <span id="just-pendencias-count" style="font-weight:400;color:var(--text-muted)"></span></div>
+          <div class="table-toolbar-title">Detalhamento <span id="just-tabela-sub" style="font-weight:400;color:var(--text-muted);font-size:12px"></span></div>
+          <div class="bkl-tabs">
+            <div class="bkl-tab" id="just-gran-hora" onclick="justSetGranularidade('hora')">Hora</div>
+            <div class="bkl-tab active" id="just-gran-dia" onclick="justSetGranularidade('dia')">Dia</div>
+            <div class="bkl-tab" id="just-gran-semana" onclick="justSetGranularidade('semana')">Semana</div>
+          </div>
         </div>
         <div style="overflow-x:auto">
           <table class="resp-table" style="min-width:900px">
-            <thead><tr>
-              <th>Hora</th><th>Área</th><th>Meta</th><th>Realizado</th><th>Gap</th><th>% Atendimento</th><th>Justificativa</th>
-            </tr></thead>
-            <tbody id="just-tbody"></tbody>
+            <thead id="just-tabela-thead"></thead>
+            <tbody id="just-tabela-tbody"></tbody>
           </table>
         </div>
       </div>
 
+      <!-- Visão semanal (item 2) -->
       <div class="table-card" style="margin-top:16px">
         <div class="table-toolbar">
-          <div class="table-toolbar-title">Histórico recente <span style="font-weight:400;color:var(--text-muted);font-size:12px">(gravado em labor_pulso, colunas T:AA)</span></div>
+          <div class="table-toolbar-title">Perda por Semana</div>
         </div>
         <div style="overflow-x:auto">
           <table class="resp-table" style="min-width:900px">
             <thead><tr>
-              <th>Data</th><th>Hora</th><th>Área</th><th>Meta</th><th>Realizado</th><th>Gap</th><th>Reason</th>
+              <th>Semana</th><th>Capacidade Perdida</th><th>Justificada</th><th>Pendente</th><th>% Justificada</th><th>Principal Justificativa</th>
             </tr></thead>
-            <tbody id="just-historico-tbody"></tbody>
+            <tbody id="just-semana-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Visão mensal (item 3) — mês x motivo -->
+      <div class="table-card" style="margin-top:16px">
+        <div class="table-toolbar">
+          <div class="table-toolbar-title">Perda por Mês e Motivo</div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="resp-table" style="min-width:900px">
+            <thead id="just-mes-thead"></thead>
+            <tbody id="just-mes-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Impacto por justificativa (item 6) -->
+      <div class="table-card" style="margin-top:16px">
+        <div class="table-toolbar">
+          <div class="table-toolbar-title">Impacto por Justificativa</div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="resp-table" style="min-width:900px">
+            <thead><tr>
+              <th>Justificativa</th><th>Perda</th><th>% Total</th><th>Ocorrências</th><th>Canal Mais Impactado</th><th>Período de Maior Impacto</th>
+            </tr></thead>
+            <tbody id="just-motivo-tbody"></tbody>
           </table>
         </div>
       </div>
@@ -5192,8 +5254,8 @@
     <form id="just-form" onsubmit="justSubmit(event)">
       <div id="just-modal-resumo" style="font-size:12.5px;color:var(--text-sub);margin-bottom:14px;line-height:1.6"></div>
       <div class="form-group">
-        <label class="form-label">Reason *</label>
-        <textarea class="form-input" id="just-reason" rows="3" placeholder="Motivo do não atingimento da meta…" required></textarea>
+        <label class="form-label">Justificativa *</label>
+        <select class="form-input" id="just-reason" required><option value="">Selecione…</option></select>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" onclick="justCloseForm()">Cancelar</button>
@@ -8242,6 +8304,36 @@ async function loadOverview(){
     setBadge('gestao', 'error', 'Erro: '+err.message);
     console.error('[overview]', err);
   }
+  ovwLoadJustificativas();
+}
+
+// Bloco "Perda de Capacidade" do Overview (pedido do Roberto em
+// 2026-08-19) — carregamento à parte do resto do Overview (endpoint e
+// payload diferentes), erro aqui não derruba o resto da página.
+let OVW_JUST_DATA = null;
+async function ovwLoadJustificativas(){
+  try {
+    const r = await fetch('/api/overview?justificativas=1', { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    OVW_JUST_DATA = j;
+    ovwRenderJustificativas();
+  } catch(err){
+    console.error('[overview-justificativas]', err);
+    buildKPIs('ovw-kpis-justificativas', [{ label:'Perda de Capacidade', value:'—', sub:'erro ao carregar', delta:'', trend:'up', type:'danger', icon:'fa-triangle-exclamation' }]);
+  }
+}
+function ovwRenderJustificativas(){
+  const j = OVW_JUST_DATA;
+  if(!j) return;
+  const r = j.resumo;
+  const top = j.porJustificativa && j.porJustificativa[0];
+  buildKPIs('ovw-kpis-justificativas', [
+    { label:'Lost Capacity', value: r.perdaTotal.toLocaleString('pt-BR'), sub:'capacidade perdida no período', delta:'', trend:'up', type:'', icon:'fa-battery-quarter' },
+    { label:'Pending Justifications', value: r.pendente.toLocaleString('pt-BR'), sub:'ainda sem motivo', delta:'', trend:'up', type: r.pendente?'danger':'success', icon:'fa-clipboard-question' },
+    { label:'Justified vs. Pending', value: r.pctJustificada===null?'—':r.pctJustificada+'%', sub:'já justificado', delta:'', trend:'up', type: r.pctJustificada===null?'':(r.pctJustificada>=80?'success':(r.pctJustificada>=50?'warning':'danger')), icon:'fa-scale-balanced' },
+    { label:'Loss by Justification', value: top?top.motivo:'—', sub: top?`${top.perda.toLocaleString('pt-BR')} (${top.pctTotal}%) — maior motivo`:'sem perda no período', delta:'', trend:'up', type:'', icon:'fa-list-check' },
+  ]);
 }
 
 // Hora atual em Brasília (UTC-3) — usada em várias páginas (Esteira
@@ -13979,22 +14071,41 @@ function cnvRenderSppScuttle(){
 }
 
 /* ================================================================
-   JUSTIFICATIVAS (pedido do Roberto em 2026-08-19, itens 8-12) — ASM e
-   Conveyor (Esteira A/B/Termo) abaixo da meta de labor_pulso viram
-   pendência por hora; preencher grava snapshot histórico permanente
-   (/api/overview?justificativas=1, GET lista + POST&write=1 salva).
+   JUSTIFICATIVA — Perda de Capacidade (pedido do Roberto em 2026-08-19,
+   reformulação completa). ASM e Conveyor (Esteira A/B/Termo) abaixo da
+   meta de labor_pulso viram "perda"; motivo vem de uma taxonomia fixa
+   (JUST_MOTIVOS no backend) gravada nas mesmas colunas T:AA de sempre.
+   Um GET só (/api/overview?justificativas=1, com filtros de query)
+   alimenta o widget do Overview e a página inteira — granularidade
+   Hora/Dia/Semana troca só o parâmetro e reconsulta, mantendo os
+   outros filtros (pedido explícito do item 7 do pedido).
 ================================================================ */
 let JUST_DATA = null;
-let JUST_FORM_CTX = null; // {hora, area, meta, realizado, gap, pctAtendimento}
+let JUST_FORM_CTX = null; // {dataBr, hora, area, meta, realizado, gap}
+let JUST_STATE = { de:null, ate:null, canal:'', justificativa:'', semana:'', mes:'', status:'', granularidade:'dia' };
+
+function justQueryString(){
+  const p = new URLSearchParams();
+  if(JUST_STATE.de) p.set('de', JUST_STATE.de);
+  if(JUST_STATE.ate) p.set('ate', JUST_STATE.ate);
+  if(JUST_STATE.canal) p.set('canal', JUST_STATE.canal);
+  if(JUST_STATE.justificativa) p.set('justificativa', JUST_STATE.justificativa);
+  if(JUST_STATE.semana) p.set('semana', JUST_STATE.semana);
+  if(JUST_STATE.mes) p.set('mes', JUST_STATE.mes);
+  if(JUST_STATE.status) p.set('status', JUST_STATE.status);
+  p.set('granularidade', JUST_STATE.granularidade);
+  return p.toString();
+}
 
 async function loadJustificativas(){
   setBadge('justificativas', 'loading');
   try {
-    const r = await fetch('/api/overview?justificativas=1', { cache:'no-store' });
+    const r = await fetch('/api/overview?justificativas=1&'+justQueryString(), { cache:'no-store' });
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('justificativas', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
     JUST_DATA = j;
+    justPopulateFiltros();
     justRenderAll();
   } catch(err){
     setBadge('justificativas', 'error', 'Erro: '+err.message);
@@ -14002,61 +14113,174 @@ async function loadJustificativas(){
   }
 }
 
+// Canal/Justificativa são fixos (vêm do backend, sempre os mesmos) — só
+// popula 1x. Semana/Mês dependem do range de datas ativo, repopula a
+// cada carga preservando a seleção atual se ela ainda existir na lista.
+function justPopulateFiltros(){
+  const canalEl = document.getElementById('just-canal-input');
+  if(canalEl && !canalEl.dataset.built){
+    canalEl.innerHTML = '<option value="">Todos os canais</option>' + JUST_DATA.areas.map(a => `<option value="${pulsoEscHtml(a)}">${pulsoEscHtml(a)}</option>`).join('');
+    canalEl.dataset.built = '1';
+  }
+  const justEl = document.getElementById('just-justificativa-input');
+  if(justEl && !justEl.dataset.built){
+    const opcoes = [...JUST_DATA.motivos, JUST_DATA.motivoPendenteLabel];
+    justEl.innerHTML = '<option value="">Todas as justificativas</option>' + opcoes.map(m => `<option value="${pulsoEscHtml(m)}">${pulsoEscHtml(m)}</option>`).join('');
+    justEl.dataset.built = '1';
+  }
+  const semanaEl = document.getElementById('just-semana-input');
+  if(semanaEl){
+    const atual = semanaEl.value;
+    semanaEl.innerHTML = '<option value="">Todas as semanas</option>' + JUST_DATA.porSemana.map(s => `<option value="${s.semana}">${s.semana}</option>`).join('');
+    if([...semanaEl.options].some(o => o.value === atual)) semanaEl.value = atual;
+  }
+  const mesEl = document.getElementById('just-mes-input');
+  if(mesEl){
+    const atual = mesEl.value;
+    mesEl.innerHTML = '<option value="">Todos os meses</option>' + JUST_DATA.porMes.map(m => `<option value="${m.mes}">${m.mes}</option>`).join('');
+    if([...mesEl.options].some(o => o.value === atual)) mesEl.value = atual;
+  }
+  const deEl = document.getElementById('just-de-input'), ateEl = document.getElementById('just-ate-input');
+  if(deEl && !JUST_STATE.de) deEl.value = JUST_DATA.intervalo.inicio;
+  if(ateEl && !JUST_STATE.ate) ateEl.value = JUST_DATA.intervalo.fim;
+}
+
+function justSetFiltro(campo, valor){
+  JUST_STATE[campo] = valor || (campo === 'de' || campo === 'ate' ? null : '');
+  loadJustificativas();
+}
+function justClearFiltros(){
+  JUST_STATE = { de:null, ate:null, canal:'', justificativa:'', semana:'', mes:'', status:'', granularidade:JUST_STATE.granularidade };
+  ['just-de-input','just-ate-input','just-canal-input','just-justificativa-input','just-semana-input','just-mes-input','just-status-input'].forEach(id => {
+    const el = document.getElementById(id); if(el) el.value = '';
+  });
+  loadJustificativas();
+}
+function justSetGranularidade(g){
+  JUST_STATE.granularidade = g;
+  ['hora','dia','semana'].forEach(k => document.getElementById('just-gran-'+k)?.classList.toggle('active', k===g));
+  loadJustificativas();
+}
+
 function justRenderAll(){
   if(!JUST_DATA) return;
-  const ind = JUST_DATA.indicadores;
+  const j = JUST_DATA;
+  const cov = document.getElementById('just-coverage');
+  if(cov) cov.innerHTML = `<i class="fas fa-database"></i> Dados disponíveis de <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.inicio)}</strong> até <strong style="color:var(--text)">${pulsoFmtDataBr(j.cobertura.fim)}</strong> · mostrando <strong style="color:var(--text)">${pulsoFmtDataBr(j.intervalo.inicio)}</strong> a <strong style="color:var(--text)">${pulsoFmtDataBr(j.intervalo.fim)}</strong>`;
+
+  const r = j.resumo;
   buildKPIs('just-kpis', [
-    { label:'% Aderência ao Preenchimento', value: ind.pctAderencia===null?'—':ind.pctAderencia+'%', sub:'horas justificadas ÷ horas que exigem', delta:'', trend:'up', type: ind.pctAderencia===null?'':(ind.pctAderencia>=90?'success':(ind.pctAderencia>=60?'warning':'danger')), icon:'fa-check-double' },
-    { label:'Horas Pendentes', value: ind.horasPendentes.toLocaleString('pt-BR'), delta:'', trend:'up', type: ind.horasPendentes?'danger':'success', icon:'fa-hourglass-half' },
-    // Valor = contagem (padrão do card, número curto) — nome das áreas vai
-    // no sub, texto menor, não no value (achado pelo Roberto em 2026-08-19,
-    // lista de nomes ali quebrava o padrão visual dos outros cards).
-    { label:'Áreas Pendentes', value: ind.areasPendentes.length.toLocaleString('pt-BR'), sub: ind.areasPendentes.length ? ind.areasPendentes.join(', ') : 'nenhuma', delta:'', trend:'up', type: ind.areasPendentes.length?'danger':'success', icon:'fa-diagram-project' },
+    { label:'Lost Capacity', value:r.perdaTotal.toLocaleString('pt-BR'), sub:'no período/filtro selecionado', delta:'', trend:'up', type:'', icon:'fa-battery-quarter' },
+    { label:'Pending Justifications', value:r.pendente.toLocaleString('pt-BR'), delta:'', trend:'up', type: r.pendente?'danger':'success', icon:'fa-clipboard-question' },
+    { label:'Justified', value:r.justificada.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-clipboard-check' },
+    { label:'Justified vs. Pending', value: r.pctJustificada===null?'—':r.pctJustificada+'%', sub:'% já justificado', delta:'', trend:'up', type: r.pctJustificada===null?'':(r.pctJustificada>=80?'success':(r.pctJustificada>=50?'warning':'danger')), icon:'fa-scale-balanced' },
   ]);
 
-  const countEl = document.getElementById('just-pendencias-count');
-  if(countEl) countEl.textContent = `(${JUST_DATA.pendencias.length})`;
+  justRenderTabela();
+  justRenderSemana();
+  justRenderMes();
+  justRenderMotivo();
+}
 
-  const tbody = document.getElementById('just-tbody');
-  if(tbody){
-    tbody.innerHTML = JUST_DATA.pendencias.length ? JUST_DATA.pendencias.map(p => `
-      <tr>
-        <td>${String(p.hora).padStart(2,'0')}h</td>
-        <td>${pulsoEscHtml(p.area)}</td>
-        <td>${p.meta.toLocaleString('pt-BR')}</td>
-        <td>${p.realizado.toLocaleString('pt-BR')}</td>
-        <td style="color:var(--red)">${p.gap.toLocaleString('pt-BR')}</td>
-        <td>${p.pctAtendimento===null?'—':p.pctAtendimento+'%'}</td>
-        <td><button type="button" class="spr-ms-action-btn" onclick='justOpenForm(${JSON.stringify(p)})'>Justificar</button></td>
-      </tr>`).join('') : emptyRow(7);
-  }
+// Item 5: Hora mostra cada canal/hora individual (com botão Justificar nas
+// pendentes); Dia e Semana mostram consolidado (planejado x realizado x
+// perda), sem ação de justificar linha a linha — isso já é feito na
+// granularidade Hora.
+function justRenderTabela(){
+  const thead = document.getElementById('just-tabela-thead');
+  const tbody = document.getElementById('just-tabela-tbody');
+  const sub = document.getElementById('just-tabela-sub');
+  if(!thead || !tbody) return;
+  const g = JUST_STATE.granularidade;
+  const rows = JUST_DATA.tabela || [];
+  if(sub) sub.textContent = g==='hora' ? '(por hora × canal)' : g==='semana' ? '(por semana)' : '(por dia)';
 
-  const histTbody = document.getElementById('just-historico-tbody');
-  if(histTbody){
-    // historicoRecente agora vem direto de labor_pulso (reason/gap nas
-    // colunas T:AA daquela mesma linha) — sem status/responsável/timestamp
-    // separados (pedido do Roberto em 2026-08-19: só reason + gap, direto
-    // na planilha que o time já usa).
-    const hist = JUST_DATA.historicoRecente || [];
-    histTbody.innerHTML = hist.length ? hist.map(h => `
+  if(g === 'hora'){
+    thead.innerHTML = `<tr><th>Data</th><th>Hora</th><th>Canal</th><th>Planejado</th><th>Realizado</th><th>Perda</th><th>Justificativa</th><th>Status</th><th></th></tr>`;
+    tbody.innerHTML = rows.length ? rows.map(rw => `
       <tr>
-        <td>${pulsoEscHtml(h.data)}</td>
-        <td>${String(h.hora).padStart(2,'0')}h</td>
-        <td>${pulsoEscHtml(h.area)}</td>
-        <td>${Number(h.meta||0).toLocaleString('pt-BR')}</td>
-        <td>${Number(h.realizado||0).toLocaleString('pt-BR')}</td>
-        <td>${Number(h.gap||0).toLocaleString('pt-BR')}</td>
-        <td style="max-width:320px;white-space:normal">${pulsoEscHtml(h.reason||'—')}</td>
-      </tr>`).join('') : emptyRow(7);
+        <td>${pulsoFmtDataBr(rw.data)}</td>
+        <td>${String(rw.hora).padStart(2,'0')}h</td>
+        <td>${pulsoEscHtml(rw.area)}</td>
+        <td>${rw.meta.toLocaleString('pt-BR')}</td>
+        <td>${rw.realizado.toLocaleString('pt-BR')}</td>
+        <td style="${rw.perda>0?'color:var(--red)':''}">${rw.perda.toLocaleString('pt-BR')}</td>
+        <td>${pulsoEscHtml(rw.reason||'—')}</td>
+        <td>${pulsoEscHtml(rw.status)}</td>
+        <td>${rw.status==='Pendente' ? `<button type="button" class="spr-ms-action-btn" onclick='justOpenForm(${JSON.stringify({dataBr:rw.dataBr,data:rw.data,hora:rw.hora,area:rw.area,meta:rw.meta,realizado:rw.realizado,gap:rw.realizado-rw.meta})})'>Justificar</button>` : ''}</td>
+      </tr>`).join('') : emptyRow(9);
+  } else if(g === 'semana'){
+    thead.innerHTML = `<tr><th>Semana</th><th>Perda</th><th>Justificativa Principal</th></tr>`;
+    tbody.innerHTML = rows.length ? rows.map(rw => `
+      <tr><td>${pulsoEscHtml(rw.chave)}</td><td style="${rw.perda>0?'color:var(--red)':''}">${rw.perda.toLocaleString('pt-BR')}</td><td>${pulsoEscHtml(rw.justificativaPrincipal||'—')}</td></tr>`).join('') : emptyRow(3);
+  } else {
+    thead.innerHTML = `<tr><th>Data</th><th>Planejado</th><th>Realizado</th><th>Perda</th><th>% Perda</th><th>Justificativa Principal</th></tr>`;
+    tbody.innerHTML = rows.length ? rows.map(rw => `
+      <tr>
+        <td>${pulsoFmtDataBr(rw.chave)}</td>
+        <td>${rw.planejado.toLocaleString('pt-BR')}</td>
+        <td>${rw.realizado.toLocaleString('pt-BR')}</td>
+        <td style="${rw.perda>0?'color:var(--red)':''}">${rw.perda.toLocaleString('pt-BR')}</td>
+        <td>${rw.pctPerda}%</td>
+        <td>${pulsoEscHtml(rw.justificativaPrincipal||'—')}</td>
+      </tr>`).join('') : emptyRow(6);
   }
+}
+
+function justRenderSemana(){
+  const tbody = document.getElementById('just-semana-tbody');
+  if(!tbody) return;
+  const rows = JUST_DATA.porSemana || [];
+  tbody.innerHTML = rows.length ? rows.map(s => `
+    <tr>
+      <td>${pulsoEscHtml(s.semana)}</td>
+      <td>${s.capacidadePerdida.toLocaleString('pt-BR')}</td>
+      <td>${s.justificada.toLocaleString('pt-BR')}</td>
+      <td style="${s.pendente>0?'color:var(--red)':''}">${s.pendente.toLocaleString('pt-BR')}</td>
+      <td>${s.pctJustificada===null?'—':s.pctJustificada+'%'}</td>
+      <td>${pulsoEscHtml(s.principalJustificativa||'—')}</td>
+    </tr>`).join('') : emptyRow(6);
+}
+
+function justRenderMes(){
+  const thead = document.getElementById('just-mes-thead');
+  const tbody = document.getElementById('just-mes-tbody');
+  if(!thead || !tbody) return;
+  const motivos = [...JUST_DATA.motivos, JUST_DATA.motivoPendenteLabel];
+  thead.innerHTML = `<tr><th>Mês</th>${motivos.map(m => `<th>${pulsoEscHtml(m)}</th>`).join('')}<th>Total Perdido</th></tr>`;
+  const rows = JUST_DATA.porMes || [];
+  tbody.innerHTML = rows.length ? rows.map(m => `
+    <tr>
+      <td>${pulsoEscHtml(m.mes)}</td>
+      ${motivos.map(mo => `<td>${(m.porMotivo[mo]||0).toLocaleString('pt-BR')}</td>`).join('')}
+      <td><strong>${m.total.toLocaleString('pt-BR')}</strong></td>
+    </tr>`).join('') : emptyRow(motivos.length + 2);
+}
+
+function justRenderMotivo(){
+  const tbody = document.getElementById('just-motivo-tbody');
+  if(!tbody) return;
+  const rows = JUST_DATA.porJustificativa || [];
+  tbody.innerHTML = rows.length ? rows.map(m => `
+    <tr>
+      <td>${pulsoEscHtml(m.motivo)}</td>
+      <td style="color:var(--red)">${m.perda.toLocaleString('pt-BR')}</td>
+      <td>${m.pctTotal}%</td>
+      <td>${m.ocorrencias.toLocaleString('pt-BR')}</td>
+      <td>${pulsoEscHtml(m.canalMaisImpactado||'—')}</td>
+      <td>${pulsoEscHtml(m.periodoMaiorImpacto||'—')}</td>
+    </tr>`).join('') : emptyRow(6);
 }
 
 function justOpenForm(pendencia){
   JUST_FORM_CTX = pendencia;
-  document.getElementById('just-modal-subtitulo').textContent = `${pendencia.area} · ${String(pendencia.hora).padStart(2,'0')}h`;
+  document.getElementById('just-modal-subtitulo').textContent = `${pendencia.area} · ${pulsoFmtDataBr(pendencia.data||'')} ${String(pendencia.hora).padStart(2,'0')}h`;
   document.getElementById('just-modal-resumo').innerHTML =
     `Meta: <strong style="color:var(--text)">${pendencia.meta.toLocaleString('pt-BR')}</strong> · Realizado: <strong style="color:var(--text)">${pendencia.realizado.toLocaleString('pt-BR')}</strong> · Gap: <strong style="color:var(--red)">${pendencia.gap.toLocaleString('pt-BR')}</strong>`;
-  document.getElementById('just-reason').value = '';
+  const sel = document.getElementById('just-reason');
+  const motivos = (JUST_DATA && JUST_DATA.motivos) || [];
+  sel.innerHTML = '<option value="">Selecione…</option>' + motivos.map(m => `<option value="${pulsoEscHtml(m)}">${pulsoEscHtml(m)}</option>`).join('');
+  sel.value = '';
   document.getElementById('just-modal-overlay').classList.add('open');
 }
 function justCloseForm(){
@@ -14073,13 +14297,15 @@ async function justSubmit(e){
   try {
     // Grava direto em labor_pulso (colunas T:AA, reason+gap por área) —
     // pedido do Roberto em 2026-08-19. dataBr é a data no formato da
-    // própria planilha (DD/MM/AAAA), usada pra achar a linha certa.
+    // própria planilha (DD/MM/AAAA), usada pra achar a linha certa — não
+    // dá pra derivar do iso na hora (cutoff 6h pode divergir da data
+    // calendário, ver comentário em justLinhasHistorico no backend).
     const r = await fetch('/api/overview?justificativas=1&write=1', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         dataBr: p.dataBr, hora: p.hora, area: p.area, gap: p.gap,
-        reason: document.getElementById('just-reason').value.trim(),
+        reason: document.getElementById('just-reason').value,
       }),
     });
     const j = await r.json();
@@ -14095,7 +14321,7 @@ async function justSubmit(e){
   }
 }
 
-// Botão do Overview (item 9) — navega direto pra tela de Justificativas.
+// Botão do Overview (item 9) — navega direto pra tela de Justificativa.
 function ovwAbrirJustificativas(){
   navigateTo('justificativas', document.querySelector('.nav-item[data-section="justificativas"]'));
 }

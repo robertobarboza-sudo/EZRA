@@ -436,7 +436,7 @@ async function buildJustificativas(req, res) {
     let tabela;
     if (granularidade === 'hora') {
       tabela = linhas.map(l => ({
-        data: l.data, hora: l.hora, area: l.area, meta: l.meta, realizado: l.realizado,
+        data: l.data, dataBr: l.dataBr, hora: l.hora, area: l.area, meta: l.meta, realizado: l.realizado,
         perda: l.perda, reason: l.reason, status: l.status,
       })).sort((a, b) => a.data === b.data ? a.hora - b.hora : a.data.localeCompare(b.data));
     } else if (granularidade === 'semana') {
