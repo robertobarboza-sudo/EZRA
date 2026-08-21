@@ -1534,6 +1534,13 @@
     .tv-mode-active #main-content { padding: 32px 40px !important; }
     .tv-mode-active .section-dl-group, .tv-mode-active .spr-filters, .tv-mode-active .table-search, .tv-mode-active .pdf-menu-wrap { display: none !important; }
     .tv-rotation-badge { position: fixed; top: 16px; right: 16px; z-index: 9999; background: rgba(0,0,0,.55); color: #fff; padding: 6px 14px; border-radius: 20px; font-size: 12px; display: flex; align-items: center; gap: 8px; }
+    .tvcfg-group { border:1px solid var(--border); border-radius:var(--radius); margin-bottom:10px; overflow:hidden; }
+    .tvcfg-group-header { display:flex; align-items:center; gap:10px; padding:12px 14px; cursor:pointer; font-size:13px; font-weight:700; color:var(--text); }
+    .tvcfg-group-caret { font-size:11px; color:var(--text-muted); transition:transform .15s; }
+    .tvcfg-group.expanded .tvcfg-group-caret { transform:rotate(90deg); }
+    .tvcfg-group-count { margin-left:auto; font-size:11px; font-weight:600; color:var(--text-muted); }
+    .tvcfg-group-body { display:none; padding:0 14px 12px; }
+    .tvcfg-group.expanded .tvcfg-group-body { display:block; }
     .tvcfg-page-row { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
     .tvcfg-page-check { flex:1; display:flex; align-items:center; gap:10px; padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius); cursor:pointer; }
     .tvcfg-page-check.checked { border-color: var(--orange); background: rgba(238,77,45,.06); }
@@ -5825,6 +5832,7 @@ const TV_ELIGIBLE_PAGES = [
   { key:'gestao',        label:'Overview' },
   { key:'backlog',       label:'Backlog' },
   { key:'forecast',      label:'Forecast' },
+  { key:'justificativas',label:'Justificativas' },
   { key:'spr',           label:'Outbound' },
   { key:'asm',           label:'ASM' },
   { key:'conveyor',      label:'Conveyor' },
@@ -12187,22 +12195,42 @@ function tvcfgToggleMode(key){
   if(btn) btn.innerHTML = tvcfgPageMode(key)==='noturno' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>';
 }
 
+// Um grupo por processo macro (cada entrada de TV_ELIGIBLE_PAGES), com as
+// subpáginas dele como checkbox independente dentro — pedido do Roberto em
+// 2026-08-21: "abro o agrupador de Outbound e seleciono o quadrado das
+// subpáginas que quero, independente do agrupador". Página sem subpágina
+// (TV_SUBPAGES) vira um grupo de item único.
 function renderTvConfig(){
   const list = document.getElementById('tvcfg-page-list');
   if(!list) return;
   let saved = {};
   try { saved = JSON.parse(localStorage.getItem('pulso_tvmode_config') || '{}'); } catch(e){}
   const selecionados = (TV_ROTATION ? TV_ROTATION.items : (saved.items || [])).map(tvItemId);
-  list.innerHTML = tvFlatItems().map(item => {
-    const id = tvItemId(item);
-    const checked = selecionados.includes(id);
+  list.innerHTML = TV_ELIGIBLE_PAGES.map(p => {
+    const sub = TV_SUBPAGES[p.key];
+    const itemsDoGrupo = sub ? sub.options.map(o => ({ key:p.key, sub:o.key, label:o.label })) : [{ key:p.key, sub:null, label:p.label }];
+    const temSelecionado = itemsDoGrupo.some(item => selecionados.includes(tvItemId(item)));
+    const rows = itemsDoGrupo.map(item => {
+      const id = tvItemId(item);
+      const checked = selecionados.includes(id);
+      return `
+      <div class="tvcfg-page-row">
+        <label class="tvcfg-page-check ${checked?'checked':''}" id="tvcfg-check-${id}">
+          <input type="checkbox" value="${id}" ${checked?'checked':''} onchange="tvcfgToggleCheck('${id}',this)"/>
+          ${pulsoEscHtml(item.label)}
+        </label>
+        <button type="button" class="tvcfg-mode-btn" id="tvcfg-mode-${item.key}" onclick="tvcfgToggleMode('${item.key}')" title="Normal / Noturno para esta tela">${tvcfgPageMode(item.key)==='noturno' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'}</button>
+      </div>`;
+    }).join('');
+    const selecionadosNoGrupo = itemsDoGrupo.filter(item => selecionados.includes(tvItemId(item))).length;
     return `
-    <div class="tvcfg-page-row">
-      <label class="tvcfg-page-check ${checked?'checked':''}" id="tvcfg-check-${id}">
-        <input type="checkbox" value="${id}" ${checked?'checked':''} onchange="tvcfgToggleCheck('${id}',this)"/>
-        ${pulsoEscHtml(item.label)}
-      </label>
-      <button type="button" class="tvcfg-mode-btn" id="tvcfg-mode-${item.key}" onclick="tvcfgToggleMode('${item.key}')" title="Normal / Noturno para esta tela">${tvcfgPageMode(item.key)==='noturno' ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>'}</button>
+    <div class="tvcfg-group ${temSelecionado?'expanded':''}" id="tvcfg-group-${p.key}">
+      <div class="tvcfg-group-header" onclick="tvcfgToggleGroup('${p.key}')">
+        <i class="fas fa-chevron-right tvcfg-group-caret"></i>
+        <span class="tvcfg-group-title">${pulsoEscHtml(p.label)}</span>
+        <span class="tvcfg-group-count">${selecionadosNoGrupo}/${itemsDoGrupo.length} selecionada${itemsDoGrupo.length>1?'s':''}</span>
+      </div>
+      <div class="tvcfg-group-body">${rows}</div>
     </div>`;
   }).join('');
   const intervalInput = document.getElementById('tvcfg-interval');
@@ -12212,8 +12240,17 @@ function renderTvConfig(){
   tvcfgUpdateGlobalModeBtn();
   setBadge('tvconfig', 'ok', 'Local');
 }
+function tvcfgToggleGroup(key){
+  document.getElementById('tvcfg-group-'+key)?.classList.toggle('expanded');
+}
 function tvcfgToggleCheck(id, el){
   document.getElementById('tvcfg-check-'+id)?.classList.toggle('checked', el.checked);
+  const group = el.closest('.tvcfg-group');
+  if(!group) return;
+  const total = group.querySelectorAll('input[type=checkbox]').length;
+  const checked = group.querySelectorAll('input[type=checkbox]:checked').length;
+  const countEl = group.querySelector('.tvcfg-group-count');
+  if(countEl) countEl.textContent = `${checked}/${total} selecionada${total>1?'s':''}`;
 }
 function tvcfgToggleGlobalMode(){
   toggleTvNight();
