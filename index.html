@@ -3484,6 +3484,7 @@
       <div class="pulso-coverage" id="asm-coverage"></div>
       <div class="switch-grid" id="asm-zone-cards" style="margin-top:12px"></div>
       <div class="switch-grid-thin" id="asm-mesas-row" style="margin-top:8px"></div>
+      <div id="asm-capacidade" style="margin-top:8px"></div>
 
       <div class="chart-card full" style="margin-top:16px">
         <div class="table-toolbar" style="margin-bottom:0">
@@ -12249,6 +12250,24 @@ function asmRenderAll(){
   asmRenderZoneCards();
   asmRenderChart();
   asmRenderTable();
+  asmRenderCapacidade();
+}
+
+// % Atendimento da Capacidade (pedido do Roberto em 2026-08-19, item 4.4)
+// = Realizado ÷ Capacidade, já calculado no servidor (api/asm.js,
+// capacidade.pctAtendimento) só nas horas com capacidade > 0 (mesa aberta
+// detectada). null = sem PHD configurado ou sem mesa aberta no dia — mostra
+// "Sem dado" em vez de 0%/erro de divisão.
+function asmRenderCapacidade(){
+  const el = document.getElementById('asm-capacidade');
+  if(!el || !ASM_DATA) return;
+  const cap = ASM_DATA.capacidade;
+  const pct = cap ? cap.pctAtendimento : null;
+  buildKPIs('asm-capacidade', [
+    pct !== null && pct !== undefined
+      ? { label:'% Atendimento da Capacidade', value:pct+'%', sub:'Realizado ÷ Σ PHD das mesas abertas', delta:'', trend:'up', type: pct>=90?'success':(pct>=70?'warning':'danger'), icon:'fa-gauge-high' }
+      : { label:'% Atendimento da Capacidade', value:'—', sub:'sem mesa aberta detectada no dia', delta:'', trend:'up', type:'', icon:'fa-gauge-high' },
+  ]);
 }
 
 // Base pros cards: todas as horas do dia (o card fatia por hora sozinho, pra
@@ -12448,25 +12467,39 @@ function asmRenderChart(){
 
   const porHoraOrdenada = HORAS_CUTOFF.map(h => rows.filter(r => r.hora === h).reduce((s, r) => s + r.scanNumbers, 0));
   const rotulo = ASM_STATE.zona || 'Total';
+  // Capacidade (pedido do Roberto em 2026-08-19): Σ PHD das mesas
+  // efetivamente abertas por hora (api/asm.js, capacidade.porHora) — só
+  // existe pro total (não quebra por zona), por isso só entra nas visões
+  // sem filtro de zona ativo.
+  const capacidadePorHora = (!ASM_STATE.zona && ASM_DATA.capacidade)
+    ? HORAS_CUTOFF.map(h => ASM_DATA.capacidade.porHora[h] || 0)
+    : null;
 
   if(ASM_CHART_VIEW === 'hora'){
-    mkLine('chart-asm-hora', labels, [
+    const datasets = [
       { label: 'Realizado — '+rotulo, data: porHoraOrdenada,
         borderColor: '#ee4d2d', backgroundColor: 'rgba(238,77,45,.16)', fill: true, tension: .35, pointRadius: 2, borderWidth: 2.5 },
-    ]);
+    ];
+    if(capacidadePorHora) datasets.push({ label: 'Capacidade', data: capacidadePorHora,
+      borderColor: '#75809b', backgroundColor: 'transparent', borderDash: [6,4], fill: false, tension: .35, pointRadius: 2, borderWidth: 1.5 });
+    mkLine('chart-asm-hora', labels, datasets);
     return;
   }
 
   // Acumulado — visão secundária, mantém o comportamento original.
   let acc = 0;
   const realizadoAcumulado = porHoraOrdenada.map(v => { acc += v; return acc; });
-  const capacidadeAcumulada = Array(24).fill(0); // placeholder até termos a meta real
-  mkLine('chart-asm-hora', labels, [
+  const datasets = [
     { label: 'Realizado — '+rotulo, data: realizadoAcumulado,
       borderColor: '#ee4d2d', backgroundColor: 'rgba(238,77,45,.16)', fill: true, tension: .4, pointRadius: 0, borderWidth: 2.5 },
-    { label: 'Capacidade (em breve)', data: capacidadeAcumulada,
-      borderColor: '#75809b', backgroundColor: 'transparent', borderDash: [6,4], fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5 },
-  ]);
+  ];
+  if(capacidadePorHora){
+    let accCap = 0;
+    const capacidadeAcumulada = capacidadePorHora.map(v => { accCap += v; return accCap; });
+    datasets.push({ label: 'Capacidade', data: capacidadeAcumulada,
+      borderColor: '#75809b', backgroundColor: 'transparent', borderDash: [6,4], fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5 });
+  }
+  mkLine('chart-asm-hora', labels, datasets);
 }
 
 // Uma linha por colaborador, somando induções das linhas retornadas por

@@ -21,6 +21,44 @@ const { toNum } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1776828985' };
 
+// Capacidade por PHD (pedido do Roberto em 2026-08-19) — aba `config`
+// (mesma que api/cluster.js já usa pra capacidade de rua), MACRO="ASM",
+// coluna PHD por PROCESSO. Confirmado ao vivo em 2026-08-19: "INDUÇÕES
+// NÍVEL 3"=1584, "INDUÇÕES NÍVEL 2"=1584, "INDUÇÕES NC"=650 — mapeado pro
+// campo NÍVEL de asm_pulso, onde "NC" = "Nível 1". Existe uma 2ª config na
+// mesma aba (MACRO="1/2 ZONA ASM", PHD 1700/1700/800) pra operação em meia
+// zona — sem sinal nos dados de qual config está ativa a cada momento,
+// então por enquanto sempre usa a config de zona cheia (ASM); trocar pra
+// meia-zona é decisão manual, não automática.
+const CONFIG_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1408724077' };
+const PHD_PROCESSO_PARA_NIVEL = {
+  'INDUÇÕES NÍVEL 3': 'Nível 3',
+  'INDUÇÕES NÍVEL 2': 'Nível 2',
+  'INDUÇÕES NC': 'Nível 1',
+};
+async function getPhdPorNivel() {
+  const { rows } = await fetchTabByGid(CONFIG_SHEET.spreadsheetId, CONFIG_SHEET.gid);
+  const phd = {};
+  rows.forEach(r => {
+    if (r.macro !== 'ASM') return;
+    const nivel = PHD_PROCESSO_PARA_NIVEL[r.processo];
+    if (nivel) phd[nivel] = toNum(r.phd);
+  });
+  return phd;
+}
+
+// Threshold de "mesa efetivamente aberta" (item 4.2 do pedido do Roberto
+// em 2026-08-19): performance da mesa (scan_numbers da hora ÷ PHD do
+// nível) precisa bater esse % pra contar como aberta — abaixo disso é
+// atividade residual, não capacidade operacional real. Analisei os dados
+// reais de asm_pulso (34.229 linhas, 5.572 combinações mesa×hora): ~49,6%
+// têm scan_numbers=0 (fechada, sinal limpo); o resto sobe gradual de ~5%
+// até 100%+ sem um corte natural óbvio. 25% é um ponto de partida
+// conservador — não há UI de parametrização ainda (sem página de
+// escrita), ajustar aqui se a operação achar que está sub/superestimando
+// mesas abertas.
+const THRESHOLD_MESA_ABERTA = 0.25;
+
 // Sorting Exception (subaba nova dentro de ASM, pedido do Roberto em
 // 2026-08-14) — rejeito da esteira por máquina/hora, fonte própria
 // (sorting_exception_pulso), não a asm_pulso de cima. Sem coluna de data —
@@ -91,6 +129,10 @@ module.exports = async (req, res) => {
     res.status(502).json({ ok: false, erro: err.message });
     return;
   }
+  // Capacidade (PHD) é enriquecimento opcional — se a aba config falhar,
+  // o ASM continua funcionando sem a linha de Capacidade no gráfico.
+  let phdPorNivel = {};
+  try { phdPorNivel = await getPhdPorNivel(); } catch (err) { /* ignora */ }
 
   const asm = rows.filter(r => r.cutoff);
 
@@ -98,6 +140,7 @@ module.exports = async (req, res) => {
     res.status(200).json({
       ok: true, cutoff: null, rows: [], zonas: [],
       opcoes: { turnos: [], niveis: [], mesas: [] },
+      capacidade: null,
       cobertura: { inicio: null, fim: null },
     });
     return;
@@ -129,6 +172,40 @@ module.exports = async (req, res) => {
 
   const zonasReais = [...new Set(linhas.filter(l => !l.isSystemDefault && l.zona).map(l => l.zona))].sort();
 
+  // Capacidade horária (item 4.3 do pedido): Σ PHD das mesas efetivamente
+  // abertas naquela hora (ver THRESHOLD_MESA_ABERTA acima), por nível e
+  // consolidado. Mesa "aberta" = existiu naquela hora×nível com
+  // performance (scan_numbers ÷ PHD do nível) ≥ threshold — não conta só
+  // por ter linha na planilha (regra 4.2, evita atividade residual virar
+  // capacidade).
+  const capacidadePorHora = Array(24).fill(0);
+  const realizadoPorHora = Array(24).fill(0);
+  if (Object.keys(phdPorNivel).length) {
+    // scan por (hora, nivel, mesa) — uma mesa pode ter mais de 1 operador
+    // na mesma hora, soma tudo antes de comparar com o PHD.
+    const porMesaHora = new Map();
+    linhas.forEach(l => {
+      if (l.isSystemDefault || !l.mesa || !l.nivel) return;
+      const chave = `${l.hora}|${l.nivel}|${l.mesa}`;
+      porMesaHora.set(chave, (porMesaHora.get(chave) || 0) + l.scanNumbers);
+    });
+    porMesaHora.forEach((scan, chave) => {
+      const [horaStr, nivel] = chave.split('|');
+      const hora = Number(horaStr);
+      const phd = phdPorNivel[nivel];
+      if (!phd || hora < 0 || hora > 23) return;
+      if (scan / phd >= THRESHOLD_MESA_ABERTA) capacidadePorHora[hora] += phd;
+    });
+  }
+  linhas.forEach(l => { if (l.hora >= 0 && l.hora <= 23) realizadoPorHora[l.hora] += l.scanNumbers; });
+  // % Atendimento da Capacidade (item 4.4): Realizado ÷ Capacidade, só nas
+  // horas com capacidade calculada (evita distorção de divisão por zero —
+  // hora sem nenhuma mesa aberta não entra na média).
+  const horasComCapacidade = capacidadePorHora.map((c, h) => ({ h, c })).filter(x => x.c > 0);
+  const pctAtendimentoCapacidade = horasComCapacidade.length
+    ? Math.round(horasComCapacidade.reduce((s, x) => s + realizadoPorHora[x.h], 0) / horasComCapacidade.reduce((s, x) => s + x.c, 0) * 100)
+    : null;
+
   const opcoes = {
     turnos: [...new Set(linhas.map(l => l.turno).filter(Boolean))].sort(),
     niveis: [...new Set(linhas.map(l => l.nivel).filter(Boolean))].sort(),
@@ -142,6 +219,7 @@ module.exports = async (req, res) => {
     rows: linhas,
     zonas: zonasReais,
     opcoes,
+    capacidade: { porHora: capacidadePorHora, realizadoPorHora, pctAtendimento: pctAtendimentoCapacidade, thresholdMesaAberta: THRESHOLD_MESA_ABERTA },
     cobertura: { inicio: dataMinima, fim: dataMaxima },
   });
 };
