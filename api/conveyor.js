@@ -37,6 +37,20 @@ const { fetchTabByGid } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1013894222' };
+// SPP Scuttle (pedido do Roberto em 2026-08-19): lê cluster_pulso (mesma
+// aba que api/outbound.js já cruza pra endereçamento) só pra essa média —
+// aba "ao vivo", sem coluna de data/turno (aging calculado contra
+// Date.now()), então o card não filtra por data/turno da tela Conveyor
+// como os demais, é sempre o TO piso agora. Sem endpoint próprio (teto de
+// 12 functions da Vercel).
+const CLUSTER_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '646168208' };
+async function sppScuttleAoVivo() {
+  const { rows } = await fetchTabByGid(CLUSTER_SHEET.spreadsheetId, CLUSTER_SHEET.gid);
+  const scuttles = rows.filter(r => r['to pack'] === 'Scuttle');
+  if (!scuttles.length) return null;
+  const soma = scuttles.reduce((s, r) => s + toNum(r.quantity), 0);
+  return +(soma / scuttles.length).toFixed(1);
+}
 
 function classificarEsteira(esteira) {
   const e = String(esteira || '').toUpperCase();
@@ -72,7 +86,7 @@ module.exports = async (req, res) => {
 
   if (!conveyor.length) {
     res.status(200).json({
-      ok: true, data: null, rows: [], grupos: [],
+      ok: true, data: null, rows: [], grupos: [], sppScuttle: null,
       cobertura: { inicio: null, fim: null },
     });
     return;
@@ -87,10 +101,12 @@ module.exports = async (req, res) => {
 
   const doDia = conveyor.filter(r => r.dataIso === dataRef);
 
+  // OPS em vez de nome (pedido do Roberto em 2026-08-19): identificação
+  // padronizada pelo id da coluna `ops`, não expõe mais o nome do
+  // colaborador (`nome ops`) em nenhuma tela do Conveyor.
   const linhas = doDia.map(r => ({
     hora: r.hora,
     opsId: r.ops || '',
-    colaborador: r['nome ops'] || '',
     estacao: r.workstation || '',
     nomeEstacao: r['nome ws'] || '',
     grupo: classificarEsteira(r.esteira),
@@ -100,12 +116,16 @@ module.exports = async (req, res) => {
 
   const grupos = ['OBA/OBB', 'OBC/OBD', 'Termoplástica', 'Esteira A', 'Esteira B', 'Tintas', 'TO-Audit', 'Non-TO'];
 
+  let sppScuttle = null;
+  try { sppScuttle = await sppScuttleAoVivo(); } catch (err) { /* card opcional, não derruba o Conveyor */ }
+
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
   res.status(200).json({
     ok: true,
     data: dataRef,
     rows: linhas,
     grupos,
+    sppScuttle,
     cobertura: { inicio: dataMinima, fim: dataMaxima },
   });
 };

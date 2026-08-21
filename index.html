@@ -3633,6 +3633,7 @@
       </div>
 
       <div class="pulso-coverage" id="cnv-coverage"></div>
+      <div id="cnv-spp-scuttle" style="margin-top:12px"></div>
       <div class="switch-grid" id="cnv-group-cards" style="margin-top:12px"></div>
 
       <div class="chart-card full" style="margin-top:16px">
@@ -3649,7 +3650,7 @@
 
       <div class="table-card full" style="margin-top:16px">
         <div class="table-toolbar">
-          <div class="table-toolbar-title">Detalhamento por colaborador <span id="cnv-table-hora-label" style="font-weight:400;color:var(--text-muted)"></span></div>
+          <div class="table-toolbar-title">Detalhamento por OPS <span id="cnv-table-hora-label" style="font-weight:400;color:var(--text-muted)"></span></div>
           <div class="bkl-tabs">
             <div class="bkl-tab active" id="cnv-mode-acumulado" onclick="cnvSetTableMode('acumulado')">Acumulado</div>
             <div class="bkl-tab" id="cnv-mode-hora" onclick="cnvSetTableMode('hora')">Hora vigente</div>
@@ -3658,8 +3659,7 @@
         <div style="overflow-x:auto">
           <table>
             <thead><tr>
-              <th class="spr-sortable" onclick="cnvSortBy('opsId')" id="cnv-th-opsId">OPS Id <i class="fas fa-sort"></i></th>
-              <th class="spr-sortable" onclick="cnvSortBy('colaborador')" id="cnv-th-colaborador">Colaborador <i class="fas fa-sort"></i></th>
+              <th class="spr-sortable" onclick="cnvSortBy('opsId')" id="cnv-th-opsId">OPS <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="cnvSortBy('grupo')" id="cnv-th-grupo">Grupo <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="cnvSortBy('estacao')" id="cnv-th-estacao">Estação <i class="fas fa-sort"></i></th>
               <th class="spr-sortable" onclick="cnvSortBy('turno')" id="cnv-th-turno">Turno <i class="fas fa-sort"></i></th>
@@ -3698,8 +3698,8 @@
           <div class="est-toolbar">
             <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
               <button type="button" class="btn btn-outline" id="est-flip-all-btn" onclick="estToggleFlipAll()"><i class="fas fa-diagram-project"></i> Ver Balanceamento (todos os cards)</button>
-              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub);font-weight:600">Colaborador
-                <select id="est-colab-input" class="filter-select" onchange="estSetColab(this.value)" style="min-width:220px"><option value="">Selecione um colaborador...</option></select>
+              <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-sub);font-weight:600">OPS
+                <select id="est-colab-input" class="filter-select" onchange="estSetColab(this.value)" style="min-width:220px"><option value="">Selecione um OPS...</option></select>
               </label>
             </div>
           </div>
@@ -6455,7 +6455,13 @@ function pulsoRenderKpis(key, atual, delta){
     // parênteses, com sufixo opcional (countSuffix) — ex: "1.297 (243
     // registros)". Genérico pra qualquer página do motor, não é algo
     // específico do Leftover.
-    let value = k.isText ? String(atual[k.key]||'—') : (atual[k.key]||0).toLocaleString('pt-BR');
+    // isMinutosParaHora: indicador de tempo médio (minutos na base) — regra
+    // global do PULSO (pedido do Roberto em 2026-08-19): tempo médio sempre
+    // em horas, 1 casa decimal, vírgula, nunca %. Reaproveita o mesmo
+    // formatador já usado nos cards de LH/FM/Overview (pulsoFmtHoraVirgula).
+    let value = k.isText ? String(atual[k.key]||'—')
+      : k.isMinutosParaHora ? pulsoFmtHoraVirgula(atual[k.key]||0)+'h'
+      : (atual[k.key]||0).toLocaleString('pt-BR');
     if(k.isPercent) value += '%';
     // countKey/countSuffix renderiza numa 2ª linha menor abaixo do valor
     // principal (ex: "273.364" em cima, "(5.667 TO's)" embaixo), não mais
@@ -7534,6 +7540,9 @@ pulsoRegister({
     { key:'transportadora', label:'Transportadora', field:'transportadora', searchable:true },
   ],
   kpis: [
+    // % de Leftover (pedido do Roberto em 2026-08-19) — 1º card da página.
+    // leftover ÷ expedido, só do canal HUB (ver canalDoHub em api/leftover.js).
+    { key:'pctLeftover',        label:'% de Leftover',            icon:'fa-percent', isPercent:true, colorByValue: v => v>10?'danger':(v>5?'warning':'success') },
     { key:'registros',          label:'Registros de Leftover',    icon:'fa-list' },
     { key:'destinos',           label:'Destinos Diferentes',      icon:'fa-location-dot' },
     { key:'pacotesLeftover',    label:'Pacotes Leftover',         icon:'fa-box-open' },
@@ -7825,8 +7834,8 @@ const OUTBOUND_KPIS = [
   { key:'pacotesSaca',      label:'Sacas Carregadas',    icon:'fa-sack-xmark', countKey:'qtySaca',    countSuffix:"TO's", rowFilter: r => (r.orders_saca||0) > 0 },
   { key:'pacotesScuttle',   label:'Scuttles Carregados', icon:'fa-dolly',      countKey:'qtyScuttle', countSuffix:"TO's", rowFilter: r => (r.orders_scuttle||0) > 0 },
   { key:'chegadaAntecipada', label:'Chegadas Antecipadas', icon:'fa-clock-rotate-left', countKey:'etaComparaveis', countSuffix:'comparáveis', rowFilter: r => r.status_eta === 'EARLY' },
-  { key:'antecipacaoMedioMin', label:'Antecipação Média (min)', icon:'fa-stopwatch', rowFilter: r => !!(r.eta_planejado && r.eta_realizado) },
-  { key:'tempoFilaMedioMin', label:'Fila de Chegada Média (min)', icon:'fa-hourglass-half', rowFilter: r => !!(r.eta_realizado && r.fim_descarga) },
+  { key:'antecipacaoMedioMin', label:'Antecipação Média', isMinutosParaHora:true, icon:'fa-stopwatch', rowFilter: r => !!(r.eta_planejado && r.eta_realizado) },
+  { key:'tempoFilaMedioMin', label:'Fila de Chegada Média', isMinutosParaHora:true, icon:'fa-hourglass-half', rowFilter: r => !!(r.eta_realizado && r.fim_descarga) },
 ];
 const OUTBOUND_MULTISELECTS = [
   { key:'status',      label:'Status',      field:'status' },
@@ -8192,6 +8201,7 @@ function ovwRenderAll(){
     { label:'Previstos', value:j.lineHaul.previstos.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck' },
     { label:'Descarregados', value:j.lineHaul.descarregados.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
     { label:'Em Andamento', value:j.lineHaul.andamento.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-moving' },
+    { label:'Avg. Waiting Time LH', value:fmtMin(j.lineHaul.tempoFilaMedioMin), delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
   ] : [fonteIndisponivel('Line Haul', 'fa-truck')]);
   const canalLhEl = document.getElementById('ovw-canal-lh');
   if(canalLhEl) canalLhEl.innerHTML = j.lineHaul
@@ -8202,6 +8212,7 @@ function ovwRenderAll(){
   buildKPIs('ovw-kpis-fm', j.firstMile ? [
     { label:'Descarregados', value:j.firstMile.descarregados.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
     { label:'Em Andamento', value:j.firstMile.andamento.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-truck-moving' },
+    { label:'Avg. Waiting Time FM', value:fmtMin(j.firstMile.tempoFilaMedioMin), delta:'', trend:'up', type:'', icon:'fa-hourglass-half' },
   ] : [fonteIndisponivel('First Mile', 'fa-truck-ramp-box')]);
   const canalFmEl = document.getElementById('ovw-canal-fm');
   if(canalFmEl) canalFmEl.innerHTML = j.firstMile
@@ -8260,6 +8271,9 @@ function ovwRenderAll(){
     (ob.pctClusterizacao!==null)
       ? { label:'% Clusterização', value:ob.pctClusterizacao+'%', delta:'', trend:'up', type: ob.pctClusterizacao>89?'success':(ob.pctClusterizacao>=75?'warning':'danger'), icon:'fa-layer-group' }
       : fonteIndisponivel('% Clusterização', 'fa-layer-group'),
+    (ob.pctCptOnTime!==null)
+      ? { label:'CPT On Time', value:ob.pctCptOnTime+'%', delta:'', trend:'up', type: ob.pctCptOnTime>=90?'success':(ob.pctCptOnTime>=70?'warning':'danger'), icon:'fa-clock' }
+      : fonteIndisponivel('CPT On Time', 'fa-clock'),
     (ob.carrosRealizados!==null)
       ? { label:'Carros Carregados', value:ob.carrosRealizados.toLocaleString('pt-BR'), sub:`de ${ob.carrosPrevistos.toLocaleString('pt-BR')} planejados`, delta:'', trend:'up', type:'', icon:'fa-truck-loading' }
       : fonteIndisponivel('Carros Carregados', 'fa-truck-loading'),
@@ -8923,8 +8937,22 @@ function fmRenderChart(){
 
   const porHora = Array(24).fill(0);
   rows.forEach(r => { if(r.hora>=0 && r.hora<=23) porHora[r.hora]++; });
+  // Finalizado (pedido do Roberto em 2026-08-19): mesma granularidade
+  // horária de Chegadas, só que contando por hora de finalizacaoJornada
+  // (não existe campo "hora" já extraído pra esse timestamp, então tira
+  // direto do texto "YYYY-MM-DD HH:MM:SS", mesma convenção do resto do
+  // PULSO) — dá pra ver visualmente quando chegada > finalizado = fila
+  // se formando.
+  const porHoraFinalizado = Array(24).fill(0);
+  rows.forEach(r => {
+    const m = String(r.finalizacaoJornada || '').match(/(\d{2}):\d{2}:\d{2}/);
+    if(!m) return;
+    const h = Number(m[1]);
+    if(h>=0 && h<=23) porHoraFinalizado[h]++;
+  });
   mkLine('chart-fm-hora', labels, [
     { label:'Chegadas', data:rotHoraCutoff(porHora), borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.16)', fill:true, tension:.35, pointRadius:2 },
+    { label:'Finalizado', data:rotHoraCutoff(porHoraFinalizado), borderColor:'#5c6bc0', backgroundColor:'transparent', tension:.35, pointRadius:2 },
   ]);
 }
 
@@ -13302,7 +13330,7 @@ function cnvGruposEscopo(){
   if(!CONVEYOR_DATA) return [];
   return CONVEYOR_SCOPE_GRUPOS || CONVEYOR_DATA.grupos;
 }
-const CNV_SORT_COLS = ['opsId','colaborador','grupo','estacao','turno','totalProcessamento'];
+const CNV_SORT_COLS = ['opsId','grupo','estacao','turno','totalProcessamento'];
 const CNV_SORT = { key: 'totalProcessamento', dir: -1 }; // default: maior pro menor
 let CONVEYOR_DATA = null;
 let CNV_CHART_VIEW = 'hora'; // 'hora' | 'acumulado' | 'comparativo'
@@ -13431,23 +13459,24 @@ function estRowsFiltradas(){
 // filtrada pela hora selecionada — agrupada por Nome WS
 // (coluna real da planilha) pra alimentar o card "Prod." de cada bancada
 // com o total PRODUZIDO NAQUELA BANCADA, não mais uma estimativa por share
-// (pedido do Roberto em 2026-08-11). `porWs` também guarda os colaboradores
-// reais de cada WS (com as horas em que bateram, pra eficiência no modo
-// acumulado — ver estColaboradoresOrdenados), pro flip-card deixar de ser
-// uma aproximação.
+// (pedido do Roberto em 2026-08-11). `porWs` também guarda os OPS reais de
+// cada WS (com as horas em que bateram, pra eficiência no modo acumulado —
+// ver estColaboradoresOrdenados), pro flip-card deixar de ser uma
+// aproximação. Identificação só por OPS Id, sem nome (pedido do Roberto
+// em 2026-08-19, padronização/privacidade).
 function estPerfDados(prefix){
   const grupo = ESTEIRA_GRUPO_POR_PREFIX[prefix];
   const rows = estRowsFiltradas().filter(r => r.grupo === grupo);
   const total = rows.reduce((s,r) => s+r.totalProcessamento, 0);
-  const porWs = new Map(); // wsCodigo -> { total, colaboradores: Map }
+  const porWs = new Map(); // wsCodigo -> { total, colaboradores: Map (chave = opsId) }
   rows.forEach(r => {
     const ws = r.nomeEstacao || '';
     if(!porWs.has(ws)) porWs.set(ws, { total:0, colaboradores: new Map() });
     const acc = porWs.get(ws);
     acc.total += r.totalProcessamento;
-    const key = r.opsId || r.colaborador;
+    const key = r.opsId;
     if(key){
-      const cur = acc.colaboradores.get(key) || { nome:r.colaborador||key, total:0, horas:new Set() };
+      const cur = acc.colaboradores.get(key) || { total:0, horas:new Set() };
       cur.total += r.totalProcessamento;
       cur.horas.add(r.hora);
       acc.colaboradores.set(key, cur);
@@ -13510,24 +13539,26 @@ function estToggleFlipAll(){
   document.querySelectorAll('#est-app .est-bancada-card').forEach(c => c.classList.toggle('flipped', ESTEIRA_FLIP_ALL));
   const btn = document.getElementById('est-flip-all-btn');
   if(btn) btn.innerHTML = ESTEIRA_FLIP_ALL
-    ? '<i class="fas fa-users"></i> Ver Colaboradores (todos os cards)'
+    ? '<i class="fas fa-users"></i> Ver OPS (todos os cards)'
     : '<i class="fas fa-diagram-project"></i> Ver Balanceamento (todos os cards)';
 }
 
-// Filtro por colaborador — busca em TODAS as linhas de conveyor_pulso do
-// dia (não só de uma bancada), pra achar a produtividade de uma pessoa
-// específica. Total acumulado do dia (botão Acumulado/Hora removido a
-// pedido do Roberto em 2026-08-15 — a visão por hora saiu).
+// Filtro por OPS (pedido do Roberto em 2026-08-19, era por nome de
+// colaborador — trocado por identificação/privacidade) — busca em TODAS
+// as linhas de conveyor_pulso do dia (não só de uma bancada), pra achar a
+// produtividade de um OPS específico. Total acumulado do dia (botão
+// Acumulado/Hora removido a pedido do Roberto em 2026-08-15 — a visão por
+// hora saiu).
 let ESTEIRA_COLAB_SELECIONADO = '';
 function estInitColabSelect(){
   const el = document.getElementById('est-colab-input');
   if(!el) return;
-  const nomes = [...new Set(ESTEIRA_CONVEYOR_ROWS.map(r => r.colaborador).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
-  el.innerHTML = '<option value="">Selecione um colaborador...</option>' + nomes.map(n => `<option value="${pulsoEscHtml(n)}">${pulsoEscHtml(n)}</option>`).join('');
+  const ids = [...new Set(ESTEIRA_CONVEYOR_ROWS.map(r => r.opsId).filter(Boolean))].sort((a,b) => a.localeCompare(b,'pt-BR'));
+  el.innerHTML = '<option value="">Selecione um OPS...</option>' + ids.map(n => `<option value="${pulsoEscHtml(n)}">${pulsoEscHtml(n)}</option>`).join('');
   el.value = ESTEIRA_COLAB_SELECIONADO;
 }
-function estSetColab(nome){
-  ESTEIRA_COLAB_SELECIONADO = nome;
+function estSetColab(opsId){
+  ESTEIRA_COLAB_SELECIONADO = opsId;
   estRenderColabPanel();
 }
 function estRenderColabPanel(){
@@ -13535,8 +13566,8 @@ function estRenderColabPanel(){
   if(!panel) return;
   if(!ESTEIRA_COLAB_SELECIONADO){ panel.style.display = 'none'; panel.innerHTML = ''; return; }
   panel.style.display = '';
-  const rows = ESTEIRA_CONVEYOR_ROWS.filter(r => r.colaborador === ESTEIRA_COLAB_SELECIONADO);
-  if(!rows.length){ panel.innerHTML = '<div class="switch-hint">Sem dados de produtividade pra esse colaborador hoje.</div>'; return; }
+  const rows = ESTEIRA_CONVEYOR_ROWS.filter(r => r.opsId === ESTEIRA_COLAB_SELECIONADO);
+  if(!rows.length){ panel.innerHTML = '<div class="switch-hint">Sem dados de produtividade pra esse OPS hoje.</div>'; return; }
   const grupos = [...new Set(rows.map(r => r.grupo))].join(', ');
   const postos = [...new Set(rows.map(r => r.nomeEstacao).filter(Boolean))].join(', ') || '—';
   const total = rows.reduce((s,r) => s+r.totalProcessamento, 0);
@@ -13666,28 +13697,29 @@ function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint){
       return `<li><span class="est-dest-name" title="${pulsoEscHtml(d.dest||'(sem nome)')}">${pulsoEscHtml(d.dest||'(sem nome)')}</span><span class="est-dest-qty">${estFmtInt(d.qty)} <span class="est-dest-share">(${estFmtPct(d.share,2)})</span></span></li>`;
     }).join('');
 
-    // Colaboradores reais que bateram naquele Nome WS (não é mais estimativa).
+    // OPS reais que bateram naquele Nome WS (não é mais estimativa).
     // Modo acumulado (sem hora selecionada): ranqueia por EFICIÊNCIA
     // (pacotes ÷ horas distintas trabalhadas) — pedido do Roberto em
     // 2026-08-11. Com range de hora selecionado: acumulado do período,
     // ranqueado por total mesmo (não faz sentido "eficiência" numa janela
-    // já filtrada pelo próprio usuário).
+    // já filtrada pelo próprio usuário). Identificação só por OPS Id, sem
+    // nome (pedido do Roberto em 2026-08-19).
     const acumulado = ESTEIRA_STATE.hora === null;
     const colaboradores = wsDados
-      ? [...wsDados.colaboradores.values()]
-          .map(c => ({ ...c, eficiencia: c.total / (c.horas.size || 1) }))
+      ? [...wsDados.colaboradores.entries()]
+          .map(([opsId,c]) => ({ opsId, ...c, eficiencia: c.total / (c.horas.size || 1) }))
           .sort((a,b) => acumulado ? (b.eficiencia-a.eficiencia) : (b.total-a.total))
       : [];
     const backList = colaboradores.length
-      ? `<ul class="est-bancada-back-list">${colaboradores.slice(0,8).map(c => `<li><span class="est-bancada-back-name">${pulsoEscHtml(c.nome||'(sem nome)')}</span><span class="est-bancada-back-qty">${acumulado ? estFmtInt(c.eficiencia)+' pac./h' : estFmtInt(c.total)}</span></li>`).join('')}</ul>`
-      : `<p class="est-bancada-back-note">Sem colaboradores registrados nesta bancada no período.</p>`;
+      ? `<ul class="est-bancada-back-list">${colaboradores.slice(0,8).map(c => `<li><span class="est-bancada-back-name">${pulsoEscHtml(c.opsId)}</span><span class="est-bancada-back-qty">${acumulado ? estFmtInt(c.eficiencia)+' pac./h' : estFmtInt(c.total)}</span></li>`).join('')}</ul>`
+      : `<p class="est-bancada-back-note">Sem OPS registrado nesta bancada no período.</p>`;
 
-    // Colaboradores aparecem como padrão (front) — balanceamento/destinos
-    // fica no verso (back) — pedido do Roberto em 2026-08-13. Preserva o
-    // estado do botão "virar todos" (ESTEIRA_FLIP_ALL) ao re-renderizar.
+    // OPS aparecem como padrão (front) — balanceamento/destinos fica no
+    // verso (back) — pedido do Roberto em 2026-08-13. Preserva o estado do
+    // botão "virar todos" (ESTEIRA_FLIP_ALL) ao re-renderizar.
     const card = `<div class="est-bancada-card${ESTEIRA_FLIP_ALL?' flipped':''}" style="--fill:${((bin.total/maxBancada)*100).toFixed(1)}%" onclick="estFlipBancada(this,event)">
       <div class="est-bancada-front">
-        <div class="est-bancada-top"><span class="est-bancada-tag">${letter}${bin.posicao}</span><span class="est-bancada-front-label">Colaboradores</span></div>
+        <div class="est-bancada-top"><span class="est-bancada-tag">${letter}${bin.posicao}</span><span class="est-bancada-front-label">OPS</span></div>
         ${backList}
       </div>
       <div class="est-bancada-back">
@@ -13822,6 +13854,23 @@ function cnvRenderAll(){
   cnvRenderGroupCards();
   cnvRenderChart();
   cnvRenderTable();
+  cnvRenderSppScuttle();
+}
+
+// SPP Scuttle (pedido do Roberto em 2026-08-19): TO Pack médio das
+// Scuttles no piso agora, via cluster_pulso — essa aba não tem data/turno
+// (é sempre "ao vivo"), então o card não respeita o filtro de data/turno
+// da tela, diferente dos outros cards do Conveyor. Deixa isso explícito no
+// rótulo pra não parecer que o card ignorou o filtro por bug.
+function cnvRenderSppScuttle(){
+  const el = document.getElementById('cnv-spp-scuttle');
+  if(!el || !CONVEYOR_DATA) return;
+  const spp = CONVEYOR_DATA.sppScuttle;
+  buildKPIs('cnv-spp-scuttle', [
+    spp !== null && spp !== undefined
+      ? { label:'SPP Scuttle', value:spp.toLocaleString('pt-BR'), sub:'ao vivo · TO piso agora (cluster_pulso)', delta:'', trend:'up', type:'', icon:'fa-box' }
+      : { label:'SPP Scuttle', value:'—', sub:'sem Scuttle no piso agora', delta:'', trend:'up', type:'', icon:'fa-box' },
+  ]);
 }
 
 // Base pros cards: todas as horas do dia (o card fatia por hora sozinho, pra
@@ -14058,17 +14107,18 @@ function cnvRenderChart(){
 
 // Uma linha por OPS Id, somando processamento das linhas retornadas por
 // cnvFilteredRows() (acumulado até a hora, ou só a hora vigente, conforme
-// CONVEYOR_STATE.tableMode); colaborador/grupo/estação/turno usam a
-// leitura mais recente (maior hora) do OPS no período.
+// CONVEYOR_STATE.tableMode); grupo/estação/turno usam a leitura mais
+// recente (maior hora) do OPS no período. Sem nome de colaborador — só
+// OPS Id (pedido do Roberto em 2026-08-19, padronização/privacidade).
 function cnvGroupByOps(){
   const rows = cnvFilteredRows();
   const porOps = new Map();
   rows.forEach(r => {
     const chave = r.opsId || '(sem id)';
-    if(!porOps.has(chave)) porOps.set(chave, { opsId:chave, colaborador:r.colaborador, grupo:r.grupo, estacao:r.estacao, turno:r.turno, totalProcessamento:0, _ultimaHora:-1 });
+    if(!porOps.has(chave)) porOps.set(chave, { opsId:chave, grupo:r.grupo, estacao:r.estacao, turno:r.turno, totalProcessamento:0, _ultimaHora:-1 });
     const acc = porOps.get(chave);
     acc.totalProcessamento += r.totalProcessamento;
-    if(r.hora >= acc._ultimaHora){ acc.colaborador=r.colaborador; acc.grupo=r.grupo; acc.estacao=r.estacao; acc.turno=r.turno; acc._ultimaHora=r.hora; }
+    if(r.hora >= acc._ultimaHora){ acc.grupo=r.grupo; acc.estacao=r.estacao; acc.turno=r.turno; acc._ultimaHora=r.hora; }
   });
   return [...porOps.values()];
 }
@@ -14125,7 +14175,6 @@ function cnvRenderTable(){
   const pageRows = linhas.slice(CNV_PAGE * PAGE_SIZE, (CNV_PAGE + 1) * PAGE_SIZE);
   tbody.innerHTML = pageRows.map(r => `<tr>
     <td>${pulsoEscHtml(r.opsId)}</td>
-    <td>${pulsoEscHtml(r.colaborador||'—')}</td>
     <td>${pulsoEscHtml(r.grupo)}</td>
     <td>${pulsoEscHtml(r.estacao)}</td>
     <td>${pulsoEscHtml(r.turno||'—')}</td>
@@ -14136,7 +14185,7 @@ function cnvRenderTable(){
     <span>Página ${CNV_PAGE+1} de ${totalPaginas}</span>
     <button type="button" class="spr-ms-action-btn" ${CNV_PAGE>=totalPaginas-1?'disabled':''} onclick="cnvSetPage(${CNV_PAGE+1})">Próxima <i class="fas fa-chevron-right"></i></button>
   </span>` : '';
-  if(footer) footer.innerHTML = `<span>${linhas.length.toLocaleString('pt-BR')} colaborador(es).</span>${pager}`;
+  if(footer) footer.innerHTML = `<span>${linhas.length.toLocaleString('pt-BR')} OPS.</span>${pager}`;
 }
 
 function cnvSetPage(pg){

@@ -244,10 +244,15 @@ module.exports = async (req, res) => {
   // 2. Inbound Line Haul — previstos vs descarregados (fim_descarga
   // preenchido) + em andamento + quebra por canal (origem).
   const lhRows = lh ? lh.rows : [];
+  // Avg. Waiting Time LH (pedido do Roberto em 2026-08-19, KPI novo do
+  // Overview) — média geral de tempoFilaMin (mesmo campo que já alimenta
+  // tempoFilaMedioMin por canal logo abaixo, só sem quebrar por canal).
+  const lhComFila = lhRows.filter(r => r.tempoFilaMin !== null);
   const lineHaul = lh ? {
     previstos: lhRows.length,
     descarregados: lhRows.filter(r => r.fimDescarga).length,
     andamento: lhRows.filter(r => r.checkinDestino && !r.fimDescarga).length,
+    tempoFilaMedioMin: lhComFila.length ? Math.round(lhComFila.reduce((s, r) => s + r.tempoFilaMin, 0) / lhComFila.length) : null,
     porCanal: LH_CANAIS.map(canal => {
       const rows = lhRows.filter(r => canalDeOrigemLh(r.origem) === canal);
       const comFila = rows.filter(r => r.tempoFilaMin !== null);
@@ -268,9 +273,12 @@ module.exports = async (req, res) => {
   // preenchida) + em andamento + quebra por canal (agência).
   const fmRows = fm ? fm.rows : [];
   const fmAgencias = [...new Set(fmRows.map(r => r.agencia).filter(Boolean))].sort();
+  // Avg. Waiting Time FM (pedido do Roberto em 2026-08-19) — mesma ideia do LH acima.
+  const fmComFila = fmRows.filter(r => r.tempoFilaMin !== null);
   const firstMile = fm ? {
     descarregados: fmRows.filter(r => r.finalizacaoJornada).length,
     andamento: fmRows.filter(r => r.checkinDriver && !r.finalizacaoJornada).length,
+    tempoFilaMedioMin: fmComFila.length ? Math.round(fmComFila.reduce((s, r) => s + r.tempoFilaMin, 0) / fmComFila.length) : null,
     porCanal: fmAgencias.map(canal => {
       const rows = fmRows.filter(r => r.agencia === canal);
       const comFila = rows.filter(r => r.tempoFilaMin !== null);
@@ -365,6 +373,11 @@ module.exports = async (req, res) => {
   const outboundResumo = (outbound || cluster) ? {
     pctClusterizacao: cluster ? cluster.atual.pctClusterizacao : null,
     pacotesNoPiso: cluster ? cluster.atual.pacotesTotal : null,
+    // CPT On Time (pedido do Roberto em 2026-08-19, KPI novo do Overview) —
+    // reaproveita o cálculo já pronto em api/_outbound.js aggregate()
+    // (cpt_realizado <= cpt_scheduled_origin_edited, sem margem), não
+    // reinventa a regra.
+    pctCptOnTime: outbound ? outbound.atual.pctCptOnTime : null,
     carrosPrevistos: outbound ? outbound.atual.carrosPrevistos : null,
     carrosRealizados: outbound ? outbound.atual.carrosRealizados : null,
     saca: outbound ? { pacotes: outbound.atual.pacotesSaca, tos: outbound.atual.qtySaca } : null,

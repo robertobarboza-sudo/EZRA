@@ -39,6 +39,19 @@ function classificarCausa(causa) {
   return 'externo';
 }
 
+// Canal do hub, mesmo padrão de prefixo já usado em tipoCarregamento
+// (api/_outbound.js) — confirmado ao vivo: as 82 estações distintas de
+// `hub` nessa aba batem 100% com HUB-/XPT-/SOC- (nenhuma sobra). Usado só
+// pro % de Leftover (numerador = leftover, denominador = expedido do
+// canal HUB) — pedido do Roberto em 2026-08-19.
+function canalDoHub(hub) {
+  const h = String(hub || '');
+  if (/^HUB/i.test(h)) return 'HUB';
+  if (/^XPT/i.test(h)) return 'XPT';
+  if (/^SOC/i.test(h)) return 'SOC';
+  return '3PL';
+}
+
 function aggregate(rows) {
   const registros = rows.length;
   const destinos = new Set(rows.map(r => r.hub).filter(Boolean)).size;
@@ -59,10 +72,21 @@ function aggregate(rows) {
   // leftover no período (pedido do Roberto em 2026-08-14).
   const transportadorasOfensoras = new Set(rows.map(r => r.__transportadora).filter(Boolean)).size;
 
+  // % de Leftover (pedido do Roberto em 2026-08-19, 1º card da página):
+  // leftover ÷ expedido, só do canal HUB (numerador já filtrado junto,
+  // não é o pacotesLeftover geral acima — esse pega todos os canais).
+  const rowsHub = rows.filter(r => canalDoHub(r.hub) === 'HUB');
+  const leftoverHub = rowsHub.reduce((s, r) => s + toNum(r.leftover_until_cap), 0);
+  const expedidoHub = rowsHub.reduce((s, r) => s + toNum(r.expedido), 0);
+  const pctLeftover = expedidoHub ? +(leftoverHub / expedidoHub * 100).toFixed(1) : 0;
+
   return {
     registros,
     destinos,
     pacotesLeftover,
+    pctLeftover,
+    leftoverHub,
+    expedidoHub,
     registrosOperacional,
     registrosExterno,
     registrosInconsistencia,
