@@ -3275,7 +3275,14 @@
 .sm-panel {
   position: fixed; top: 0; right: 0; bottom: 0;
   width: 320px; max-width: 88vw;
-  background: var(--sm-panel);
+  /* var(--sm-panel) mapeia pro token "surface" translúcido do tema claro
+     (glass card sobre o gradiente da página) — bom pros cards da tela,
+     ilegível aqui em cima do overlay escurecido. Painel de detalhe
+     precisa ser opaco; --surface-solid existe no site pra exatamente
+     esse caso (linha total de tabela, coluna sticky), com fallback pro
+     --sm-panel de sempre nos temas que não declaram surface-solid
+     (escuro padrão já é opaco). */
+  background: var(--surface-solid, var(--sm-panel));
   border-left: 1px solid var(--sm-border);
   transform: translateX(100%);
   transition: transform 0.18s ease;
@@ -3561,7 +3568,7 @@
 .cd-panel {
   position: fixed; top: 0; right: 0; bottom: 0;
   width: 320px; max-width: 88vw;
-  background: var(--cd-panel);
+  background: var(--surface-solid, var(--cd-panel));
   border-left: 1px solid var(--cd-border);
   transform: translateX(100%);
   transition: transform 0.18s ease;
@@ -3951,7 +3958,7 @@
 .cm-panel {
   position: fixed; top: 0; right: 0; bottom: 0;
   width: 320px; max-width: 88vw;
-  background: var(--cm-panel);
+  background: var(--surface-solid, var(--cm-panel));
   border-left: 1px solid var(--cm-border);
   transform: translateX(100%);
   transition: transform 0.18s ease;
