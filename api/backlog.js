@@ -3,15 +3,34 @@
  *
  * Modelo novo (2026-08-04): a base deixou de ser uma série horária por
  * cutoff/hour_cutoff e virou um snapshot granular por
- * faixa_aging/perfil/origem, com `snapshot_hora` como referencial de
- * tempo (ex.: "2026-08-03 09:00:00") — confirmado ao vivo em
- * 2026-08-04 via debug-meta: 24 horários distintos reais (não um único
- * valor), cobrindo um range rolante das últimas ~24h. As colunas A-G
- * (backlog) e H-M (forecast, ver api/forecast.js) continuam sendo DUAS
- * TABELAS INDEPENDENTES coladas lado a lado — sem relação linha a linha.
+ * faixa_aging/perfil/origem. As colunas A-G (backlog) e H-M (forecast,
+ * ver api/forecast.js) continuam sendo DUAS TABELAS INDEPENDENTES
+ * coladas lado a lado — sem relação linha a linha (nomes de coluna, não
+ * posição — a ordem das colunas mudou em 2026-08-21 e ninguém quebrou
+ * por causa disso, ver abaixo).
+ *
+ * Estrutura mudou de novo em 2026-08-21 (confirmado ao vivo via
+ * debug-meta): a coluna de tempo virou `ultima_atualizacao_tabela`
+ * (formato "YYYY-MM-DD HH:MM:SS.000 America/Sao_Paulo", substitui
+ * `snapshot_hora`) e passou a ser o MESMO valor pra praticamente todas as
+ * linhas — a aba deixou de guardar ~24h de snapshots rolantes e virou só
+ * o snapshot ATUAL. Confirmado com o Roberto: o filtro de hora do
+ * Backlog não perde função, só que agora sempre vai ter 1 hora só na
+ * lista (a vigente) em vez de várias — não precisou mexer no front.
+ * `faixa_aging`/`perfil`/`status_desc`/`origem`/`qtd_pacotes`/
+ * `aging_medio_min` continuam com os mesmos nomes de coluna, lidos pelo
+ * nome (fetchTabByGid usa o header, não a posição), então a reordenação
+ * de colunas sozinha não quebra nada aqui.
+ *
+ * 2 colunas novas apareceram, `grade_hrs` e `qtd_grade` — um conceito
+ * separado (grade por hora, valores tipo "grade_hrs_atual"/"grade_hrs_00"
+ * .."grade_hrs_23", ~3.2k das ~17.6k linhas) que não é a mesma coisa que o
+ * backlog de aging de hoje. Filtradas fora aqui (só entram linhas com
+ * `grade_hrs` vazio) pra não inflar qtd_pacotes/aging_medio_min com um
+ * dado de outra natureza — fica de fora até virar um pedido à parte.
  *
  * Data operacional (padrão pra todos os reports/gráficos, confirmado com
- * o Roberto em 2026-08-04): cutoff de 6h — snapshot_hora entre 00:00 e
+ * o Roberto em 2026-08-04): cutoff de 6h — o timestamp entre 00:00 e
  * 05:59 pertence ao dia operacional ANTERIOR, não ao dia-calendário do
  * timestamp (ver dataOperacionalDe em api/_period.js). É o único ponto do
  * PULSO que deriva uma data a partir de um timestamp cru; as demais
@@ -30,10 +49,14 @@ const { toNum, dataOperacionalDe, hojeOperacionalIso, ordemHoraCutoff } = requir
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '202012183' };
 
-// "2026-08-03 09:00:00" -> { data:"2026-08-03" (operacional, cutoff 6h), hora:9 (relógio real, pro filtro de hora) }
+// "2026-08-24 08:21:36.000 America/Sao_Paulo" -> { data:"2026-08-24"
+// (operacional, cutoff 6h), hora:8 (relógio real, pro filtro de hora) }.
+// Sem "$" no fim do regex de propósito — só casa o prefixo YYYY-MM-DD
+// HH:MM:SS e ignora o que vier depois (milissegundos + fuso), tolerando
+// tanto o formato novo quanto o antigo (sem sufixo).
 function dataHoraDe(v) {
-  const m = String(v || '').match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):\d{2}:\d{2}$/);
-  return m ? { data: dataOperacionalDe(v), hora: Number(m[2]) } : { data: null, hora: null };
+  const m = String(v || '').match(/^(\d{4}-\d{2}-\d{2}) (\d{2}):\d{2}:\d{2}/);
+  return m ? { data: dataOperacionalDe(`${m[1]} ${m[2]}:00:00`), hora: Number(m[2]) } : { data: null, hora: null };
 }
 
 module.exports = async (req, res) => {
@@ -46,9 +69,9 @@ module.exports = async (req, res) => {
   }
 
   const backlog = rows
-    .filter(r => r.faixa_aging)
+    .filter(r => r.faixa_aging && !r.grade_hrs)
     .map(r => {
-      const { data, hora } = dataHoraDe(r.snapshot_hora);
+      const { data, hora } = dataHoraDe(r.ultima_atualizacao_tabela);
       return {
         data, hora,
         faixaAging: r.faixa_aging || '',
@@ -57,7 +80,7 @@ module.exports = async (req, res) => {
         origem: r.origem || '',
         qtdPacotes: toNum(r.qtd_pacotes),
         agingMedioMin: toNum(r.aging_medio_min),
-        snapshotHora: r.snapshot_hora || '',
+        snapshotHora: r.ultima_atualizacao_tabela || '',
       };
     })
     .filter(r => r.data !== null);
