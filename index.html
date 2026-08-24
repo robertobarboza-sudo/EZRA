@@ -15100,8 +15100,8 @@ function rejGenerateInsights(){
     panel.innerHTML =
       '<div class="sm-panel-head"><h3></h3><button class="sm-panel-close" type="button" aria-label="Fechar">×</button></div>' +
       '<div class="sm-panel-body"></div>';
-    document.body.appendChild(overlay);
-    document.body.appendChild(panel);
+    this.root.appendChild(overlay);
+    this.root.appendChild(panel);
     this.overlay = overlay;
     this.panel = panel;
     this.panelTitle = panel.querySelector("h3");
@@ -15503,8 +15503,8 @@ function rejGenerateInsights(){
     panel.innerHTML =
       '<div class="cd-panel-head"><h3></h3><button class="cd-panel-close" type="button" aria-label="Fechar">×</button></div>' +
       '<div class="cd-panel-body"></div>';
-    document.body.appendChild(overlay);
-    document.body.appendChild(panel);
+    this.root.appendChild(overlay);
+    this.root.appendChild(panel);
     this.overlay = overlay;
     this.panel = panel;
     this.panelTitle = panel.querySelector("h3");
@@ -16112,8 +16112,8 @@ function rejGenerateInsights(){
     panel.innerHTML =
       '<div class="cm-panel-head"><h3></h3><button class="cm-panel-close" type="button" aria-label="Fechar">×</button></div>' +
       '<div class="cm-panel-body"></div>';
-    document.body.appendChild(overlay);
-    document.body.appendChild(panel);
+    this.root.appendChild(overlay);
+    this.root.appendChild(panel);
     this.overlay = overlay;
     this.panel = panel;
     this.panelTitle = panel.querySelector("h3");
