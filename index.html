@@ -2317,12 +2317,15 @@
     .rej-table tbody tr.rej-mach-row:hover td{ background:var(--surface-2); }
     .rej-sticky{ position:sticky; background:var(--surface); z-index:2; }
     .rej-table thead .rej-sticky{ z-index:4; background:var(--surface-3); }
-    .rej-c-group{ left:0; width:28px; min-width:28px; padding:0!important; }
-    .rej-c-mach{ left:28px; width:190px; min-width:190px; text-align:left!important; padding:10px 12px!important; }
-    .rej-c-target{ left:218px; width:66px; min-width:66px; background:var(--surface-2); color:var(--text-muted); font-weight:700; }
+    .rej-c-mach{ left:0; width:190px; min-width:190px; text-align:left!important; padding:10px 12px!important; }
+    .rej-c-target{ left:190px; width:66px; min-width:66px; background:var(--surface-2); color:var(--text-muted); font-weight:700; }
     .rej-table thead .rej-c-target{ background:var(--surface-3); }
-    td.rej-c-group{ background:var(--surface-3); color:var(--text-sub); }
-    td.rej-c-group div{ writing-mode:vertical-rl; transform:rotate(180deg); margin:0 auto; padding:10px 0; font-weight:800; font-size:10px; letter-spacing:.06em; text-transform:uppercase; }
+    /* Linha de CATEGORIA (agregado — junta todas as máquinas dela), nível
+       mais alto da hierarquia; máquina fica um nível abaixo (recuo leve). */
+    tr.rej-cat-row td{ background:var(--surface-2); border-bottom:2px solid var(--border); }
+    tr.rej-cat-row:hover td{ background:var(--surface-3); }
+    tr.rej-cat-row .rej-mach-name{ font-size:14px; }
+    tr.rej-mach-nivel2 td.rej-c-mach{ padding-left:26px!important; }
     .rej-mach-name{ font-weight:800; font-size:13px; color:var(--text); display:flex; align-items:center; gap:7px; }
     .rej-mach-name button.rej-expand{ all:unset; cursor:pointer; color:var(--text-muted); font-size:10px; padding:2px 5px; border-radius:5px; }
     .rej-mach-name button.rej-expand:hover{ background:var(--surface-2); color:var(--text); }
@@ -2341,22 +2344,27 @@
     tr.rej-sub-row.rej-hidden{ display:none; }
     .rej-empty-table{ padding:36px; text-align:center; color:var(--text-muted); }
 
-    .rej-metas-cols{ display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
-    .rej-metas-cat{ background:var(--surface-2); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; }
-    .rej-metas-cat-head{ padding:12px 16px; background:var(--surface-3); color:var(--text); font-weight:800; font-size:13px; display:flex; align-items:center; justify-content:space-between; }
-    .rej-metas-cat-head small{ font-weight:600; color:var(--text-muted); font-size:10.5px; }
-    .rej-metas-row{ display:flex; align-items:center; gap:9px; padding:9px 14px; border-bottom:1px solid var(--border); }
-    .rej-metas-row:last-child{ border-bottom:none; }
-    .rej-metas-row .nm{ flex:1; font-size:12px; font-weight:650; color:var(--text-sub); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-    .rej-metas-row .hoje{ width:52px; text-align:right; font-size:11.5px; font-weight:750; flex:none; }
-    .rej-metas-row .hoje.good{ color:var(--green); } .rej-metas-row .hoje.warn{ color:var(--amber); } .rej-metas-row .hoje.bad{ color:var(--red); } .rej-metas-row .hoje.none{ color:var(--text-muted); }
-    .rej-metas-row .tgt-wrap{ display:flex; align-items:center; gap:3px; flex:none; }
-    .rej-metas-row .tgt-wrap input{ width:42px; height:26px; border:1px solid var(--border); border-radius:6px; background:var(--surface); text-align:center; font-weight:700; font-size:11.5px; color:var(--text); outline:none; }
-    .rej-metas-row .tgt-wrap span{ font-size:10.5px; color:var(--text-muted); }
-    .rej-metas-row .dot-st{ width:7px; height:7px; border-radius:50%; flex:none; }
-    .rej-metas-row .dot-st.good{ background:var(--green); } .rej-metas-row .dot-st.warn{ background:var(--amber); } .rej-metas-row .dot-st.bad{ background:var(--red); } .rej-metas-row .dot-st.none{ background:var(--text-muted); }
-    .rej-metas-saved{ display:inline-flex; align-items:center; gap:5px; color:var(--green); font-size:11px; font-weight:700; opacity:0; transition:opacity .25s; margin-left:10px; }
-    .rej-metas-saved.show{ opacity:1; }
+    /* Notificador (sino) — cruza TODO (categoria,motivo) do dia contra o
+       target fixo do motivo, mesmo componente visual do dropdown de
+       multi-select (.rej-msel-panel), reaproveitando a linguagem de cor
+       dos Alertas (--red/--amber). */
+    .rej-notif{ position:relative; }
+    .rej-notif-btn{ all:unset; cursor:pointer; box-sizing:border-box; position:relative; width:34px; height:34px; border-radius:var(--radius); border:1px solid var(--border); background:var(--surface-2); color:var(--text-sub); display:flex; align-items:center; justify-content:center; }
+    .rej-notif-btn:hover{ border-color:var(--orange); }
+    .rej-notif-badge{ position:absolute; top:-6px; right:-6px; min-width:16px; height:16px; padding:0 4px; border-radius:999px; background:var(--red); color:#fff; font-size:9.5px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid var(--surface); }
+    .rej-notif-panel{ position:absolute; top:calc(100% + 6px); right:0; z-index:60; width:340px; max-width:calc(100vw - 40px); max-height:360px; overflow:auto; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-lg,var(--shadow)); padding:12px; display:none; }
+    .rej-notif-panel.open{ display:block; }
+    .rej-notif-head{ display:flex; align-items:baseline; gap:8px; font-size:13px; font-weight:800; color:var(--text); margin-bottom:8px; }
+    .rej-notif-head .note{ font-size:11px; font-weight:600; color:var(--text-muted); }
+    .rej-notif-empty{ padding:16px 4px; text-align:center; color:var(--text-muted); font-size:12.5px; }
+    .rej-notif-item{ all:unset; cursor:pointer; box-sizing:border-box; width:100%; display:flex; align-items:flex-start; gap:9px; padding:9px 8px; border-radius:var(--radius); border-left:3px solid transparent; }
+    .rej-notif-item:hover{ background:var(--surface-2); }
+    .rej-notif-item.bad{ border-left-color:var(--red); }
+    .rej-notif-item.warn{ border-left-color:var(--amber); }
+    .rej-notif-dot{ width:7px; height:7px; border-radius:50%; margin-top:5px; flex:none; }
+    .rej-notif-dot.bad{ background:var(--red); } .rej-notif-dot.warn{ background:var(--amber); }
+    .rej-notif-title{ font-size:12.5px; font-weight:750; color:var(--text); }
+    .rej-notif-sub{ font-size:11px; color:var(--text-muted); margin-top:2px; }
     @media(max-width:900px){ .rej-toolbar{ flex-direction:column; align-items:stretch; } .rej-motivo-detail .grid2{ grid-template-columns:1fr; } }
 
     /* ── MONITOR - FILA (Inbound) — timeline da fila de descarga
@@ -3564,12 +3572,16 @@
           </div>
           <label class="rej-target-box">Target <input type="number" id="rej-target" min="0" max="100" step="0.5" value="5" onchange="rejSetFilter('target', this.value)"/>%</label>
           <label class="rej-toggle-only"><input type="checkbox" id="rej-only-problems" onchange="rejSetFilter('onlyProblems', this.checked)"/> Só problemas</label>
+          <div class="rej-notif" id="rej-notif">
+            <button class="rej-notif-btn" type="button" onclick="rejToggleNotifPanel(event)" title="Rejeitos fora do target">
+              <i class="fas fa-bell"></i><span class="rej-notif-badge" id="rej-notif-badge" hidden>0</span>
+            </button>
+            <div class="rej-notif-panel" id="rej-notif-panel">
+              <div class="rej-notif-head">Fora do target <span class="note" id="rej-notif-note"></span></div>
+              <div id="rej-notif-body"></div>
+            </div>
+          </div>
           <span class="rej-counter" id="rej-counter">—</span>
-        </div>
-
-        <div class="bkl-tabs" style="margin-bottom:16px">
-          <div class="bkl-tab active" id="rej-tab-tower" onclick="rejSetPage('tower',this)">Control Tower</div>
-          <div class="bkl-tab" id="rej-tab-metas" onclick="rejSetPage('metas',this)">Metas por motivo</div>
         </div>
 
         <div id="rej-page-tower">
@@ -3602,14 +3614,6 @@
             <div class="table-toolbar-title" style="padding:16px 16px 0">Investigação detalhada · por máquina <span style="font-weight:400;color:var(--text-muted);font-size:12px">heatmap por hora — clique numa máquina pra ver o detalhe</span></div>
             <div class="rej-table-wrap" id="rej-table-wrap"></div>
             <div style="font-size:11px;color:var(--text-muted);padding:10px 16px">Cada célula é a janela cheia daquela hora (06h = 06:00–07:00). "Dia" recalcula a taxa sobre o total do dia, não é média das horas.</div>
-          </div>
-        </div>
-
-        <div id="rej-page-metas" style="display:none">
-          <div class="table-card full">
-            <div class="table-toolbar-title">Metas por motivo, por categoria <span class="rej-metas-saved" id="rej-metas-saved"><i class="fas fa-check"></i> salvo neste navegador</span></div>
-            <p style="font-size:12px;color:var(--text-muted);max-width:80ch;margin:8px 0 16px">Cada motivo de rejeito tem seu próprio target %, configurado separadamente pra CBS, DWS e OBS (o mesmo motivo pode pesar diferente em cada tipo de máquina). "Hoje" é a taxa real do motivo sobre o volume da categoria no dia operacional corrente — independente do Target geral do Control Tower. Salvo só neste navegador por enquanto.</p>
-            <div class="rej-metas-cols" id="rej-metas-wrap"></div>
           </div>
         </div>
       </div>
@@ -12870,32 +12874,71 @@ function asmSwitchSubpage(key, el){
 ================================================================ */
 const REJ_CATEGORIAS = { 1:'CBS', 2:'OBS', 3:'DWS' };
 const REJ_MIN_VOLUME = 100;
-const REJ_DEFAULT_TARGET = 5;
-const REJ_TARGETS_KEY = 'jarvis_rejeito_targets_v1';
 const REJ_PALETA = ['#75809b', '#10b981', '#f59e0b', '#ef4444', '#8b7fd4', '#06b6d4', '#ec4899', '#84a53f'];
 const REJ_STATUS_LABEL = { good:'Normal', warn:'Atenção', bad:'Crítico', none:'Sem dado' };
+// Ordem fixa da tabela (não alfabética) — categoria fora dessa lista
+// (nunca deveria acontecer) vai pro fim.
+const REJ_ORDEM_CATEGORIAS = ['CBS', 'DWS', 'TA', 'OBS'];
+
+// 3 conceitos de target, independentes entre si (nenhum é derivado dos
+// outros — porte de rejeito_24_08.html, pedido do Roberto em 2026-08-24):
+//  1) rejTarget() — target geral, editável no filtro (input "Target %"),
+//     usado nos KPIs/Alertas/tendência quando nada está filtrado.
+//  2) rejGetTargetCategoria(cat) — fixo, tabela abaixo. Usado na
+//     Investigação detalhada (coluna Target + heatmap das linhas de
+//     categoria e de máquina).
+//  3) rejGetTargetMotivo(cat, mo) — fixo, valores exatos da planilha do
+//     Roberto. Usado no heatmap dos motivos individuais, drill-down de
+//     "Principais motivos", linha de target da Tendência (quando um
+//     motivo está selecionado) e no notificador (sino). Motivo sem
+//     premissa cadastrada pra aquela categoria cai no fallback de
+//     rejGetTargetCategoria(cat).
+// Nenhum dos 3 é editável pela interface (fixos no código, sem
+// localStorage — a edição inline que existia foi removida).
+const REJ_TARGETS_CATEGORIA_MOTIVO = {
+  DWS: {
+    'No Read': 2.40, 'Chute Full': 1.96, 'Gap Too Small': 1.11,
+    'Multiple Business Barcode': 0.66, 'Get Business Chute Info Failed': 0.21,
+    'Parcel Lost': 0.36, 'Drop Fail': 0.36, 'Empty Business Chute Info': 0,
+    'Sorter Operate Abnormal': 0,
+  },
+  TA: {
+    'Chute Full': 1.92, 'No Read': 1.63, 'Multiple Business Barcode': 0.72,
+    'Drop Fail': 1.02, 'Error Barcode': 0.30, 'Parcel Lost': 0.47,
+    'Get Business Chute Info Failed': 0.43, 'Gap Too Small': 0.29,
+    'Empty Business Chute Info': 0, 'Sorter Operate Abnormal': 0,
+  },
+  OBS: {
+    'Gap Too Small': 1.68, 'No Read': 1.32, 'Chute Full': 0.70,
+    'Parcel Lost': 0.99, 'Empty Business Chute Info': 0,
+    'Multiple Business Barcode': 0.80, 'Chute Mapping Failed': 0,
+    'Drop Fail': 0.58, 'Get Business Chute Info Failed': 0.12,
+    'Wait Sort Result Timeout': 0,
+  },
+  CBS: {
+    'Parcel Lost': 0.54, 'Unknown Parcel': 0.36, 'Over Loop': 0.14,
+    'Empty Business Chute Info': 0, 'Get Business Chute Info Failed': 0,
+    'Multiple Business Barcode': 0.04, 'IBB': 0.06,
+    'Wait Sort Result Timeout': 0.01, 'Drop Fail': 0.01,
+  },
+};
+// Target da categoria inteira (taxa agregada, todos os motivos somados) —
+// premissa redonda combinada com o Roberto, DIFERENTE da soma exata dos
+// targets individuais acima (aqueles são motivo a motivo).
+const REJ_DEFAULT_TARGETS_CATEGORIA = { CBS: 1, DWS: 5, TA: 4, OBS: 4 };
 
 const REJ_STATE = {
   raw: { rows:[], reasons:[] },
   filtros: { q:'', cat:[], turno:[], status:[], motivo:[], onlyProblems:false, target:5 },
-  page: 'tower',
   trendModo: 'pct',
-  targets: rejCarregarTargets(),
   expandidas: new Set(),
+  categoriasExpandidas: new Set(),
   rowsFiltradas: [],
 };
 let REJ_DATA = null; // vira truthy assim que a 1ª carga terminar (guarda de lazy-load)
 
-function rejCarregarTargets(){
-  try { return JSON.parse(localStorage.getItem(REJ_TARGETS_KEY)) || {}; }
-  catch { return {}; }
-}
-function rejSalvarTargets(){ localStorage.setItem(REJ_TARGETS_KEY, JSON.stringify(REJ_STATE.targets)); }
-function rejGetTargetMotivo(categoria, motivo){ return REJ_STATE.targets[categoria]?.[motivo] ?? REJ_DEFAULT_TARGET; }
-function rejSetTargetMotivo(categoria, motivo, valor){
-  (REJ_STATE.targets[categoria] ??= {})[motivo] = valor;
-  rejSalvarTargets();
-}
+function rejGetTargetCategoria(categoria){ return REJ_DEFAULT_TARGETS_CATEGORIA[categoria] ?? rejTarget(); }
+function rejGetTargetMotivo(categoria, motivo){ return REJ_TARGETS_CATEGORIA_MOTIVO[categoria]?.[motivo] ?? rejGetTargetCategoria(categoria); }
 
 const rejFmtInt = v => v == null ? '—' : v.toLocaleString('pt-BR');
 const rejFmtPct = v => v == null ? '—' : (Math.round(v*10)/10).toLocaleString('pt-BR',{minimumFractionDigits: v%1===0?0:1, maximumFractionDigits:1}) + '%';
@@ -12920,11 +12963,20 @@ async function rejLoad(){
   }
 }
 
+// asm_category (código numérico) não distingue tudo: as máquinas
+// DWS002BR8300_DWS1/DWS2 (asm_name "TAA"/"TAB") vêm com o MESMO código 3
+// das DWS de verdade (DWS001BR8300_DWS1..6, asm_name "DWS1".."DWS6"), mas
+// são um equipamento físico diferente — o prefixo "TA" do asm_name é o
+// único sinal confiável pra separar as duas categorias.
+function rejCategoriaDe(r){
+  if(/^TA/i.test(r.asm_name || '')) return 'TA';
+  return REJ_CATEGORIAS[r.asm_category] || ('Cat ' + r.asm_category);
+}
 function rejNormalizar(json){
   const reasons = json.reasons || [];
   const rows = (json.rows || []).map(r => ({
     ...r,
-    categoria: REJ_CATEGORIAS[r.asm_category] || ('Cat ' + r.asm_category),
+    categoria: rejCategoriaDe(r),
     machKey: r.asm_account + '|' + r.layer,
   }));
   return { rows, reasons };
@@ -13298,7 +13350,29 @@ function rejToggleMotivo(mo){
   rejRenderTudo();
 }
 
-/* ── VIEW — TABELA/HEATMAP DE MÁQUINAS ── */
+/* ── VIEW — TABELA/HEATMAP · Categoria (agregado) -> Máquina -> Motivo ──
+   3 níveis expansíveis (porte de rejeito_24_08.html): a categoria some
+   como linha própria com heatmap agregado (some/expande as máquinas),
+   cada máquina abre volume/rejeitos/motivos como antes. "Dia" deixou de
+   ser taxa — agora é % de IMPACTO: nas categorias, sobre o total geral
+   (somam 100% entre si); nas máquinas, sobre o total da própria
+   categoria (somam 100% entre si, não do dia inteiro). */
+function rejAgregarCategoria(lista, horas){
+  const porHora = new Map(horas.map(h => [h, { volume:0, failed:0 }]));
+  let volumeDia = 0, failedDia = 0;
+  for(const { t } of lista){
+    volumeDia += t.volume;
+    failedDia += t.failed;
+    for(const [h,r] of t.horas){
+      const ag = porHora.get(h);
+      if(!ag) continue;
+      ag.volume += r.parcel_count || 0;
+      ag.failed += r.failed || 0;
+    }
+  }
+  for(const ag of porHora.values()) ag.taxa = ag.volume ? ag.failed/ag.volume*100 : null;
+  return { porHora, volumeDia, failedDia, taxaDia: volumeDia ? failedDia/volumeDia*100 : null };
+}
 function rejRenderMaquinas(rows){
   const horas = rejHorasPresentes(rows);
   const totais = rejTotalPorMaquina(rows);
@@ -13314,29 +13388,59 @@ function rejRenderMaquinas(rows){
     grupos.get(cat).push({ key:k, t });
   }
   for(const lista of grupos.values()) lista.sort((a,b) => (b.t.taxa??-1)-(a.t.taxa??-1));
-  const gruposOrdenados = [...grupos].sort((a,b) => a[0].localeCompare(b[0]));
+  const gruposOrdenados = [...grupos].sort((a,b) => {
+    const ia = REJ_ORDEM_CATEGORIAS.indexOf(a[0]), ib = REJ_ORDEM_CATEGORIAS.indexOf(b[0]);
+    return (ia===-1?99:ia) - (ib===-1?99:ib) || a[0].localeCompare(b[0]);
+  });
+
+  // Total de rejeitos do dia somando TODAS as categorias (respeitando os
+  // filtros ativos) — base 100% da coluna "Dia" das categorias.
+  const totalFailedGeral = gruposOrdenados.reduce((acc,[,lista]) => acc + lista.reduce((a,{t}) => a+t.failed, 0), 0);
 
   let corpo = '';
   for(const [cat, lista] of gruposOrdenados){
-    const meta = lista.map(({key,t}) => {
+    const catAberta = REJ_STATE.categoriasExpandidas.has(cat);
+    const agregado = rejAgregarCategoria(lista, horas);
+    const targetCat = rejGetTargetCategoria(cat);
+    const statusCat = rejClassificarDia(agregado.taxaDia, agregado.volumeDia, targetCat);
+    const shareDiaCat = totalFailedGeral ? agregado.failedDia/totalFailedGeral*100 : null;
+
+    const horaCellsCat = horas.map(h => {
+      const ag = agregado.porHora.get(h);
+      const st = ag && ag.volume ? rejClassificar(ag.taxa, targetCat) : 'none';
+      return `<td class="rej-hm ${st}" title="${rejFmtHora(h)} · ${REJ_STATUS_LABEL[st]}">${ag && ag.volume ? rejFmtPct(ag.taxa) : '—'}</td>`;
+    }).join('');
+
+    corpo += `<tr class="rej-cat-row">
+      <td class="rej-sticky rej-c-mach">
+        <div class="rej-mach-name">
+          <button class="rej-expand" onclick="rejToggleCategoria('${pulsoEscHtml(cat)}')">${catAberta?'▾':'▸'}</button>
+          ${pulsoEscHtml(cat)}
+        </div>
+        <span class="rej-mach-sub">${lista.length} máquina${lista.length>1?'s':''}</span>
+        <div class="rej-mach-badge-line"><span class="rate" style="color:${statusCat==='none'?'var(--text-muted)':{good:'var(--green)',warn:'var(--amber)',bad:'var(--red)'}[statusCat]}">${rejFmtPct(agregado.taxaDia)}</span> · ${rejFmtInt(agregado.volumeDia)} pcts</div>
+      </td>
+      <td class="rej-sticky rej-c-target">${rejFmtPct(targetCat)}</td>
+      ${horaCellsCat}
+      <td class="rej-hm day" title="% dos rejeitos do dia (todas as categorias) que vieram de ${pulsoEscHtml(cat)}">${shareDiaCat==null?'—':rejFmtPct(shareDiaCat)}</td>
+    </tr>`;
+
+    if(!catAberta) continue; // máquinas dessa categoria nem entram no HTML enquanto fechada
+
+    lista.forEach(({key,t}) => {
       const aberto = REJ_STATE.expandidas.has(key);
       const motivosAtivos = Object.entries(t.motivos).filter(([,v]) => v>0).sort((a,b) => b[1]-a[1]);
-      return { key, t, aberto, motivosAtivos, linhas: 1 + (aberto ? 2+motivosAtivos.length : 0) };
-    });
-    const rowspanCategoria = meta.reduce((soma,m) => soma+m.linhas, 0);
+      const status = rejClassificarDia(t.taxa, t.volume, targetCat);
+      const shareDiaMach = agregado.failedDia ? t.failed/agregado.failedDia*100 : null;
 
-    meta.forEach(({key,t,aberto,motivosAtivos}, mi) => {
-      const status = rejClassificarDia(t.taxa, t.volume);
-      const grupoCell = mi===0 ? `<td class="rej-sticky rej-c-group" rowspan="${rowspanCategoria}"><div>${pulsoEscHtml(cat)}</div></td>` : '';
       const horaCells = horas.map(h => {
         const r = t.horas.get(h);
-        const st = r ? rejClassificar(r.failed_rate) : 'none';
+        const st = r ? rejClassificar(r.failed_rate, targetCat) : 'none';
         const v = r ? r.failed_rate : null;
         return `<td class="rej-hm ${st}" title="${rejFmtHora(h)} · ${REJ_STATUS_LABEL[st]}">${v==null?'—':rejFmtPct(v)}</td>`;
       }).join('');
 
-      corpo += `<tr class="rej-mach-row">
-        ${grupoCell}
+      corpo += `<tr class="rej-mach-row rej-mach-nivel2">
         <td class="rej-sticky rej-c-mach">
           <div class="rej-mach-name">
             <button class="rej-expand" onclick="rejToggleExpand('${pulsoEscHtml(key)}')">${aberto?'▾':'▸'}</button>
@@ -13345,9 +13449,9 @@ function rejRenderMaquinas(rows){
           <span class="rej-mach-sub">${pulsoEscHtml(t.ref.asm_account)}${t.ref.layer>1?' · nível '+t.ref.layer:''}</span>
           <div class="rej-mach-badge-line"><span class="rate" style="color:${status==='none'?'var(--text-muted)':{good:'var(--green)',warn:'var(--amber)',bad:'var(--red)'}[status]}">${rejFmtPct(t.taxa)}</span> · ${rejFmtInt(t.volume)} pcts</div>
         </td>
-        <td class="rej-sticky rej-c-target">${rejFmtPct(rejTarget())}</td>
+        <td class="rej-sticky rej-c-target">${rejFmtPct(targetCat)}</td>
         ${horaCells}
-        <td class="rej-hm day ${status}">${rejFmtPct(t.taxa)}</td>
+        <td class="rej-hm day" title="% dos rejeitos de ${pulsoEscHtml(cat)} hoje que vieram dessa máquina">${shareDiaMach==null?'—':rejFmtPct(shareDiaMach)}</td>
       </tr>`;
 
       const subClass = aberto ? '' : 'rej-hidden';
@@ -13359,11 +13463,25 @@ function rejRenderMaquinas(rows){
         <td class="rej-sticky rej-c-mach">Rejeitos</td><td class="rej-sticky rej-c-target">—</td>
         ${horas.map(h => `<td>${t.horas.has(h)?rejFmtInt(t.horas.get(h).failed):'—'}</td>`).join('')}
         <td>${rejFmtInt(t.failed)}</td></tr>`;
+      // Heatmap dos rejeitos individuais: % daquele motivo específico
+      // sobre o volume da hora (não contagem bruta), colorido contra o
+      // target PRÓPRIO do motivo — mesma linguagem visual do heatmap
+      // principal, um nível mais fundo.
       motivosAtivos.forEach(([mo,total]) => {
+        const targetMo = rejGetTargetMotivo(cat, mo);
+        const horaCellsMotivo = horas.map(h => {
+          const r = t.horas.get(h);
+          if(!r || !r.parcel_count) return `<td class="rej-hm none">—</td>`;
+          const pct = (r[mo]||0) / r.parcel_count * 100;
+          const st = rejClassificar(pct, targetMo);
+          return `<td class="rej-hm ${st}" title="${rejFmtHora(h)} · ${pulsoEscHtml(mo)} · ${REJ_STATUS_LABEL[st]}">${rejFmtPct(pct)}</td>`;
+        }).join('');
+        const pctDia = t.volume ? total/t.volume*100 : null;
+        const stDia = pctDia==null ? 'none' : rejClassificar(pctDia, targetMo);
         corpo += `<tr class="rej-sub-row rej-motivo ${subClass}">
-          <td class="rej-sticky rej-c-mach">${pulsoEscHtml(mo)}</td><td class="rej-sticky rej-c-target">—</td>
-          ${horas.map(h => { const r = t.horas.get(h); return `<td>${r&&r[mo]?rejFmtInt(r[mo]):'—'}</td>`; }).join('')}
-          <td>${rejFmtInt(total)}</td></tr>`;
+          <td class="rej-sticky rej-c-mach">${pulsoEscHtml(mo)}</td><td class="rej-sticky rej-c-target">${rejFmtPct(targetMo)}</td>
+          ${horaCellsMotivo}
+          <td class="rej-hm day ${stDia}" title="${rejFmtInt(total)} pacotes">${pctDia==null?'—':rejFmtPct(pctDia)}</td></tr>`;
       });
     });
   }
@@ -13371,14 +13489,17 @@ function rejRenderMaquinas(rows){
   const cabecalho = horas.map(h => `<th>${rejFmtHora(h)}</th>`).join('');
   wrap.innerHTML = `<table class="rej-table">
     <thead><tr>
-      <th class="rej-sticky rej-c-group"></th>
-      <th class="rej-sticky rej-c-mach lbl">Máquina</th>
+      <th class="rej-sticky rej-c-mach lbl">Categoria / Máquina</th>
       <th class="rej-sticky rej-c-target">Target</th>
-      ${cabecalho}<th class="rej-hm day">Dia</th>
+      ${cabecalho}<th class="rej-hm day" title="% de impacto no total de rejeitos do dia">Dia</th>
     </tr></thead><tbody>${corpo}</tbody></table>`;
 }
 function rejToggleExpand(key){
   if(REJ_STATE.expandidas.has(key)) REJ_STATE.expandidas.delete(key); else REJ_STATE.expandidas.add(key);
+  rejRenderTudo();
+}
+function rejToggleCategoria(cat){
+  if(REJ_STATE.categoriasExpandidas.has(cat)) REJ_STATE.categoriasExpandidas.delete(cat); else REJ_STATE.categoriasExpandidas.add(cat);
   rejRenderTudo();
 }
 
@@ -13443,13 +13564,6 @@ function rejSetTrendModo(modo, el){
   document.getElementById('rej-trend-qtd').classList.toggle('active', modo==='qtd');
   rejRenderTudo();
 }
-function rejSetPage(page, el){
-  REJ_STATE.page = page;
-  document.getElementById('rej-tab-tower').classList.toggle('active', page==='tower');
-  document.getElementById('rej-tab-metas').classList.toggle('active', page==='metas');
-  document.getElementById('rej-page-tower').style.display = page==='tower' ? '' : 'none';
-  document.getElementById('rej-page-metas').style.display = page==='metas' ? '' : 'none';
-}
 function rejRenderTudo(){
   rejBindMselDocClose();
   const rows = rejFiltrarLinhas();
@@ -13474,7 +13588,7 @@ function rejRenderTudo(){
   rejRenderTendencia(series);
   rejRenderMotivos(rows, motivos);
   rejRenderMaquinas(rows);
-  rejRenderMetas();
+  rejRenderNotificacoes();
   rejRenderTodosMultiSelects();
 
   const totalMaquinas = new Set(REJ_STATE.raw.rows.map(r => r.machKey)).size;
@@ -13485,42 +13599,70 @@ function rejRenderTudo(){
   if(!rows.length) document.getElementById('rej-alerts').innerHTML = `<div class="rej-empty">Nenhuma linha bate com os filtros atuais.</div>`;
 }
 
-/* ── VIEW — METAS POR MOTIVO (independente dos filtros do Control Tower —
-   sempre reflete o dia operacional inteiro, agrupado por categoria) ── */
-function rejRenderMetas(){
-  const wrap = document.getElementById('rej-metas-wrap');
-  if(!wrap) return;
-  if(!REJ_STATE.raw.rows.length){ wrap.innerHTML = ''; return; }
-  const categorias = [...new Set(REJ_STATE.raw.rows.map(r => r.categoria))].sort();
-  wrap.innerHTML = categorias.map(cat => {
+/* ── VIEW — NOTIFICADOR (sino) — cruza TODO (categoria,motivo) do DIA
+   INTEIRO (sem filtro) contra o target fixo do motivo (rejGetTargetMotivo)
+   — devolve só os que estão fora (warn ou bad). Roda sobre
+   REJ_STATE.raw.rows porque é um alerta global, não depende do que está
+   filtrado na tela no momento. Mesma fórmula "real" da agregação por
+   categoria (soma do motivo / soma do volume da categoria), nunca
+   share/média. */
+function rejCalcularForaDoTarget(){
+  if(!REJ_STATE.raw.rows.length) return [];
+  const categorias = [...new Set(REJ_STATE.raw.rows.map(r => r.categoria))];
+  const itens = [];
+  for(const cat of categorias){
     const rowsCat = REJ_STATE.raw.rows.filter(r => r.categoria===cat);
     const volumeCat = rowsCat.reduce((a,r) => a+(r.parcel_count||0), 0);
-    const linhas = [...REJ_STATE.raw.reasons].sort().map(mo => {
+    if(!volumeCat) continue;
+    for(const mo of REJ_STATE.raw.reasons){
       const total = rowsCat.reduce((a,r) => a+(r[mo]||0), 0);
-      const taxa = volumeCat ? total/volumeCat*100 : null;
+      if(!total) continue;
+      const taxa = total/volumeCat*100;
       const tgt = rejGetTargetMotivo(cat, mo);
-      const st = total>0 ? rejClassificar(taxa, tgt) : 'none';
-      return `<div class="rej-metas-row">
-        <span class="dot-st ${st}"></span>
-        <span class="nm" title="${pulsoEscHtml(mo)}">${pulsoEscHtml(mo)}</span>
-        <span class="hoje ${st}">${total>0 ? rejFmtPct(taxa) : '—'}</span>
-        <span class="tgt-wrap">
-          <input type="number" min="0" max="100" step="0.5" value="${tgt}" onchange="rejMetaTargetChange('${pulsoEscHtml(cat)}','${pulsoEscHtml(mo)}',this.value)">
-          <span>%</span>
-        </span>
-      </div>`;
-    }).join('');
-    return `<div class="rej-metas-cat"><div class="rej-metas-cat-head">${pulsoEscHtml(cat)} <small>${rejFmtInt(volumeCat)} pacotes hoje</small></div>${linhas}</div>`;
-  }).join('');
+      const status = rejClassificar(taxa, tgt);
+      if(status==='warn' || status==='bad') itens.push({ cat, mo, taxa, tgt, total, status, delta: taxa-tgt });
+    }
+  }
+  itens.sort((a,b) => (b.status==='bad')-(a.status==='bad') || b.delta-a.delta);
+  return itens;
 }
-function rejMetaTargetChange(cat, mo, valor){
-  rejSetTargetMotivo(cat, mo, parseFloat(valor) || 0);
-  rejRenderMetas();
-  const saved = document.getElementById('rej-metas-saved');
-  saved.classList.add('show');
-  clearTimeout(saved._t);
-  saved._t = setTimeout(() => saved.classList.remove('show'), 1600);
-  if(REJ_STATE.filtros.motivo.includes(mo)) rejRenderTudo();
+function rejRenderNotificacoes(){
+  const itens = rejCalcularForaDoTarget();
+  const badge = document.getElementById('rej-notif-badge'), btn = document.querySelector('.rej-notif-btn');
+  badge.hidden = !itens.length;
+  badge.textContent = itens.length>99 ? '99+' : itens.length;
+  btn.style.borderColor = itens.length ? 'var(--red)' : '';
+  document.getElementById('rej-notif-note').textContent = itens.length ? `${itens.length} fora do target` : '';
+  document.getElementById('rej-notif-body').innerHTML = itens.length
+    ? itens.map(it => `
+      <button class="rej-notif-item ${it.status}" onclick="rejNotifClick('${pulsoEscHtml(it.cat)}','${pulsoEscHtml(it.mo)}')">
+        <span class="rej-notif-dot ${it.status}"></span>
+        <div>
+          <div class="rej-notif-title">${pulsoEscHtml(it.cat)} · ${pulsoEscHtml(it.mo)}</div>
+          <div class="rej-notif-sub">${rejFmtPct(it.taxa)} de target ${rejFmtPct(it.tgt)} · ${rejFmtInt(it.total)} pacotes</div>
+        </div>
+      </button>`).join('')
+    : `<div class="rej-notif-empty">🟢 Nenhum motivo fora do target no momento.</div>`;
+}
+let REJ_NOTIF_DOC_BOUND = false;
+function rejToggleNotifPanel(ev){
+  ev.stopPropagation();
+  const panel = document.getElementById('rej-notif-panel');
+  const abrir = !panel.classList.contains('open');
+  document.querySelectorAll('.rej-msel-panel.open').forEach(p => p.classList.remove('open'));
+  panel.classList.toggle('open', abrir);
+  if(!REJ_NOTIF_DOC_BOUND){
+    REJ_NOTIF_DOC_BOUND = true;
+    document.addEventListener('click', () => panel.classList.remove('open'));
+  }
+}
+function rejNotifClick(cat, mo){
+  REJ_STATE.filtros.cat = [cat];
+  REJ_STATE.filtros.motivo = [mo];
+  REJ_STATE.categoriasExpandidas.add(cat);
+  document.getElementById('rej-notif-panel').classList.remove('open');
+  rejRenderTudo();
+  document.getElementById('rej-trend').scrollIntoView({ behavior:'smooth', block:'center' });
 }
 
 /* ── COP Boy (Copito do mockup vira o mesmo assistente do resto do site) ── */

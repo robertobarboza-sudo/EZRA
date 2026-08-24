@@ -61,9 +61,11 @@ const THRESHOLD_MESA_ABERTA = 0.25;
 
 // Sorting Exception (subaba nova dentro de ASM, pedido do Roberto em
 // 2026-08-14) — rejeito da esteira por máquina/hora, fonte própria
-// (sorting_exception_pulso), não a asm_pulso de cima. Sem coluna de data —
-// a aba guarda só o dia operacional corrente (mesmo formato do mockup).
-const REJEITO_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1109902999' };
+// (wcs_sorting_exception_pulso), não a asm_pulso de cima. Sem coluna de
+// data — a aba guarda só o dia operacional corrente (mesmo formato do
+// mockup). Gid corrigido em 2026-08-24: o antigo (1109902999) não existe
+// mais na planilha — a aba real hoje é "wcs_sorting_exception_pulso".
+const REJEITO_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '334575654' };
 // Colunas fixas da aba — tudo que sobrar num objeto de linha é motivo de
 // rejeito (ver lista real em debug-meta; evita fixar os 35 nomes na mão,
 // se a Shopee adicionar/remover algum motivo isso já acompanha sozinho).
@@ -73,6 +75,16 @@ const REJEITO_CAMPOS_FIXOS = new Set([
   'induction_quality', 'valid_infeed', 'invalid_infeed', 'cancelled_infeed',
   'normal_sort', 'ai_unpack_sort',
 ]);
+// A aba traz os motivos em minúsculo ("no read", "chute full"...) mas as
+// premissas de target por motivo (front, TARGETS_CATEGORIA_MOTIVO) usam
+// Title Case ("No Read", "Chute Full") — Title-case aqui pra ser a MESMA
+// string usada como chave em todo lugar (linha do rejeito, lista de
+// `reasons`, target). Único caso especial: "ibb" -> "IBB" (sigla, não
+// capitaliza por palavra como o resto).
+function tituloMotivo(raw) {
+  if (raw.trim().toLowerCase() === 'ibb') return 'IBB';
+  return raw.replace(/\w\S*/g, w => w[0].toUpperCase() + w.slice(1).toLowerCase());
+}
 
 async function buildRejeito(req, res) {
   let rows;
@@ -84,9 +96,10 @@ async function buildRejeito(req, res) {
   }
 
   const comHora = rows.filter(r => r.hora !== '' && r.hora != null && !isNaN(Number(r.hora)));
-  const reasons = comHora.length
+  const reasonsRaw = comHora.length
     ? Object.keys(comHora[0]).filter(k => !REJEITO_CAMPOS_FIXOS.has(k))
     : [];
+  const reasons = reasonsRaw.map(tituloMotivo);
 
   const linhas = comHora.map(r => {
     const linha = {
@@ -108,7 +121,7 @@ async function buildRejeito(req, res) {
       normal_sort: toNum(r.normal_sort),
       ai_unpack_sort: toNum(r.ai_unpack_sort),
     };
-    reasons.forEach(mo => { linha[mo] = toNum(r[mo]); });
+    reasonsRaw.forEach((rawKey, i) => { linha[reasons[i]] = toNum(r[rawKey]); });
     return linha;
   });
 
