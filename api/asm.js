@@ -129,9 +129,89 @@ async function buildRejeito(req, res) {
   res.status(200).json({ ok: true, rows: linhas, reasons, updatedAt: new Date().toISOString() });
 }
 
+// Monitoramento do Sorter — Mesas / Carrinhos Desabilitados / Chutes
+// (pedido do Roberto em 2026-08-24, porte do painel operacional em
+// Trilha Sup\ASM_24_08). Duas abas:
+//   - asm_extra_pulso: 3 blocos de coluna colados lado a lado, SEM
+//     relação linha a linha (mesmo padrão de forecast_backlog_pulso) —
+//     esteira_* (não usado aqui, fora do escopo do painel), mesa_* e
+//     carrinho_*. O bloco de mesa tem 66 linhas reais (24 Layer 1 + 21
+//     Layer 2 + 21 Layer 3); o de carrinho tem só 3 linhas "resumo" (uma
+//     por nível) + N linhas "disabled" (uma por carrinho parado); os dois
+//     blocos preenchem o resto das linhas com o quadro em branco — por
+//     isso filtramos por linha ter mesa_tag/carrinho_tipo, não por índice.
+//   - Chutes_pulso: aba própria e limpa (765 linhas, 1 por chute), sem
+//     esse problema de blocos colados.
+const ASM_EXTRA_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1473280316' };
+const CHUTES_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1852484551' };
+
+async function buildSorter(req, res) {
+  let extraRows, chuteRows;
+  try {
+    [{ rows: extraRows }, { rows: chuteRows }] = await Promise.all([
+      fetchTabByGid(ASM_EXTRA_SHEET.spreadsheetId, ASM_EXTRA_SHEET.gid),
+      fetchTabByGid(CHUTES_SHEET.spreadsheetId, CHUTES_SHEET.gid),
+    ]);
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  }
+
+  const mesas = extraRows
+    .filter(r => r.mesa_tag)
+    .map(r => ({
+      mesa_label: r.mesa_label || '',
+      mesa_id: toNum(r.mesa_id),
+      mesa_tag: r.mesa_tag,
+      mesa_zona: r.mesa_zona || '',
+      mesa_status_name: r.mesa_status_name || '',
+      mesa_status_color: r.mesa_status_color || '',
+      mesa_since: toNum(r.mesa_since),
+    }));
+
+  const carrinhos = extraRows
+    .filter(r => r.carrinho_tipo === 'resumo' || r.carrinho_tipo === 'disabled')
+    .map(r => {
+      if (r.carrinho_tipo === 'resumo') {
+        let counts = {};
+        try { counts = JSON.parse(r.carrinho_counts || '{}'); } catch (err) { /* linha mal formatada, cai pro resumo vazio */ }
+        return { carrinho_tipo: 'resumo', carrinho_label: r.carrinho_label || '', carrinho_total: toNum(r.carrinho_total), carrinho_counts: counts };
+      }
+      return {
+        carrinho_tipo: 'disabled',
+        carrinho_label: r.carrinho_label || '',
+        carrinho_numero: toNum(r.carrinho_numero),
+        carrinho_id: toNum(r.carrinho_id),
+        carrinho_label_id: toNum(r.carrinho_label_id),
+        carrinho_car_fix_num: toNum(r.carrinho_car_fix_num),
+        carrinho_status_name: r.carrinho_status_name || '',
+        carrinho_status_color: r.carrinho_status_color || '',
+        carrinho_since: toNum(r.carrinho_since),
+      };
+    });
+
+  const chutes = chuteRows
+    .filter(r => r.numero !== '' && r.numero != null)
+    .map(r => ({
+      layer: toNum(r.layer),
+      numero: toNum(r.numero),
+      zona: r.zona || '',
+      status_name: r.status_name || '',
+      status_color: r.status_color || '',
+      since: toNum(r.since),
+    }));
+
+  res.setHeader('Cache-Control', 's-maxage=30, stale-while-revalidate=90');
+  res.status(200).json({ ok: true, mesas, carrinhos, chutes, updatedAt: new Date().toISOString() });
+}
+
 module.exports = async (req, res) => {
   if (req.query.rejeito !== undefined) {
     await buildRejeito(req, res);
+    return;
+  }
+  if (req.query.sorter !== undefined) {
+    await buildSorter(req, res);
     return;
   }
 

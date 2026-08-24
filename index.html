@@ -2879,6 +2879,1114 @@
     }
     [data-tv-night="1"] .kpi-strip-item:hover { background: rgba(238,77,45,.08); }
     [data-tv-night="1"] .dl-btn-csv { background: rgba(148,163,184,.08) !important; border-color: rgba(148,163,184,.15); color: var(--text); }
+
+    /* ================================================================
+       MONITORAMENTO DO SORTER — Mesas / Carrinhos Desabilitados / Chutes
+       (pedido do Roberto em 2026-08-24, porte de Trilha Sup\ASM_24_08).
+       CSS própria e já escopada sob .op-shell/.sorter-monitor/
+       .carrinhos-disabled/.chutes-monitoring (tema escuro fixo, não usa
+       os tokens var(--...) do resto do JARVIS de propósito — é um painel
+       operacional autocontido, pensado pra não vazar nem destoar quando
+       plugado dentro de uma aba existente).
+       ================================================================ */
+/* =========================================================================
+   Painel Operacional — shell mínimo de abas internas.
+   Isto NÃO é uma navegação de aplicação — é só o alternador entre as duas
+   sessões (Monitoramento de Mesas / Carrinhos Desabilitados) dentro da
+   mesma aba do sistema existente. Usa os mesmos tokens de cor dos módulos
+   sorter-monitor / carrinhos-disabled para não destoar visualmente.
+   ========================================================================= */
+
+.op-shell {
+  --op-bg: #0b0f14;
+  --op-panel: #121820;
+  --op-border: #232d3a;
+  --op-text: #e7edf5;
+  --op-text-dim: #8996a8;
+  --op-accent: #38bdf8;
+
+  background: var(--op-bg);
+  min-height: 100%;
+  font-family: -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+}
+
+.op-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 20px 0;
+  border-bottom: 1px solid var(--op-border);
+  background: var(--op-bg);
+}
+
+.op-tab {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  color: var(--op-text-dim);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 10px 18px;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  margin-bottom: -1px;
+}
+.op-tab:hover { color: var(--op-text); }
+.op-tab.is-active {
+  color: var(--op-text);
+  background: var(--op-panel);
+  border-color: var(--op-border);
+  box-shadow: inset 0 2px 0 var(--op-accent);
+}
+
+.op-tab-panel[hidden] { display: none; }
+/* =========================================================================
+   Sorter Monitoring — scoped styles
+   Everything is namespaced under .sorter-monitor so this can be dropped
+   into an existing app/tab without leaking into other pages.
+   ========================================================================= */
+
+.sorter-monitor {
+  --sm-bg: #0b0f14;
+  --sm-panel: #121820;
+  --sm-panel-alt: #161e28;
+  --sm-border: #232d3a;
+  --sm-border-soft: #1a222d;
+  --sm-text: #e7edf5;
+  --sm-text-dim: #8996a8;
+  --sm-text-faint: #5b6778;
+
+  --sm-green: #34d399;
+  --sm-green-dim: rgba(52, 211, 153, 0.14);
+  --sm-cyan: #38bdf8;
+  --sm-cyan-dim: rgba(56, 189, 248, 0.14);
+  --sm-red: #f65a5a;
+  --sm-red-dim: rgba(246, 90, 90, 0.16);
+  --sm-amber: #f5a623;
+
+  --sm-radius: 8px;
+  --sm-radius-sm: 5px;
+  --sm-font: -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+  --sm-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  font-family: var(--sm-font);
+  color: var(--sm-text);
+  background: var(--sm-bg);
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.sorter-monitor * { box-sizing: border-box; }
+
+/* ---------- header ---------- */
+.sm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.sm-header h1 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  color: var(--sm-text);
+  text-transform: uppercase;
+}
+.sm-header .sm-subtitle {
+  font-size: 11px;
+  color: var(--sm-text-faint);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+  text-transform: none;
+}
+.sm-header-controls { display: flex; align-items: center; gap: 10px; }
+
+.sm-select {
+  background: var(--sm-panel);
+  border: 1px solid var(--sm-border);
+  color: var(--sm-text);
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 7px 30px 7px 12px;
+  border-radius: var(--sm-radius-sm);
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3e%3cpath fill='%238996a8' d='M6 8 0 0h12z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 10px 7px;
+}
+.sm-select:focus { outline: 1px solid var(--sm-text-dim); }
+
+.sm-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--sm-panel);
+  border: 1px solid var(--sm-border);
+  color: var(--sm-text-dim);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--sm-radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.sm-toggle:hover { border-color: #34424f; }
+.sm-toggle .sm-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--sm-red); flex: none; }
+.sm-toggle.is-active {
+  background: var(--sm-red-dim);
+  border-color: rgba(246, 90, 90, 0.5);
+  color: #ffb4b4;
+}
+
+/* ---------- top strip: status geral / health / zone comparison ---------- */
+.sm-top {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.9fr) minmax(190px, 0.7fr) 2fr;
+  gap: 12px;
+}
+@media (max-width: 1100px) {
+  .sm-top { grid-template-columns: 1fr; }
+}
+
+.sm-card {
+  background: var(--sm-panel);
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius);
+  padding: 12px 14px;
+}
+.sm-card-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--sm-text-faint);
+  text-transform: uppercase;
+  margin: 0 0 10px;
+}
+
+/* status geral */
+.sm-status-geral { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.sm-status-row { display: flex; align-items: center; gap: 10px; }
+.sm-status-row .sm-swatch { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.sm-status-row .sm-count { font-family: var(--sm-mono); font-size: 18px; font-weight: 700; min-width: 30px; }
+.sm-status-row .sm-name { font-size: 12.5px; color: var(--sm-text-dim); }
+
+/* health score */
+.sm-health { display: flex; align-items: center; gap: 14px; }
+.sm-health-ring { flex: none; position: relative; width: 76px; height: 76px; }
+.sm-health-ring svg { transform: rotate(-90deg); }
+.sm-health-ring .sm-ring-track { fill: none; stroke: var(--sm-border-soft); stroke-width: 8; }
+.sm-health-ring .sm-ring-value { fill: none; stroke-width: 8; stroke-linecap: round; transition: stroke-dasharray 0.4s ease; }
+.sm-health-ring .sm-ring-pct {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  font-family: var(--sm-mono); font-size: 17px; font-weight: 700;
+}
+.sm-health-meta { display: flex; flex-direction: column; gap: 3px; }
+.sm-health-meta .sm-health-title { font-size: 12px; color: var(--sm-text-dim); }
+.sm-health-meta .sm-health-sub { font-size: 11px; color: var(--sm-text-faint); }
+
+/* zone comparison */
+.sm-zones { display: flex; flex-direction: column; }
+.sm-zones-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.sm-zone-card {
+  background: var(--sm-panel-alt);
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius-sm);
+  padding: 9px 11px;
+}
+.sm-zone-card-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
+.sm-zone-card-head .sm-zone-name { font-size: 11.5px; font-weight: 700; letter-spacing: 0.04em; color: var(--sm-text); }
+.sm-zone-card-head .sm-zone-health { font-family: var(--sm-mono); font-size: 13px; font-weight: 700; }
+.sm-zone-card-counts { display: flex; gap: 12px; }
+.sm-zone-card-counts span { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--sm-text-dim); font-family: var(--sm-mono); }
+.sm-zone-card-counts i { width: 7px; height: 7px; border-radius: 50%; display: inline-block; }
+
+/* ---------- main: map + critical rail ---------- */
+.sm-main {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 14px;
+  align-items: start;
+  flex: 1;
+  min-height: 0;
+}
+@media (max-width: 1100px) {
+  .sm-main { grid-template-columns: 1fr; }
+}
+
+.sm-map {
+  background: var(--sm-panel);
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius);
+  padding: 14px 16px 16px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+@media (max-width: 900px) {
+  .sm-map { grid-template-columns: 1fr; }
+}
+
+.sm-zone-col { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.sm-zone-col-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--sm-text);
+  text-transform: uppercase;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--sm-border-soft);
+}
+
+.sm-level { display: flex; flex-direction: column; gap: 6px; }
+.sm-level-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--sm-text-faint);
+  text-transform: uppercase;
+}
+.sm-level-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+/* mesa card */
+.sm-mesa {
+  position: relative;
+  background: var(--sm-panel-alt);
+  border: 1px solid var(--sm-border);
+  border-left: 3px solid var(--sm-text-faint);
+  border-radius: var(--sm-radius-sm);
+  padding: 6px 7px 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: opacity 0.15s, filter 0.15s, transform 0.1s;
+  min-width: 0;
+}
+.sm-mesa:hover { transform: translateY(-1px); border-color: #34424f; }
+.sm-mesa:focus-visible { outline: 2px solid var(--sm-text-dim); outline-offset: 1px; }
+.sm-mesa .sm-mesa-tag {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--sm-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sm-mesa .sm-mesa-status {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sm-mesa .sm-mesa-time {
+  font-family: var(--sm-mono);
+  font-size: 12px;
+  font-weight: 700;
+  margin-top: 1px;
+}
+
+.sm-mesa.st-healthy { border-left-color: var(--sm-green); background: linear-gradient(180deg, var(--sm-green-dim), var(--sm-panel-alt) 65%); }
+.sm-mesa.st-healthy .sm-mesa-status, .sm-mesa.st-healthy .sm-mesa-time { color: var(--sm-green); }
+.sm-mesa.st-standby { border-left-color: var(--sm-cyan); background: linear-gradient(180deg, var(--sm-cyan-dim), var(--sm-panel-alt) 65%); }
+.sm-mesa.st-standby .sm-mesa-status, .sm-mesa.st-standby .sm-mesa-time { color: var(--sm-cyan); }
+.sm-mesa.st-critical { border-left-color: var(--sm-red); background: linear-gradient(180deg, var(--sm-red-dim), var(--sm-panel-alt) 65%); }
+.sm-mesa.st-critical .sm-mesa-status, .sm-mesa.st-critical .sm-mesa-time { color: var(--sm-red); }
+
+.sm-mesa.is-dimmed { opacity: 0.22; filter: grayscale(0.6); }
+.sm-mesa.is-focused { box-shadow: 0 0 0 1px rgba(255,255,255,0.25); }
+
+/* ---------- critical rail ---------- */
+.sm-critical {
+  background: var(--sm-panel);
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius);
+  padding: 12px 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 100%;
+}
+.sm-critical-head { display: flex; align-items: center; gap: 7px; }
+.sm-critical-head .sm-swatch { width: 8px; height: 8px; border-radius: 50%; background: var(--sm-red); }
+.sm-critical-head h2 {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  margin: 0; color: var(--sm-text);
+}
+.sm-critical-list { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.sm-critical-empty { font-size: 12px; color: var(--sm-text-faint); padding: 10px 2px; }
+
+.sm-critical-item {
+  display: grid;
+  grid-template-columns: 20px 1fr auto;
+  align-items: center;
+  gap: 8px;
+  background: var(--sm-panel-alt);
+  border: 1px solid var(--sm-border);
+  border-left: 3px solid var(--sm-red);
+  border-radius: var(--sm-radius-sm);
+  padding: 7px 9px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s;
+}
+.sm-critical-item:hover { border-color: rgba(246,90,90,0.6); background: var(--sm-red-dim); }
+.sm-critical-item .sm-ci-rank { font-family: var(--sm-mono); font-size: 11px; color: var(--sm-text-faint); }
+.sm-critical-item .sm-ci-tag { font-size: 12.5px; font-weight: 700; color: var(--sm-text); }
+.sm-critical-item .sm-ci-meta { font-size: 10.5px; color: var(--sm-text-dim); margin-top: 1px; }
+.sm-critical-item .sm-ci-time { font-family: var(--sm-mono); font-size: 13px; font-weight: 700; color: var(--sm-red); white-space: nowrap; }
+
+/* ---------- detail panel ---------- */
+.sm-overlay {
+  position: fixed; inset: 0; background: rgba(4,7,10,0.55);
+  opacity: 0; pointer-events: none; transition: opacity 0.15s;
+  z-index: 60;
+}
+.sm-overlay.is-open { opacity: 1; pointer-events: auto; }
+
+.sm-panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 320px; max-width: 88vw;
+  background: var(--sm-panel);
+  border-left: 1px solid var(--sm-border);
+  transform: translateX(100%);
+  transition: transform 0.18s ease;
+  z-index: 61;
+  display: flex; flex-direction: column;
+  font-family: var(--sm-font);
+  color: var(--sm-text);
+}
+.sm-panel.is-open { transform: translateX(0); }
+
+.sm-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid var(--sm-border-soft);
+}
+.sm-panel-head h3 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+.sm-panel-close {
+  background: none; border: none; color: var(--sm-text-dim); font-size: 18px;
+  cursor: pointer; line-height: 1; padding: 4px;
+}
+.sm-panel-close:hover { color: var(--sm-text); }
+
+.sm-panel-body { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.sm-panel-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+.sm-panel-row .sm-panel-key { color: var(--sm-text-faint); text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
+.sm-panel-row .sm-panel-val { font-weight: 600; }
+.sm-panel-status-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 3px 9px; border-radius: 20px;
+}
+.sm-panel-status-pill i { width: 7px; height: 7px; border-radius: 50%; }
+
+.sm-panel-timeblock {
+  background: var(--sm-panel-alt);
+  border: 1px solid var(--sm-border);
+  border-radius: var(--sm-radius);
+  padding: 16px;
+  text-align: center;
+}
+.sm-panel-timeblock .sm-tb-label {
+  font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--sm-text-faint);
+  margin-bottom: 8px;
+}
+.sm-panel-timeblock .sm-tb-value { font-family: var(--sm-mono); font-size: 30px; font-weight: 700; }
+.sm-panel-since { font-size: 12px; color: var(--sm-text-dim); }
+.sm-panel-since .sm-panel-key { display: block; margin-bottom: 3px; }
+
+/* ---------- narrow-screen tweaks (kept last so it wins the cascade) ---------- */
+@media (max-width: 560px) {
+  .sm-level-grid { grid-template-columns: repeat(2, 1fr); }
+}
+/* =========================================================================
+   Carrinhos Desabilitados — scoped styles
+   Namespaced under .carrinhos-disabled so this section can be dropped into
+   an existing tab without leaking into the rest of the app. Tokens mirror
+   the sorter monitoring module already in this system for visual continuity.
+   ========================================================================= */
+
+.carrinhos-disabled {
+  --cd-bg: #0b0f14;
+  --cd-panel: #121820;
+  --cd-panel-alt: #161e28;
+  --cd-border: #232d3a;
+  --cd-border-soft: #1a222d;
+  --cd-text: #e7edf5;
+  --cd-text-dim: #8996a8;
+  --cd-text-faint: #5b6778;
+
+  --cd-green: #34d399;
+  --cd-green-dim: rgba(52, 211, 153, 0.14);
+  --cd-yellow: #eab308;
+  --cd-yellow-dim: rgba(234, 179, 8, 0.14);
+  --cd-orange: #f5a623;
+  --cd-orange-dim: rgba(245, 166, 35, 0.14);
+  --cd-red: #f65a5a;
+  --cd-red-dim: rgba(246, 90, 90, 0.16);
+
+  --cd-radius: 8px;
+  --cd-radius-sm: 5px;
+  --cd-font: -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+  --cd-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  font-family: var(--cd-font);
+  color: var(--cd-text);
+  background: var(--cd-bg);
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.carrinhos-disabled * { box-sizing: border-box; }
+
+/* ---------- header / resumo geral ---------- */
+.cd-header {
+  background: var(--cd-panel);
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radius);
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.cd-header h1 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  color: var(--cd-text);
+  text-transform: uppercase;
+}
+.cd-header .cd-subtitle {
+  font-size: 11px;
+  color: var(--cd-text-faint);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+
+.cd-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cd-summary-stat {
+  flex: 1;
+  min-width: 160px;
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radius-sm);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cd-summary-stat .cd-stat-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.cd-summary-stat .cd-stat-value { font-family: var(--cd-mono); font-size: 24px; font-weight: 700; line-height: 1; }
+.cd-summary-stat .cd-stat-label { font-size: 11px; color: var(--cd-text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 3px; }
+
+/* ---------- section shell ---------- */
+.cd-section {
+  background: var(--cd-panel);
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radius);
+  padding: 14px 16px 16px;
+}
+.cd-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--cd-text-faint);
+  text-transform: uppercase;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ---------- level cards ---------- */
+.cd-levels-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 800px) { .cd-levels-grid { grid-template-columns: 1fr; } }
+
+.cd-level-card {
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radius-sm);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cd-level-card .cd-level-name {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--cd-text);
+}
+.cd-level-card .cd-level-count-row { display: flex; align-items: baseline; gap: 8px; margin-top: 6px; }
+.cd-level-card .cd-level-count { font-family: var(--cd-mono); font-size: 34px; font-weight: 700; line-height: 1; }
+.cd-level-card .cd-level-count-label { font-size: 11px; color: var(--cd-text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.cd-level-card .cd-level-max { font-size: 12px; color: var(--cd-text-dim); margin-top: 8px; }
+.cd-level-card .cd-level-max b { font-family: var(--cd-mono); color: var(--cd-text); font-weight: 700; }
+.cd-level-card .cd-level-avg { font-size: 12px; color: var(--cd-text-dim); margin-top: 3px; }
+.cd-level-card .cd-level-avg b { font-family: var(--cd-mono); color: var(--cd-text); font-weight: 700; }
+
+.cd-level-card .cd-level-resumo {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--cd-border-soft);
+  font-size: 10.5px;
+  color: var(--cd-text-faint);
+}
+.cd-level-resumo .cd-resumo-total { margin-bottom: 4px; }
+.cd-level-resumo .cd-resumo-total b { color: var(--cd-text-dim); font-family: var(--cd-mono); }
+.cd-level-resumo-list { display: flex; flex-wrap: wrap; gap: 4px 10px; }
+.cd-level-resumo-list span { white-space: nowrap; }
+.cd-level-resumo-list b { font-family: var(--cd-mono); color: var(--cd-text-dim); }
+
+/* ---------- criticality bands ---------- */
+.cd-bands-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 800px) { .cd-bands-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.cd-band-card {
+  border-radius: var(--cd-radius-sm);
+  padding: 12px 14px;
+  border: 1px solid var(--cd-border);
+  background: var(--cd-panel-alt);
+  border-left: 3px solid var(--cd-text-faint);
+}
+.cd-band-card .cd-band-title { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.cd-band-card .cd-band-range { font-size: 10.5px; color: var(--cd-text-faint); margin-top: 2px; }
+.cd-band-card .cd-band-count { font-family: var(--cd-mono); font-size: 26px; font-weight: 700; margin-top: 8px; }
+.cd-band-card .cd-band-count-label { font-size: 10px; color: var(--cd-text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.cd-band-card.band-atencao { border-left-color: var(--cd-green); }
+.cd-band-card.band-atencao .cd-band-title, .cd-band-card.band-atencao .cd-band-count { color: var(--cd-green); }
+.cd-band-card.band-alerta { border-left-color: var(--cd-yellow); }
+.cd-band-card.band-alerta .cd-band-title, .cd-band-card.band-alerta .cd-band-count { color: var(--cd-yellow); }
+.cd-band-card.band-critico { border-left-color: var(--cd-orange); }
+.cd-band-card.band-critico .cd-band-title, .cd-band-card.band-critico .cd-band-count { color: var(--cd-orange); }
+.cd-band-card.band-muito-critico { border-left-color: var(--cd-red); }
+.cd-band-card.band-muito-critico .cd-band-title, .cd-band-card.band-muito-critico .cd-band-count { color: var(--cd-red); }
+
+/* ---------- priority ranking ---------- */
+.cd-ranking-list { display: flex; flex-direction: column; gap: 6px; max-height: 460px; overflow-y: auto; padding-right: 2px; }
+.cd-ranking-empty { font-size: 12px; color: var(--cd-text-faint); padding: 14px 4px; }
+
+.cd-rank-item {
+  display: grid;
+  grid-template-columns: 34px 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  border-left: 3px solid var(--cd-text-faint);
+  border-radius: var(--cd-radius-sm);
+  padding: 10px 14px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+}
+.cd-rank-item:hover { border-color: #34424f; background: #17202b; }
+
+.cd-rank-item .cd-rank-pos { font-family: var(--cd-mono); font-size: 13px; font-weight: 700; color: var(--cd-text-faint); }
+.cd-rank-item .cd-rank-id { font-size: 13px; font-weight: 700; color: var(--cd-text); }
+.cd-rank-item .cd-rank-level { font-size: 11px; color: var(--cd-text-dim); margin-top: 1px; }
+.cd-rank-item .cd-rank-time { font-family: var(--cd-mono); font-size: 17px; font-weight: 700; white-space: nowrap; text-align: right; }
+.cd-rank-item .cd-rank-badge {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 4px 9px; border-radius: 20px; white-space: nowrap;
+}
+
+.cd-rank-item.crit-atencao { border-left-color: var(--cd-green); }
+.cd-rank-item.crit-atencao .cd-rank-time { color: var(--cd-green); }
+.cd-rank-item.crit-atencao .cd-rank-badge { background: var(--cd-green-dim); color: var(--cd-green); }
+
+.cd-rank-item.crit-alerta { border-left-color: var(--cd-yellow); }
+.cd-rank-item.crit-alerta .cd-rank-time { color: var(--cd-yellow); }
+.cd-rank-item.crit-alerta .cd-rank-badge { background: var(--cd-yellow-dim); color: var(--cd-yellow); }
+
+.cd-rank-item.crit-critico { border-left-color: var(--cd-orange); }
+.cd-rank-item.crit-critico .cd-rank-time { color: var(--cd-orange); }
+.cd-rank-item.crit-critico .cd-rank-badge { background: var(--cd-orange-dim); color: var(--cd-orange); }
+
+.cd-rank-item.crit-muito-critico { border-left-color: var(--cd-red); }
+.cd-rank-item.crit-muito-critico .cd-rank-time { color: var(--cd-red); }
+.cd-rank-item.crit-muito-critico .cd-rank-badge { background: var(--cd-red-dim); color: var(--cd-red); }
+
+/* ---------- detail panel ---------- */
+.cd-overlay {
+  position: fixed; inset: 0; background: rgba(4,7,10,0.55);
+  opacity: 0; pointer-events: none; transition: opacity 0.15s;
+  z-index: 60;
+}
+.cd-overlay.is-open { opacity: 1; pointer-events: auto; }
+
+.cd-panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 320px; max-width: 88vw;
+  background: var(--cd-panel);
+  border-left: 1px solid var(--cd-border);
+  transform: translateX(100%);
+  transition: transform 0.18s ease;
+  z-index: 61;
+  display: flex; flex-direction: column;
+  font-family: var(--cd-font);
+  color: var(--cd-text);
+}
+.cd-panel.is-open { transform: translateX(0); }
+
+.cd-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid var(--cd-border-soft);
+}
+.cd-panel-head h3 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+.cd-panel-close {
+  background: none; border: none; color: var(--cd-text-dim); font-size: 18px;
+  cursor: pointer; line-height: 1; padding: 4px;
+}
+.cd-panel-close:hover { color: var(--cd-text); }
+
+.cd-panel-body { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.cd-panel-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+.cd-panel-row .cd-panel-key { color: var(--cd-text-faint); text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
+.cd-panel-row .cd-panel-val { font-weight: 600; }
+
+.cd-panel-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 3px 9px; border-radius: 20px;
+}
+
+.cd-panel-timeblock {
+  background: var(--cd-panel-alt);
+  border: 1px solid var(--cd-border);
+  border-radius: var(--cd-radius);
+  padding: 16px;
+  text-align: center;
+}
+.cd-panel-timeblock .cd-tb-label {
+  font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cd-text-faint);
+  margin-bottom: 8px;
+}
+.cd-panel-timeblock .cd-tb-value { font-family: var(--cd-mono); font-size: 30px; font-weight: 700; }
+.cd-panel-since { font-size: 12px; color: var(--cd-text-dim); }
+.cd-panel-since .cd-panel-key { display: block; margin-bottom: 3px; }
+/* =========================================================================
+   Monitoramento de Chutes — scoped styles
+   Namespaced under .chutes-monitoring so this section can be dropped into
+   an existing tab without leaking into the rest of the app. Tokens mirror
+   the sorter/carrinhos monitoring modules already in this system.
+   ========================================================================= */
+
+.chutes-monitoring {
+  --cm-bg: #0b0f14;
+  --cm-panel: #121820;
+  --cm-panel-alt: #161e28;
+  --cm-border: #232d3a;
+  --cm-border-soft: #1a222d;
+  --cm-text: #e7edf5;
+  --cm-text-dim: #8996a8;
+  --cm-text-faint: #5b6778;
+
+  --cm-green: #34d399;
+  --cm-green-dim: rgba(52, 211, 153, 0.14);
+  --cm-yellow: #eab308;
+  --cm-yellow-dim: rgba(234, 179, 8, 0.14);
+  --cm-orange: #f5a623;
+  --cm-orange-dim: rgba(245, 166, 35, 0.14);
+  --cm-red: #f65a5a;
+  --cm-red-dim: rgba(246, 90, 90, 0.16);
+
+  --cm-radius: 8px;
+  --cm-radius-sm: 5px;
+  --cm-font: -apple-system, "Segoe UI", Roboto, Inter, Arial, sans-serif;
+  --cm-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+
+  font-family: var(--cm-font);
+  color: var(--cm-text);
+  background: var(--cm-bg);
+  box-sizing: border-box;
+  min-height: 100%;
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.chutes-monitoring * { box-sizing: border-box; }
+
+/* ---------- header + filters ---------- */
+.cm-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cm-header h1 {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+  color: var(--cm-text);
+  text-transform: uppercase;
+}
+.cm-header .cm-subtitle {
+  font-size: 11px;
+  color: var(--cm-text-faint);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  margin-top: 2px;
+}
+.cm-header-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.cm-select {
+  background: var(--cm-panel);
+  border: 1px solid var(--cm-border);
+  color: var(--cm-text);
+  font-family: inherit;
+  font-size: 12.5px;
+  padding: 7px 30px 7px 12px;
+  border-radius: var(--cm-radius-sm);
+  appearance: none;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3e%3cpath fill='%238996a8' d='M6 8 0 0h12z'/%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 11px center;
+  background-size: 10px 7px;
+}
+.cm-select:focus { outline: 1px solid var(--cm-text-dim); }
+
+.cm-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--cm-panel);
+  border: 1px solid var(--cm-border);
+  color: var(--cm-text-dim);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: var(--cm-radius-sm);
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.cm-toggle:hover { border-color: #34424f; }
+.cm-toggle .cm-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--cm-yellow); flex: none; }
+.cm-toggle.is-active {
+  background: var(--cm-yellow-dim);
+  border-color: rgba(234, 179, 8, 0.5);
+  color: #ffe08a;
+}
+
+/* ---------- resumo geral ---------- */
+.cm-summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.cm-summary-stat {
+  flex: 1;
+  min-width: 170px;
+  background: var(--cm-panel);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius);
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.cm-summary-stat .cm-stat-dot { width: 10px; height: 10px; border-radius: 50%; flex: none; }
+.cm-summary-stat .cm-stat-value { font-family: var(--cm-mono); font-size: 22px; font-weight: 700; line-height: 1; }
+.cm-summary-stat .cm-stat-label { font-size: 11px; color: var(--cm-text-dim); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 3px; }
+
+/* ---------- section shell ---------- */
+.cm-section {
+  background: var(--cm-panel);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius);
+  padding: 14px 16px 16px;
+}
+.cm-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  color: var(--cm-text-faint);
+  text-transform: uppercase;
+  margin: 0 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ---------- zone comparison cards ---------- */
+.cm-zones-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+@media (max-width: 800px) { .cm-zones-grid { grid-template-columns: 1fr; } }
+
+.cm-zone-card {
+  background: var(--cm-panel-alt);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius-sm);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cm-zone-card .cm-zone-name { font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cm-text); }
+.cm-zone-card .cm-zone-count-row { display: flex; align-items: baseline; gap: 8px; margin-top: 6px; }
+.cm-zone-card .cm-zone-count { font-family: var(--cm-mono); font-size: 32px; font-weight: 700; line-height: 1; }
+.cm-zone-card .cm-zone-count-label { font-size: 11px; color: var(--cm-text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+.cm-zone-card .cm-zone-percent { font-size: 12.5px; color: var(--cm-text-dim); margin-top: 6px; }
+.cm-zone-card .cm-zone-percent b { font-family: var(--cm-mono); color: var(--cm-text); font-weight: 700; }
+.cm-zone-card .cm-zone-max { font-size: 12px; color: var(--cm-text-dim); margin-top: 4px; }
+.cm-zone-card .cm-zone-max b { font-family: var(--cm-mono); color: var(--cm-text); font-weight: 700; }
+
+.cm-zone-bands { display: flex; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--cm-border-soft); }
+.cm-zone-bands span { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--cm-text-dim); font-family: var(--cm-mono); }
+
+/* ---------- criticality bands summary ---------- */
+.cm-bands-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+@media (max-width: 800px) { .cm-bands-grid { grid-template-columns: repeat(2, 1fr); } }
+
+.cm-band-card {
+  border-radius: var(--cm-radius-sm);
+  padding: 12px 14px;
+  border: 1px solid var(--cm-border);
+  background: var(--cm-panel-alt);
+  border-left: 3px solid var(--cm-text-faint);
+}
+.cm-band-card .cm-band-title { font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; }
+.cm-band-card .cm-band-range { font-size: 10.5px; color: var(--cm-text-faint); margin-top: 2px; }
+.cm-band-card .cm-band-count { font-family: var(--cm-mono); font-size: 26px; font-weight: 700; margin-top: 8px; }
+.cm-band-card .cm-band-count-label { font-size: 10px; color: var(--cm-text-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+
+.cm-band-card.band-atencao { border-left-color: var(--cm-green); }
+.cm-band-card.band-atencao .cm-band-title, .cm-band-card.band-atencao .cm-band-count { color: var(--cm-green); }
+.cm-band-card.band-alerta { border-left-color: var(--cm-yellow); }
+.cm-band-card.band-alerta .cm-band-title, .cm-band-card.band-alerta .cm-band-count { color: var(--cm-yellow); }
+.cm-band-card.band-critico { border-left-color: var(--cm-orange); }
+.cm-band-card.band-critico .cm-band-title, .cm-band-card.band-critico .cm-band-count { color: var(--cm-orange); }
+.cm-band-card.band-muito-critico { border-left-color: var(--cm-red); }
+.cm-band-card.band-muito-critico .cm-band-title, .cm-band-card.band-muito-critico .cm-band-count { color: var(--cm-red); }
+
+/* ---------- zone priority ranking ---------- */
+.cm-priority-list { display: flex; flex-direction: column; gap: 8px; }
+.cm-priority-item {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 14px;
+  background: var(--cm-panel-alt);
+  border: 1px solid var(--cm-border);
+  border-left: 3px solid var(--cm-text-faint);
+  border-radius: var(--cm-radius-sm);
+  padding: 12px 16px;
+}
+.cm-priority-item .cm-priority-pos { font-family: var(--cm-mono); font-size: 18px; font-weight: 700; color: var(--cm-text-faint); }
+.cm-priority-item .cm-priority-zone { font-size: 14px; font-weight: 700; color: var(--cm-text); }
+.cm-priority-item .cm-priority-meta { font-size: 11px; color: var(--cm-text-dim); margin-top: 2px; }
+.cm-priority-item .cm-priority-badge {
+  font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 5px 11px; border-radius: 20px; white-space: nowrap;
+}
+.cm-priority-item.prio-alta { border-left-color: var(--cm-red); }
+.cm-priority-item.prio-alta .cm-priority-badge { background: var(--cm-red-dim); color: var(--cm-red); }
+.cm-priority-item.prio-media { border-left-color: var(--cm-orange); }
+.cm-priority-item.prio-media .cm-priority-badge { background: var(--cm-orange-dim); color: var(--cm-orange); }
+.cm-priority-item.prio-baixa { border-left-color: var(--cm-green); }
+.cm-priority-item.prio-baixa .cm-priority-badge { background: var(--cm-green-dim); color: var(--cm-green); }
+
+/* ---------- critical chutes ranking ---------- */
+.cm-ranking-list { display: flex; flex-direction: column; gap: 6px; }
+.cm-ranking-empty { font-size: 12px; color: var(--cm-text-faint); padding: 10px 4px; }
+
+.cm-rank-item {
+  display: grid;
+  grid-template-columns: 34px 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  background: var(--cm-panel-alt);
+  border: 1px solid var(--cm-border);
+  border-left: 3px solid var(--cm-text-faint);
+  border-radius: var(--cm-radius-sm);
+  padding: 10px 14px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s;
+  width: 100%;
+}
+.cm-rank-item:hover { border-color: #34424f; background: #17202b; }
+.cm-rank-item[hidden] { display: none; }
+
+.cm-rank-item .cm-rank-pos { font-family: var(--cm-mono); font-size: 13px; font-weight: 700; color: var(--cm-text-faint); }
+.cm-rank-item .cm-rank-id { font-size: 13px; font-weight: 700; color: var(--cm-text); }
+.cm-rank-item .cm-rank-zone { font-size: 11px; color: var(--cm-text-dim); margin-top: 1px; }
+.cm-rank-item .cm-rank-time { font-family: var(--cm-mono); font-size: 17px; font-weight: 700; white-space: nowrap; text-align: right; }
+.cm-rank-item .cm-rank-badge {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 4px 9px; border-radius: 20px; white-space: nowrap;
+}
+
+.cm-rank-item.crit-atencao { border-left-color: var(--cm-green); }
+.cm-rank-item.crit-atencao .cm-rank-time { color: var(--cm-green); }
+.cm-rank-item.crit-atencao .cm-rank-badge { background: var(--cm-green-dim); color: var(--cm-green); }
+.cm-rank-item.crit-alerta { border-left-color: var(--cm-yellow); }
+.cm-rank-item.crit-alerta .cm-rank-time { color: var(--cm-yellow); }
+.cm-rank-item.crit-alerta .cm-rank-badge { background: var(--cm-yellow-dim); color: var(--cm-yellow); }
+.cm-rank-item.crit-critico { border-left-color: var(--cm-orange); }
+.cm-rank-item.crit-critico .cm-rank-time { color: var(--cm-orange); }
+.cm-rank-item.crit-critico .cm-rank-badge { background: var(--cm-orange-dim); color: var(--cm-orange); }
+.cm-rank-item.crit-muito-critico { border-left-color: var(--cm-red); }
+.cm-rank-item.crit-muito-critico .cm-rank-time { color: var(--cm-red); }
+.cm-rank-item.crit-muito-critico .cm-rank-badge { background: var(--cm-red-dim); color: var(--cm-red); }
+
+.cm-rank-more {
+  align-self: flex-start;
+  margin-top: 4px;
+  background: none;
+  border: 1px solid var(--cm-border);
+  color: var(--cm-text-dim);
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 6px 14px;
+  border-radius: var(--cm-radius-sm);
+  cursor: pointer;
+}
+.cm-rank-more:hover { color: var(--cm-text); border-color: #34424f; }
+
+/* ---------- chutes grid (765 tiles) ---------- */
+.cm-grid-zone { margin-bottom: 16px; }
+.cm-grid-zone:last-child { margin-bottom: 0; }
+.cm-grid-zone-title {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  color: var(--cm-text-faint);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+.cm-tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
+  gap: 3px;
+}
+
+.cm-tile {
+  aspect-ratio: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  font-family: var(--cm-mono);
+  font-size: 9px;
+  font-weight: 600;
+  background: var(--cm-panel-alt);
+  border: 1px solid var(--cm-border-soft);
+  color: var(--cm-text-faint);
+  transition: opacity 0.15s, filter 0.15s;
+  user-select: none;
+}
+.cm-tile.tile-normal { color: var(--cm-text-faint); }
+.cm-tile.tile-atencao { background: var(--cm-green-dim); border-color: rgba(52,211,153,0.4); color: var(--cm-green); }
+.cm-tile.tile-alerta { background: var(--cm-yellow-dim); border-color: rgba(234,179,8,0.5); color: var(--cm-yellow); cursor: pointer; }
+.cm-tile.tile-critico { background: var(--cm-orange-dim); border-color: rgba(245,166,35,0.5); color: var(--cm-orange); cursor: pointer; }
+.cm-tile.tile-muito-critico { background: var(--cm-red-dim); border-color: rgba(246,90,90,0.6); color: var(--cm-red); cursor: pointer; font-weight: 700; }
+.cm-tile.tile-atencao { cursor: pointer; }
+
+/* Visão dos chutes: sinalização binária por tempo fechado (seção 3.4) —
+   independente das 4 faixas de criticidade usadas no restante da aba. */
+.cm-tile.tile-fechado { background: var(--cm-yellow-dim); border-color: rgba(234,179,8,0.5); color: var(--cm-yellow); cursor: pointer; }
+.cm-tile.tile-fechado-critico { background: var(--cm-red-dim); border-color: rgba(246,90,90,0.6); color: var(--cm-red); font-weight: 700; cursor: pointer; }
+
+.cm-tile.is-dimmed { opacity: 0.2; filter: grayscale(0.5); }
+
+/* ---------- detail panel ---------- */
+.cm-overlay {
+  position: fixed; inset: 0; background: rgba(4,7,10,0.55);
+  opacity: 0; pointer-events: none; transition: opacity 0.15s;
+  z-index: 60;
+}
+.cm-overlay.is-open { opacity: 1; pointer-events: auto; }
+
+.cm-panel {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 320px; max-width: 88vw;
+  background: var(--cm-panel);
+  border-left: 1px solid var(--cm-border);
+  transform: translateX(100%);
+  transition: transform 0.18s ease;
+  z-index: 61;
+  display: flex; flex-direction: column;
+  font-family: var(--cm-font);
+  color: var(--cm-text);
+}
+.cm-panel.is-open { transform: translateX(0); }
+
+.cm-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid var(--cm-border-soft);
+}
+.cm-panel-head h3 { margin: 0; font-size: 15px; font-weight: 700; letter-spacing: 0.02em; }
+.cm-panel-close {
+  background: none; border: none; color: var(--cm-text-dim); font-size: 18px;
+  cursor: pointer; line-height: 1; padding: 4px;
+}
+.cm-panel-close:hover { color: var(--cm-text); }
+
+.cm-panel-body { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.cm-panel-row { display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+.cm-panel-row .cm-panel-key { color: var(--cm-text-faint); text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
+.cm-panel-row .cm-panel-val { font-weight: 600; }
+
+.cm-panel-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em;
+  padding: 3px 9px; border-radius: 20px;
+}
+
+.cm-panel-timeblock {
+  background: var(--cm-panel-alt);
+  border: 1px solid var(--cm-border);
+  border-radius: var(--cm-radius);
+  padding: 16px;
+  text-align: center;
+}
+.cm-panel-timeblock .cm-tb-label {
+  font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--cm-text-faint);
+  margin-bottom: 8px;
+}
+.cm-panel-timeblock .cm-tb-value { font-family: var(--cm-mono); font-size: 30px; font-weight: 700; }
   </style>
 </head>
 <body>
@@ -3099,6 +4207,7 @@
       <div class="nav-subgroup" id="navsub-asm">
         <div class="nav-subitem active" data-subkey="performance" onclick="navSidebarSubpage(this,'asm','performance','asm')">ASM Performance</div>
         <div class="nav-subitem" data-subkey="rejeito" onclick="navSidebarSubpage(this,'asm','rejeito','asm')">Sorting Exception</div>
+        <div class="nav-subitem" data-subkey="sorter" onclick="navSidebarSubpage(this,'asm','sorter','asm')">Monitoramento do Sorter</div>
       </div>
       <div class="nav-item" data-section="conveyor" data-label="Conveyor" onclick="navigateToAndExpand('conveyor',this,'navsub-conveyor')">
         <i class="fas fa-box nav-icon"></i><span class="nav-label">Conveyor</span>
@@ -3474,6 +4583,7 @@
       <div class="bkl-tabs" id="asm-subpage-tabs" style="margin-bottom:16px">
         <div class="bkl-tab active" id="subtab-performance" onclick="asmSwitchSubpage('performance',this)">ASM Performance</div>
         <div class="bkl-tab" id="subtab-rejeito" onclick="asmSwitchSubpage('rejeito',this)">Sorting Exception</div>
+        <div class="bkl-tab" id="subtab-sorter" onclick="asmSwitchSubpage('sorter',this)">Monitoramento do Sorter</div>
       </div>
 
       <div id="asm-panel-performance">
@@ -3603,6 +4713,24 @@
             <div class="rej-table-wrap" id="rej-table-wrap"></div>
             <div style="font-size:11px;color:var(--text-muted);padding:10px 16px">Cada célula é a janela cheia daquela hora (06h = 06:00–07:00). "Dia" recalcula a taxa sobre o total do dia, não é média das horas.</div>
           </div>
+        </div>
+      </div>
+
+      <!-- MONITORAMENTO DO SORTER — porte de Trilha Sup\ASM_24_08 (pedido do
+           Roberto em 2026-08-24). Painel autocontido (própria paleta/CSS,
+           3 módulos com timers e painéis de detalhe próprios) — o shell de
+           abas internas (.op-tabs/.op-tab-panel) é do próprio mockup, só
+           trocamos os arrays mock por dado real via /api/asm?sorter=1. -->
+      <div id="asm-panel-sorter" style="display:none">
+        <div class="op-shell">
+          <div class="op-tabs">
+            <button class="op-tab is-active" type="button" data-tab="mesas">Monitoramento de Mesas</button>
+            <button class="op-tab" type="button" data-tab="carrinhos">Carrinhos Desabilitados</button>
+            <button class="op-tab" type="button" data-tab="chutes">Monitoramento de Chutes</button>
+          </div>
+          <div class="op-tab-panel" data-panel="mesas"><div id="sorter-root"></div></div>
+          <div class="op-tab-panel" data-panel="carrinhos" hidden><div id="carrinhos-root"></div></div>
+          <div class="op-tab-panel" data-panel="chutes" hidden><div id="chutes-root"></div></div>
         </div>
       </div>
     </section>
@@ -5839,7 +6967,7 @@ const TV_SUBPAGES = {
   spr:      { tabsId:'pulso-subpage-tabs',    switcher:'pulsoSwitchSubpage',  options:[{key:'outbound',label:'Outbound'},{key:'spr',label:'SPR'},{key:'leftover',label:'Leftover'},{key:'monitor',label:'Monitor - Live'}] },
   conveyor: { tabsId:'conveyor-subpage-tabs', switcher:'cnvSwitchSubpage',    options:[{key:'performance',label:'Packing Out ASM'},{key:'conveyor',label:'Conveyor'},{key:'esteira',label:'Esteira On-time'}] },
   inbound:  { tabsId:'inbound-subpage-tabs',  switcher:'inboundSwitchSubpage',options:[{key:'lh',label:'Line Haul'},{key:'fm',label:'First Mile'},{key:'triagem',label:'Triagem'},{key:'fila',label:'Monitor - Fila'}] },
-  asm:      { tabsId:'asm-subpage-tabs',      switcher:'asmSwitchSubpage',    options:[{key:'performance',label:'ASM Performance'},{key:'rejeito',label:'Sorting Exception'}] },
+  asm:      { tabsId:'asm-subpage-tabs',      switcher:'asmSwitchSubpage',    options:[{key:'performance',label:'ASM Performance'},{key:'rejeito',label:'Sorting Exception'},{key:'sorter',label:'Monitoramento do Sorter'}] },
 };
 function tvApplySubpage(sectionKey, subKey){
   const cfg = TV_SUBPAGES[sectionKey];
@@ -12839,7 +13967,9 @@ function asmSwitchSubpage(key, el){
   el.classList.add('active');
   document.getElementById('asm-panel-performance').style.display = key==='performance' ? '' : 'none';
   document.getElementById('asm-panel-rejeito').style.display = key==='rejeito' ? '' : 'none';
+  document.getElementById('asm-panel-sorter').style.display = key==='sorter' ? '' : 'none';
   if(key==='rejeito' && !REJ_DATA) rejLoad();
+  if(key==='sorter' && !SORTER_INSTANCES) sorterLoad();
 }
 
 /* ================================================================
@@ -13662,6 +14792,1691 @@ function rejGenerateInsights(){
   else if(topMotivo) insights.push({ icon:'fa-lightbulb', html:`Sugestão: investigar <strong>${pulsoEscHtml(topMotivo.mo)}</strong>, motivo dominante do dia.` });
 
   return insights;
+}
+
+
+/* ================================================================
+   MONITORAMENTO DO SORTER — Mesas / Carrinhos Desabilitados / Chutes
+   (pedido do Roberto em 2026-08-24, porte de Trilha Sup\ASM_24_08).
+   Os 3 módulos abaixo (SorterMonitor/CarrinhosDisabled/ChutesMonitoring)
+   são o JS ORIGINAL do mockup quase verbatim — cada um expõe .mount(root,
+   data) -> instância com .update(novoDado)/.destroy(), então a única
+   integração real é: buscar /api/asm?sorter=1 e, na 1ª carga, montar os
+   3; nas seguintes, só chamar .update() (o próprio módulo re-renderiza).
+   Timers internos (relógio ao vivo dos cards) continuam rodando sozinhos,
+   sem precisar de setInterval nosso.
+================================================================ */
+(function (global) {
+  "use strict";
+
+  var ZONE_ORDER = ["A", "B", "C"];
+  var LEVEL_ORDER = ["Layer 3", "Layer 2", "Layer 1"]; // Nível 3 top -> Nível 1 bottom
+  var LEVEL_LABEL = { "Layer 3": "Nível 3", "Layer 2": "Nível 2", "Layer 1": "Nível 1" };
+
+  // Normalizes mesa_status_name -> category + display config.
+  function statusConfig(name) {
+    var key = String(name || "").trim().toLowerCase();
+    if (key === "online" || key === "running") {
+      return { category: "healthy", label: name, cls: "st-healthy" };
+    }
+    if (key === "standby") {
+      return { category: "standby", label: name, cls: "st-standby" };
+    }
+    if (key === "offline") {
+      return { category: "critical", label: name, cls: "st-critical" };
+    }
+    return { category: "standby", label: name || "Desconhecido", cls: "st-standby" };
+  }
+
+  function el(tag, className, attrs) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        if (k === "text") node.textContent = attrs[k];
+        else node.setAttribute(k, attrs[k]);
+      });
+    }
+    return node;
+  }
+
+  function pad2(n) { return n < 10 ? "0" + n : "" + n; }
+
+  // Formats elapsed seconds per spec section 11.
+  function formatElapsed(seconds) {
+    if (seconds < 0) seconds = 0;
+    var totalMin = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    if (totalMin < 60) {
+      return pad2(totalMin) + ":" + pad2(s);
+    }
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    return h + "h " + pad2(m) + "min";
+  }
+
+  function formatDateTime(ts) {
+    var d = new Date(ts * 1000);
+    var dd = pad2(d.getDate());
+    var mm = pad2(d.getMonth() + 1);
+    var yyyy = d.getFullYear();
+    var hh = pad2(d.getHours());
+    var mi = pad2(d.getMinutes());
+    return dd + "/" + mm + "/" + yyyy + " " + hh + ":" + mi;
+  }
+
+  function nowSeconds() { return Math.floor(Date.now() / 1000); }
+
+  // mesa_tag stores "<nível>-<número>" (e.g. "DWS 1-15", "Induction 2-5").
+  // The card only shows "Mesa <número>" — the level number is dropped from
+  // the display since it's already conveyed by the card's position on the
+  // map. The underlying mesa_tag value itself is never modified.
+  function mesaDisplayName(tag) {
+    var match = /-(\d+)\s*$/.exec(String(tag || "").trim());
+    if (!match) return tag;
+    return "Mesa " + parseInt(match[1], 10);
+  }
+
+  function groupMesas(mesas) {
+    var byZone = {};
+    ZONE_ORDER.forEach(function (z) {
+      byZone[z] = {};
+      LEVEL_ORDER.forEach(function (l) { byZone[z][l] = []; });
+    });
+    mesas.forEach(function (m) {
+      if (!byZone[m.mesa_zona]) byZone[m.mesa_zona] = {};
+      if (!byZone[m.mesa_zona][m.mesa_label]) byZone[m.mesa_zona][m.mesa_label] = [];
+      byZone[m.mesa_zona][m.mesa_label].push(m);
+    });
+    return byZone;
+  }
+
+  function computeStats(mesas) {
+    var totals = { healthy: 0, standby: 0, critical: 0, total: mesas.length };
+    var byZone = {};
+    ZONE_ORDER.forEach(function (z) { byZone[z] = { healthy: 0, standby: 0, critical: 0, total: 0 }; });
+
+    mesas.forEach(function (m) {
+      var cfg = statusConfig(m.mesa_status_name);
+      totals[cfg.category]++;
+      if (!byZone[m.mesa_zona]) byZone[m.mesa_zona] = { healthy: 0, standby: 0, critical: 0, total: 0 };
+      byZone[m.mesa_zona][cfg.category]++;
+      byZone[m.mesa_zona].total++;
+    });
+
+    var health = totals.total ? Math.round((totals.healthy / totals.total) * 100) : 0;
+    ZONE_ORDER.forEach(function (z) {
+      var zs = byZone[z];
+      zs.health = zs.total ? Math.round((zs.healthy / zs.total) * 100) : 0;
+    });
+
+    return { totals: totals, health: health, byZone: byZone };
+  }
+
+  function healthColor(pct) {
+    if (pct >= 90) return "var(--sm-green)";
+    if (pct >= 70) return "var(--sm-amber)";
+    return "var(--sm-red)";
+  }
+
+  var STATUS_FILTER_OPTIONS = [
+    { value: "all", label: "Todos os status" },
+    { value: "online", label: "Online" },
+    { value: "running", label: "Running" },
+    { value: "standby", label: "Standby" },
+    { value: "offline", label: "Offline" },
+  ];
+
+  function Instance(root, mesas) {
+    this.root = root;
+    this.mesas = mesas.slice();
+    this.state = { statusFilter: "all", criticalOnly: false, selectedId: null };
+    this.timeNodes = []; // {node, since} pairs for the live ticker
+    this.timer = null;
+    this._build();
+    this._renderAll();
+    this._startClock();
+  }
+
+  Instance.prototype._build = function () {
+    this.root.classList.add("sorter-monitor");
+    this.root.innerHTML = "";
+
+    // header
+    var header = el("div", "sm-header");
+    var titleWrap = el("div");
+    titleWrap.appendChild(el("h1", null, { text: "Monitoramento do Sorter" }));
+    titleWrap.appendChild(el("div", "sm-subtitle", { text: "3 zonas • 3 níveis • 66 mesas" }));
+    header.appendChild(titleWrap);
+
+    var controls = el("div", "sm-header-controls");
+    var select = el("select", "sm-select");
+    STATUS_FILTER_OPTIONS.forEach(function (opt) {
+      var o = el("option", null, { text: opt.label });
+      o.value = opt.value;
+      select.appendChild(o);
+    });
+    var self = this;
+    select.addEventListener("change", function () {
+      self.state.statusFilter = select.value;
+      self._applyFilters();
+    });
+    this.statusSelect = select;
+
+    var toggle = el("button", "sm-toggle", { type: "button" });
+    toggle.appendChild(el("span", "sm-dot"));
+    toggle.appendChild(document.createTextNode("Somente críticos"));
+    toggle.addEventListener("click", function () {
+      self.state.criticalOnly = !self.state.criticalOnly;
+      toggle.classList.toggle("is-active", self.state.criticalOnly);
+      self._applyFilters();
+    });
+    this.criticalToggle = toggle;
+
+    controls.appendChild(select);
+    controls.appendChild(toggle);
+    header.appendChild(controls);
+    this.root.appendChild(header);
+
+    // top strip
+    var top = el("div", "sm-top");
+
+    var statusCard = el("div", "sm-card sm-status-geral");
+    statusCard.appendChild(el("div", "sm-card-label", { text: "Status geral" }));
+    var rows = {};
+    [
+      ["healthy", "var(--sm-green)", "Online / Running"],
+      ["standby", "var(--sm-cyan)", "Standby"],
+      ["critical", "var(--sm-red)", "Offline"],
+    ].forEach(function (row) {
+      var r = el("div", "sm-status-row");
+      var sw = el("span", "sm-swatch");
+      sw.style.background = row[1];
+      var count = el("span", "sm-count", { text: "0" });
+      var name = el("span", "sm-name", { text: row[2] });
+      r.appendChild(sw); r.appendChild(count); r.appendChild(name);
+      statusCard.appendChild(r);
+      rows[row[0]] = count;
+    });
+    top.appendChild(statusCard);
+    this.statusCounts = rows;
+
+    var healthCard = el("div", "sm-card sm-health");
+    var ringWrap = el("div", "sm-health-ring");
+    ringWrap.innerHTML =
+      '<svg width="76" height="76" viewBox="0 0 76 76">' +
+      '<circle class="sm-ring-track" cx="38" cy="38" r="32"></circle>' +
+      '<circle class="sm-ring-value" cx="38" cy="38" r="32"></circle>' +
+      "</svg>" +
+      '<div class="sm-ring-pct">0%</div>';
+    var healthMeta = el("div", "sm-health-meta");
+    healthMeta.appendChild(el("div", "sm-health-title", { text: "Sorter Health" }));
+    var healthSub = el("div", "sm-health-sub", { text: "66 mesas monitoradas" });
+    healthMeta.appendChild(healthSub);
+    healthCard.appendChild(ringWrap);
+    healthCard.appendChild(healthMeta);
+    top.appendChild(healthCard);
+    this.healthRingCircle = ringWrap.querySelector(".sm-ring-value");
+    this.healthPctLabel = ringWrap.querySelector(".sm-ring-pct");
+    this.healthSub = healthSub;
+
+    var zonesCard = el("div", "sm-card sm-zones");
+    zonesCard.appendChild(el("div", "sm-card-label", { text: "Comparação entre zonas" }));
+    var zonesGrid = el("div", "sm-zones-grid");
+    var zoneCardRefs = {};
+    ZONE_ORDER.forEach(function (z) {
+      var card = el("div", "sm-zone-card");
+      var head = el("div", "sm-zone-card-head");
+      head.appendChild(el("span", "sm-zone-name", { text: "Zona " + z }));
+      var healthVal = el("span", "sm-zone-health", { text: "0%" });
+      head.appendChild(healthVal);
+      card.appendChild(head);
+      var counts = el("div", "sm-zone-card-counts");
+      var healthyCount = el("span"); healthyCount.innerHTML = '<i style="background:var(--sm-green)"></i><span>0</span>';
+      var standbyCount = el("span"); standbyCount.innerHTML = '<i style="background:var(--sm-cyan)"></i><span>0</span>';
+      var criticalCount = el("span"); criticalCount.innerHTML = '<i style="background:var(--sm-red)"></i><span>0</span>';
+      counts.appendChild(healthyCount); counts.appendChild(standbyCount); counts.appendChild(criticalCount);
+      card.appendChild(counts);
+      zonesGrid.appendChild(card);
+      zoneCardRefs[z] = {
+        health: healthVal,
+        healthy: healthyCount.querySelector("span:last-child"),
+        standby: standbyCount.querySelector("span:last-child"),
+        critical: criticalCount.querySelector("span:last-child"),
+      };
+    });
+    zonesCard.appendChild(zonesGrid);
+    top.appendChild(zonesCard);
+    this.zoneCardRefs = zoneCardRefs;
+
+    this.root.appendChild(top);
+
+    // main: map + critical rail
+    var main = el("div", "sm-main");
+    var map = el("div", "sm-map");
+    var zoneCols = {};
+    ZONE_ORDER.forEach(function (z) {
+      var col = el("div", "sm-zone-col");
+      col.appendChild(el("div", "sm-zone-col-title", { text: "Zona " + z }));
+      var levels = {};
+      LEVEL_ORDER.forEach(function (lvl) {
+        var levelWrap = el("div", "sm-level");
+        levelWrap.appendChild(el("div", "sm-level-title", { text: LEVEL_LABEL[lvl] }));
+        var grid = el("div", "sm-level-grid");
+        levelWrap.appendChild(grid);
+        col.appendChild(levelWrap);
+        levels[lvl] = grid;
+      });
+      map.appendChild(col);
+      zoneCols[z] = levels;
+    });
+    main.appendChild(map);
+    this.zoneCols = zoneCols;
+
+    var critical = el("div", "sm-critical");
+    var critHead = el("div", "sm-critical-head");
+    critHead.appendChild(el("span", "sm-swatch"));
+    critHead.appendChild(el("h2", null, { text: "Mesas críticas" }));
+    critical.appendChild(critHead);
+    var critList = el("div", "sm-critical-list");
+    critical.appendChild(critList);
+    main.appendChild(critical);
+    this.criticalList = critList;
+
+    this.root.appendChild(main);
+
+    // side panel + overlay
+    var overlay = el("div", "sm-overlay");
+    var panel = el("div", "sm-panel");
+    panel.innerHTML =
+      '<div class="sm-panel-head"><h3></h3><button class="sm-panel-close" type="button" aria-label="Fechar">×</button></div>' +
+      '<div class="sm-panel-body"></div>';
+    document.body.appendChild(overlay);
+    document.body.appendChild(panel);
+    this.overlay = overlay;
+    this.panel = panel;
+    this.panelTitle = panel.querySelector("h3");
+    this.panelBody = panel.querySelector(".sm-panel-body");
+
+    var closePanel = function () { self._closePanel(); };
+    panel.querySelector(".sm-panel-close").addEventListener("click", closePanel);
+    overlay.addEventListener("click", closePanel);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") self._closePanel();
+    });
+
+    // per-mesa DOM refs keyed by mesa_id
+    this.mesaCardRefs = {};
+  };
+
+  Instance.prototype._renderAll = function () {
+    this._renderMap();
+    this._renderStats();
+    this._renderCriticalList();
+    this._applyFilters();
+  };
+
+  Instance.prototype._renderMap = function () {
+    var self = this;
+    var grouped = groupMesas(this.mesas);
+    this.mesaCardRefs = {};
+    this.timeNodes = [];
+
+    ZONE_ORDER.forEach(function (z) {
+      LEVEL_ORDER.forEach(function (lvl) {
+        var grid = self.zoneCols[z][lvl];
+        grid.innerHTML = "";
+        var items = (grouped[z] && grouped[z][lvl]) || [];
+        items.forEach(function (mesa) {
+          var cfg = statusConfig(mesa.mesa_status_name);
+          var card = el("button", "sm-mesa " + cfg.cls, { type: "button" });
+          card.dataset.status = cfg.category;
+          card.dataset.statusName = String(mesa.mesa_status_name || "").toLowerCase();
+          card.dataset.mesaId = mesa.mesa_id;
+
+          card.appendChild(el("div", "sm-mesa-tag", { text: mesaDisplayName(mesa.mesa_tag) }));
+          card.appendChild(el("div", "sm-mesa-status", { text: cfg.label }));
+          var timeNode = el("div", "sm-mesa-time", { text: "--:--" });
+          card.appendChild(timeNode);
+
+          card.addEventListener("click", function () { self._openPanel(mesa); });
+
+          grid.appendChild(card);
+          self.mesaCardRefs[mesa.mesa_id] = card;
+          self.timeNodes.push({ node: timeNode, since: mesa.mesa_since });
+        });
+      });
+    });
+  };
+
+  Instance.prototype._renderStats = function () {
+    var stats = computeStats(this.mesas);
+
+    this.statusCounts.healthy.textContent = stats.totals.healthy;
+    this.statusCounts.standby.textContent = stats.totals.standby;
+    this.statusCounts.critical.textContent = stats.totals.critical;
+
+    var circumference = 2 * Math.PI * 32;
+    var offset = circumference * (1 - stats.health / 100);
+    this.healthRingCircle.style.strokeDasharray = circumference.toFixed(1);
+    this.healthRingCircle.style.strokeDashoffset = offset.toFixed(1);
+    this.healthRingCircle.style.stroke = healthColor(stats.health);
+    this.healthPctLabel.textContent = stats.health + "%";
+    this.healthPctLabel.style.color = healthColor(stats.health);
+    this.healthSub.textContent = stats.totals.total + " mesas monitoradas";
+
+    var self = this;
+    ZONE_ORDER.forEach(function (z) {
+      var zs = stats.byZone[z] || { healthy: 0, standby: 0, critical: 0, health: 0 };
+      var ref = self.zoneCardRefs[z];
+      ref.health.textContent = zs.health + "%";
+      ref.health.style.color = healthColor(zs.health);
+      ref.healthy.textContent = zs.healthy;
+      ref.standby.textContent = zs.standby;
+      ref.critical.textContent = zs.critical;
+    });
+  };
+
+  Instance.prototype._renderCriticalList = function () {
+    var self = this;
+    var now = nowSeconds();
+    var critical = this.mesas
+      .filter(function (m) { return statusConfig(m.mesa_status_name).category === "critical"; })
+      .slice()
+      .sort(function (a, b) { return (now - a.mesa_since) < (now - b.mesa_since) ? 1 : -1; });
+
+    this.criticalList.innerHTML = "";
+    if (!critical.length) {
+      this.criticalList.appendChild(el("div", "sm-critical-empty", { text: "Nenhuma mesa crítica no momento." }));
+      return;
+    }
+
+    critical.forEach(function (mesa, idx) {
+      var item = el("button", "sm-critical-item", { type: "button" });
+      item.appendChild(el("span", "sm-ci-rank", { text: pad2(idx + 1) }));
+      var mid = el("div");
+      mid.appendChild(el("div", "sm-ci-tag", { text: mesaDisplayName(mesa.mesa_tag) }));
+      mid.appendChild(el("div", "sm-ci-meta", {
+        text: "Zona " + mesa.mesa_zona + " • " + LEVEL_LABEL[mesa.mesa_label],
+      }));
+      item.appendChild(mid);
+      var timeNode = el("span", "sm-ci-time", { text: "--:--" });
+      item.appendChild(timeNode);
+      item.addEventListener("click", function () { self._openPanel(mesa); });
+      self.criticalList.appendChild(item);
+      self.timeNodes.push({ node: timeNode, since: mesa.mesa_since });
+    });
+  };
+
+  Instance.prototype._applyFilters = function () {
+    var self = this;
+    var filter = this.state.statusFilter;
+    var criticalOnly = this.state.criticalOnly;
+
+    this.mesas.forEach(function (mesa) {
+      var card = self.mesaCardRefs[mesa.mesa_id];
+      if (!card) return;
+      var cfg = statusConfig(mesa.mesa_status_name);
+      var statusName = String(mesa.mesa_status_name || "").toLowerCase();
+
+      var matchesStatus = filter === "all" || statusName === filter;
+      var matchesCritical = !criticalOnly || cfg.category === "critical";
+
+      card.classList.toggle("is-dimmed", !(matchesStatus && matchesCritical));
+    });
+  };
+
+  Instance.prototype._openPanel = function (mesa) {
+    var cfg = statusConfig(mesa.mesa_status_name);
+    this.state.selectedId = mesa.mesa_id;
+    this.panelTitle.textContent = mesaDisplayName(mesa.mesa_tag);
+
+    var colorVar = cfg.category === "healthy" ? "var(--sm-green)" : cfg.category === "standby" ? "var(--sm-cyan)" : "var(--sm-red)";
+
+    var body = this.panelBody;
+    body.innerHTML = "";
+
+    var addRow = function (key, valueNode) {
+      var row = el("div", "sm-panel-row");
+      row.appendChild(el("span", "sm-panel-key", { text: key }));
+      if (typeof valueNode === "string") {
+        row.appendChild(el("span", "sm-panel-val", { text: valueNode }));
+      } else {
+        row.appendChild(valueNode);
+      }
+      body.appendChild(row);
+    };
+
+    addRow("Zona", mesa.mesa_zona);
+    addRow("Nível", LEVEL_LABEL[mesa.mesa_label] || mesa.mesa_label);
+
+    var pill = el("span", "sm-panel-status-pill");
+    pill.style.background = colorVar.replace("var(", "color-mix(in srgb, var(").replace(")", "), transparent 82%)");
+    pill.style.color = colorVar;
+    var dot = el("i"); dot.style.background = colorVar;
+    pill.appendChild(dot);
+    pill.appendChild(document.createTextNode(cfg.label));
+    addRow("Status", pill);
+
+    var timeBlock = el("div", "sm-panel-timeblock");
+    timeBlock.appendChild(el("div", "sm-tb-label", { text: "Tempo no status" }));
+    var tbValue = el("div", "sm-tb-value", { text: "--:--" });
+    tbValue.style.color = colorVar;
+    timeBlock.appendChild(tbValue);
+    body.appendChild(timeBlock);
+    this.timeNodes.push({ node: tbValue, since: mesa.mesa_since, panelOnly: true });
+
+    var sinceRow = el("div", "sm-panel-since");
+    sinceRow.appendChild(el("span", "sm-panel-key", { text: "Desde" }));
+    sinceRow.appendChild(document.createTextNode(formatDateTime(mesa.mesa_since)));
+    body.appendChild(sinceRow);
+
+    this.overlay.classList.add("is-open");
+    this.panel.classList.add("is-open");
+  };
+
+  Instance.prototype._closePanel = function () {
+    this.overlay.classList.remove("is-open");
+    this.panel.classList.remove("is-open");
+    // drop panel-only time node(s) so the ticker doesn't keep updating a hidden node
+    this.timeNodes = this.timeNodes.filter(function (t) { return !t.panelOnly; });
+  };
+
+  Instance.prototype._tick = function () {
+    var now = nowSeconds();
+    this.timeNodes.forEach(function (t) {
+      t.node.textContent = formatElapsed(now - t.since);
+    });
+  };
+
+  Instance.prototype._startClock = function () {
+    var self = this;
+    this._tick();
+    this.timer = setInterval(function () { self._tick(); }, 1000);
+  };
+
+  /** Replace the dataset with fresh data (e.g. from an API poll) and re-render. */
+  Instance.prototype.update = function (mesas) {
+    this.mesas = mesas.slice();
+    this._closePanel();
+    this._renderAll();
+  };
+
+  Instance.prototype.destroy = function () {
+    if (this.timer) clearInterval(this.timer);
+    if (this.overlay && this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
+    if (this.panel && this.panel.parentNode) this.panel.parentNode.removeChild(this.panel);
+    this.root.innerHTML = "";
+    this.root.classList.remove("sorter-monitor");
+  };
+
+  var SorterMonitor = {
+    mount: function (root, mesas) {
+      return new Instance(root, mesas || []);
+    },
+  };
+
+  global.SorterMonitor = SorterMonitor;
+})(window);
+
+(function (global) {
+  "use strict";
+
+  var LEVEL_ORDER = ["Nível 1", "Nível 2", "Nível 3"];
+
+  var BANDS = [
+    { key: "atencao", label: "Atenção", range: "< 20 min", emoji: "🟢" },
+    { key: "alerta", label: "Alerta", range: "20 min – <30 min", emoji: "🟡" },
+    { key: "critico", label: "Crítico", range: "30 min – 60 min", emoji: "🟠" },
+    { key: "muito-critico", label: "Muito crítico", range: "> 1h", emoji: "🔴" },
+  ];
+
+  // Criticality is derived purely from elapsed time, never from
+  // carrinho_status_color (that field only reflects the original status color).
+  function classifyCriticality(minutes) {
+    if (minutes < 20) return BANDS[0];
+    if (minutes < 30) return BANDS[1];
+    if (minutes <= 60) return BANDS[2];
+    return BANDS[3];
+  }
+
+  function el(tag, className, attrs) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        if (k === "text") node.textContent = attrs[k];
+        else node.setAttribute(k, attrs[k]);
+      });
+    }
+    return node;
+  }
+
+  function pad2(n) { return n < 10 ? "0" + n : "" + n; }
+
+  // Section 2/13: <60min -> MM:SS live ticker; >=60min -> "Xh Ymin".
+  function formatElapsed(seconds) {
+    if (seconds < 0) seconds = 0;
+    var totalMin = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    if (totalMin < 60) return pad2(totalMin) + ":" + pad2(s);
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    return h + "h " + pad2(m) + "min";
+  }
+
+  // Compact "01h32min" form used in the summary strip and ranking header.
+  function formatElapsedCompact(seconds) {
+    if (seconds < 0) seconds = 0;
+    var totalMin = Math.floor(seconds / 60);
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    return pad2(h) + "h" + pad2(m);
+  }
+
+  function formatDateTime(ts) {
+    var d = new Date(ts * 1000);
+    var dd = pad2(d.getDate());
+    var mm = pad2(d.getMonth() + 1);
+    var yyyy = d.getFullYear();
+    var hh = pad2(d.getHours());
+    var mi = pad2(d.getMinutes());
+    return dd + "/" + mm + "/" + yyyy + " " + hh + ":" + mi;
+  }
+
+  function nowSeconds() { return Math.floor(Date.now() / 1000); }
+
+  function processRecords(records) {
+    var resumoByLevel = {};
+    var disabled = [];
+    records.forEach(function (r) {
+      if (r.carrinho_tipo === "resumo") {
+        resumoByLevel[r.carrinho_label] = { total: r.carrinho_total, counts: r.carrinho_counts || {} };
+      } else if (r.carrinho_tipo === "disabled") {
+        disabled.push(r);
+      }
+    });
+    return { resumoByLevel: resumoByLevel, disabled: disabled };
+  }
+
+  function Instance(root, records) {
+    this.root = root;
+    this.records = records.slice();
+    this.state = { selected: null };
+    this.timer = null;
+    this._build();
+    this._renderStatic();
+    this._startClock();
+  }
+
+  Instance.prototype._build = function () {
+    this.root.classList.add("carrinhos-disabled");
+    this.root.innerHTML = "";
+
+    // header / resumo geral
+    var header = el("div", "cd-header");
+    header.appendChild(el("h1", null, { text: "Carrinhos Desabilitados" }));
+    header.appendChild(el("div", "cd-subtitle", { text: "Monitoramento operacional por tempo parado" }));
+
+    var summaryRow = el("div", "cd-summary-row");
+    var totalStat = this._buildStat("var(--cd-red)", "0", "Desabilitados");
+    var avgStat = this._buildStat("var(--cd-text-dim)", "--:--", "Tempo médio");
+    var maxStat = this._buildStat("var(--cd-red)", "--:--", "Mais antigo");
+    summaryRow.appendChild(totalStat.node);
+    summaryRow.appendChild(avgStat.node);
+    summaryRow.appendChild(maxStat.node);
+    header.appendChild(summaryRow);
+    this.root.appendChild(header);
+
+    this.totalValueEl = totalStat.value;
+    this.avgValueEl = avgStat.value;
+    this.maxValueEl = maxStat.value;
+
+    // level cards
+    var levelsSection = el("div", "cd-section");
+    levelsSection.appendChild(el("div", "cd-section-title", { text: "Desabilitados por nível" }));
+    var levelsGrid = el("div", "cd-levels-grid");
+    var levelRefs = {};
+    var self = this;
+    LEVEL_ORDER.forEach(function (level) {
+      var card = el("div", "cd-level-card");
+      card.appendChild(el("div", "cd-level-name", { text: level.toUpperCase() }));
+      var countRow = el("div", "cd-level-count-row");
+      var countEl = el("span", "cd-level-count", { text: "0" });
+      countRow.appendChild(countEl);
+      countRow.appendChild(el("span", "cd-level-count-label", { text: "desabilitados" }));
+      card.appendChild(countRow);
+      var maxEl = el("div", "cd-level-max");
+      maxEl.innerHTML = "Maior: <b>00h 00min</b>";
+      card.appendChild(maxEl);
+      var avgEl = el("div", "cd-level-avg");
+      avgEl.innerHTML = "Média: <b>00h 00min</b>";
+      card.appendChild(avgEl);
+      var resumoEl = el("div", "cd-level-resumo");
+      card.appendChild(resumoEl);
+      levelsGrid.appendChild(card);
+      levelRefs[level] = { count: countEl, max: maxEl.querySelector("b"), avg: avgEl.querySelector("b"), resumo: resumoEl };
+    });
+    levelsSection.appendChild(levelsGrid);
+    this.root.appendChild(levelsSection);
+    this.levelRefs = levelRefs;
+
+    // criticality bands
+    var bandsSection = el("div", "cd-section");
+    bandsSection.appendChild(el("div", "cd-section-title", { text: "Tempo desabilitado" }));
+    var bandsGrid = el("div", "cd-bands-grid");
+    var bandRefs = {};
+    BANDS.forEach(function (band) {
+      var card = el("div", "cd-band-card band-" + band.key);
+      card.appendChild(el("div", "cd-band-title", { text: band.emoji + " " + band.label }));
+      card.appendChild(el("div", "cd-band-range", { text: band.range }));
+      var countEl = el("div", "cd-band-count", { text: "0" });
+      card.appendChild(countEl);
+      card.appendChild(el("div", "cd-band-count-label", { text: "carrinhos" }));
+      bandsGrid.appendChild(card);
+      bandRefs[band.key] = countEl;
+    });
+    bandsSection.appendChild(bandsGrid);
+    this.root.appendChild(bandsSection);
+    this.bandRefs = bandRefs;
+
+    // priority ranking
+    var rankSection = el("div", "cd-section");
+    rankSection.appendChild(el("div", "cd-section-title", { text: "🔴 Ranking de prioridade" }));
+    var rankList = el("div", "cd-ranking-list");
+    rankSection.appendChild(rankList);
+    this.root.appendChild(rankSection);
+    this.rankList = rankList;
+
+    // detail panel
+    var overlay = el("div", "cd-overlay");
+    var panel = el("div", "cd-panel");
+    panel.innerHTML =
+      '<div class="cd-panel-head"><h3></h3><button class="cd-panel-close" type="button" aria-label="Fechar">×</button></div>' +
+      '<div class="cd-panel-body"></div>';
+    document.body.appendChild(overlay);
+    document.body.appendChild(panel);
+    this.overlay = overlay;
+    this.panel = panel;
+    this.panelTitle = panel.querySelector("h3");
+    this.panelBody = panel.querySelector(".cd-panel-body");
+
+    var closePanel = function () { self._closePanel(); };
+    panel.querySelector(".cd-panel-close").addEventListener("click", closePanel);
+    overlay.addEventListener("click", closePanel);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") self._closePanel();
+    });
+
+    this.rankItemRefs = {};
+  };
+
+  Instance.prototype._buildStat = function (color, value, label) {
+    var node = el("div", "cd-summary-stat");
+    var dot = el("span", "cd-stat-dot");
+    dot.style.background = color;
+    var textWrap = el("div");
+    var valueEl = el("div", "cd-stat-value", { text: value });
+    valueEl.style.color = color;
+    textWrap.appendChild(valueEl);
+    textWrap.appendChild(el("div", "cd-stat-label", { text: label }));
+    node.appendChild(dot);
+    node.appendChild(textWrap);
+    return { node: node, value: valueEl };
+  };
+
+  Instance.prototype._renderStatic = function () {
+    var data = processRecords(this.records);
+    this.resumoByLevel = data.resumoByLevel;
+    this.disabled = data.disabled;
+    this._renderLevelResumo();
+    this._renderRanking();
+  };
+
+  Instance.prototype._renderLevelResumo = function () {
+    var self = this;
+    LEVEL_ORDER.forEach(function (level) {
+      var resumo = self.resumoByLevel[level];
+      var ref = self.levelRefs[level];
+      ref.resumo.innerHTML = "";
+      if (!resumo) return;
+      var totalLine = el("div", "cd-resumo-total");
+      totalLine.innerHTML = "Total: <b>" + resumo.total + "</b> carrinhos";
+      ref.resumo.appendChild(totalLine);
+      var list = el("div", "cd-level-resumo-list");
+      Object.keys(resumo.counts).forEach(function (statusName) {
+        var item = el("span");
+        item.innerHTML = statusName + " <b>" + resumo.counts[statusName] + "</b>";
+        list.appendChild(item);
+      });
+      ref.resumo.appendChild(list);
+    });
+  };
+
+  Instance.prototype._renderRanking = function () {
+    var self = this;
+    this.rankList.innerHTML = "";
+    this.rankItemRefs = {};
+
+    if (!this.disabled.length) {
+      this.rankList.appendChild(el("div", "cd-ranking-empty", { text: "Nenhum carrinho desabilitado no momento." }));
+      return;
+    }
+
+    // Sort by longest stopped time first (smallest carrinho_since = oldest),
+    // tie-broken by carrinho_numero for a stable order.
+    var sorted = this.disabled.slice().sort(function (a, b) {
+      if (a.carrinho_since !== b.carrinho_since) return a.carrinho_since - b.carrinho_since;
+      return a.carrinho_numero - b.carrinho_numero;
+    });
+
+    sorted.forEach(function (cart, idx) {
+      var item = el("button", "cd-rank-item", { type: "button" });
+      item.appendChild(el("span", "cd-rank-pos", { text: "#" + (idx + 1) }));
+
+      var mid = el("div");
+      mid.appendChild(el("div", "cd-rank-id", { text: "Carrinho " + cart.carrinho_numero }));
+      mid.appendChild(el("div", "cd-rank-level", { text: cart.carrinho_label }));
+      item.appendChild(mid);
+
+      var timeEl = el("span", "cd-rank-time", { text: "--:--" });
+      item.appendChild(timeEl);
+
+      var badgeEl = el("span", "cd-rank-badge");
+      item.appendChild(badgeEl);
+
+      item.addEventListener("click", function () { self._openPanel(cart); });
+      self.rankList.appendChild(item);
+      self.rankItemRefs[cart.carrinho_id] = { root: item, time: timeEl, badge: badgeEl, since: cart.carrinho_since };
+    });
+  };
+
+  Instance.prototype._openPanel = function (cart) {
+    var self = this;
+    this.state.selected = cart.carrinho_id;
+    this.panelTitle.textContent = "Carrinho " + cart.carrinho_numero;
+
+    var body = this.panelBody;
+    body.innerHTML = "";
+
+    var addRow = function (key, valueNode) {
+      var row = el("div", "cd-panel-row");
+      row.appendChild(el("span", "cd-panel-key", { text: key }));
+      if (typeof valueNode === "string") row.appendChild(el("span", "cd-panel-val", { text: valueNode }));
+      else row.appendChild(valueNode);
+      body.appendChild(row);
+    };
+
+    addRow("Nível", cart.carrinho_label);
+    addRow("Status", cart.carrinho_status_name);
+
+    var critEl = el("span", "cd-panel-badge");
+    body.appendChild((function () {
+      var row = el("div", "cd-panel-row");
+      row.appendChild(el("span", "cd-panel-key", { text: "Criticidade" }));
+      row.appendChild(critEl);
+      return row;
+    })());
+
+    var timeBlock = el("div", "cd-panel-timeblock");
+    timeBlock.appendChild(el("div", "cd-tb-label", { text: "Tempo desabilitado" }));
+    var tbValue = el("div", "cd-tb-value", { text: "--:--" });
+    timeBlock.appendChild(tbValue);
+    body.appendChild(timeBlock);
+
+    var sinceRow = el("div", "cd-panel-since");
+    sinceRow.appendChild(el("span", "cd-panel-key", { text: "Início" }));
+    sinceRow.appendChild(document.createTextNode(formatDateTime(cart.carrinho_since)));
+    body.appendChild(sinceRow);
+
+    this._panelRefs = { time: tbValue, badge: critEl, since: cart.carrinho_since };
+    this._tickPanel();
+
+    this.overlay.classList.add("is-open");
+    this.panel.classList.add("is-open");
+  };
+
+  Instance.prototype._closePanel = function () {
+    this.overlay.classList.remove("is-open");
+    this.panel.classList.remove("is-open");
+    this._panelRefs = null;
+  };
+
+  Instance.prototype._tickPanel = function () {
+    if (!this._panelRefs) return;
+    var now = nowSeconds();
+    var elapsed = now - this._panelRefs.since;
+    var band = classifyCriticality(elapsed / 60);
+    this._panelRefs.time.textContent = formatElapsed(elapsed);
+    this._panelRefs.time.style.color = "var(--cd-" + this._bandColorVar(band.key) + ")";
+    this._panelRefs.badge.textContent = band.emoji + " " + band.label;
+    this._panelRefs.badge.style.background = "var(--cd-" + this._bandColorVar(band.key) + "-dim)";
+    this._panelRefs.badge.style.color = "var(--cd-" + this._bandColorVar(band.key) + ")";
+  };
+
+  Instance.prototype._bandColorVar = function (key) {
+    return { atencao: "green", alerta: "yellow", critico: "orange", "muito-critico": "red" }[key];
+  };
+
+  Instance.prototype._tick = function () {
+    var self = this;
+    var now = nowSeconds();
+
+    var elapsedList = this.disabled.map(function (cart) { return now - cart.carrinho_since; });
+    var total = elapsedList.length;
+    var sum = elapsedList.reduce(function (a, b) { return a + b; }, 0);
+    var avg = total ? Math.round(sum / total) : 0;
+    var max = total ? Math.max.apply(null, elapsedList) : 0;
+
+    this.totalValueEl.textContent = total;
+    this.avgValueEl.textContent = total ? formatElapsed(avg) : "--:--";
+    this.maxValueEl.textContent = total ? formatElapsedCompact(max) : "--:--";
+
+    var bandCounts = { atencao: 0, alerta: 0, critico: 0, "muito-critico": 0 };
+    var levelCounts = {}, levelMax = {}, levelSum = {};
+    LEVEL_ORDER.forEach(function (l) { levelCounts[l] = 0; levelMax[l] = 0; levelSum[l] = 0; });
+
+    this.disabled.forEach(function (cart) {
+      var elapsed = now - cart.carrinho_since;
+      var band = classifyCriticality(elapsed / 60);
+      bandCounts[band.key]++;
+
+      if (levelCounts[cart.carrinho_label] === undefined) { levelCounts[cart.carrinho_label] = 0; levelMax[cart.carrinho_label] = 0; levelSum[cart.carrinho_label] = 0; }
+      levelCounts[cart.carrinho_label]++;
+      levelSum[cart.carrinho_label] += elapsed;
+      if (elapsed > levelMax[cart.carrinho_label]) levelMax[cart.carrinho_label] = elapsed;
+
+      var ref = self.rankItemRefs[cart.carrinho_id];
+      if (ref) {
+        ref.time.textContent = formatElapsed(elapsed);
+        ref.badge.textContent = band.emoji + " " + band.label;
+        ref.root.className = "cd-rank-item crit-" + band.key;
+      }
+    });
+
+    Object.keys(bandCounts).forEach(function (key) {
+      if (self.bandRefs[key]) self.bandRefs[key].textContent = bandCounts[key];
+    });
+
+    LEVEL_ORDER.forEach(function (level) {
+      var ref = self.levelRefs[level];
+      var count = levelCounts[level] || 0;
+      ref.count.textContent = count;
+      ref.max.textContent = formatElapsed(levelMax[level] || 0);
+      ref.avg.textContent = formatElapsed(count ? Math.round(levelSum[level] / count) : 0);
+    });
+
+    this._tickPanel();
+  };
+
+  Instance.prototype._startClock = function () {
+    var self = this;
+    this._tick();
+    this.timer = setInterval(function () { self._tick(); }, 1000);
+  };
+
+  /** Replace the dataset with fresh data (e.g. from an API poll) and re-render. */
+  Instance.prototype.update = function (records) {
+    this.records = records.slice();
+    this._closePanel();
+    this._renderStatic();
+    this._tick();
+  };
+
+  Instance.prototype.destroy = function () {
+    if (this.timer) clearInterval(this.timer);
+    if (this.overlay && this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
+    if (this.panel && this.panel.parentNode) this.panel.parentNode.removeChild(this.panel);
+    this.root.innerHTML = "";
+    this.root.classList.remove("carrinhos-disabled");
+  };
+
+  var CarrinhosDisabled = {
+    mount: function (root, records) {
+      return new Instance(root, records || []);
+    },
+    classifyCriticality: classifyCriticality,
+  };
+
+  global.CarrinhosDisabled = CarrinhosDisabled;
+})(window);
+
+(function (global) {
+  "use strict";
+
+  var PROBLEM_STATUS = "100% Chute Full";
+
+  // Physical numbering order (1-255 = C, 256-510 = A, 511-759 = B) drives the
+  // tile grid; card/ranking sections follow the A/B/C order used throughout
+  // the rest of the system for consistency.
+  var GRID_ZONE_ORDER = ["C", "A", "B"];
+  var CARD_ZONE_ORDER = ["A", "B", "C"];
+
+  var BANDS = [
+    { key: "atencao", label: "Atenção", range: "< 20 min", emoji: "🟢" },
+    { key: "alerta", label: "Alerta", range: "20 min – <30 min", emoji: "🟡" },
+    { key: "critico", label: "Crítico", range: "30 min – 60 min", emoji: "🟠" },
+    { key: "muito-critico", label: "Muito crítico", range: "> 1h", emoji: "🔴" },
+  ];
+
+  // Adjustable weights for the zone priority score (section 11). Each
+  // component is normalized against the max among the three zones, so the
+  // weights alone determine relative influence — tune freely, they don't
+  // need to sum to 1.
+  var PRIORITY_WEIGHTS = {
+    quantidade: 0.4,   // how many problematic chutes in the zone
+    concentracao: 0.35, // problematic chutes as a % of the zone's own total
+    tempo: 0.25,        // longest elapsed time among the zone's problematic chutes
+  };
+
+  var ZONE_FILTER_OPTIONS = [
+    { value: "all", label: "Todas as zonas" },
+    { value: "A", label: "Zona A" },
+    { value: "B", label: "Zona B" },
+    { value: "C", label: "Zona C" },
+    { value: "none", label: "Zona não informada" },
+  ];
+
+  var CRIT_FILTER_OPTIONS = [
+    { value: "all", label: "Todas as criticidades" },
+    { value: "atencao", label: "Atenção" },
+    { value: "alerta", label: "Alerta" },
+    { value: "critico", label: "Crítico" },
+    { value: "muito-critico", label: "Muito crítico" },
+  ];
+
+  var RANKING_INITIAL_COUNT = 5;
+
+  // Criticality is derived purely from elapsed time in the problem status,
+  // never from status_color. Only applies to status_name === "100% Chute Full".
+  function classifyCriticality(minutes) {
+    if (minutes < 20) return BANDS[0];
+    if (minutes < 30) return BANDS[1];
+    if (minutes <= 60) return BANDS[2];
+    return BANDS[3];
+  }
+
+  function el(tag, className, attrs) {
+    var node = document.createElement(tag);
+    if (className) node.className = className;
+    if (attrs) {
+      Object.keys(attrs).forEach(function (k) {
+        if (k === "text") node.textContent = attrs[k];
+        else node.setAttribute(k, attrs[k]);
+      });
+    }
+    return node;
+  }
+
+  function pad2(n) { return n < 10 ? "0" + n : "" + n; }
+
+  // <60min -> "MM min"; >=60min -> "Xh Ymin" (spec section 5/7).
+  function formatElapsed(seconds) {
+    if (seconds < 0) seconds = 0;
+    var totalMin = Math.floor(seconds / 60);
+    if (totalMin < 60) return totalMin + " min";
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    return h + "h " + pad2(m) + "min";
+  }
+
+  // Live ticker form used on the ranking rows: "MM:SS" under an hour,
+  // "Xh MMmin" beyond it — matches the "29min 58s -> 30min 00s" example.
+  function formatElapsedLive(seconds) {
+    if (seconds < 0) seconds = 0;
+    var totalMin = Math.floor(seconds / 60);
+    var s = seconds % 60;
+    if (totalMin < 60) return totalMin + "min " + pad2(s) + "s";
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    return h + "h " + pad2(m) + "min";
+  }
+
+  // Compact "01h32" form used in the summary strip.
+  function formatElapsedCompact(seconds) {
+    if (seconds < 0) seconds = 0;
+    var totalMin = Math.floor(seconds / 60);
+    var h = Math.floor(totalMin / 60);
+    var m = totalMin % 60;
+    return pad2(h) + "h" + pad2(m);
+  }
+
+  function nowSeconds() { return Math.floor(Date.now() / 1000); }
+
+  function zoneKey(zona) { return zona === "" ? "none" : zona; }
+  function zoneLabel(zona) { return zona === "" ? "Zona não informada" : "Zona " + zona; }
+
+  function bandColorVar(key) {
+    return { atencao: "green", alerta: "yellow", critico: "orange", "muito-critico": "red" }[key];
+  }
+
+  function processRecords(records) {
+    var total = records.length;
+    var zoneTotals = {};
+    records.forEach(function (r) {
+      var k = zoneKey(r.zona);
+      zoneTotals[k] = (zoneTotals[k] || 0) + 1;
+    });
+    var problematic = records.filter(function (r) { return r.status_name === PROBLEM_STATUS; });
+    return { total: total, zoneTotals: zoneTotals, problematic: problematic };
+  }
+
+  function computeZoneMetrics(records, problematic, now) {
+    var metrics = {};
+    CARD_ZONE_ORDER.forEach(function (z) {
+      var zoneTotal = records.filter(function (r) { return r.zona === z; }).length;
+      var zoneProblems = problematic.filter(function (r) { return r.zona === z; });
+      var elapsedList = zoneProblems.map(function (r) { return now - r.since; });
+      var maxElapsed = elapsedList.length ? Math.max.apply(null, elapsedList) : 0;
+      var avgElapsed = elapsedList.length
+        ? Math.round(elapsedList.reduce(function (a, b) { return a + b; }, 0) / elapsedList.length)
+        : 0;
+      var bandCounts = { atencao: 0, alerta: 0, critico: 0, "muito-critico": 0 };
+      zoneProblems.forEach(function (r) {
+        var band = classifyCriticality((now - r.since) / 60);
+        bandCounts[band.key]++;
+      });
+      metrics[z] = {
+        zoneTotal: zoneTotal,
+        count: zoneProblems.length,
+        percent: zoneTotal ? (zoneProblems.length / zoneTotal) * 100 : 0,
+        maxElapsed: maxElapsed,
+        avgElapsed: avgElapsed,
+        bandCounts: bandCounts,
+      };
+    });
+    return metrics;
+  }
+
+  function computeZonePriority(zoneMetrics) {
+    var maxQty = 0, maxPercent = 0, maxTime = 0;
+    CARD_ZONE_ORDER.forEach(function (z) {
+      var m = zoneMetrics[z];
+      if (m.count > maxQty) maxQty = m.count;
+      if (m.percent > maxPercent) maxPercent = m.percent;
+      if (m.maxElapsed > maxTime) maxTime = m.maxElapsed;
+    });
+
+    var scored = CARD_ZONE_ORDER.map(function (z) {
+      var m = zoneMetrics[z];
+      var score =
+        PRIORITY_WEIGHTS.quantidade * (maxQty ? m.count / maxQty : 0) +
+        PRIORITY_WEIGHTS.concentracao * (maxPercent ? m.percent / maxPercent : 0) +
+        PRIORITY_WEIGHTS.tempo * (maxTime ? m.maxElapsed / maxTime : 0);
+      return { zona: z, score: score, metrics: m };
+    });
+
+    scored.sort(function (a, b) { return b.score - a.score; });
+
+    var tiers = [
+      { key: "alta", label: "Alta prioridade", emoji: "🔴" },
+      { key: "media", label: "Média prioridade", emoji: "🟠" },
+      { key: "baixa", label: "Baixa prioridade", emoji: "🟢" },
+    ];
+    scored.forEach(function (entry, idx) { entry.tier = tiers[idx] || tiers[tiers.length - 1]; });
+    return scored;
+  }
+
+  function Instance(root, records) {
+    this.root = root;
+    this.records = records.slice();
+    this.state = { zoneFilter: "all", critFilter: "all", problemOnly: false, rankingExpanded: false };
+    this.tileRefs = {}; // problematic chutes only, keyed by numero
+    this.rankItemRefs = {};
+    this.timer = null;
+    this._build();
+    this._renderStatic();
+    this._startClock();
+  }
+
+  Instance.prototype._build = function () {
+    var self = this;
+    this.root.classList.add("chutes-monitoring");
+    this.root.innerHTML = "";
+
+    // header + filters
+    var header = el("div", "cm-header");
+    var titleWrap = el("div");
+    titleWrap.appendChild(el("h1", null, { text: "Monitoramento de Chutes" }));
+    titleWrap.appendChild(el("div", "cm-subtitle", { text: "765 chutes • Zonas A, B, C" }));
+    header.appendChild(titleWrap);
+
+    var controls = el("div", "cm-header-controls");
+
+    var zoneSelect = el("select", "cm-select");
+    ZONE_FILTER_OPTIONS.forEach(function (opt) {
+      var o = el("option", null, { text: opt.label });
+      o.value = opt.value;
+      zoneSelect.appendChild(o);
+    });
+    zoneSelect.addEventListener("change", function () {
+      self.state.zoneFilter = zoneSelect.value;
+      self._applyFilters();
+    });
+
+    var critSelect = el("select", "cm-select");
+    CRIT_FILTER_OPTIONS.forEach(function (opt) {
+      var o = el("option", null, { text: opt.label });
+      o.value = opt.value;
+      critSelect.appendChild(o);
+    });
+    critSelect.addEventListener("change", function () {
+      self.state.critFilter = critSelect.value;
+      self._applyFilters();
+    });
+
+    var toggle = el("button", "cm-toggle", { type: "button" });
+    toggle.appendChild(el("span", "cm-dot"));
+    toggle.appendChild(document.createTextNode("Somente fechados"));
+    toggle.addEventListener("click", function () {
+      self.state.problemOnly = !self.state.problemOnly;
+      toggle.classList.toggle("is-active", self.state.problemOnly);
+      self._applyFilters();
+    });
+
+    controls.appendChild(zoneSelect);
+    controls.appendChild(critSelect);
+    controls.appendChild(toggle);
+    header.appendChild(controls);
+    this.root.appendChild(header);
+
+    // resumo geral
+    var summaryRow = el("div", "cm-summary-row");
+    var totalStat = this._buildStat("var(--cm-yellow)", "0", "Fechados");
+    var percentStat = this._buildStat("var(--cm-text-dim)", "0%", "% do sorter");
+    var avgStat = this._buildStat("var(--cm-text-dim)", "--", "Tempo médio fechado");
+    var oldestStat = this._buildStat("var(--cm-red)", "--:--", "Mais antigo");
+    var priorityStat = this._buildStat("var(--cm-red)", "--", "Zona prioritária");
+    summaryRow.appendChild(totalStat.node);
+    summaryRow.appendChild(percentStat.node);
+    summaryRow.appendChild(avgStat.node);
+    summaryRow.appendChild(oldestStat.node);
+    summaryRow.appendChild(priorityStat.node);
+    this.root.appendChild(summaryRow);
+    this.totalValueEl = totalStat.value;
+    this.percentValueEl = percentStat.value;
+    this.avgValueEl = avgStat.value;
+    this.oldestValueEl = oldestStat.value;
+    this.priorityValueEl = priorityStat.value;
+
+    // comparação entre zonas
+    var zonesSection = el("div", "cm-section");
+    zonesSection.appendChild(el("div", "cm-section-title", { text: "Comparação entre zonas" }));
+    var zonesGrid = el("div", "cm-zones-grid");
+    var zoneCardRefs = {};
+    CARD_ZONE_ORDER.forEach(function (z) {
+      var card = el("div", "cm-zone-card");
+      card.appendChild(el("div", "cm-zone-name", { text: "Zona " + z }));
+      var countRow = el("div", "cm-zone-count-row");
+      var countEl = el("span", "cm-zone-count", { text: "0" });
+      countRow.appendChild(countEl);
+      countRow.appendChild(el("span", "cm-zone-count-label", { text: "críticos" }));
+      card.appendChild(countRow);
+      var percentEl = el("div", "cm-zone-percent");
+      percentEl.innerHTML = "<b>0%</b> do total da zona";
+      card.appendChild(percentEl);
+      var maxEl = el("div", "cm-zone-max");
+      maxEl.innerHTML = "Maior tempo: <b>--</b>";
+      card.appendChild(maxEl);
+      var bandsRow = el("div", "cm-zone-bands");
+      var bandSpans = {};
+      BANDS.forEach(function (band) {
+        var span = el("span");
+        span.innerHTML = band.emoji + " <b>0</b>";
+        bandsRow.appendChild(span);
+        bandSpans[band.key] = span.querySelector("b");
+      });
+      card.appendChild(bandsRow);
+      zonesGrid.appendChild(card);
+      zoneCardRefs[z] = {
+        count: countEl,
+        percent: percentEl.querySelector("b"),
+        max: maxEl.querySelector("b"),
+        bands: bandSpans,
+      };
+    });
+    zonesSection.appendChild(zonesGrid);
+    this.root.appendChild(zonesSection);
+    this.zoneCardRefs = zoneCardRefs;
+
+    // faixas de criticidade
+    var bandsSection = el("div", "cm-section");
+    bandsSection.appendChild(el("div", "cm-section-title", { text: "Tempo / criticidade" }));
+    var bandsGrid = el("div", "cm-bands-grid");
+    var bandRefs = {};
+    BANDS.forEach(function (band) {
+      var card = el("div", "cm-band-card band-" + band.key);
+      card.appendChild(el("div", "cm-band-title", { text: band.emoji + " " + band.label }));
+      card.appendChild(el("div", "cm-band-range", { text: band.range }));
+      var countEl = el("div", "cm-band-count", { text: "0" });
+      card.appendChild(countEl);
+      card.appendChild(el("div", "cm-band-count-label", { text: "chutes" }));
+      bandsGrid.appendChild(card);
+      bandRefs[band.key] = countEl;
+    });
+    bandsSection.appendChild(bandsGrid);
+    this.root.appendChild(bandsSection);
+    this.bandRefs = bandRefs;
+
+    // prioridade de atuação por zona
+    var prioritySection = el("div", "cm-section");
+    prioritySection.appendChild(el("div", "cm-section-title", { text: "🔴 Prioridade de atuação por zona" }));
+    var priorityList = el("div", "cm-priority-list");
+    prioritySection.appendChild(priorityList);
+    this.root.appendChild(prioritySection);
+    this.priorityList = priorityList;
+
+    // chutes mais críticos
+    var rankSection = el("div", "cm-section");
+    rankSection.appendChild(el("div", "cm-section-title", { text: "🔴 Chutes que precisam de atenção" }));
+    var rankList = el("div", "cm-ranking-list");
+    rankSection.appendChild(rankList);
+    var moreBtn = el("button", "cm-rank-more", { type: "button", text: "Ver mais" });
+    moreBtn.addEventListener("click", function () {
+      self.state.rankingExpanded = !self.state.rankingExpanded;
+      moreBtn.textContent = self.state.rankingExpanded ? "Ver menos" : "Ver mais";
+      self._applyRankingVisibility();
+    });
+    rankSection.appendChild(moreBtn);
+    this.root.appendChild(rankSection);
+    this.rankList = rankList;
+    this.rankMoreBtn = moreBtn;
+
+    // visão dos 765 chutes
+    var gridSection = el("div", "cm-section");
+    gridSection.appendChild(el("div", "cm-section-title", { text: "Visão dos chutes" }));
+    var gridZoneRefs = {};
+    GRID_ZONE_ORDER.concat(["none"]).forEach(function (zKey) {
+      var wrap = el("div", "cm-grid-zone");
+      wrap.appendChild(el("div", "cm-grid-zone-title", { text: zKey === "none" ? "Zona não informada" : "Zona " + zKey }));
+      var grid = el("div", "cm-tile-grid");
+      wrap.appendChild(grid);
+      gridSection.appendChild(wrap);
+      gridZoneRefs[zKey] = grid;
+    });
+    this.root.appendChild(gridSection);
+    this.gridZoneRefs = gridZoneRefs;
+
+    // detail panel
+    var overlay = el("div", "cm-overlay");
+    var panel = el("div", "cm-panel");
+    panel.innerHTML =
+      '<div class="cm-panel-head"><h3></h3><button class="cm-panel-close" type="button" aria-label="Fechar">×</button></div>' +
+      '<div class="cm-panel-body"></div>';
+    document.body.appendChild(overlay);
+    document.body.appendChild(panel);
+    this.overlay = overlay;
+    this.panel = panel;
+    this.panelTitle = panel.querySelector("h3");
+    this.panelBody = panel.querySelector(".cm-panel-body");
+
+    var closePanel = function () { self._closePanel(); };
+    panel.querySelector(".cm-panel-close").addEventListener("click", closePanel);
+    overlay.addEventListener("click", closePanel);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") self._closePanel();
+    });
+  };
+
+  Instance.prototype._buildStat = function (color, value, label) {
+    var node = el("div", "cm-summary-stat");
+    var dot = el("span", "cm-stat-dot");
+    dot.style.background = color;
+    var textWrap = el("div");
+    var valueEl = el("div", "cm-stat-value", { text: value });
+    valueEl.style.color = color;
+    textWrap.appendChild(valueEl);
+    textWrap.appendChild(el("div", "cm-stat-label", { text: label }));
+    node.appendChild(dot);
+    node.appendChild(textWrap);
+    return { node: node, value: valueEl };
+  };
+
+  Instance.prototype._renderStatic = function () {
+    var data = processRecords(this.records);
+    this.data = data;
+    this._renderGrid();
+    this._renderRanking();
+  };
+
+  Instance.prototype._renderGrid = function () {
+    var self = this;
+    this.tileRefs = {};
+
+    var byZone = { C: [], A: [], B: [], none: [] };
+    this.records.forEach(function (r) { byZone[zoneKey(r.zona)].push(r); });
+
+    GRID_ZONE_ORDER.concat(["none"]).forEach(function (zKey) {
+      var grid = self.gridZoneRefs[zKey];
+      grid.innerHTML = "";
+      var frag = document.createDocumentFragment();
+      byZone[zKey].slice().sort(function (a, b) { return a.numero - b.numero; }).forEach(function (r) {
+        var isProblem = r.status_name === PROBLEM_STATUS;
+        var tile = el("div", "cm-tile tile-normal", { text: String(r.numero) });
+        tile.dataset.numero = r.numero;
+        if (isProblem) {
+          tile.addEventListener("click", function () { self._openPanel(r); });
+          self.tileRefs[r.numero] = { el: tile, record: r };
+        }
+        frag.appendChild(tile);
+      });
+      grid.appendChild(frag);
+    });
+  };
+
+  Instance.prototype._renderRanking = function () {
+    var self = this;
+    this.rankList.innerHTML = "";
+    this.rankItemRefs = {};
+
+    var sorted = this.data.problematic.slice().sort(function (a, b) {
+      if (a.since !== b.since) return a.since - b.since;
+      return a.numero - b.numero;
+    });
+
+    if (!sorted.length) {
+      this.rankList.appendChild(el("div", "cm-ranking-empty", { text: "Nenhum chute fechado no momento." }));
+      this.rankMoreBtn.style.display = "none";
+      return;
+    }
+
+    this.rankMoreBtn.style.display = sorted.length > RANKING_INITIAL_COUNT ? "" : "none";
+
+    sorted.forEach(function (chute, idx) {
+      var item = el("button", "cm-rank-item", { type: "button" });
+      item.appendChild(el("span", "cm-rank-pos", { text: "#" + (idx + 1) }));
+
+      var mid = el("div");
+      mid.appendChild(el("div", "cm-rank-id", { text: "Chute " + chute.numero }));
+      mid.appendChild(el("div", "cm-rank-zone", { text: zoneLabel(chute.zona) }));
+      item.appendChild(mid);
+
+      var timeEl = el("span", "cm-rank-time", { text: "--" });
+      item.appendChild(timeEl);
+      var badgeEl = el("span", "cm-rank-badge");
+      item.appendChild(badgeEl);
+
+      item.addEventListener("click", function () { self._openPanel(chute); });
+      self.rankList.appendChild(item);
+      self.rankItemRefs[chute.numero] = { root: item, time: timeEl, badge: badgeEl, record: chute, rankIndex: idx };
+    });
+
+    this._applyRankingVisibility();
+  };
+
+  Instance.prototype._applyRankingVisibility = function () {
+    var self = this;
+    var expanded = this.state.rankingExpanded;
+    Object.keys(this.rankItemRefs).forEach(function (numero) {
+      var ref = self.rankItemRefs[numero];
+      var withinInitial = ref.rankIndex < RANKING_INITIAL_COUNT;
+      ref.root.hidden = !(expanded || withinInitial) || !self._matchesFilters(ref.record);
+    });
+  };
+
+  Instance.prototype._matchesFilters = function (record) {
+    var isProblem = record.status_name === PROBLEM_STATUS;
+    var zk = zoneKey(record.zona);
+    var matchesZone = this.state.zoneFilter === "all" || zk === this.state.zoneFilter;
+    var matchesProblemOnly = !this.state.problemOnly || isProblem;
+
+    var matchesCrit = true;
+    if (this.state.critFilter !== "all") {
+      if (!isProblem) matchesCrit = false;
+      else {
+        var band = classifyCriticality((nowSeconds() - record.since) / 60);
+        matchesCrit = band.key === this.state.critFilter;
+      }
+    }
+    return matchesZone && matchesProblemOnly && matchesCrit;
+  };
+
+  Instance.prototype._applyFilters = function () {
+    var self = this;
+    Object.keys(this.tileRefs).forEach(function (numero) {
+      var ref = self.tileRefs[numero];
+      ref.el.classList.toggle("is-dimmed", !self._matchesFilters(ref.record));
+    });
+    // Non-problematic tiles are only affected by the zone filter (they never
+    // match a criticidade filter or the "somente problemáticos" toggle).
+    Object.keys(this.gridZoneRefs).forEach(function (zKey) {
+      var grid = self.gridZoneRefs[zKey];
+      Array.prototype.forEach.call(grid.children, function (tile) {
+        if (self.tileRefs[tile.dataset.numero]) return; // handled above
+        var matchesZone = self.state.zoneFilter === "all" || zKey === self.state.zoneFilter;
+        var hideForOtherFilters = self.state.problemOnly || self.state.critFilter !== "all";
+        tile.classList.toggle("is-dimmed", !matchesZone || hideForOtherFilters);
+      });
+    });
+    this._applyRankingVisibility();
+  };
+
+  Instance.prototype._openPanel = function (chute) {
+    this.panelTitle.textContent = "Chute " + chute.numero;
+    var body = this.panelBody;
+    body.innerHTML = "";
+
+    var addRow = function (key, valueNode) {
+      var row = el("div", "cm-panel-row");
+      row.appendChild(el("span", "cm-panel-key", { text: key }));
+      if (typeof valueNode === "string") row.appendChild(el("span", "cm-panel-val", { text: valueNode }));
+      else row.appendChild(valueNode);
+      body.appendChild(row);
+    };
+
+    addRow("Zona", zoneLabel(chute.zona).replace("Zona ", ""));
+    addRow("Status", chute.status_name);
+
+    var critEl = el("span", "cm-panel-badge");
+    body.appendChild((function () {
+      var row = el("div", "cm-panel-row");
+      row.appendChild(el("span", "cm-panel-key", { text: "Criticidade" }));
+      row.appendChild(critEl);
+      return row;
+    })());
+
+    var timeBlock = el("div", "cm-panel-timeblock");
+    timeBlock.appendChild(el("div", "cm-tb-label", { text: "Tempo no status" }));
+    var tbValue = el("div", "cm-tb-value", { text: "--" });
+    timeBlock.appendChild(tbValue);
+    body.appendChild(timeBlock);
+
+    addRow("Número", String(chute.numero));
+    addRow("Layer", String(chute.layer));
+
+    this._panelRefs = { time: tbValue, badge: critEl, since: chute.since };
+    this._tickPanel();
+
+    this.overlay.classList.add("is-open");
+    this.panel.classList.add("is-open");
+  };
+
+  Instance.prototype._closePanel = function () {
+    this.overlay.classList.remove("is-open");
+    this.panel.classList.remove("is-open");
+    this._panelRefs = null;
+  };
+
+  Instance.prototype._tickPanel = function () {
+    if (!this._panelRefs) return;
+    var now = nowSeconds();
+    var elapsed = now - this._panelRefs.since;
+    var band = classifyCriticality(elapsed / 60);
+    var colorVar = bandColorVar(band.key);
+    this._panelRefs.time.textContent = formatElapsed(elapsed);
+    this._panelRefs.time.style.color = "var(--cm-" + colorVar + ")";
+    this._panelRefs.badge.textContent = band.emoji + " " + band.label;
+    this._panelRefs.badge.style.background = "var(--cm-" + colorVar + "-dim)";
+    this._panelRefs.badge.style.color = "var(--cm-" + colorVar + ")";
+  };
+
+  Instance.prototype._tick = function () {
+    var self = this;
+    var now = nowSeconds();
+    var problematic = this.data.problematic;
+
+    // resumo geral
+    var total = problematic.length;
+    var elapsedList = problematic.map(function (r) { return now - r.since; });
+    var maxElapsed = elapsedList.length ? Math.max.apply(null, elapsedList) : 0;
+    var avgElapsed = elapsedList.length
+      ? Math.round(elapsedList.reduce(function (a, b) { return a + b; }, 0) / elapsedList.length)
+      : 0;
+    this.totalValueEl.textContent = total;
+    this.percentValueEl.textContent = (this.data.total ? (total / this.data.total) * 100 : 0).toFixed(1).replace(".0", "") + "%";
+    this.avgValueEl.textContent = total ? formatElapsed(avgElapsed) : "--";
+    this.oldestValueEl.textContent = total ? formatElapsedCompact(maxElapsed) : "--:--";
+
+    // faixas de criticidade (global)
+    var bandCounts = { atencao: 0, alerta: 0, critico: 0, "muito-critico": 0 };
+    problematic.forEach(function (r) {
+      var band = classifyCriticality((now - r.since) / 60);
+      bandCounts[band.key]++;
+    });
+    Object.keys(bandCounts).forEach(function (key) {
+      if (self.bandRefs[key]) self.bandRefs[key].textContent = bandCounts[key];
+    });
+
+    // zonas
+    var zoneMetrics = computeZoneMetrics(this.records, problematic, now);
+    CARD_ZONE_ORDER.forEach(function (z) {
+      var m = zoneMetrics[z];
+      var ref = self.zoneCardRefs[z];
+      ref.count.textContent = m.count;
+      ref.percent.textContent = m.percent.toFixed(1).replace(".0", "") + "%";
+      ref.max.textContent = m.count ? formatElapsed(m.maxElapsed) : "--";
+      Object.keys(m.bandCounts).forEach(function (key) {
+        if (ref.bands[key]) ref.bands[key].textContent = m.bandCounts[key];
+      });
+    });
+
+    // zona prioritária (resumo geral)
+    var priorityRanking = computeZonePriority(zoneMetrics);
+    var topZone = priorityRanking[0];
+    this.priorityValueEl.textContent = topZone && topZone.metrics.count > 0 ? "Zona " + topZone.zona : "--";
+
+    // ranking de prioridade das zonas
+    this._renderPriorityRanking(priorityRanking);
+
+    // ranking de chutes críticos + tiles: live time/badge updates
+    problematic.forEach(function (r) {
+      var band = classifyCriticality((now - r.since) / 60);
+      var tileRef = self.tileRefs[r.numero];
+      if (tileRef) {
+        // Visão dos chutes (seção 3.4): vermelho só a partir de 45s fechado,
+        // regra independente das 4 faixas de criticidade usadas no resto da
+        // aba. Preserva "is-dimmed" (aplicado pelos filtros) ao trocar a cor.
+        var elapsedSeconds = now - r.since;
+        var tileStateClass = elapsedSeconds > 45 ? "tile-fechado-critico" : "tile-fechado";
+        var wasDimmed = tileRef.el.classList.contains("is-dimmed");
+        tileRef.el.className = "cm-tile " + tileStateClass + (wasDimmed ? " is-dimmed" : "");
+      }
+
+      var rankRef = self.rankItemRefs[r.numero];
+      if (rankRef) {
+        rankRef.time.textContent = formatElapsedLive(now - r.since);
+        rankRef.badge.textContent = band.emoji + " " + band.label;
+        rankRef.root.className = "cm-rank-item crit-" + band.key;
+      }
+    });
+
+    this._tickPanel();
+  };
+
+  Instance.prototype._renderPriorityRanking = function (ranking) {
+    this.priorityList.innerHTML = "";
+    ranking.forEach(function (entry, idx) {
+      var item = el("div", "cm-priority-item prio-" + entry.tier.key);
+      item.appendChild(el("span", "cm-priority-pos", { text: "#" + (idx + 1) }));
+      var mid = el("div");
+      mid.appendChild(el("div", "cm-priority-zone", { text: "Zona " + entry.zona }));
+      mid.appendChild(el("div", "cm-priority-meta", {
+        text: entry.metrics.count + " fechados • " + entry.metrics.percent.toFixed(1).replace(".0", "") + "% da zona"
+          + " • média " + (entry.metrics.count ? formatElapsed(entry.metrics.avgElapsed) : "--"),
+      }));
+      item.appendChild(mid);
+      var badge = el("span", "cm-priority-badge", { text: entry.tier.emoji + " " + entry.tier.label });
+      item.appendChild(badge);
+      this.priorityList.appendChild(item);
+    }, this);
+  };
+
+  Instance.prototype._startClock = function () {
+    var self = this;
+    this._applyFilters();
+    this._tick();
+    this.timer = setInterval(function () { self._tick(); }, 1000);
+  };
+
+  /** Replace the dataset with fresh data (e.g. from an API poll) and re-render. */
+  Instance.prototype.update = function (records) {
+    this.records = records.slice();
+    this._closePanel();
+    this._renderStatic();
+    this._applyFilters();
+    this._tick();
+  };
+
+  Instance.prototype.destroy = function () {
+    if (this.timer) clearInterval(this.timer);
+    if (this.overlay && this.overlay.parentNode) this.overlay.parentNode.removeChild(this.overlay);
+    if (this.panel && this.panel.parentNode) this.panel.parentNode.removeChild(this.panel);
+    this.root.innerHTML = "";
+    this.root.classList.remove("chutes-monitoring");
+  };
+
+  var ChutesMonitoring = {
+    mount: function (root, records) {
+      return new Instance(root, records || []);
+    },
+    classifyCriticality: classifyCriticality,
+    PRIORITY_WEIGHTS: PRIORITY_WEIGHTS,
+  };
+
+  global.ChutesMonitoring = ChutesMonitoring;
+})(window);
+
+/* ── Shell de abas internas (Mesas/Carrinhos/Chutes) — do próprio mockup,
+   só chamado 1x quando a subpágina abre pela 1ª vez. ── */
+(function (global) {
+  "use strict";
+  function initOperationalPanel(root) {
+    var tabs = root.querySelectorAll(".op-tab");
+    var panels = root.querySelectorAll(".op-tab-panel");
+    tabs.forEach(function (tab) {
+      tab.addEventListener("click", function () {
+        var target = tab.getAttribute("data-tab");
+        tabs.forEach(function (t) { t.classList.toggle("is-active", t === tab); });
+        panels.forEach(function (p) { p.hidden = p.getAttribute("data-panel") !== target; });
+      });
+    });
+  }
+  global.OpShell = { init: initOperationalPanel };
+})(window);
+
+let SORTER_INSTANCES = null; // { mesas, carrinhos, chutes } — instâncias montadas, guarda pra reusar .update() em vez de remontar
+async function sorterLoad(){
+  try {
+    const r = await fetch('/api/asm?sorter=1', { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    setBadge('asm', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    if(!SORTER_INSTANCES){
+      OpShell.init(document.querySelector('#asm-panel-sorter .op-shell'));
+      SORTER_INSTANCES = {
+        mesas: SorterMonitor.mount(document.getElementById('sorter-root'), j.mesas),
+        carrinhos: CarrinhosDisabled.mount(document.getElementById('carrinhos-root'), j.carrinhos),
+        chutes: ChutesMonitoring.mount(document.getElementById('chutes-root'), j.chutes),
+      };
+    } else {
+      SORTER_INSTANCES.mesas.update(j.mesas);
+      SORTER_INSTANCES.carrinhos.update(j.carrinhos);
+      SORTER_INSTANCES.chutes.update(j.chutes);
+    }
+  } catch(err){
+    setBadge('asm', 'error', 'Erro: '+err.message);
+    console.error('[sorter]', err);
+  }
 }
 
 /* ================================================================
