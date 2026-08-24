@@ -22,12 +22,15 @@
  * nome (fetchTabByGid usa o header, não a posição), então a reordenação
  * de colunas sozinha não quebra nada aqui.
  *
- * 2 colunas novas apareceram, `grade_hrs` e `qtd_grade` — um conceito
- * separado (grade por hora, valores tipo "grade_hrs_atual"/"grade_hrs_00"
- * .."grade_hrs_23", ~3.2k das ~17.6k linhas) que não é a mesma coisa que o
- * backlog de aging de hoje. Filtradas fora aqui (só entram linhas com
- * `grade_hrs` vazio) pra não inflar qtd_pacotes/aging_medio_min com um
- * dado de outra natureza — fica de fora até virar um pedido à parte.
+ * 2 colunas novas apareceram, `grade_hrs` e `qtd_grade`. Achado ao vivo
+ * (debug-meta) que inverteu a leitura inicial: a MAIORIA das ~17.6k linhas
+ * (grade_hrs vazio) são linhas de padding em branco (faixa_aging também
+ * vazio) — o backlog de aging real de hoje é só o bloco de 129 linhas com
+ * `grade_hrs = 'grade_hrs_atual'`. Existem outros 24 blocos de 129 linhas
+ * cada (`grade_hrs_00'..'grade_hrs_23'`, um conceito de grid por hora
+ * ainda sem uso definido no front) que ficam de fora por ora. `qtd_grade`
+ * não é usado aqui (tem inconsistência de formatação de data na planilha
+ * nele — fora do escopo desta leitura).
  *
  * Data operacional (padrão pra todos os reports/gráficos, confirmado com
  * o Roberto em 2026-08-04): cutoff de 6h — o timestamp entre 00:00 e
@@ -69,7 +72,7 @@ module.exports = async (req, res) => {
   }
 
   const backlog = rows
-    .filter(r => r.faixa_aging && !r.grade_hrs)
+    .filter(r => r.faixa_aging && r.grade_hrs === 'grade_hrs_atual')
     .map(r => {
       const { data, hora } = dataHoraDe(r.ultima_atualizacao_tabela);
       return {
