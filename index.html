@@ -7965,7 +7965,12 @@ function pulsoRenderTable(key){
   const singular = cfg.table.itemNameSingular || 'registro', plural = cfg.table.itemNamePlural || 'registros';
   const quando = cfg.hidePeriod ? 'agora' : 'no período';
   if(footer){
-    const resumo = total > rows.length
+    // termo/sort re-derivados aqui (não vêm de pulsoFilteredSortedRows) só
+    // pra decidir a MENSAGEM do resumo — o filtro/ordenação em si já foi
+    // aplicado dentro de `linhas` acima.
+    const termo = (document.getElementById('pulso-search-'+key)?.value || '').trim();
+    const sort = PULSO_SORT[key];
+    const resumo = total > linhas.length
       ? `${linhas.length.toLocaleString('pt-BR')} de ${total.toLocaleString('pt-BR')} ${plural} ${quando} — refine os filtros pra ver todas.`
       : `${linhas.length.toLocaleString('pt-BR')} ${linhas.length===1?singular:plural}${termo||sort.key||activeCard ? ' (de '+total+' '+quando+')' : ' '+quando}.`;
     const pager = totalPaginas > 1 ? `
