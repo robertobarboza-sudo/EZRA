@@ -3410,6 +3410,17 @@
   flex-direction: column;
   gap: 14px;
 }
+/* Botão CSV do header — mesmo visual de .cm-toggle/.sm-toggle, só que
+   escopado sob --cd-* (esse módulo não tinha nenhum botão secundário
+   ainda, então não existia uma classe pronta pra reaproveitar). */
+.cd-csv-btn {
+  display: inline-flex; align-items: center; gap: 7px; flex: none;
+  background: var(--cd-panel-alt); border: 1px solid var(--cd-border);
+  color: var(--cd-text-dim); font-family: inherit; font-size: 12.5px; font-weight: 600;
+  padding: 7px 14px; border-radius: var(--cd-radius-sm); cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.cd-csv-btn:hover { border-color: var(--surface-3); color: var(--cd-text); }
 .cd-header h1 {
   font-size: 15px;
   font-weight: 700;
@@ -4416,6 +4427,7 @@
         <div class="section-dl-group">
           <button class="spr-pipboy-btn" onclick="ovwAbrirJustificativas()" style="border-color:var(--red);color:var(--red)"><i class="fas fa-clipboard-check"></i> Justificativas Pendentes</button>
           <button class="spr-pipboy-btn" onclick="ovwOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
+          <button class="dl-btn dl-btn-csv" onclick="downloadCSV('gestao')" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
           <button class="dl-btn dl-btn-csv" onclick="loadOverview()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -4662,6 +4674,7 @@
             <div class="bkl-tab active" id="asm-mode-acumulado" onclick="asmSetTableMode('acumulado')">Acumulado</div>
             <div class="bkl-tab" id="asm-mode-hora" onclick="asmSetTableMode('hora')">Hora vigente</div>
           </div>
+          <button class="dl-btn dl-btn-csv" onclick="asmExportCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
         <div style="overflow-x:auto">
           <table>
@@ -4744,7 +4757,10 @@
           </div>
 
           <div class="table-card full" style="margin-top:16px;padding:0;border:2px solid var(--cyan) !important">
-            <div class="table-toolbar-title" style="padding:16px 16px 0">Investigação detalhada · por máquina <span style="font-weight:400;color:var(--text-muted);font-size:12px">heatmap por hora — clique numa máquina pra ver o detalhe</span></div>
+            <div class="table-toolbar-title" style="padding:16px 16px 0;display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+              <span>Investigação detalhada · por máquina <span style="font-weight:400;color:var(--text-muted);font-size:12px">heatmap por hora — clique numa máquina pra ver o detalhe</span></span>
+              <button class="dl-btn dl-btn-csv" style="margin-left:auto" onclick="rejExportCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
+            </div>
             <div class="rej-table-wrap" id="rej-table-wrap"></div>
             <div style="font-size:11px;color:var(--text-muted);padding:10px 16px">Cada célula é a janela cheia daquela hora (06h = 06:00–07:00). "Dia" recalcula a taxa sobre o total do dia, não é média das horas.</div>
           </div>
@@ -4827,6 +4843,7 @@
             <div class="bkl-tab active" id="cnv-mode-acumulado" onclick="cnvSetTableMode('acumulado')">Acumulado</div>
             <div class="bkl-tab" id="cnv-mode-hora" onclick="cnvSetTableMode('hora')">Hora vigente</div>
           </div>
+          <button class="dl-btn dl-btn-csv" onclick="cnvExportCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
         <div style="overflow-x:auto">
           <table>
@@ -4969,6 +4986,9 @@
 
           <details class="est-ranking" id="est-rankingDetails">
             <summary>Distribuição geral por destino <span class="est-arrow">▶</span></summary>
+            <div style="display:flex;justify-content:flex-end;margin-bottom:8px">
+              <button class="dl-btn dl-btn-csv" onclick="estExportCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
+            </div>
             <div class="est-rank-table-wrap">
               <table class="est-rank-table">
                 <thead><tr><th>#</th><th>Destino</th><th>Classe</th><th style="text-align:right">Volume</th><th style="text-align:right">Share</th><th>Distribuição</th></tr></thead>
@@ -5023,7 +5043,7 @@
           <div style="height:320px;margin-top:12px"><canvas id="chart-lh-hora"></canvas></div>
         </div>
         <div class="table-card full" style="margin-top:16px">
-          <div class="table-toolbar"><div class="table-toolbar-title">Viagens do dia</div></div>
+          <div class="table-toolbar"><div class="table-toolbar-title">Viagens do dia</div><button class="dl-btn dl-btn-csv" onclick="lhExportCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button></div>
           <div style="overflow-x:auto">
             <table><thead><tr>
               <th class="spr-sortable" onclick="lhSortBy('viagem')" id="lh-th-viagem">Viagem <i class="fas fa-sort"></i></th>
@@ -5063,7 +5083,7 @@
           <div style="height:320px;margin-top:12px"><canvas id="chart-fm-hora"></canvas></div>
         </div>
         <div class="table-card full" style="margin-top:16px">
-          <div class="table-toolbar"><div class="table-toolbar-title">Chegadas do dia</div></div>
+          <div class="table-toolbar"><div class="table-toolbar-title">Chegadas do dia</div><button class="dl-btn dl-btn-csv" onclick="fmExportCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button></div>
           <div style="overflow-x:auto">
             <table><thead><tr>
               <th class="spr-sortable" onclick="fmSortBy('driver')" id="fm-th-driver">Driver <i class="fas fa-sort"></i></th>
@@ -5128,6 +5148,7 @@
             <div class="mon-view-btn" data-view="finalizado" onclick="filaSetView('finalizado')">Finalizado</div>
           </div>
           <div class="mon-toolbar-spacer"></div>
+          <button class="dl-btn dl-btn-csv" onclick="filaExportCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
           <button class="mon-now-btn" onclick="filaScrollToNow()"><i class="fas fa-location-crosshairs"></i> AGORA</button>
           <span class="mon-last" id="fq-last"></span>
           <div style="position:relative">
@@ -5235,6 +5256,7 @@
             <button type="button" class="spr-ms-action-btn" id="bkl-chart-metric-toggle" onclick="bklToggleChartMetric()">Ver Aging Médio</button>
             <button type="button" class="spr-ms-action-btn" id="bkl-pivot-metric-toggle" onclick="bklTogglePivotMetric()" style="display:none">Ver Soma de Pacotes</button>
             <button type="button" class="spr-ms-action-btn" id="bkl-chart-toggle" onclick="bklToggleChartView()">Ver Tabela por Origem</button>
+            <button class="dl-btn dl-btn-csv" onclick="bklExportPivotCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
           </div>
         </div>
         <div id="bkl-chart-wrap" style="height:320px;margin-top:12px"><canvas id="chart-backlog-faixa"></canvas></div>
@@ -5290,6 +5312,7 @@
             <div class="bkl-tab active" id="just-gran-dia" onclick="justSetGranularidade('dia')">Dia</div>
             <div class="bkl-tab" id="just-gran-semana" onclick="justSetGranularidade('semana')">Semana</div>
           </div>
+          <button class="dl-btn dl-btn-csv" onclick="justExportTabelaCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
         <div style="overflow-x:auto">
           <table class="resp-table" style="min-width:900px">
@@ -5303,6 +5326,7 @@
       <div class="table-card" style="margin-top:16px">
         <div class="table-toolbar">
           <div class="table-toolbar-title">Perda por Semana</div>
+          <button class="dl-btn dl-btn-csv" onclick="justExportSemanaCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
         <div style="overflow-x:auto">
           <table class="resp-table" style="min-width:900px">
@@ -5318,6 +5342,7 @@
       <div class="table-card" style="margin-top:16px">
         <div class="table-toolbar">
           <div class="table-toolbar-title">Perda por Mês e Motivo</div>
+          <button class="dl-btn dl-btn-csv" onclick="justExportMesCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
         <div style="overflow-x:auto">
           <table class="resp-table" style="min-width:900px">
@@ -5331,6 +5356,7 @@
       <div class="table-card" style="margin-top:16px">
         <div class="table-toolbar">
           <div class="table-toolbar-title">Impacto por Justificativa</div>
+          <button class="dl-btn dl-btn-csv" onclick="justExportMotivoCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
         <div style="overflow-x:auto">
           <table class="resp-table" style="min-width:900px">
@@ -5684,6 +5710,7 @@
         </div>
         <div class="section-dl-group">
           <button class="spr-pipboy-btn" onclick="fctOpenPipboy()"><i class="fas fa-satellite-dish"></i> COP Boy</button>
+          <button class="dl-btn dl-btn-csv" onclick="fctExportCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
           <button class="dl-btn dl-btn-csv" onclick="loadForecast()"><i class="fas fa-rotate-right"></i> Atualizar</button>
         </div>
       </div>
@@ -7415,6 +7442,41 @@ function pulsoEscHtml(s){
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
+/* ================================================================
+   EXPORTAR CSV — botão genérico em toda tabela/gráfico do site (pedido
+   do Roberto em 2026-08-25, "igual botão direito > exportar do Power
+   BI"). Sempre exporta o que está NA TELA (já filtrado/ordenado pela
+   dimensão selecionada), nunca a base crua do backend. Delimitador ";"
+   (não ",") porque o Excel em pt-BR usa vírgula como separador decimal —
+   com "," como delimitador de coluna, qualquer célula numérica formatada
+   como "1.234,5" quebraria o CSV em 2 colunas.
+================================================================ */
+function pulsoCsvEscape(v){
+  if(v === null || v === undefined) return '';
+  const s = String(v);
+  return /[",;\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s;
+}
+function pulsoDownloadCsv(filename, headers, rows){
+  const linhas = [headers.map(pulsoCsvEscape).join(';')]
+    .concat(rows.map(r => r.map(pulsoCsvEscape).join(';')));
+  // BOM UTF-8 pra Excel abrir acentuação (ç, ã, é...) certa sem precisar
+  // escolher encoding manualmente na importação.
+  const blob = new Blob(['﻿' + linhas.join('\r\n')], { type:'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename.toLowerCase().endsWith('.csv') ? filename : filename + '.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+// Helper mais comum: array de objetos + array de {key,label} -> CSV.
+// `valueFn` opcional pra formatar/traduzir um campo específico antes de
+// exportar (ex.: código -> rótulo legível).
+function pulsoExportRowsCsv(filename, columns, rows, valueFn){
+  const headers = columns.map(c => c.label);
+  const linhas = rows.map(r => columns.map(c => (valueFn ? valueFn(r, c.key) : r[c.key])));
+  pulsoDownloadCsv(filename, headers, linhas);
+}
+
 // Registra uma página no motor. Chamar uma vez por página, no carregamento do script.
 function pulsoRegister(cfg){
   PULSO_DASHBOARDS[cfg.key] = cfg;
@@ -7498,6 +7560,7 @@ function pulsoBuildHTML(cfg){
           <i class="fas fa-search"></i>
           <input type="text" id="pulso-search-${cfg.key}" placeholder="${cfg.table.searchPlaceholder||'Buscar…'}" oninput="PULSO_PAGE['${cfg.key}']=0;pulsoRenderTable('${cfg.key}')"/>
         </div>
+        <button class="dl-btn dl-btn-csv" onclick="pulsoExportTableCsv('${cfg.key}')" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
       </div>
       <div class="pulso-card-filter" id="pulso-card-filter-${cfg.key}"></div>
       <div style="overflow-x:auto">
@@ -7830,22 +7893,16 @@ function pulsoSortBy(key, colKey){
   pulsoRenderTable(key);
 }
 
-function pulsoRenderTable(key){
-  // SPR "Ver por Destino" (pedido do Roberto em 2026-08-24) troca a tabela
-  // de viagens por um ranking agregado por destino — mesma busca/filtro de
-  // card ativo de sempre, só a visualização muda. Ver sprRenderDestView.
-  if(key === 'spr' && typeof SPR_DEST_VIEW !== 'undefined' && SPR_DEST_VIEW){ sprRenderDestView(); return; }
+// Filtro (card ativo + busca por texto) + ordenação ativos pra uma página
+// do motor genérico — fatorado de pulsoRenderTable pra ser reaproveitado
+// também pelo export CSV (pedido do Roberto em 2026-08-25: exportar "de
+// acordo com a dimensão selecionada", ou seja, o que já está filtrado/
+// ordenado na tela, não a base crua). Sem paginação — devolve tudo que bate.
+function pulsoFilteredSortedRows(key){
   const cfg = PULSO_DASHBOARDS[key];
-  const tbody = document.getElementById('pulso-tbody-'+key);
-  const footer = document.getElementById('pulso-footer-'+key);
-  if(!tbody) return;
-  const { rows, total } = PULSO_ROWS[key];
-
-  // Card ativo (clicado) filtra a tabela pro subconjunto que ele representa,
-  // além da busca por texto — ver pulsoCardClick/pulsoRenderKpis.
+  const { rows } = PULSO_ROWS[key];
   const activeCardKey = PULSO_ACTIVE_CARD[key];
   const activeCard = activeCardKey ? cfg.kpis.find(k => k.key === activeCardKey) : null;
-  pulsoRenderCardFilterBadge(key, activeCard);
   let base = (activeCard && activeCard.rowFilter) ? rows.filter(activeCard.rowFilter) : rows;
 
   const termo = (document.getElementById('pulso-search-'+key)?.value || '').trim().toLowerCase();
@@ -7864,6 +7921,40 @@ function pulsoRenderTable(key){
       return cmp * sort.dir;
     });
   }
+  return linhas;
+}
+
+function pulsoExportTableCsv(key){
+  // SPR "Ver por Destino" troca a visualização — exporta o ranking
+  // agregado nesse modo, não a tabela crua de viagens escondida atrás dele.
+  if(key === 'spr' && typeof SPR_DEST_VIEW !== 'undefined' && SPR_DEST_VIEW){ sprExportDestCsv(); return; }
+  const cfg = PULSO_DASHBOARDS[key];
+  const linhas = pulsoFilteredSortedRows(key);
+  if(!linhas.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  pulsoExportRowsCsv(cfg.key+'.csv', cfg.table.columns, linhas, (r,k) => {
+    const col = cfg.table.columns.find(c=>c.key===k);
+    if(!col || col.type==='number') return r[k] ?? '';
+    if(col.type==='bool') return r[k] ? 'Sim' : 'Não';
+    return pulsoFmtCell(r[k], col.type).replace(/<[^>]*>/g,'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"');
+  });
+}
+
+function pulsoRenderTable(key){
+  // SPR "Ver por Destino" (pedido do Roberto em 2026-08-24) troca a tabela
+  // de viagens por um ranking agregado por destino — mesma busca/filtro de
+  // card ativo de sempre, só a visualização muda. Ver sprRenderDestView.
+  if(key === 'spr' && typeof SPR_DEST_VIEW !== 'undefined' && SPR_DEST_VIEW){ sprRenderDestView(); return; }
+  const cfg = PULSO_DASHBOARDS[key];
+  const tbody = document.getElementById('pulso-tbody-'+key);
+  const footer = document.getElementById('pulso-footer-'+key);
+  if(!tbody) return;
+  const { total } = PULSO_ROWS[key];
+
+  const activeCardKey = PULSO_ACTIVE_CARD[key];
+  const activeCard = activeCardKey ? cfg.kpis.find(k => k.key === activeCardKey) : null;
+  pulsoRenderCardFilterBadge(key, activeCard);
+
+  let linhas = pulsoFilteredSortedRows(key);
 
   if(!linhas.length){
     tbody.innerHTML = `<tr class="empty-row"><td colspan="${cfg.table.columns.length}">Nenhum registro encontrado.</td></tr>`;
@@ -8149,6 +8240,7 @@ function monBuildHTML(){
       </div>
       <div class="mon-group-btn" id="mon-group-btn" onclick="monToggleGroup()">Agrupar por destino</div>
       <div class="mon-toolbar-spacer"></div>
+      <button class="dl-btn dl-btn-csv" onclick="monExportCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
       <button class="mon-now-btn" onclick="monScrollToNow()"><i class="fas fa-location-crosshairs"></i> AGORA</button>
       <span class="mon-last" id="mon-last"></span>
       <div style="position:relative">
@@ -8412,6 +8504,15 @@ function monFilteredTrips(now){
     }
     return true;
   });
+}
+
+function monExportCsv(){
+  const rows = monFilteredTrips(new Date());
+  if(!rows.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  pulsoExportRowsCsv('outbound_monitor_live.csv', [
+    {key:'trip_number',label:'LT'},{key:'destino',label:'Destino'},{key:'destino_codigo',label:'Código Destino'},
+    {key:'veiculo_placa',label:'Placa'},{key:'veiculo_tipo',label:'Tipo Veículo'},{key:'status',label:'Status'},
+  ], rows);
 }
 
 function monRenderAll(){
@@ -8870,15 +8971,11 @@ function sprDestFilteredRows(){
   return base.filter(r => searchFields.some(f => String(r[f]||'').toLowerCase().includes(termo)));
 }
 
-function sprRenderDestView(){
-  const list = document.getElementById('spr-dest-list');
-  if(!list) return;
+// Fatorado de sprRenderDestView pra ser reaproveitado também pelo export
+// CSV (pedido do Roberto em 2026-08-25) — mesmo agrupamento/ordenação em
+// qualquer um dos dois lugares.
+function sprBuildDestRanking(){
   const rows = sprDestFilteredRows();
-  if(!rows.length){
-    list.innerHTML = `<div class="rej-empty">Nenhuma viagem bate com os filtros atuais.</div>`;
-    return;
-  }
-
   const porDestino = new Map();
   rows.forEach(r => {
     const dest = r.destination_station_code || '(sem destino)';
@@ -8889,8 +8986,7 @@ function sprRenderDestView(){
     d.sacas += r.to_saca || 0;
     d.scuttles += r.to_scuttle || 0;
   });
-
-  const ranking = [...porDestino.entries()]
+  return [...porDestino.entries()]
     .map(([dest, d]) => ({
       dest,
       viagens: d.viagens,
@@ -8902,7 +8998,27 @@ function sprRenderDestView(){
     // viagem saindo mal aproveitada) ficam sempre no final da lista,
     // pedido do Roberto em 2026-08-24 ("quero ver os ofensores pra atacar").
     .sort((a, b) => b.sprMedio - a.sprMedio);
+}
 
+function sprExportDestCsv(){
+  const ranking = sprBuildDestRanking();
+  if(!ranking.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  pulsoExportRowsCsv('spr_por_destino.csv', [
+    {key:'dest',label:'Destino'},{key:'sprMedio',label:'SPR Médio'},{key:'viagens',label:'Viagens'},
+    {key:'sacasMedia',label:'Sacas Média'},{key:'scuttlesMedia',label:'Scuttles Média'},
+  ], ranking);
+}
+
+function sprRenderDestView(){
+  const list = document.getElementById('spr-dest-list');
+  if(!list) return;
+  const rows = sprDestFilteredRows();
+  if(!rows.length){
+    list.innerHTML = `<div class="rej-empty">Nenhuma viagem bate com os filtros atuais.</div>`;
+    return;
+  }
+
+  const ranking = sprBuildDestRanking();
   const picoSpr = Math.max(1, ...ranking.map(d => d.sprMedio));
   // Ofensor = terço de baixo do SPR médio (não um nº fixo de linhas — com
   // poucos destinos, 1/3 já é suficiente pra sinalizar, com muitos também
@@ -10286,6 +10402,24 @@ function lhRenderTable(){
 }
 function lhSetPage(pg){ LH_PAGE = Math.max(0, pg); lhRenderTable(); }
 
+function lhExportCsv(){
+  let rows = lhFilteredRows();
+  if(!rows.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  if(LH_SORT.key){
+    rows = [...rows].sort((a,b) => {
+      let va = a[LH_SORT.key], vb = b[LH_SORT.key];
+      if(['atrasoMin','pacotes','pacotesSaca','pacotesScuttle','tempoFilaMin'].includes(LH_SORT.key)){ va = va||0; vb = vb||0; }
+      else { va = String(va||''); vb = String(vb||''); }
+      return (va<vb?-1:va>vb?1:0) * LH_SORT.dir;
+    });
+  }
+  pulsoExportRowsCsv('inbound_lh.csv', [
+    {key:'viagem',label:'Viagem'},{key:'origem',label:'Origem'},{key:'veiculo',label:'Veículo'},{key:'turno',label:'Turno'},{key:'status',label:'Status'},
+    {key:'planejado',label:'Planejado'},{key:'realizado',label:'Realizado'},{key:'atrasoMin',label:'Atraso (min)'},{key:'pacotes',label:'Pacotes'},
+    {key:'pacotesSaca',label:'Sacas'},{key:'pacotesScuttle',label:'Scuttles'},{key:'tempoFilaMin',label:'Fila (min)'},
+  ], rows, (r,k) => (k==='planejado'||k==='realizado') ? pulsoFmtCell(r[k],'date') : (r[k] ?? ''));
+}
+
 function lhGenerateInsights(){
   if(!LH_DATA) return [];
   const insights = [];
@@ -10518,6 +10652,24 @@ function fmRenderTable(){
   if(footer) footer.innerHTML = `<span>${rows.length.toLocaleString('pt-BR')} chegada(s).</span>${pager}`;
 }
 function fmSetPage(pg){ FM_PAGE = Math.max(0, pg); fmRenderTable(); }
+
+function fmExportCsv(){
+  let rows = fmFilteredRows();
+  if(!rows.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  if(FM_SORT.key){
+    rows = [...rows].sort((a,b) => {
+      let va = a[FM_SORT.key], vb = b[FM_SORT.key];
+      if(['tempoFilaMin','tempoDescargaMin'].includes(FM_SORT.key)){ va = va||0; vb = vb||0; }
+      else { va = String(va||''); vb = String(vb||''); }
+      return (va<vb?-1:va>vb?1:0) * FM_SORT.dir;
+    });
+  }
+  pulsoExportRowsCsv('inbound_fm.csv', [
+    {key:'driver',label:'Driver'},{key:'estacao',label:'Estação'},{key:'turno',label:'Turno'},{key:'checkinDriver',label:'Checkin'},
+    {key:'atribuicaoDoca',label:'Atrib. Doca'},{key:'finalizacaoJornada',label:'Finalização'},{key:'tempoFilaMin',label:'Fila (min)'},
+    {key:'tempoDescargaMin',label:'Descarga (min)'},{key:'performanceDoca',label:'Performance'},
+  ], rows, (r,k) => ['checkinDriver','atribuicaoDoca','finalizacaoJornada'].includes(k) ? pulsoFmtCell(r[k],'date') : (r[k] ?? ''));
+}
 
 function fmGenerateInsights(){
   if(!FM_DATA) return [];
@@ -10863,6 +11015,15 @@ function filaRenderAlerts(now){
       <span><b>${pulsoEscHtml(t.lhTripNumber || t.veiculo || '—')}</b> · ${pulsoEscHtml(t.driver||'')} — aguardando há ${filaFmtMin(esperaMin)}</span>
     </div>`;
   }).join('');
+}
+
+function filaExportCsv(){
+  const rows = filaFilteredTrips();
+  if(!rows.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  pulsoExportRowsCsv('inbound_monitor_fila.csv', [
+    {key:'lhTripNumber',label:'Viagem'},{key:'queueNumber',label:'Fila Nº'},{key:'driver',label:'Motorista'},{key:'veiculo',label:'Veículo'},
+    {key:'agency',label:'Agência'},{key:'status',label:'Status'},{key:'addToQueueD',label:'Entrada na Fila'},
+  ], rows, (r,k) => k==='status' ? filaStatusLabel(r) : k==='addToQueueD' ? filaFmtHM(r.addToQueueD) : (r[k] ?? ''));
 }
 
 function filaOpenDetail(idx){
@@ -11588,6 +11749,24 @@ function bklRenderPivot(){
   }).join('');
 }
 
+function bklExportPivotCsv(){
+  if(!BACKLOG_DATA){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  const rows = bklFilteredRows();
+  const origens = [...new Set(rows.map(r=>r.origem).filter(Boolean))].sort();
+  if(!origens.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  const cols = [{key:'origem',label:'Origem'}, ...PERFIL_CARDS.map(pc => ({ key:pc.label, label:pc.label }))];
+  const linhas = origens.map(origem => {
+    const linha = { origem };
+    PERFIL_CARDS.forEach(pc => {
+      const grupo = rows.filter(r => r.origem===origem && pc.match(r.perfil));
+      const qtd = bklQtdMedia(grupo);
+      linha[pc.label] = qtd ? (BACKLOG_PIVOT_METRIC === 'qtd' ? qtd : bklAgingPonderado(grupo)) : '';
+    });
+    return linha;
+  });
+  pulsoExportRowsCsv('backlog_por_origem.csv', cols, linhas);
+}
+
 function bklGenerateInsights(){
   if(!BACKLOG_DATA) return [];
   const insights = [];
@@ -12047,6 +12226,22 @@ function buildForecastPeriodKpis(cardsPeriodo, compDe, compAte){
     card('Transhipment Dia',    dia.transhipment,     dia.transhipmentVar,    'fa-shuffle'),
     card('Ado Transhipment Dia', dia.adoTranshipment, dia.adoTranshipmentVar, 'fa-chart-line'),
   ]);
+}
+
+function fctExportCsv(){
+  const semanas = FORECAST_DATA?.semanas;
+  if(!semanas || !semanas.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  const linhas = [];
+  semanas.forEach(s => {
+    FCT_ROWS.forEach(row => {
+      s.dias.forEach(d => linhas.push({ semana:`Semana (${s.numero})`, canal:row.label, dia:d.diaSemana, data:pulsoFmtDataBr(d.data), valor:d[row.key]||0 }));
+      linhas.push({ semana:`Semana (${s.numero})`, canal:row.label, dia:'Quartil', data:'', valor:Math.round(s.quartil[row.key]||0) });
+      linhas.push({ semana:`Semana (${s.numero})`, canal:row.label, dia:'Week', data:'', valor:s.semana[row.key]||0 });
+    });
+  });
+  pulsoExportRowsCsv('forecast.csv',
+    [{key:'semana',label:'Semana'},{key:'canal',label:'Canal'},{key:'dia',label:'Dia'},{key:'data',label:'Data'},{key:'valor',label:'Valor'}],
+    linhas);
 }
 
 function buildForecastWeeks(semanas){
@@ -14120,6 +14315,22 @@ function asmSetPage(pg){
   asmRenderTable();
 }
 
+function asmExportCsv(){
+  let linhas = asmGroupByColaborador();
+  if(!linhas.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  if(ASM_SORT.key){
+    linhas = [...linhas].sort((a,b) => {
+      let va = a[ASM_SORT.key], vb = b[ASM_SORT.key];
+      if(ASM_SORT.key === 'scanNumbers'){ va = va||0; vb = vb||0; }
+      else { va = String(va||''); vb = String(vb||''); }
+      return (va<vb?-1:va>vb?1:0) * ASM_SORT.dir;
+    });
+  }
+  pulsoExportRowsCsv('asm.csv',
+    [{key:'colaborador',label:'Colaborador'},{key:'zona',label:'Zona'},{key:'nivel',label:'Nível'},{key:'mesa',label:'Mesa'},{key:'turno',label:'Turno'},{key:'scanNumbers',label:'Induções'}],
+    linhas);
+}
+
 function asmGenerateInsights(){
   if(!ASM_DATA) return [];
   const insights = [];
@@ -14660,6 +14871,26 @@ function rejAgregarCategoria(lista, horas){
   for(const ag of porHora.values()) ag.taxa = ag.volume ? ag.failed/ag.volume*100 : null;
   return { porHora, volumeDia, failedDia, taxaDia: volumeDia ? failedDia/volumeDia*100 : null };
 }
+function rejExportCsv(){
+  const rows = REJ_STATE.rowsFiltradas || [];
+  if(!rows.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  const horas = rejHorasPresentes(rows);
+  const totais = rejTotalPorMaquina(rows);
+  if(!totais.size){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  const cols = [
+    {key:'categoria',label:'Categoria'},{key:'maquina',label:'Máquina'},{key:'conta',label:'Conta'},{key:'target',label:'Target'},
+    ...horas.map(h => ({key:'h'+h, label:rejFmtHora(h)})),
+    {key:'taxaDia',label:'Taxa do Dia'},{key:'volume',label:'Volume'},{key:'rejeitos',label:'Rejeitos'},
+  ];
+  const linhas = [...totais.values()].map(t => {
+    const targetCat = rejGetTargetCategoria(t.ref.categoria);
+    const linha = { categoria:t.ref.categoria, maquina:t.ref.asm_name, conta:t.ref.asm_account, target:rejFmtPct(targetCat), taxaDia:rejFmtPct(t.taxa), volume:t.volume, rejeitos:t.failed };
+    horas.forEach(h => { const r = t.horas.get(h); linha['h'+h] = r && r.parcel_count ? rejFmtPct(r.failed_rate) : ''; });
+    return linha;
+  });
+  pulsoExportRowsCsv('sorting_exception.csv', cols, linhas);
+}
+
 function rejRenderMaquinas(rows){
   const horas = rejHorasPresentes(rows);
   const totais = rejTotalPorMaquina(rows);
@@ -15167,8 +15398,14 @@ function rejGenerateInsights(){
     });
     this.criticalToggle = toggle;
 
+    var csvBtn = el("button", "sm-toggle", { type: "button" });
+    csvBtn.innerHTML = '<i class="fas fa-file-csv"></i> CSV';
+    csvBtn.title = "Exportar CSV";
+    csvBtn.addEventListener("click", function () { sorterExportMesasCsv(self); });
+
     controls.appendChild(select);
     controls.appendChild(toggle);
+    controls.appendChild(csvBtn);
     header.appendChild(controls);
     this.root.appendChild(header);
 
@@ -15608,8 +15845,17 @@ function rejGenerateInsights(){
     this.root.innerHTML = "";
 
     // header / resumo geral
+    var instance = this;
     var header = el("div", "cd-header");
-    header.appendChild(el("h1", null, { text: "Carrinhos Desabilitados" }));
+    var titleRow = el("div", null);
+    titleRow.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:10px";
+    titleRow.appendChild(el("h1", null, { text: "Carrinhos Desabilitados" }));
+    var cdCsvBtn = el("button", "cd-csv-btn", { type: "button" });
+    cdCsvBtn.innerHTML = '<i class="fas fa-file-csv"></i> CSV';
+    cdCsvBtn.title = "Exportar CSV";
+    cdCsvBtn.addEventListener("click", function () { cdExportCsv(instance); });
+    titleRow.appendChild(cdCsvBtn);
+    header.appendChild(titleRow);
     header.appendChild(el("div", "cd-subtitle", { text: "Monitoramento operacional por tempo parado" }));
 
     var summaryRow = el("div", "cd-summary-row");
@@ -16168,9 +16414,15 @@ function rejGenerateInsights(){
       self._applyFilters();
     });
 
+    var cmCsvBtn = el("button", "cm-toggle", { type: "button" });
+    cmCsvBtn.innerHTML = '<i class="fas fa-file-csv"></i> CSV';
+    cmCsvBtn.title = "Exportar CSV";
+    cmCsvBtn.addEventListener("click", function () { cmExportCsv(self); });
+
     controls.appendChild(zoneSelect);
     controls.appendChild(critSelect);
     controls.appendChild(toggle);
+    controls.appendChild(cmCsvBtn);
     header.appendChild(controls);
     this.root.appendChild(header);
 
@@ -16648,6 +16900,32 @@ function rejGenerateInsights(){
   global.OpShell = { init: initOperationalPanel };
 })(window);
 
+// Export CSV dos 3 módulos do Sorter (pedido do Roberto em 2026-08-25) —
+// lê direto de propriedades públicas da instância (this.mesas/this.disabled/
+// this.data.problematic), sem precisar mexer no IIFE original de cada módulo.
+function sorterExportMesasCsv(instance){
+  const mesas = instance?.mesas || [];
+  if(!mesas.length){ showToast('Nada pra exportar.', true); return; }
+  pulsoExportRowsCsv('sorter_mesas.csv',
+    [{key:'mesa_label',label:'Nível'},{key:'mesa_tag',label:'Mesa'},{key:'mesa_zona',label:'Zona'},{key:'mesa_status_name',label:'Status'}],
+    mesas);
+}
+function cdExportCsv(instance){
+  const disabled = instance?.disabled || [];
+  if(!disabled.length){ showToast('Nada pra exportar.', true); return; }
+  pulsoExportRowsCsv('carrinhos_desabilitados.csv', [
+    {key:'carrinho_label',label:'Nível'},{key:'carrinho_numero',label:'Carrinho'},{key:'carrinho_id',label:'ID'},
+    {key:'carrinho_car_fix_num',label:'Car Fix Num'},{key:'carrinho_status_name',label:'Status'},
+  ], disabled);
+}
+function cmExportCsv(instance){
+  const rows = (instance?.data?.problematic) || [];
+  if(!rows.length){ showToast('Nada pra exportar.', true); return; }
+  pulsoExportRowsCsv('chutes_fechados.csv',
+    [{key:'layer',label:'Layer'},{key:'numero',label:'Chute'},{key:'zona',label:'Zona'},{key:'status_name',label:'Status'}],
+    rows);
+}
+
 let SORTER_INSTANCES = null; // { mesas, carrinhos, chutes } — instâncias montadas, guarda pra reusar .update() em vez de remontar
 async function sorterLoad(){
   try {
@@ -17029,6 +17307,14 @@ function estRenderAll(){
 
   document.getElementById('est-footnote').innerHTML =
     `Metodologia: <code>share = pacotes do destino/bancada/lado ÷ pacotes totais da própria esteira</code> (SOC contra o total de SOC, HUB contra o total de HUB) — a tabela de distribuição geral abaixo é a exceção, ali o share é sobre o total geral (${estFmtInt(grandTotal)} pacotes), por comparar as duas esteiras lado a lado.`;
+}
+
+function estExportCsv(){
+  const DATA = ESTEIRA_DATA;
+  if(!DATA || !DATA.part1 || !DATA.part1.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  pulsoExportRowsCsv('esteira_distribuicao_destino.csv',
+    [{key:'dest',label:'Destino'},{key:'classe',label:'Classe'},{key:'qty',label:'Volume'},{key:'share',label:'Share'}],
+    DATA.part1.map(d => ({ dest:d.dest||'(sem nome)', classe:estClassify(d.dest), qty:d.qty, share:(d.share*100).toFixed(2)+'%' })));
 }
 
 function estBuildStage(bins, prefix, sideLetterEsq, sideLetterDir, prodHint){
@@ -17420,6 +17706,48 @@ function justRenderMotivo(){
       <td>${pulsoEscHtml(m.canalMaisImpactado||'—')}</td>
       <td>${pulsoEscHtml(m.periodoMaiorImpacto||'—')}</td>
     </tr>`).join('') : emptyRow(6);
+}
+
+function justExportTabelaCsv(){
+  const g = JUST_STATE.granularidade;
+  const rows = JUST_DATA?.tabela || [];
+  if(!rows.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  if(g === 'hora'){
+    pulsoExportRowsCsv('justificativas_hora.csv',
+      [{key:'data',label:'Data'},{key:'hora',label:'Hora'},{key:'area',label:'Canal'},{key:'meta',label:'Planejado'},{key:'realizado',label:'Realizado'},{key:'perda',label:'Perda'},{key:'reason',label:'Justificativa'},{key:'status',label:'Status'}],
+      rows, (r,k) => k==='data' ? pulsoFmtDataBr(r.data) : k==='hora' ? String(r.hora).padStart(2,'0')+'h' : (r[k] ?? ''));
+  } else if(g === 'semana'){
+    pulsoExportRowsCsv('justificativas_semana.csv',
+      [{key:'chave',label:'Semana'},{key:'perda',label:'Perda'},{key:'justificativaPrincipal',label:'Justificativa Principal'}], rows);
+  } else {
+    pulsoExportRowsCsv('justificativas_dia.csv',
+      [{key:'chave',label:'Data'},{key:'planejado',label:'Planejado'},{key:'realizado',label:'Realizado'},{key:'perda',label:'Perda'},{key:'pctPerda',label:'% Perda'},{key:'justificativaPrincipal',label:'Justificativa Principal'}],
+      rows, (r,k) => k==='chave' ? pulsoFmtDataBr(r.chave) : (r[k] ?? ''));
+  }
+}
+function justExportSemanaCsv(){
+  const rows = JUST_DATA?.porSemana || [];
+  if(!rows.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  pulsoExportRowsCsv('justificativas_perda_por_semana.csv', [
+    {key:'semana',label:'Semana'},{key:'capacidadePerdida',label:'Capacidade Perdida'},{key:'justificada',label:'Justificada'},
+    {key:'pendente',label:'Pendente'},{key:'pctJustificada',label:'% Justificada'},{key:'principalJustificativa',label:'Principal Justificativa'},
+  ], rows);
+}
+function justExportMesCsv(){
+  const rows = JUST_DATA?.porMes || [];
+  if(!rows.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  const motivos = [...JUST_DATA.motivos, JUST_DATA.motivoPendenteLabel];
+  const cols = [{key:'mes',label:'Mês'}, ...motivos.map(m => ({key:m,label:m})), {key:'total',label:'Total Perdido'}];
+  const linhas = rows.map(m => ({ mes:m.mes, total:m.total, ...Object.fromEntries(motivos.map(mo => [mo, m.porMotivo[mo]||0])) }));
+  pulsoExportRowsCsv('justificativas_perda_por_mes_e_motivo.csv', cols, linhas);
+}
+function justExportMotivoCsv(){
+  const rows = JUST_DATA?.porJustificativa || [];
+  if(!rows.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  pulsoExportRowsCsv('justificativas_impacto_por_motivo.csv', [
+    {key:'motivo',label:'Justificativa'},{key:'perda',label:'Perda'},{key:'pctTotal',label:'% Total'},{key:'ocorrencias',label:'Ocorrências'},
+    {key:'canalMaisImpactado',label:'Canal Mais Impactado'},{key:'periodoMaiorImpacto',label:'Período de Maior Impacto'},
+  ], rows);
 }
 
 function justOpenForm(pendencia){
@@ -17824,6 +18152,22 @@ function cnvRenderTable(){
 function cnvSetPage(pg){
   CNV_PAGE = Math.max(0, pg);
   cnvRenderTable();
+}
+
+function cnvExportCsv(){
+  let linhas = cnvGroupByOps();
+  if(!linhas.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  if(CNV_SORT.key){
+    linhas = [...linhas].sort((a,b) => {
+      let va = a[CNV_SORT.key], vb = b[CNV_SORT.key];
+      if(CNV_SORT.key === 'totalProcessamento'){ va = va||0; vb = vb||0; }
+      else { va = String(va||''); vb = String(vb||''); }
+      return (va<vb?-1:va>vb?1:0) * CNV_SORT.dir;
+    });
+  }
+  pulsoExportRowsCsv('conveyor.csv',
+    [{key:'opsId',label:'OPS'},{key:'grupo',label:'Grupo'},{key:'estacao',label:'Estação'},{key:'turno',label:'Turno'},{key:'totalProcessamento',label:'Processado'}],
+    linhas);
 }
 
 function cnvGenerateInsights(){
