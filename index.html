@@ -1590,12 +1590,16 @@
        Aqui com 4 valores em vez de 2, sempre cascateando pro lado direito
        da linha (pedido do Roberto em 2026-08-24, "formato da direita pra
        esquerda" — os números ficam concentrados na ponta direita). */
-    .spr-dest-row { display:flex; align-items:center; gap:14px; padding:10px 6px; border-radius:var(--radius); }
+    .spr-dest-row { display:flex; align-items:center; gap:14px; padding:10px 6px; border-radius:var(--radius); cursor:pointer; }
     .spr-dest-row:hover { background:var(--surface-2); }
+    .spr-dest-row.is-ofensor { background:color-mix(in srgb, var(--red) 6%, transparent); }
+    .spr-dest-row.is-ofensor:hover { background:color-mix(in srgb, var(--red) 12%, transparent); }
+    .spr-dest-row.is-ofensor .spr-dest-name i { color:var(--red); font-size:11px; margin-left:4px; }
     .spr-dest-rank { width:26px; font-weight:800; color:var(--text-muted); font-size:12px; flex:none; }
     .spr-dest-name { width:160px; flex:none; font-weight:700; font-size:12.5px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .spr-dest-bar { flex:1; height:8px; border-radius:999px; background:var(--surface-3); position:relative; overflow:hidden; min-width:60px; }
     .spr-dest-bar i { position:absolute; left:0; top:0; bottom:0; border-radius:999px; background:linear-gradient(90deg,var(--cyan),var(--orange)); }
+    .is-ofensor .spr-dest-bar i { background:linear-gradient(90deg,var(--amber),var(--red)); }
     .spr-dest-val { display:flex; flex-direction:column; align-items:flex-end; width:84px; flex:none; text-align:right; }
     .spr-dest-val b { font-size:13px; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums; }
     .spr-dest-val small { font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; margin-top:1px; }
@@ -8789,8 +8793,17 @@ pulsoRegister({
     </div>`,
   belowTableHtml: `
     <div class="table-card full" id="spr-dest-card" style="display:none;margin-top:16px">
-      <div class="table-toolbar-title">SPR por Destino <span style="font-weight:400;color:var(--text-muted);font-size:12px">média de pedidos (SPR), viagens, sacas e scuttles por destino — mesmo filtro/busca da tabela de viagens</span></div>
+      <div class="table-toolbar-title">SPR por Destino <span style="font-weight:400;color:var(--text-muted);font-size:12px">ordenado do maior pro menor SPR médio — os últimos da lista são os ofensores. Clique num destino pra ver o detalhe. Mesmo filtro/busca da tabela de viagens</span></div>
       <div id="spr-dest-list" style="margin-top:10px"></div>
+    </div>
+    <div class="modal-overlay" id="spr-dest-detail-overlay" onclick="if(event.target===this) sprCloseDestDetail()">
+      <div class="modal" style="max-width:560px">
+        <div class="modal-header">
+          <span class="modal-title" id="spr-dest-detail-title"><i class="fas fa-location-dot" style="color:var(--orange);margin-right:8px"></i>Destino</span>
+          <button class="modal-close" onclick="sprCloseDestDetail()"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div id="spr-dest-detail-body" class="mon-detail-grid"></div>
+      </div>
     </div>`,
   insights(data, rows){
     const out = [];
@@ -8885,20 +8898,79 @@ function sprRenderDestView(){
       sacasMedia: d.viagens ? d.sacas / d.viagens : 0,
       scuttlesMedia: d.viagens ? d.scuttles / d.viagens : 0,
     }))
-    .sort((a, b) => b.viagens - a.viagens);
+    // Maior SPR primeiro, menor por último — os ofensores (SPR baixo,
+    // viagem saindo mal aproveitada) ficam sempre no final da lista,
+    // pedido do Roberto em 2026-08-24 ("quero ver os ofensores pra atacar").
+    .sort((a, b) => b.sprMedio - a.sprMedio);
 
-  const picoViagens = Math.max(1, ...ranking.map(d => d.viagens));
+  const picoSpr = Math.max(1, ...ranking.map(d => d.sprMedio));
+  // Ofensor = terço de baixo do SPR médio (não um nº fixo de linhas — com
+  // poucos destinos, 1/3 já é suficiente pra sinalizar, com muitos também
+  // escala proporcionalmente).
+  const corteOfensor = Math.max(1, Math.ceil(ranking.length / 3));
 
-  list.innerHTML = ranking.map((d, i) => `
-    <div class="spr-dest-row">
+  list.innerHTML = ranking.map((d, i) => {
+    const ofensor = i >= ranking.length - corteOfensor;
+    return `
+    <div class="spr-dest-row ${ofensor?'is-ofensor':''}" onclick="sprOpenDestDetail('${d.dest.replace(/'/g,"\\'")}')">
       <span class="spr-dest-rank">#${i+1}</span>
-      <span class="spr-dest-name" title="${pulsoEscHtml(d.dest)}">${pulsoEscHtml(d.dest)}</span>
-      <span class="spr-dest-bar"><i style="width:${(d.viagens/picoViagens*100).toFixed(1)}%"></i></span>
+      <span class="spr-dest-name" title="${pulsoEscHtml(d.dest)}">${pulsoEscHtml(d.dest)}${ofensor?' <i class="fas fa-triangle-exclamation" title="Ofensor de SPR"></i>':''}</span>
+      <span class="spr-dest-bar"><i style="width:${(d.sprMedio/picoSpr*100).toFixed(1)}%"></i></span>
       <span class="spr-dest-val"><b>${d.sprMedio.toLocaleString('pt-BR',{maximumFractionDigits:1})}</b><small>SPR médio</small></span>
       <span class="spr-dest-val"><b>${d.viagens.toLocaleString('pt-BR')}</b><small>Viagens</small></span>
       <span class="spr-dest-val"><b>${d.sacasMedia.toLocaleString('pt-BR',{maximumFractionDigits:1})}</b><small>Sacas méd.</small></span>
       <span class="spr-dest-val"><b>${d.scuttlesMedia.toLocaleString('pt-BR',{maximumFractionDigits:1})}</b><small>Scuttles méd.</small></span>
-    </div>`).join('');
+    </div>`;
+  }).join('');
+}
+
+function sprOpenDestDetail(dest){
+  const rows = sprDestFilteredRows().filter(r => (r.destination_station_code || '(sem destino)') === dest);
+  if(!rows.length) return;
+
+  const viagens = rows.length;
+  const totalPedidos = rows.reduce((s,r) => s + (r.total_orders||0), 0);
+  const totalSacas = rows.reduce((s,r) => s + (r.to_saca||0), 0);
+  const totalScuttles = rows.reduce((s,r) => s + (r.to_scuttle||0), 0);
+
+  const contarPor = campo => {
+    const m = new Map();
+    rows.forEach(r => { const v = r[campo] || '(não informado)'; m.set(v, (m.get(v)||0)+1); });
+    return [...m.entries()].sort((a,b) => b[1]-a[1]);
+  };
+  const porVeiculo = contarPor('used_vehicle');
+  const porStatus = contarPor('status_agrupado');
+  const porAgencia = contarPor('used_agency_name');
+
+  const listaHtml = (pares, unidade) => pares.map(([nome,n]) =>
+    `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:3px 0"><span style="color:var(--text-sub)">${pulsoEscHtml(nome)}</span><span style="font-weight:700;color:var(--text)">${n} ${unidade||''}</span></div>`
+  ).join('');
+
+  document.getElementById('spr-dest-detail-title').innerHTML = `<i class="fas fa-location-dot" style="color:var(--orange);margin-right:8px"></i>${pulsoEscHtml(dest)}`;
+  document.getElementById('spr-dest-detail-body').innerHTML = `
+    <div class="mon-detail-item"><div class="mon-detail-label">SPR Médio</div><div class="mon-detail-value">${(viagens?totalPedidos/viagens:0).toLocaleString('pt-BR',{maximumFractionDigits:1})}</div></div>
+    <div class="mon-detail-item"><div class="mon-detail-label">Viagens</div><div class="mon-detail-value">${viagens.toLocaleString('pt-BR')}</div></div>
+    <div class="mon-detail-item"><div class="mon-detail-label">Total de Pedidos</div><div class="mon-detail-value">${totalPedidos.toLocaleString('pt-BR')}</div></div>
+    <div class="mon-detail-item"><div class="mon-detail-label">Sacas Total</div><div class="mon-detail-value">${totalSacas.toLocaleString('pt-BR')}</div></div>
+    <div class="mon-detail-item"><div class="mon-detail-label">Sacas Média</div><div class="mon-detail-value">${(viagens?totalSacas/viagens:0).toLocaleString('pt-BR',{maximumFractionDigits:1})}</div></div>
+    <div class="mon-detail-item"><div class="mon-detail-label">Scuttles Total</div><div class="mon-detail-value">${totalScuttles.toLocaleString('pt-BR')}</div></div>
+    <div class="mon-detail-item"><div class="mon-detail-label">Scuttles Média</div><div class="mon-detail-value">${(viagens?totalScuttles/viagens:0).toLocaleString('pt-BR',{maximumFractionDigits:1})}</div></div>
+    <div class="mon-detail-item mon-detail-full">
+      <div class="mon-detail-label">Carros por Tipo de Veículo</div>
+      ${listaHtml(porVeiculo, 'viagem(ns)') || '<div style="font-size:12px;color:var(--text-muted)">Sem dado</div>'}
+    </div>
+    <div class="mon-detail-item mon-detail-full">
+      <div class="mon-detail-label">Status das Viagens</div>
+      ${listaHtml(porStatus, '') || '<div style="font-size:12px;color:var(--text-muted)">Sem dado</div>'}
+    </div>
+    <div class="mon-detail-item mon-detail-full">
+      <div class="mon-detail-label">Agências</div>
+      ${listaHtml(porAgencia.slice(0,5), 'viagem(ns)') || '<div style="font-size:12px;color:var(--text-muted)">Sem dado</div>'}
+    </div>`;
+  document.getElementById('spr-dest-detail-overlay').classList.add('open');
+}
+function sprCloseDestDetail(){
+  document.getElementById('spr-dest-detail-overlay').classList.remove('open');
 }
 
 /* ── Leftover — config da página, usando o mesmo motor ──
