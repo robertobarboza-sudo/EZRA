@@ -539,7 +539,7 @@ const LABORPLAN_DEMANDA_DO_PROCESSO = {
   'INDUÇÃO ESTEIRA': 'esteira',
   'INDUÇÃO TERMO': 'termo',
 };
-const LABORPLAN_NIVEL_ASM = { 'INDUÇÕES NÍVEL 3': 'Nível 3', 'INDUÇÕES NÍVEL 2': 'Nível 2', 'INDUÇÕES NC': 'Nível 1' };
+const MACROS_CONFIG_ALTERNATIVA = new Set(['1/2 ZONA ASM']);
 
 async function buildLaborPlan(req, res) {
   const dataQuery = /^\d{4}-\d{2}-\d{2}$/.test(req.query.date || '') ? req.query.date : hojeOperacionalIso();
@@ -591,7 +591,15 @@ async function buildLaborPlan(req, res) {
     const demandaKey = LABORPLAN_DEMANDA_DO_PROCESSO[processo];
 
     let calculavel = false, necessidadePorHora = null, necessidadeTotalDia = 0, dependeDe = null;
-    if (demandaKey && phd > 0) {
+    // "1/2 ZONA ASM" é a config alternativa de meia-zona (mesmos PROCESSO de
+    // ASM/ESTEIRA/TERMO duplicados com PHD diferente) — sem sinal nos dados
+    // de qual config está ativa a cada momento, asm.js já assume sempre
+    // zona cheia (ver THRESHOLD_MESA_ABERTA/getPhdPorNivel lá). Calcular os
+    // dois em cima do MESMO realizado duplicaria a necessidade de pessoas
+    // pro mesmo trabalho real — trava como não-calculável aqui também.
+    if (MACROS_CONFIG_ALTERNATIVA.has(macro)) {
+      dependeDe = 'Config alternativa (meia zona) — não ativa';
+    } else if (demandaKey && phd > 0) {
       calculavel = true;
       necessidadePorHora = demandas[demandaKey].map(qtd => qtd > 0 ? Math.ceil(qtd / phd) * porWs : 0);
       necessidadeTotalDia = necessidadePorHora.reduce((s, v) => s + v, 0);
