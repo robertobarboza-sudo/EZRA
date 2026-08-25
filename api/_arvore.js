@@ -201,16 +201,201 @@ const ARVORE_META = {
 };
 
 // "Memória de Cálculo" (pedido do Roberto em 2026-08-24) — como consolidar
-// os dias de uma semana/mês, por KPI. Vem da planilha "Target dos
-// indicadores do site" (coluna MEMÓRIA DE CÁLCULO), mesmo padrão do
-// ARVORE_META acima: tabela hardcoded, chave = Bloco|PIC|Sub Bloco|KPI.
-// Ainda VAZIA — a planilha de referência não foi lida ainda (pedido feito
-// sem o snapshot/gid em mãos). KPI que não aparecer aqui simplesmente não
-// tem consolidado calculado (semana mostra o valor cru do backend, mês
-// mantém a média simples de sempre) — nunca quebra, nunca inventa número.
-// Tipos válidos: 'soma' | 'media' | 'maximo' | 'media_sem_domingo'.
+// os dias de uma semana/mês, por KPI. Não existe planilha de referência
+// pronta com essa coluna — classificação feita por julgamento (mesmo
+// espírito do ARVORE_META acima): contagem/volume que se acumula ao longo
+// da semana (pacotes, carros, ocorrências) -> soma; taxa/percentual e
+// "retrato"/snapshot de um momento (backlog, fila às 6h) -> média (somar
+// não faz sentido pra uma foto do momento); pico -> máximo; produtividade
+// -> média sem domingo (turno reduzido de fim de semana distorceria a
+// média). Tipos válidos: 'soma' | 'media' | 'maximo' | 'media_sem_domingo'.
+// KPI que não aparecer aqui não tem consolidado calculado (semana mostra o
+// valor cru do backend, mês mantém a média simples de sempre) — nunca
+// quebra, nunca inventa número.
 const ARVORE_AGREGACAO = {
-  // "Bloco|PIC|Sub Bloco|KPI": 'soma',
+  // Pessoas — acidentes/afastamentos: contagem que se acumula na semana.
+  "Pessoas|Ingryd (HSE)|ACA|Total": "soma",
+  "Pessoas|Ingryd (HSE)|ACA|Inbound": "soma",
+  "Pessoas|Ingryd (HSE)|ACA|ASM": "soma",
+  "Pessoas|Ingryd (HSE)|ACA|Outbound": "soma",
+  "Pessoas|Ingryd (HSE)|ACA|Esteira": "soma",
+  "Pessoas|Ingryd (HSE)|ACA|Outros (RTS, Almox, Meio Ambiente, Automação e etc)": "soma",
+  "Pessoas|Ingryd (HSE)|PS|Total": "soma",
+  "Pessoas|Ingryd (HSE)|PS|Inbound": "soma",
+  "Pessoas|Ingryd (HSE)|PS|ASM": "soma",
+  "Pessoas|Ingryd (HSE)|PS|Outbound": "soma",
+  "Pessoas|Ingryd (HSE)|PS|Esteira": "soma",
+  "Pessoas|Ingryd (HSE)|PS|Outros (RTS, Almox, Meio Ambiente, Automação e etc)": "soma",
+  "Pessoas|Ingryd (HSE)|HSE|SPI": "media",
+  "Pessoas|COP|ABS|Total": "media",
+  "Pessoas|COP|ABS|T1": "media",
+  "Pessoas|COP|ABS|T2": "media",
+  "Pessoas|COP|ABS|T3": "media",
+  "Pessoas|COP|ABS|T4": "media",
+
+  // Inventário — Stuck é quantidade parada AGORA (snapshot), não flow.
+  "Inventário|COP|Stuck Received (Inbound)|% Orders Packed within 6h": "media",
+  "Inventário|Diogo (INV)|Stuck Received (Inbound)|%> 24 horas": "media",
+  "Inventário|Diogo (INV)|Stuck Received (Inbound)|>24 horas": "media",
+  "Inventário|Diogo (INV)|Stuck Received (Inbound)|>48 horas": "media",
+  "Inventário|Diogo (INV)|Stuck Received (Inbound)|>72 horas": "media",
+  "Inventário|Diogo (INV)|Stuck Received (Inbound)|>10 dias": "media",
+  "Inventário|Diogo (INV)|Stuck Packed/Packing (Outbound)|>24 horas": "media",
+  "Inventário|Diogo (INV)|Stuck Packed/Packing (Outbound)|>48 horas": "media",
+  "Inventário|Diogo (INV)|Stuck Packed/Packing (Outbound)|>72 horas": "media",
+  "Inventário|Diogo (INV)|Stuck Packed/Packing (Outbound)|>10 dias": "media",
+  "Inventário|Diogo (INV)|Inventário|Losses": "soma",
+  "Inventário|Diogo (INV)|Inventário|Damage": "soma",
+  "Inventário|Diogo (INV)|Inventário|Pacotes Coletados": "soma",
+  "Inventário|Diogo (INV)|Inventário|Pacotes Coletados cancelados": "soma",
+  "Inventário|Diogo (INV)|Inventário|Pacotes Coletados com Losses": "soma",
+
+  // Planejamento
+  "Planejamento|Rodrigo (PCP)|Forecast|Inbound Forecast S&OP": "soma",
+  "Planejamento|Rodrigo (PCP)|Forecast|Received Inbound Total": "soma",
+  "Planejamento|Rodrigo (PCP)||(%) Desvio de Forecast": "media",
+  "Planejamento|Rodrigo (PCP)|Planejamento|Packed Planejado D-1": "soma",
+  "Planejamento|Rodrigo (PCP)|Planejamento|Packed Real D-1": "soma",
+  "Planejamento|Rodrigo (PCP)|Planejamento|(%) Aderência ao Plano All": "media",
+  "Planejamento|Rodrigo (PCP)|Planejamento|(%) Aderência ao Plano T1": "media",
+  "Planejamento|Rodrigo (PCP)|Planejamento|(%) Aderência ao Plano T2": "media",
+  "Planejamento|Rodrigo (PCP)|Planejamento|(%) Aderência ao Plano T3": "media",
+  "Planejamento|Rodrigo (PCP)|Planejamento|Handover": "soma",
+  "Planejamento|Rodrigo (PCP)|Planejamento|Backlog Piso D0 (Retrato das 6)": "media",
+  "Planejamento|Rodrigo (PCP)|Planejamento|Backlog Piso + Patio D0 (Retrato das 6)": "media",
+  // Produtividade: domingo roda com turno reduzido e distorce a média.
+  "Planejamento|Rodrigo (PCP)|Planejamento|Produtividade Planejada": "media_sem_domingo",
+  "Planejamento|Rodrigo (PCP)|Planejamento|Produtividade Real": "media_sem_domingo",
+  "Planejamento|Rodrigo (PCP)||Produtividade Real T1": "media_sem_domingo",
+  "Planejamento|Rodrigo (PCP)||Produtividade Real T2": "media_sem_domingo",
+  "Planejamento|Rodrigo (PCP)||Produtividade Real T3": "media_sem_domingo",
+  "Planejamento|Rodrigo (PCP)|Aderência|Aderência DW": "media",
+  "Planejamento|Rodrigo (PCP)|Aderência|Sizing Total": "media",
+  "Planejamento|Rodrigo (PCP)|Aderência|T1": "media",
+  "Planejamento|Rodrigo (PCP)|Aderência|T2": "media",
+  "Planejamento|Rodrigo (PCP)|Aderência|T3": "media",
+
+  // Inbound — LH
+  "Inbound|COP|LH|Forecast Received": "soma",
+  "Inbound|COP|LH|Received": "soma",
+  "Inbound|COP|LH|LH Qtd de carros planejados": "soma",
+  "Inbound|COP|LH|LH | Qtd de carros descarregados": "soma",
+  "Inbound|COP|LH|Qtd de carros em Fila D0 (retrato das 06:00)": "media",
+  "Inbound|COP|LH|Qtd de carros atrasados em fila D0 (retrato das 06:00)": "media",
+  "Inbound|COP|LH|Qtd de carros atrasados em fila + 6h D0 (retrato das 06:00)": "media",
+  "Inbound|COP|LH|Qtd de carros descarregados atrasados": "soma",
+  "Inbound|COP|LH|Qtd de carros descarregados atrasados + 6h": "soma",
+  "Inbound|COP|LH|% de carros descarregados atrasados": "media",
+  "Inbound|COP|LH|Tempo de Fila LH": "media",
+  "Inbound|COP|LH|% Aderência Stage In": "media",
+  "Inbound|COP|LH|% Wrong Crossdocking": "media",
+  "Inbound|COP|LH|% Share de Sacas": "media",
+  // Inbound — FM
+  "Inbound|COP|FM|Forecast Received": "soma",
+  "Inbound|COP|FM|Received": "soma",
+  "Inbound|COP|FM|Tempo de Fila FM": "media",
+  // Inbound — QB / Triagem / ABS
+  "Inbound|COP|QB|Packed QB": "soma",
+  "Inbound|COP|QB|Share QB": "media",
+  "Inbound|COP|Triagem|Postos hora Planejados": "soma",
+  "Inbound|COP|Triagem|Postos hora Realizados": "soma",
+  "Inbound|COP|Triagem|% Aderência Postos": "media",
+  "Inbound|COP|Triagem|Pacotes Planejados": "soma",
+  "Inbound|COP|Triagem|Pacotes Realizados": "soma",
+  "Inbound|COP|Triagem|% Aderência Pacotes": "media",
+  "Inbound|COP|ABS|% ABS": "media",
+  "Inbound|COP|ABS|% Aderência preenchimento ABS": "media",
+  "Inbound|COP|ABS|Aderência Medidas Disciplinares": "media",
+  "Inbound|COP|ABS|Aderência Entrevista de ABS": "media",
+
+  // Máquina — Rejeito (tudo taxa %) e Automação (contagem/horas gastas)
+  "Máquina|COP|Rejeito|Matriz (Total)": "media",
+  "Máquina|COP|Rejeito|IBA": "media",
+  "Máquina|COP|Rejeito|IBB": "media",
+  "Máquina|COP|Rejeito|IBC": "media",
+  "Máquina|COP|Rejeito|IBD": "media",
+  "Máquina|COP|Rejeito|IBE": "media",
+  "Máquina|COP|Rejeito|IBF": "media",
+  "Máquina|COP|Rejeito|OB (Total)": "media",
+  "Máquina|COP|Rejeito|OBA": "media",
+  "Máquina|COP|Rejeito|OBB": "media",
+  "Máquina|COP|Rejeito|OBC": "media",
+  "Máquina|COP|Rejeito|OBD": "media",
+  "Máquina|COP|Rejeito|CBS (Total)": "media",
+  "Máquina|COP|Rejeito|CBS N3": "media",
+  "Máquina|COP|Rejeito|CBS N2": "media",
+  "Máquina|COP|Rejeito|NC": "media",
+  "Máquina|PCM|Automação|Qtd de OM Corretivas": "soma",
+  "Máquina|PCM|Automação|Qtd de horas gastas em Corretivas": "soma",
+
+  // Sorter
+  "Sorter|COP|Sorter|Packed Planejado": "soma",
+  "Sorter|COP|Sorter|Packed Real": "soma",
+  "Sorter|COP|Sorter|Produção Pico Total": "maximo",
+  "Sorter|COP|Sorter|Produção Pico Zona": "maximo",
+  "Sorter|COP|Sorter|Produção Média": "media",
+  "Sorter|COP|Sorter|Tempo de Chute Fechado": "media",
+  "Sorter|COP|Sorter|\"Parcel Loop\"": "soma",
+  "Sorter|COP|Sorter|\"Over Loop\"": "soma",
+  "Sorter|COP|Sorter|% Share NC Processado": "media",
+  "Sorter|COP|Sorter|Backlog NC (Retrato das 6 horas)": "media",
+  "Sorter|COP|ABS|ABS": "media",
+  "Sorter|COP|ABS|% Aderência preenchimento ABS": "media",
+  "Sorter|COP|ABS|Aderência Medidas Disciplinares": "media",
+  "Sorter|COP|ABS|Aderência Entrevista de ABS": "media",
+
+  // Esteira
+  "Esteira|COP|Esteira|Packed Planejado": "soma",
+  "Esteira|COP|Esteira|Packed Real": "soma",
+  "Esteira|COP|Esteira|% Share Packed Esteira": "media",
+  "Esteira|COP|Esteira|Backlog Tinta >24horas": "media",
+  "Esteira|COP|ABS|ABS": "media",
+  "Esteira|COP|ABS|% Aderência preenchimento ABS": "media",
+  "Esteira|COP|ABS|Aderência Medidas Disciplinares": "media",
+  "Esteira|COP|ABS|Aderência Entrevista de ABS": "media",
+
+  // Outbound
+  "Outbound|COP|Outbound|% Leftover Total": "media",
+  "Outbound|COP|Outbound|Leftover Total": "media",
+  "Outbound|COP|Outbound|% Leftover Ops": "media",
+  "Outbound|COP|Outbound|% Leftover Field": "media",
+  "Outbound|COP|Outbound|% Orders Outbounded within 24h": "media",
+  "Outbound|COP|Outbound|% FIFO Broken": "media",
+  "Outbound|COP|Outbound|Aderência Atrelamento de Sacas (LMH)": "media",
+  "Outbound|COP|Outbound|Aderência Atrelamento de Sacas (XPT)": "media",
+  "Outbound|COP|Outbound|Aderência ETA": "media",
+  "Outbound|COP|Outbound|Aderência CPT": "media",
+  "Outbound|COP|Outbound|% Clusterização Stage Out (Retrato das 6 horas)": "media",
+  "Outbound|COP|ABS|ABS": "media",
+  "Outbound|COP|ABS|% Aderência preenchimento ABS": "media",
+  "Outbound|COP|ABS|Aderência Medidas Disciplinares": "media",
+  "Outbound|COP|ABS|Aderência Entrevista de ABS": "media",
+
+  // Auditoria
+  "Auditoria|COP|Mis|% Mis-scanning (SoC>LMH)": "media",
+  "Auditoria|COP|Mis|% Mis-routing": "media",
+  "Auditoria|COP|Auditoria de TO|Auditoria de TO (Qty)": "soma",
+  "Auditoria|COP|Auditoria de TO|% Auditado no ASM": "media",
+  "Auditoria|COP|Auditoria de TO|% wrong ASM": "media",
+  "Auditoria|COP|Auditoria de TO|% Auditado na Esteira": "media",
+  "Auditoria|COP|Auditoria de TO|% wrong Esteira": "media",
+  "Auditoria|COP|Auditoria de TO|% Auditado QB": "media",
+  "Auditoria|COP|Auditoria de TO|% wrong QB": "media",
+  "Auditoria|COP|Auditoria IN|Auditoria de FM": "soma",
+  "Auditoria|COP|Auditoria IN|Auditoria de LH": "soma",
+  "Auditoria|COP|Auditoria IN|Auditoria de NC": "media",
+  "Auditoria|COP|Auditoria IN|Auditoria de Outbound": "soma",
+
+  // RETURNS
+  "RETURNS|COP|EHA | RETURNS|Orfãos": "media",
+  "RETURNS|COP|EHA | RETURNS|Salvados - STN": "soma",
+  "RETURNS|COP|EHA | RETURNS|Salvados - CTN": "soma",
+  "RETURNS|COP|EHA | RETURNS|Descarte sem identificação": "soma",
+  "RETURNS|COP|EHA | RETURNS|Descarte com identificação": "soma",
+  "RETURNS|COP|EHA | RETURNS|Backlog de Salvados - Scuttles": "media",
+  "RETURNS|COP|EHA | RETURNS|Recevied EHA inbound": "soma",
+  "RETURNS|COP|EHA | RETURNS|Registro de Avarias": "soma",
+  "RETURNS|COP|EHA | RETURNS|% EHA X Recevied": "media",
 };
 
 // Memória de Cálculo em fórmula (não é soma/média/máximo simples — usa o
@@ -219,11 +404,15 @@ const ARVORE_AGREGACAO = {
 // semana/mês (o valor diário desses KPIs continua sendo o que a planilha
 // manda, não é recalculado dia a dia). Fórmula sempre
 // (soma(numerador) - soma(denominador)) / soma(denominador) no período —
-// cobre tanto "(RECEIVED-FORECAST)/FORECAST" quanto a variante SEERRO
-// (denominador somando 0 -> null, nunca divide por zero). Também vazia
-// por ora, mesmo motivo do ARVORE_AGREGACAO acima.
+// cobre tanto "(RECEIVED-FORECAST)/FORECAST" (LH e FM) quanto a variante
+// SEERRO "(PACKED REAL-PACKED PLANEJADO)/PACKED PLANEJADO" (Sorter e
+// Esteira) — denominador somando 0 (ou sem nenhum dia com dado) -> null,
+// nunca divide por zero.
 const ARVORE_AGREGACAO_FORMULA = {
-  // "Bloco|PIC|Sub Bloco|KPI alvo": { numerador: "Bloco|PIC|Sub Bloco|KPI Received", denominador: "Bloco|PIC|Sub Bloco|KPI Forecast" },
+  "Inbound|COP|LH|(%) Forecast x Received": { numerador: "Inbound|COP|LH|Received", denominador: "Inbound|COP|LH|Forecast Received" },
+  "Inbound|COP|FM|(%) Forecast x Received": { numerador: "Inbound|COP|FM|Received", denominador: "Inbound|COP|FM|Forecast Received" },
+  "Sorter|COP|Sorter|(%) Planejado x Real": { numerador: "Sorter|COP|Sorter|Packed Real", denominador: "Sorter|COP|Sorter|Packed Planejado" },
+  "Esteira|COP|Esteira|(%) Planejado x Real": { numerador: "Esteira|COP|Esteira|Packed Real", denominador: "Esteira|COP|Esteira|Packed Planejado" },
 };
 
 // Heurístico só pra KPI novo que ainda não está no ARVORE_META (a planilha
