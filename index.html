@@ -1585,6 +1585,21 @@
       gap: 12px; flex-wrap: wrap;
     }
     .spr-lt-footer:empty { display: none; }
+    /* SPR "Ver por Destino" — mesmo padrão visual de .rej-motivo-row
+       (Sorting Exception): rank + nome + barra proporcional + valores.
+       Aqui com 4 valores em vez de 2, sempre cascateando pro lado direito
+       da linha (pedido do Roberto em 2026-08-24, "formato da direita pra
+       esquerda" — os números ficam concentrados na ponta direita). */
+    .spr-dest-row { display:flex; align-items:center; gap:14px; padding:10px 6px; border-radius:var(--radius); }
+    .spr-dest-row:hover { background:var(--surface-2); }
+    .spr-dest-rank { width:26px; font-weight:800; color:var(--text-muted); font-size:12px; flex:none; }
+    .spr-dest-name { width:160px; flex:none; font-weight:700; font-size:12.5px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .spr-dest-bar { flex:1; height:8px; border-radius:999px; background:var(--surface-3); position:relative; overflow:hidden; min-width:60px; }
+    .spr-dest-bar i { position:absolute; left:0; top:0; bottom:0; border-radius:999px; background:linear-gradient(90deg,var(--cyan),var(--orange)); }
+    .spr-dest-val { display:flex; flex-direction:column; align-items:flex-end; width:84px; flex:none; text-align:right; }
+    .spr-dest-val b { font-size:13px; font-weight:800; color:var(--text); font-variant-numeric:tabular-nums; }
+    .spr-dest-val small { font-size:9.5px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; margin-top:1px; }
+    @media(max-width:900px){ .spr-dest-name{ width:110px; } .spr-dest-val{ width:64px; } }
     .pulso-pager { display: flex; align-items: center; gap: 10px; }
     .pulso-pager button[disabled] { opacity: .4; cursor: default; pointer-events: none; }
     .pulso-coverage {
@@ -7472,7 +7487,7 @@ function pulsoBuildHTML(cfg){
     <div id="pulso-kpis-${cfg.key}"></div>
     ${(cfg.hidePeriod && !cfg.dateRange) ? '' : `<div class="pulso-coverage" id="pulso-coverage-${cfg.key}"></div>`}
     ${cfg.extraHtml || ''}
-    <div class="table-card" style="margin-top:16px">
+    <div class="table-card" id="pulso-table-card-${cfg.key}" style="margin-top:16px">
       <div class="table-toolbar">
         <div class="table-toolbar-title">${cfg.table.title}</div>
         <div class="table-search">
@@ -7812,6 +7827,10 @@ function pulsoSortBy(key, colKey){
 }
 
 function pulsoRenderTable(key){
+  // SPR "Ver por Destino" (pedido do Roberto em 2026-08-24) troca a tabela
+  // de viagens por um ranking agregado por destino — mesma busca/filtro de
+  // card ativo de sempre, só a visualização muda. Ver sprRenderDestView.
+  if(key === 'spr' && typeof SPR_DEST_VIEW !== 'undefined' && SPR_DEST_VIEW){ sprRenderDestView(); return; }
   const cfg = PULSO_DASHBOARDS[key];
   const tbody = document.getElementById('pulso-tbody-'+key);
   const footer = document.getElementById('pulso-footer-'+key);
@@ -8760,6 +8779,19 @@ pulsoRegister({
       { key:'cpt_scheduled_origin_edited', label:'CPT Programado', type:'date' },
     ],
   },
+  // "Ver por Destino" (pedido do Roberto em 2026-08-24) — botão que troca a
+  // tabela de viagens por um ranking agregado por destino (SPR médio,
+  // viagens, sacas e scuttles médias), no estilo "Principais motivos" do
+  // Sorting Exception. Ver sprToggleDestView/sprRenderDestView.
+  extraHtml: `
+    <div style="display:flex;justify-content:flex-end;margin-top:12px">
+      <button class="dl-btn dl-btn-csv" id="spr-dest-toggle-btn" onclick="sprToggleDestView()"><i class="fas fa-arrow-right-arrow-left"></i> Ver por Destino</button>
+    </div>`,
+  belowTableHtml: `
+    <div class="table-card full" id="spr-dest-card" style="display:none;margin-top:16px">
+      <div class="table-toolbar-title">SPR por Destino <span style="font-weight:400;color:var(--text-muted);font-size:12px">média de pedidos (SPR), viagens, sacas e scuttles por destino — mesmo filtro/busca da tabela de viagens</span></div>
+      <div id="spr-dest-list" style="margin-top:10px"></div>
+    </div>`,
   insights(data, rows){
     const out = [];
     if(!rows || !rows.length) return out;
@@ -8794,6 +8826,80 @@ pulsoRegister({
     return out;
   },
 });
+
+/* ── SPR — "Ver por Destino" (pedido do Roberto em 2026-08-24): ranking
+   agregado por destino (SPR médio, viagens, sacas e scuttles médias),
+   mesmo padrão visual de "Principais motivos" do Sorting Exception
+   (rank + nome + barra proporcional + valores à direita). ── */
+let SPR_DEST_VIEW = false;
+function sprToggleDestView(){
+  SPR_DEST_VIEW = !SPR_DEST_VIEW;
+  const mainCard = document.getElementById('pulso-table-card-spr');
+  const destCard = document.getElementById('spr-dest-card');
+  const btn = document.getElementById('spr-dest-toggle-btn');
+  if(mainCard) mainCard.style.display = SPR_DEST_VIEW ? 'none' : '';
+  if(destCard) destCard.style.display = SPR_DEST_VIEW ? '' : 'none';
+  if(btn) btn.innerHTML = SPR_DEST_VIEW ? '<i class="fas fa-arrow-right-arrow-left"></i> Ver viagens' : '<i class="fas fa-arrow-right-arrow-left"></i> Ver por Destino';
+  pulsoRenderTable('spr');
+}
+
+// Mesma regra de filtro (card ativo + busca) que a tabela de viagens usa —
+// ver pulsoRenderTable — pra "por Destino" nunca divergir do que está
+// filtrado na tela.
+function sprDestFilteredRows(){
+  const { rows } = PULSO_ROWS['spr'] || { rows: [] };
+  const activeCardKey = PULSO_ACTIVE_CARD['spr'];
+  const activeCard = activeCardKey ? PULSO_DASHBOARDS['spr'].kpis.find(k => k.key === activeCardKey) : null;
+  let base = (activeCard && activeCard.rowFilter) ? rows.filter(activeCard.rowFilter) : rows;
+  const termo = (document.getElementById('pulso-search-spr')?.value || '').trim().toLowerCase();
+  if(!termo) return base;
+  const searchFields = PULSO_DASHBOARDS['spr'].table.searchFields || [];
+  return base.filter(r => searchFields.some(f => String(r[f]||'').toLowerCase().includes(termo)));
+}
+
+function sprRenderDestView(){
+  const list = document.getElementById('spr-dest-list');
+  if(!list) return;
+  const rows = sprDestFilteredRows();
+  if(!rows.length){
+    list.innerHTML = `<div class="rej-empty">Nenhuma viagem bate com os filtros atuais.</div>`;
+    return;
+  }
+
+  const porDestino = new Map();
+  rows.forEach(r => {
+    const dest = r.destination_station_code || '(sem destino)';
+    if(!porDestino.has(dest)) porDestino.set(dest, { viagens:0, pedidos:0, sacas:0, scuttles:0 });
+    const d = porDestino.get(dest);
+    d.viagens++;
+    d.pedidos += r.total_orders || 0;
+    d.sacas += r.to_saca || 0;
+    d.scuttles += r.to_scuttle || 0;
+  });
+
+  const ranking = [...porDestino.entries()]
+    .map(([dest, d]) => ({
+      dest,
+      viagens: d.viagens,
+      sprMedio: d.viagens ? d.pedidos / d.viagens : 0,
+      sacasMedia: d.viagens ? d.sacas / d.viagens : 0,
+      scuttlesMedia: d.viagens ? d.scuttles / d.viagens : 0,
+    }))
+    .sort((a, b) => b.viagens - a.viagens);
+
+  const picoViagens = Math.max(1, ...ranking.map(d => d.viagens));
+
+  list.innerHTML = ranking.map((d, i) => `
+    <div class="spr-dest-row">
+      <span class="spr-dest-rank">#${i+1}</span>
+      <span class="spr-dest-name" title="${pulsoEscHtml(d.dest)}">${pulsoEscHtml(d.dest)}</span>
+      <span class="spr-dest-bar"><i style="width:${(d.viagens/picoViagens*100).toFixed(1)}%"></i></span>
+      <span class="spr-dest-val"><b>${d.sprMedio.toLocaleString('pt-BR',{maximumFractionDigits:1})}</b><small>SPR médio</small></span>
+      <span class="spr-dest-val"><b>${d.viagens.toLocaleString('pt-BR')}</b><small>Viagens</small></span>
+      <span class="spr-dest-val"><b>${d.sacasMedia.toLocaleString('pt-BR',{maximumFractionDigits:1})}</b><small>Sacas méd.</small></span>
+      <span class="spr-dest-val"><b>${d.scuttlesMedia.toLocaleString('pt-BR',{maximumFractionDigits:1})}</b><small>Scuttles méd.</small></span>
+    </div>`).join('');
+}
 
 /* ── Leftover — config da página, usando o mesmo motor ──
    Classificação de causa (leftover_until_cap_causa_l1), decidida com o

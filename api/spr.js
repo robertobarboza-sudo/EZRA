@@ -137,6 +137,12 @@ module.exports = async (req, res) => {
     used_agency_name: r.used_agency_name,
     turno: r.turno,
     cpt_scheduled_origin_edited: r.cpt_scheduled_origin_edited,
+    // Sacas/scuttles por viagem (pedido do Roberto em 2026-08-24, view "SPR
+    // por Destino") — mesmos campos já usados pra "Ocupação Média" nos KPIs
+    // agregados acima, agora expostos por linha pra dar pra agregar por
+    // destino no front.
+    to_scuttle: toNum(r.to_scuttle),
+    to_saca: toNum(r.to_saca),
   }));
 
   res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
