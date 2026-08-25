@@ -4220,8 +4220,8 @@
       <div class="nav-item nav-item-locked" data-section="performance" data-label="Performance">
         <i class="fas fa-chart-line nav-icon"></i><span class="nav-label">Performance</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
-      <div class="nav-item" data-section="laborplan" data-label="Labor Plan" onclick="navigateTo('laborplan',this)">
-        <i class="fas fa-brain nav-icon"></i><span class="nav-label">Labor Plan</span>
+      <div class="nav-item nav-item-locked" data-section="laborplan" data-label="Labor Plan">
+        <i class="fas fa-brain nav-icon"></i><span class="nav-label">Labor Plan</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
       <div class="nav-item" data-section="backlog" data-label="Backlog" onclick="navigateTo('backlog',this)">
         <i class="fas fa-layer-group nav-icon"></i><span class="nav-label">Backlog</span>
@@ -5419,14 +5419,27 @@
       <div class="section-header" id="section-laborplan-header">
         <!-- header restored below by JS -->
       </div>
-      <div class="switch-hint">
-        <i class="fas fa-circle-info"></i>
-        Necessidade de mão de obra calculada em cima do <strong>realizado por hora</strong> (pacotes/induções já processados) cruzado com as premissas da planilha config (PHD, Por WS) — ainda sem forecast horário nem escala real disponível. Processos marcados "Depende de X" ainda não têm fórmula validada.
-      </div>
-
-      <div class="spr-filters">
-        <div class="spr-filter-group">
-          <input type="date" class="filter-select pulso-date-input" id="lbp-date-input" onchange="lbpSetDate(this.value)" style="color-scheme:dark"/>
+      <div id="section-laborplan-wip" style="
+        display:flex;flex-direction:column;align-items:center;justify-content:center;
+        min-height:420px;text-align:center;gap:20px;padding:40px">
+        <div style="
+          width:90px;height:90px;border-radius:50%;
+          background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
+          display:flex;align-items:center;justify-content:center;font-size:36px">
+          🚧
+        </div>
+        <div>
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Labor Plan</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
+            Esta seção está em construção.<br/>
+            Os dados reais serão integrados via Google Sheets.
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;
+          background:var(--surface);border:1px solid var(--border);
+          border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
+          <i class="fas fa-database" style="color:var(--orange)"></i>
+          Aguardando conexão com a fonte de dados
         </div>
         <div style="display:flex;gap:10px">
           <div class="pdf-menu-wrap">
@@ -5443,9 +5456,6 @@
           <button class="dl-btn dl-btn-csv" onclick="downloadCSV('laborplan')"><i class="fas fa-file-csv"></i> CSV</button>
         </div>
       </div>
-
-      <div class="pulso-coverage" id="lbp-coverage"></div>
-      <div id="lbp-macros" style="margin-top:12px;display:flex;flex-direction:column;gap:10px"></div>
     </section>
 
     <!-- ÁRVORE DAILY -->
@@ -11782,85 +11792,8 @@ function bklOpenPipboy(){
   pulsoOpenPipboyGeneric('Backlog', bklGenerateInsights());
 }
 
-/* ================================================================
-   LABOR PLAN — pedido do Roberto em 2026-08-25. Necessidade de mão de obra
-   por processo/hora, calculada em cima do REALIZADO (api/overview.js
-   ?laborplan=1) — ver comentário completo lá sobre por que não é
-   forecast/backlog ainda. Tabela por MACRO (accordion, reaproveita
-   .ovw-accordion) com processos nas linhas e horas nas colunas (reaproveita
-   .rej-table/.rej-sticky do Sorting Exception — mesmo padrão de grade
-   hora a hora já usado ali).
-================================================================ */
-const LBP_STATE = { date: null };
-let LBP_DATA = null;
-
-async function loadLaborplan(){
-  setBadge('laborplan','loading');
-  try {
-    const p = new URLSearchParams({ laborplan: '1' });
-    if(LBP_STATE.date) p.set('date', LBP_STATE.date);
-    const r = await fetch('/api/overview?'+p.toString(), { cache:'no-store' });
-    const j = await r.json();
-    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
-    setBadge('laborplan','ok','Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
-    LBP_DATA = j;
-
-    const dateInput = document.getElementById('lbp-date-input');
-    if(dateInput && j.cutoff) dateInput.value = j.cutoff;
-    const cov = document.getElementById('lbp-coverage');
-    if(cov) cov.innerHTML = `<i class="fas fa-database"></i> Dia operacional: <strong style="color:var(--text)">${pulsoFmtDataBr(j.cutoff)}</strong>`;
-
-    lbpRenderAll();
-  } catch(err){
-    setBadge('laborplan','error','Erro: '+err.message);
-    console.error('[laborplan]', err);
-  }
-}
-
-function lbpSetDate(valor){
-  LBP_STATE.date = valor;
-  loadLaborplan();
-}
-
-function lbpRenderAll(){
-  const wrap = document.getElementById('lbp-macros');
-  if(!wrap || !LBP_DATA) return;
-  if(!LBP_DATA.macros.length){ wrap.innerHTML = '<div class="switch-hint">Sem dados de premissa (config) disponíveis.</div>'; return; }
-
-  const horasLabels = HORAS_CUTOFF_LABELS;
-  wrap.innerHTML = LBP_DATA.macros.map((m, i) => {
-    const totalMacro = m.processos.reduce((s,p) => s + (p.necessidadeTotalDia||0), 0);
-    const linhas = m.processos.map(p => {
-      if(!p.calculavel){
-        return `<tr class="rej-sub-row"><td class="rej-sticky rej-c-mach">${pulsoEscHtml(p.processo)}</td><td class="rej-sticky rej-c-target">—</td>
-          <td class="rej-hm none" colspan="${horasLabels.length}" style="text-align:left;padding-left:10px!important;color:var(--text-muted)">
-            ${p.dependeDe ? 'Depende de '+pulsoEscHtml(p.dependeDe) : 'Sem fórmula validada'}
-          </td><td class="rej-hm day none">—</td></tr>`;
-      }
-      const celulas = p.necessidadePorHora.map(v => `<td class="rej-hm ${v>0?'good':'none'}">${v>0?v:'—'}</td>`).join('');
-      return `<tr class="rej-mach-row"><td class="rej-sticky rej-c-mach">${pulsoEscHtml(p.processo)}</td><td class="rej-sticky rej-c-target">${p.phd?p.phd.toLocaleString('pt-BR'):'—'}</td>
-        ${celulas}<td class="rej-hm day good">${p.necessidadeTotalDia.toLocaleString('pt-BR')}</td></tr>`;
-    }).join('');
-    const cabecalho = horasLabels.map(h => `<th>${h}</th>`).join('');
-    return `<details class="ovw-accordion" ${i===0?'open':''}>
-      <summary><span><i class="fas fa-users"></i> ${pulsoEscHtml(m.macro)} <span style="color:var(--text-muted);font-weight:600">— ${totalMacro.toLocaleString('pt-BR')} pessoas-hora/dia</span></span><i class="fas fa-chevron-down ovw-chevron"></i></summary>
-      <div class="ovw-accordion-body">
-        <div class="rej-table-wrap"><table class="rej-table">
-          <thead><tr>
-            <th class="rej-sticky rej-c-mach lbl">Processo</th>
-            <th class="rej-sticky rej-c-target">PHD</th>
-            ${cabecalho}<th class="rej-hm day">Total dia</th>
-          </tr></thead>
-          <tbody>${linhas}</tbody>
-        </table></div>
-      </div>
-    </details>`;
-  }).join('');
-}
-
 function renderLaborplan(){
-  if(LBP_DATA){ lbpRenderAll(); return; }
-  loadLaborplan();
+  setBadge('laborplan','ok','Em Construção');
 }
 
 /* ================================================================
