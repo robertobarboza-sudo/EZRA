@@ -404,6 +404,26 @@ async function buildArvore() {
     });
   });
 
+  // "Produtividade Real" não tem Target próprio na planilha (célula "-")
+  // — o número que existe (714) está na linha de "Produtividade Planejada",
+  // mas comparar o PLANO contra ele mesmo não diz nada; quem precisa ser
+  // avaliado contra esse target é o REALIZADO (pedido do Roberto em
+  // 2026-08-24). Empresta só o TARGET (não o valor) do KPI irmão, mesmo
+  // Bloco/PIC/Sub Bloco, e tira o target de quem emprestou — a formatação
+  // condicional sai da Planejada e passa a valer pra Real.
+  const ARVORE_TARGET_HERDADO = [
+    { alvo: 'Planejamento|Rodrigo (PCP)|Planejamento|Produtividade Real',
+      fonte: 'Planejamento|Rodrigo (PCP)|Planejamento|Produtividade Planejada' },
+  ];
+  ARVORE_TARGET_HERDADO.forEach(({ alvo, fonte }) => {
+    const kAlvo = kpiPorChave.get(alvo), kFonte = kpiPorChave.get(fonte);
+    if (!kAlvo || !kFonte || kFonte.target === null) return;
+    kAlvo.target = kFonte.target;
+    kAlvo.targetRaw = kFonte.targetRaw;
+    kFonte.target = null;
+    kFonte.targetRaw = '-';
+  });
+
   // Resolve os KPIs irmãos das fórmulas de agregação (ARVORE_AGREGACAO_FORMULA
   // acima) pra id — o front (aggregatePeriod) soma os valores diários deles
   // no período direto pelo id, sem precisar adivinhar o KPI irmão pelo nome.
