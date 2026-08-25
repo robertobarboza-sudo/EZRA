@@ -63,7 +63,6 @@ function mapLaborRow(r) {
     asmTarget: toNum(r['asm target']),
     asmZonas: toNum(r['asm (zonas)']),
     esteiraTermo: toNum(r['esteira termo']),
-    esteiras: toNum(r.esteiras),
     nv1: toNum(r['nv.1']), nv2: toNum(r['nv.2']), nv3: toNum(r['nv.3']),
     packingEsteira: toNum(r['packing esteira']),
     packingVolumoso: toNum(r['packing volumoso']),
@@ -713,7 +712,13 @@ module.exports = async (req, res) => {
       porGrupo: CNV_GRUPOS.map(g => ({ label: g, realizado: cnvRows.filter(r => r.grupo === g).reduce((s, r) => s + r.totalProcessamento, 0) })).filter(g => g.realizado > 0),
       picoProcessamento: pico,
       mediaProcessamentoPorHora: cnvHoras.length ? Math.round((conveyorRealizado ?? 0) / cnvHoras.length) : null,
-      capacidadeAgora: laborAgora ? { hora: laborAgora.hora, esteiras: laborAgora.esteiras, esteiraTermo: laborAgora.esteiraTermo } : null,
+      // Esteira A/B/Termo (colunas TARGET ESTEIRA A/B/TERMO de labor_pulso —
+      // pedido do Roberto em 2026-08-25: a linha de "Capacidade planejada"
+      // do Conveyor não trazia nada porque lia `esteiras`, um campo que não
+      // existe na planilha (a coluna real é ESTEIRA A/ESTEIRA B separadas,
+      // e essas são REALIZADO, não target). Mesmo padrão do capacidadeAgora
+      // do ASM acima (nv1/nv2/nv3), agora com os 3 targets reais.
+      capacidadeAgora: laborAgora ? { hora: laborAgora.hora, esteiraA: laborAgora.targetEsteiraA, esteiraB: laborAgora.targetEsteiraB, termo: laborAgora.targetTermo } : null,
       serieHoraria: { planejado: labor ? porHora(labor.rows, 'hora', r => r.packingEsteira + r.packingVolumoso) : null, realizado: conveyor ? porHora(cnvRows, 'hora', r => r.totalProcessamento) : null },
     };
   }

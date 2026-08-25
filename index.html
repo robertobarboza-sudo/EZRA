@@ -9875,7 +9875,7 @@ function ovwRenderAll(){
   const capCnv = cnv && cnv.capacidadeAgora;
   const capCnvEl = document.getElementById('ovw-capacidade-conveyor');
   if(capCnvEl) capCnvEl.innerHTML = capCnv
-    ? `<i class="fas fa-gears"></i> Capacidade planejada (${String(capCnv.hora).padStart(2,'0')}h): <strong style="color:var(--text)">Esteiras ${capCnv.esteiras}${capCnv.esteiraTermo?` + Termo ${capCnv.esteiraTermo}`:''}</strong>`
+    ? `<i class="fas fa-gears"></i> Capacidade planejada (${String(capCnv.hora).padStart(2,'0')}h): <strong style="color:var(--text)">Esteira A ${capCnv.esteiraA} · Esteira B ${capCnv.esteiraB} · Termo ${capCnv.termo}</strong>`
     : '';
   const grupoCnvEl = document.getElementById('ovw-grupo-conveyor');
   if(grupoCnvEl) grupoCnvEl.innerHTML = cnv
