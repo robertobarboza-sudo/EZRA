@@ -685,8 +685,57 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
   // ---------------------------------------------------------------------
   // Séries para gráficos / histórico
   // ---------------------------------------------------------------------
+  // Consolida os dias de um período (semana ou mês) segundo a "Memória de
+  // Cálculo" do KPI (kpi.memoriaCalculo, vinda da planilha "Target dos
+  // indicadores do site" — pedido do Roberto em 2026-08-24). `periodDays` =
+  // array de objetos de dia (mesmo shape de DataService.getDays()) já
+  // filtrado pro período. Sem memoriaCalculo -> null (quem chamou cai pro
+  // comportamento de sempre: valor cru do backend na semana, média simples
+  // no mês) — nunca inventa consolidado pra KPI sem essa definição.
+  function aggregatePeriod(kpi, periodDays) {
+    const tipo = kpi.memoriaCalculo;
+    if (!tipo || !periodDays || !periodDays.length) return null;
+
+    if (tipo === "formula_diff_pct") {
+      if (!kpi.aggRefs || typeof DataService === "undefined") return null;
+      const num = DataService.getKPIById(kpi.aggRefs.numeradorId);
+      const den = DataService.getKPIById(kpi.aggRefs.denominadorId);
+      if (!num || !den) return null;
+      let somaNum = 0, somaDen = 0, temNum = false, temDen = false;
+      periodDays.forEach((d) => {
+        const vn = getValue(num, d.iso), vd = getValue(den, d.iso);
+        if (vn !== null) { somaNum += vn; temNum = true; }
+        if (vd !== null) { somaDen += vd; temDen = true; }
+      });
+      // SEERRO(...,"") do original: denominador zerado (ou sem nenhum dia
+      // com dado) vira vazio, nunca divide por zero.
+      if (!temNum || !temDen || somaDen === 0) return null;
+      return (somaNum - somaDen) / somaDen;
+    }
+
+    const dias = tipo === "media_sem_domingo" ? periodDays.filter((d) => d.wd !== "Dom") : periodDays;
+    const nums = dias.map((d) => getValue(kpi, d.iso)).filter((v) => v !== null && v !== undefined && isFinite(v));
+    if (!nums.length) return null;
+
+    if (tipo === "soma") return nums.reduce((a, b) => a + b, 0);
+    if (tipo === "maximo") return Math.max(...nums);
+    return nums.reduce((a, b) => a + b, 0) / nums.length; // "media" e "media_sem_domingo"
+  }
+
   function getWeeklySeries(kpi, weeks) {
-    return weeks.map((w) => ({ key: w.label, label: w.label, value: getValue(kpi, w.label), isWeek: true }));
+    const allDays = typeof DataService !== "undefined" ? DataService.getDays() : [];
+    return weeks.map((w) => {
+      let value = null;
+      if (kpi.memoriaCalculo) {
+        const diasSemana = allDays.filter((d) => d.wk === w.label);
+        value = aggregatePeriod(kpi, diasSemana);
+      }
+      // Fallback: sem memoriaCalculo, ou dias insuficientes carregados pra
+      // calcular (aggregatePeriod devolveu null) -> valor cru que já veio
+      // pronto do backend pra essa semana (comportamento de sempre).
+      if (value === null || value === undefined) value = getValue(kpi, w.label);
+      return { key: w.label, label: w.label, value, isWeek: true };
+    });
   }
 
   function getDailySeries(kpi, days) {
@@ -696,20 +745,30 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
   function getMonthlySeries(kpi, days) {
     const buckets = {};
     days.forEach((d) => {
-      const v = getValue(kpi, d.iso);
-      if (v === null) return;
       const month = d.iso.slice(0, 7);
       if (!buckets[month]) buckets[month] = [];
-      buckets[month].push(v);
+      buckets[month].push(d);
     });
     return Object.keys(buckets)
       .sort()
-      .map((month) => ({
-        key: month,
-        label: month.slice(5, 7) + "/" + month.slice(0, 4),
-        value: buckets[month].reduce((a, b) => a + b, 0) / buckets[month].length,
-        count: buckets[month].length,
-      }));
+      .map((month) => {
+        const diasMes = buckets[month];
+        const valoresDia = diasMes.map((d) => getValue(kpi, d.iso)).filter((v) => v !== null && v !== undefined);
+        // Com memoriaCalculo definida, usa a regra certa (soma/máximo/
+        // fórmula/etc.); sem ela, mantém a média simples de sempre — não
+        // muda o comportamento de nenhum KPI que ainda não tem a memória
+        // de cálculo mapeada.
+        const agg = kpi.memoriaCalculo ? aggregatePeriod(kpi, diasMes) : null;
+        const value = agg !== null && agg !== undefined
+          ? agg
+          : (valoresDia.length ? valoresDia.reduce((a, b) => a + b, 0) / valoresDia.length : null);
+        return {
+          key: month,
+          label: month.slice(5, 7) + "/" + month.slice(0, 4),
+          value,
+          count: valoresDia.length,
+        };
+      });
   }
 
   function stats(values) {
@@ -746,6 +805,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     isImprovement,
     getTurnoEntries,
     generateInsights,
+    aggregatePeriod,
     getWeeklySeries,
     getDailySeries,
     getMonthlySeries,

@@ -200,6 +200,32 @@ const ARVORE_META = {
   "RETURNS|COP|EHA | RETURNS|% EHA X Recevied":"ph"
 };
 
+// "Memória de Cálculo" (pedido do Roberto em 2026-08-24) — como consolidar
+// os dias de uma semana/mês, por KPI. Vem da planilha "Target dos
+// indicadores do site" (coluna MEMÓRIA DE CÁLCULO), mesmo padrão do
+// ARVORE_META acima: tabela hardcoded, chave = Bloco|PIC|Sub Bloco|KPI.
+// Ainda VAZIA — a planilha de referência não foi lida ainda (pedido feito
+// sem o snapshot/gid em mãos). KPI que não aparecer aqui simplesmente não
+// tem consolidado calculado (semana mostra o valor cru do backend, mês
+// mantém a média simples de sempre) — nunca quebra, nunca inventa número.
+// Tipos válidos: 'soma' | 'media' | 'maximo' | 'media_sem_domingo'.
+const ARVORE_AGREGACAO = {
+  // "Bloco|PIC|Sub Bloco|KPI": 'soma',
+};
+
+// Memória de Cálculo em fórmula (não é soma/média/máximo simples — usa o
+// valor de 2 KPIs IRMÃOS do mesmo Sub Bloco). Mesmo shape de
+// KPI_CALCULADOS mais abaixo, mas resolvido só pro CONSOLIDADO de
+// semana/mês (o valor diário desses KPIs continua sendo o que a planilha
+// manda, não é recalculado dia a dia). Fórmula sempre
+// (soma(numerador) - soma(denominador)) / soma(denominador) no período —
+// cobre tanto "(RECEIVED-FORECAST)/FORECAST" quanto a variante SEERRO
+// (denominador somando 0 -> null, nunca divide por zero). Também vazia
+// por ora, mesmo motivo do ARVORE_AGREGACAO acima.
+const ARVORE_AGREGACAO_FORMULA = {
+  // "Bloco|PIC|Sub Bloco|KPI alvo": { numerador: "Bloco|PIC|Sub Bloco|KPI Received", denominador: "Bloco|PIC|Sub Bloco|KPI Forecast" },
+};
+
 // Heurístico só pra KPI novo que ainda não está no ARVORE_META (a planilha
 // pode ganhar linhas sem que essa tabela seja atualizada). Deliberadamente
 // simples: nome com % ou target fracionário => percentual; nome com palavra
@@ -306,6 +332,7 @@ async function buildArvore() {
         fonte: String(r.link || '').trim(),
         unit: m.unit, polarity: m.polarity,
         target, targetRaw,
+        memoriaCalculo: ARVORE_AGREGACAO[chave] || (ARVORE_AGREGACAO_FORMULA[chave] ? 'formula_diff_pct' : null),
         valores: {}, obs: {},
       });
     }
@@ -375,6 +402,17 @@ async function buildArvore() {
       if (n == null || !d) return;
       kAlvo.valores[data] = Math.round((n / d) * 1e6) / 1e6;
     });
+  });
+
+  // Resolve os KPIs irmãos das fórmulas de agregação (ARVORE_AGREGACAO_FORMULA
+  // acima) pra id — o front (aggregatePeriod) soma os valores diários deles
+  // no período direto pelo id, sem precisar adivinhar o KPI irmão pelo nome.
+  Object.keys(ARVORE_AGREGACAO_FORMULA).forEach(chave => {
+    const kAlvo = kpiPorChave.get(chave);
+    const { numerador, denominador } = ARVORE_AGREGACAO_FORMULA[chave];
+    const kNum = kpiPorChave.get(numerador), kDen = kpiPorChave.get(denominador);
+    if (!kAlvo || !kNum || !kDen) return;
+    kAlvo.aggRefs = { numeradorId: kNum.id, denominadorId: kDen.id };
   });
 
   const kpis = [...kpiPorChave.values()];
