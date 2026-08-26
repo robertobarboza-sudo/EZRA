@@ -16,9 +16,15 @@
  *              recente disponível se hoje não tiver dado ainda)
  */
 const { fetchTabByGid } = require('./_google');
-const { toNum, hojeOperacionalIso } = require('./_period');
+const { toNum, hojeOperacionalIso, dataOperacionalDe } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1026737209' };
+// Docas abertas (workstations do FM) — pedido do Roberto em 2026-08-26,
+// visão "Docas abertas" do gráfico + KPI "Quantidade de docas usadas" do
+// Overall por Turno. Sem coluna de data própria (só check_in_time, que já
+// carrega a data) — dia operacional calculado a partir dele, mesma
+// convenção do resto do PULSO.
+const FMBEEP_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '360571552' };
 
 // Hora extraída direto da string (evita ambiguidade de fuso horário do
 // parse via Date) + turno pela mesma janela do Outbound (T1 06h-13h59,
@@ -38,9 +44,12 @@ function turnoDeHora(hora) {
 }
 
 module.exports = async (req, res) => {
-  let rows;
+  let rows, docaRows;
   try {
-    ({ rows } = await fetchTabByGid(SHEET.spreadsheetId, SHEET.gid));
+    [{ rows }, { rows: docaRows }] = await Promise.all([
+      fetchTabByGid(SHEET.spreadsheetId, SHEET.gid),
+      fetchTabByGid(FMBEEP_SHEET.spreadsheetId, FMBEEP_SHEET.gid),
+    ]);
   } catch (err) {
     res.status(502).json({ ok: false, erro: err.message });
     return;
@@ -48,7 +57,7 @@ module.exports = async (req, res) => {
 
   const fm = rows.filter(r => r.data_operacional);
   if (!fm.length) {
-    res.status(200).json({ ok: true, de: null, ate: null, rows: [], opcoes: { turnos: [], agencias: [] }, cobertura: { inicio: null, fim: null } });
+    res.status(200).json({ ok: true, de: null, ate: null, rows: [], docas: [], opcoes: { turnos: [], agencias: [] }, cobertura: { inicio: null, fim: null } });
     return;
   }
 
@@ -98,11 +107,21 @@ module.exports = async (req, res) => {
     agencias: [...new Set(linhas.map(l => l.agencia).filter(Boolean))].sort(),
   };
 
+  // Docas abertas (pedido do Roberto em 2026-08-26): 1 linha por
+  // workstation×hora do fmbeep_pulso, no mesmo intervalo de/ate já
+  // calculado acima — front conta workstation único por hora (visão do
+  // gráfico) ou por turno (Overall por Turno).
+  const docas = docaRows
+    .map(r => ({ workstation: r.workstation || '', hora: toNum(r['_hora_range_spx']), data: dataOperacionalDe(r.check_in_time) }))
+    .filter(r => r.workstation && r.data && r.data >= de && r.data <= ate)
+    .map(r => ({ workstation: r.workstation, hora: r.hora }));
+
   res.setHeader('Cache-Control', 's-maxage=120, stale-while-revalidate=300');
   res.status(200).json({
     ok: true,
     de, ate,
     rows: linhas,
+    docas,
     opcoes,
     cobertura: { inicio: dataMinima, fim: dataMaxima },
   });

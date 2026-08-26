@@ -5083,6 +5083,21 @@
           <div style="height:320px;margin-top:12px"><canvas id="chart-fm-hora"></canvas></div>
         </div>
         <div class="table-card full" style="margin-top:16px">
+          <div class="table-toolbar"><div class="table-toolbar-title">Overall por Turno</div></div>
+          <div style="overflow-x:auto">
+            <table><thead><tr>
+              <th>Turno</th>
+              <th>Tempo Médio de Fila (h)</th>
+              <th>Tempo Médio de Descarga (h)</th>
+              <th>Tempo Médio de Permanência (h)</th>
+              <th>Total de Pacotes Recebidos</th>
+              <th>Veículos Recebidos</th>
+              <th>Docas Usadas</th>
+              <th>Média de Carros Descarregados/Hora</th>
+            </tr></thead><tbody id="fm-turno-tbody"></tbody></table>
+          </div>
+        </div>
+        <div class="table-card full" style="margin-top:16px">
           <div class="table-toolbar"><div class="table-toolbar-title">Chegadas do dia</div><button class="dl-btn dl-btn-csv" onclick="fmExportCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button></div>
           <div style="overflow-x:auto">
             <table><thead><tr>
@@ -10504,6 +10519,7 @@ function fmFilteredRows(){
 function fmRenderAll(){
   fmRenderKpis();
   fmRenderChart();
+  fmRenderTurnoOverall();
   fmRenderTable();
 }
 
@@ -10519,6 +10535,9 @@ function fmRenderKpis(){
   // "ainda docado agora"; pedido do Roberto em 2026-08-14).
   const emFila = rows.filter(r => r.checkinDriver && !r.finalizacaoJornada);
   const pacotesEmFila = emFila.reduce((s,r)=>s+r.pacotes,0);
+  // "Veículos em fila no FM" (pedido do Roberto em 2026-08-26): checkin
+  // feito e SEM doca atribuída ainda (mais estrito que emFila acima).
+  const emFilaSemDoca = rows.filter(r => r.checkinDriver && !r.atribuicaoDoca);
 
   // Médias "por hora" usam só as horas com dado (não /24) — mesmo padrão
   // usado no Backlog. Trocou o card Desvio Médio por esses 3 (pedido do
@@ -10545,17 +10564,29 @@ function fmRenderKpis(){
     { label:'Média de Pacotes/Hora', value:mediaPacotesHora.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-chart-column' },
     { label:'Veículos em Fila', value:emFila.length.toLocaleString('pt-BR'), sub:'checkin feito, sem finalização', delta:'', trend:'up', type: emFila.length?'warning':'', icon:'fa-truck-field' },
     { label:'Pacotes em Fila', value:pacotesEmFila.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
+    // "Veículos em fila no FM" (pedido do Roberto em 2026-08-26): checkin
+    // feito mas AINDA SEM DOCA atribuída — critério mais estrito/anterior
+    // que o card "Veículos em Fila" acima (que é "sem finalização"), os
+    // dois convivem lado a lado.
+    { label:'Veículos em Fila no FM', value:emFilaSemDoca.length.toLocaleString('pt-BR'), sub:'checkin feito, sem doca atribuída', delta:'', trend:'up', type: emFilaSemDoca.length?'warning':'', icon:'fa-door-closed' },
   ]);
 }
 
-// Botão no gráfico alterna entre contagem de chegadas e tempo médio de
-// descarga por hora, em horas (formato "2,5"), pedido pelo Roberto em 2026-08-04.
+// Botão no gráfico alterna entre contagem de chegadas, tempo médio de
+// descarga por hora (formato "2,5", pedido pelo Roberto em 2026-08-04) e
+// docas abertas (pedido do Roberto em 2026-08-26) — mesmo botão único,
+// agora com 3 estados em vez de 2.
+const FM_CHART_VIEWS = ['chegadas','descarga','docas'];
+const FM_CHART_VIEW_TITLE = { chegadas:'Chegadas por hora', descarga:'Tempo médio de descarga por hora (h)', docas:'Docas abertas por hora' };
+const FM_CHART_VIEW_BTN = { chegadas:'Ver Chegadas', descarga:'Ver Tempo Médio de Descarga (h)', docas:'Ver Docas Abertas' };
 function fmToggleChartView(){
-  FM_CHART_VIEW = FM_CHART_VIEW === 'chegadas' ? 'descarga' : 'chegadas';
+  const i = FM_CHART_VIEWS.indexOf(FM_CHART_VIEW);
+  FM_CHART_VIEW = FM_CHART_VIEWS[(i+1) % FM_CHART_VIEWS.length];
+  const proxima = FM_CHART_VIEWS[(FM_CHART_VIEWS.indexOf(FM_CHART_VIEW)+1) % FM_CHART_VIEWS.length];
   const btn = document.getElementById('fm-chart-toggle');
   const title = document.getElementById('fm-chart-title');
-  if(btn) btn.textContent = FM_CHART_VIEW === 'chegadas' ? 'Ver Tempo Médio de Descarga (h)' : 'Ver Chegadas';
-  if(title) title.textContent = FM_CHART_VIEW === 'chegadas' ? 'Chegadas por hora' : 'Tempo médio de descarga por hora (h)';
+  if(btn) btn.textContent = FM_CHART_VIEW_BTN[proxima];
+  if(title) title.textContent = FM_CHART_VIEW_TITLE[FM_CHART_VIEW];
   fmRenderChart();
 }
 
@@ -10572,6 +10603,27 @@ function fmRenderChart(){
     mkLine('chart-fm-hora', labels, [
       { label:'Tempo médio de descarga (h)', data:descargaHoras, borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.16)', fill:true, tension:.35, pointRadius:2 },
     ], { plugins:{ legend:{labels:{color:'#5c5f7a',boxWidth:11,font:{size:11}}}, tooltip:{ callbacks:{ label: ctx => `Descarga média: ${String(ctx.raw).replace('.',',')}h` } } } });
+    return;
+  }
+
+  // Docas abertas (pedido do Roberto em 2026-08-26): workstations únicas
+  // por hora do fmbeep_pulso (FM_DATA.docas, já filtrado por De/Até no
+  // backend) x veículos em fila por hora (mesma contagem por slot_chegada
+  // já usada na visão "Chegadas", só com o rótulo da visão).
+  if(FM_CHART_VIEW === 'docas'){
+    const porHoraDocas = new Map();
+    (FM_DATA.docas||[]).forEach(d => {
+      if(d.hora<0 || d.hora>23) return;
+      if(!porHoraDocas.has(d.hora)) porHoraDocas.set(d.hora, new Set());
+      porHoraDocas.get(d.hora).add(d.workstation);
+    });
+    const docasPorHora = Array.from({length:24}, (_,h) => porHoraDocas.has(h) ? porHoraDocas.get(h).size : 0);
+    const filaPorHora = Array(24).fill(0);
+    rows.forEach(r => { if(r.hora>=0 && r.hora<=23) filaPorHora[r.hora]++; });
+    mkLine('chart-fm-hora', labels, [
+      { label:'Docas abertas', data:rotHoraCutoff(docasPorHora), borderColor:'#10b981', backgroundColor:'rgba(16,185,129,.16)', fill:true, tension:.35, pointRadius:2 },
+      { label:'Veículos em fila', data:rotHoraCutoff(filaPorHora), borderColor:'#5c6bc0', backgroundColor:'transparent', tension:.35, pointRadius:2 },
+    ]);
     return;
   }
 
@@ -10594,6 +10646,59 @@ function fmRenderChart(){
     { label:'Chegadas', data:rotHoraCutoff(porHora), borderColor:'#ee4d2d', backgroundColor:'rgba(238,77,45,.16)', fill:true, tension:.35, pointRadius:2 },
     { label:'Finalizado', data:rotHoraCutoff(porHoraFinalizado), borderColor:'#5c6bc0', backgroundColor:'transparent', tension:.35, pointRadius:2 },
   ]);
+}
+
+// Hora + turno a partir de um timestamp cru "YYYY-MM-DD HH:MM:SS" —
+// duplicado de horaDe/turnoDeHora em api/inbound-fm.js (mesma janela
+// T1 06-13h/T2 14-21h/T3 22-05h, pedido do Roberto em 2026-08-26) porque a
+// API não expõe hora/turno separado pra atribuicaoDoca/finalizacaoJornada,
+// só o timestamp cru — mudar a janela nos dois lugares se um dia mudar.
+function fmHoraDe(v){
+  const m = String(v||'').match(/(\d{2}):\d{2}:\d{2}/);
+  return m ? Number(m[1]) : null;
+}
+function fmTurnoDeHora(hora){
+  if(hora===null) return null;
+  if(hora>=6 && hora<=13) return 'T1';
+  if(hora>=14 && hora<=21) return 'T2';
+  return 'T3';
+}
+const FM_TURNOS_ORDEM = ['T1','T2','T3'];
+
+// "Overall por Turno" (pedido do Roberto em 2026-08-26) — tempo médio de
+// fila/descarga/permanência e pacotes recebidos usam o turno já calculado
+// por linha (turnoDeHora sobre checkin_driver, ver api/inbound-fm.js);
+// veículos recebidos e carros descarregados usam a hora de
+// atribuicaoDoca/finalizacaoJornada especificamente (pedido explícito);
+// docas usadas vem de FM_DATA.docas (fmbeep_pulso), sem relação com o
+// turno computado das linhas de inbound_fm_pulso.
+function fmRenderTurnoOverall(){
+  const tbody = document.getElementById('fm-turno-tbody');
+  if(!tbody || !FM_DATA) return;
+  const rows = fmFilteredRows();
+  const docas = FM_DATA.docas || [];
+  const avg = arr => arr.length ? arr.reduce((s,v)=>s+v,0)/arr.length : 0;
+
+  tbody.innerHTML = FM_TURNOS_ORDEM.map(t => {
+    const doTurno = rows.filter(r => r.turno === t);
+    const tempoFila = avg(doTurno.map(r=>r.tempoFilaMin));
+    const tempoDescarga = avg(doTurno.map(r=>r.tempoDescargaMin));
+    const tempoPermanencia = avg(doTurno.map(r=>r.tempoTotalMin));
+    const pacotes = doTurno.reduce((s,r)=>s+r.pacotes,0);
+    const veiculosRecebidos = rows.filter(r => r.atribuicaoDoca && fmTurnoDeHora(fmHoraDe(r.atribuicaoDoca))===t).length;
+    const carrosFinalizados = rows.filter(r => r.finalizacaoJornada && fmTurnoDeHora(fmHoraDe(r.finalizacaoJornada))===t).length;
+    const docasUsadas = new Set(docas.filter(d => fmTurnoDeHora(d.hora)===t).map(d=>d.workstation)).size;
+    return `<tr>
+      <td><strong>${t}</strong></td>
+      <td>${pulsoFmtHoraVirgula(tempoFila)}</td>
+      <td>${pulsoFmtHoraVirgula(tempoDescarga)}</td>
+      <td>${pulsoFmtHoraVirgula(tempoPermanencia)}</td>
+      <td>${pacotes.toLocaleString('pt-BR')}</td>
+      <td>${veiculosRecebidos.toLocaleString('pt-BR')}</td>
+      <td>${docasUsadas.toLocaleString('pt-BR')}</td>
+      <td>${(carrosFinalizados/8).toFixed(1).replace('.',',')}</td>
+    </tr>`;
+  }).join('');
 }
 
 function fmSortBy(colKey){
