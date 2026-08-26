@@ -2,8 +2,14 @@
  * PULSO — ASM: performance de induções hora a hora (aba asm_pulso).
  *
  * Cada linha = 1 operador em 1 mesa em 1 hora, com `scan_numbers` = total de
- * induções (scans) feitas. `colaborador` vazio -> usa `operator` como nome
- * de exibição (confirmado com o Roberto em 2026-07-31).
+ * induções (scans) feitas. Estrutura da aba mudou (pedido do Roberto em
+ * 2026-08-26): colunas `colaborador`, `turno` e `líder` foram removidas.
+ * `operator` (formato "OpsNNNNN") agora é a única identificação de pessoa —
+ * vira o valor de `colaborador` direto (era `r.colaborador || r.operator`,
+ * agora só `r.operator`). `turno` deixou de vir pronto da planilha —
+ * recalculado em cima de `actual_sort_time_hour` com a mesma janela T1/T2/T3
+ * usada no resto do PULSO (ver turnoDeHora abaixo). `líder` não tem mais
+ * fonte nenhuma — removido (nunca era exibido na tabela mesmo).
  *
  * "System Default" (confirmado com o Roberto em 2026-07-31): ~2% das linhas
  * do dia têm operator="system_default" — zona="T3" (ruído, scan_numbers
@@ -20,6 +26,16 @@ const { fetchTabByGid } = require('./_google');
 const { toNum } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1776828985' };
+
+// Mesma janela T1 06-13h/T2 14-21h/T3 22-05h usada em todo o PULSO (ver
+// turnoDeHora em api/inbound-fm.js) — duplicada aqui porque asm_pulso não
+// tem mais coluna de turno própria (removida da planilha).
+function turnoDeHora(hora) {
+  if (hora === null || isNaN(hora)) return null;
+  if (hora >= 6 && hora <= 13) return 'T1';
+  if (hora >= 14 && hora <= 21) return 'T2';
+  return 'T3';
+}
 
 // Capacidade por PHD (pedido do Roberto em 2026-08-19) — aba `config`
 // (mesma que api/cluster.js já usa pra capacidade de rua), MACRO="ASM",
@@ -249,15 +265,15 @@ module.exports = async (req, res) => {
 
   const linhas = doDia.map(r => {
     const isSystemDefault = r.operator === 'system_default';
+    const hora = toNum(r.actual_sort_time_hour);
     return {
-      hora: toNum(r.actual_sort_time_hour),
+      hora,
       zona: isSystemDefault ? 'System Default' : (r.zona || ''),
-      nivel: r['nível'] || '',
+      nivel: r.nivel || '',
       mesa: r.mesa || '',
       operator: r.operator || '',
-      colaborador: r.colaborador || r.operator || '',
-      turno: r.turno || '',
-      lider: r['líder'] || '',
+      colaborador: r.operator || '',
+      turno: turnoDeHora(hora) || '',
       scanNumbers: toNum(r.scan_numbers),
       isSystemDefault,
     };

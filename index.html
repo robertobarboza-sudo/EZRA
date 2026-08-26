@@ -14338,18 +14338,20 @@ function asmRenderChart(){
 
 // Uma linha por colaborador, somando induções das linhas retornadas por
 // asmFilteredRows() (acumulado até a hora, ou só a hora vigente, conforme
-// ASM_STATE.tableMode). Zona/nível/mesa/turno/líder exibidos são os da
-// última hora vista (podem mudar entre horas).
+// ASM_STATE.tableMode). Zona/nível/mesa/turno exibidos são os da última
+// hora vista (podem mudar entre horas). `colaborador` agora é o `operator`
+// (formato "OpsNNNNN") — asm_pulso não tem mais coluna de nome próprio
+// nem de líder (pedido do Roberto em 2026-08-26, ver api/asm.js).
 function asmGroupByColaborador(){
   const rows = asmFilteredRows();
   const porColaborador = new Map();
   rows.forEach(r => {
     const chave = r.colaborador || '(sem nome)';
-    if(!porColaborador.has(chave)) porColaborador.set(chave, { colaborador: chave, zona:r.zona, nivel:r.nivel, mesa:r.mesa, turno:r.turno, lider:r.lider, scanNumbers:0, _ultimaOrdemHora:-1 });
+    if(!porColaborador.has(chave)) porColaborador.set(chave, { colaborador: chave, zona:r.zona, nivel:r.nivel, mesa:r.mesa, turno:r.turno, scanNumbers:0, _ultimaOrdemHora:-1 });
     const acc = porColaborador.get(chave);
     acc.scanNumbers += r.scanNumbers;
     const ordemR = ordemHoraCutoff(r.hora);
-    if(ordemR >= acc._ultimaOrdemHora){ acc.zona=r.zona; acc.nivel=r.nivel; acc.mesa=r.mesa; acc.turno=r.turno; acc.lider=r.lider; acc._ultimaOrdemHora=ordemR; }
+    if(ordemR >= acc._ultimaOrdemHora){ acc.zona=r.zona; acc.nivel=r.nivel; acc.mesa=r.mesa; acc.turno=r.turno; acc._ultimaOrdemHora=ordemR; }
   });
   return [...porColaborador.values()];
 }
