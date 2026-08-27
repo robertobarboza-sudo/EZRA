@@ -392,7 +392,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
   function computeStatusLabel(kpi, value, compareValue, date) {
     const linked = date !== undefined ? findLinkedTargetKpi(kpi) : null;
     const within = linked && typeof Calc !== "undefined"
-      ? isWithinTarget(linked, Calc.getValue(linked, date))
+      ? isWithinTarget(linked, Calc.getValueForKey(linked, date))
       : isWithinTarget(kpi, value);
     if (within === null) return STATUS5.NA;
 
@@ -692,6 +692,12 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
   // filtrado pro período. Sem memoriaCalculo -> null (quem chamou cai pro
   // comportamento de sempre: valor cru do backend na semana, média simples
   // no mês) — nunca inventa consolidado pra KPI sem essa definição.
+  // Só devolve número quando o período está COMPLETO (todo dia esperado já
+  // tem valor carregado pro cálculo em questão) — dia faltando não vira
+  // "soma parcial" mascarada de resultado fechado. Correção pedida pelo
+  // Roberto em 2026-08-27 (v2): a v1 aceitava dias faltando e ainda assim
+  // calculava, o que já não causava o "—", mas mascarava semana incompleta
+  // como se fosse fechada. Incompleto -> null, quem chamou cai pro fallback.
   function aggregatePeriod(kpi, periodDays) {
     const tipo = kpi.memoriaCalculo;
     if (!tipo || !periodDays || !periodDays.length) return null;
@@ -701,41 +707,62 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
       const num = DataService.getKPIById(kpi.aggRefs.numeradorId);
       const den = DataService.getKPIById(kpi.aggRefs.denominadorId);
       if (!num || !den) return null;
-      let somaNum = 0, somaDen = 0, temNum = false, temDen = false;
-      periodDays.forEach((d) => {
+      // Completo = todo dia do período tem valor de numerador E denominador.
+      const completo = periodDays.every((d) => {
         const vn = getValue(num, d.iso), vd = getValue(den, d.iso);
-        if (vn !== null) { somaNum += vn; temNum = true; }
-        if (vd !== null) { somaDen += vd; temDen = true; }
+        return vn !== null && vn !== undefined && vd !== null && vd !== undefined;
       });
-      // SEERRO(...,"") do original: denominador zerado (ou sem nenhum dia
-      // com dado) vira vazio, nunca divide por zero.
-      if (!temNum || !temDen || somaDen === 0) return null;
+      if (!completo) return null;
+      let somaNum = 0, somaDen = 0;
+      periodDays.forEach((d) => { somaNum += getValue(num, d.iso); somaDen += getValue(den, d.iso); });
+      // SEERRO(...,"") do original: denominador zerado vira vazio, nunca divide por zero.
+      if (somaDen === 0) return null;
       return (somaNum - somaDen) / somaDen;
     }
 
     const dias = tipo === "media_sem_domingo" ? periodDays.filter((d) => d.wd !== "Dom") : periodDays;
-    const nums = dias.map((d) => getValue(kpi, d.iso)).filter((v) => v !== null && v !== undefined && isFinite(v));
-    if (!nums.length) return null;
+    if (!dias.length) return null;
+    const nums = dias.map((d) => getValue(kpi, d.iso));
+    const completo = nums.every((v) => v !== null && v !== undefined && isFinite(v));
+    if (!completo) return null;
 
     if (tipo === "soma") return nums.reduce((a, b) => a + b, 0);
     if (tipo === "maximo") return Math.max(...nums);
     return nums.reduce((a, b) => a + b, 0) / nums.length; // "media" e "media_sem_domingo"
   }
 
-  function getWeeklySeries(kpi, weeks) {
-    const allDays = typeof DataService !== "undefined" ? DataService.getDays() : [];
-    return weeks.map((w) => {
-      let value = null;
-      if (kpi.memoriaCalculo) {
-        const diasSemana = allDays.filter((d) => d.wk === w.label);
-        value = aggregatePeriod(kpi, diasSemana);
+  // Valor consolidado de um período (semana OU mês): calcula pela Memória
+  // de Cálculo quando o período está completo; senão (sem memoriaCalculo,
+  // período incompleto, ou erro no cálculo — isolado aqui pra não derrubar
+  // os outros KPIs) cai pro valor pronto que já veio do backend pra esse
+  // período (a linha-resumo "Wxx" da planilha, ou o mês, se existir) —
+  // nunca inventa um consolidado só de dias parciais.
+  function getPeriodValue(kpi, periodLabel, periodDays) {
+    let value = null;
+    if (kpi.memoriaCalculo) {
+      try {
+        value = aggregatePeriod(kpi, periodDays);
+      } catch (err) {
+        console.warn("[arvore] falha ao agregar " + periodLabel + " pro KPI " + kpi.bloco + "|" + kpi.subBloco + "|" + kpi.kpi, err);
+        value = null;
       }
-      // Fallback: sem memoriaCalculo, ou dias insuficientes carregados pra
-      // calcular (aggregatePeriod devolveu null) -> valor cru que já veio
-      // pronto do backend pra essa semana (comportamento de sempre).
-      if (value === null || value === undefined) value = getValue(kpi, w.label);
-      return { key: w.label, label: w.label, value, isWeek: true };
-    });
+    }
+    if (value === null || value === undefined) value = getValue(kpi, periodLabel);
+    return value;
+  }
+
+  // Resolve os dias de uma semana via DataService.getDays()/d.wk — o mesmo
+  // agrupamento dia->semana que a coluna "Semana" da planilha árvore_pulso
+  // já materializa linha a linha (nunca calculado por calendário ISO aqui).
+  function getWeekValue(kpi, week) {
+    if (!week) return null;
+    const allDays = typeof DataService !== "undefined" ? DataService.getDays() : [];
+    const diasSemana = allDays.filter((d) => d.wk === week.label);
+    return getPeriodValue(kpi, week.label, diasSemana);
+  }
+
+  function getWeeklySeries(kpi, weeks) {
+    return weeks.map((w) => ({ key: w.label, label: w.label, value: getWeekValue(kpi, w), isWeek: true }));
   }
 
   function getDailySeries(kpi, days) {
@@ -754,21 +781,30 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
       .map((month) => {
         const diasMes = buckets[month];
         const valoresDia = diasMes.map((d) => getValue(kpi, d.iso)).filter((v) => v !== null && v !== undefined);
-        // Com memoriaCalculo definida, usa a regra certa (soma/máximo/
-        // fórmula/etc.); sem ela, mantém a média simples de sempre — não
-        // muda o comportamento de nenhum KPI que ainda não tem a memória
-        // de cálculo mapeada.
-        const agg = kpi.memoriaCalculo ? aggregatePeriod(kpi, diasMes) : null;
-        const value = agg !== null && agg !== undefined
-          ? agg
-          : (valoresDia.length ? valoresDia.reduce((a, b) => a + b, 0) / valoresDia.length : null);
         return {
           key: month,
           label: month.slice(5, 7) + "/" + month.slice(0, 4),
-          value,
+          value: getPeriodValue(kpi, month, diasMes),
           count: valoresDia.length,
         };
       });
+  }
+
+  // Resolve um valor a partir de UMA chave de coluna qualquer (dia
+  // "2026-08-06" ou semana "W32") — mesma disambiguação de prevPeriodKey
+  // (dia tem "-", semana não). Usada por qualquer trecho da tela que lê uma
+  // célula da grade genericamente (tabela detalhada, gráfico, comparação
+  // com semana de referência) — garante que uma coluna de semana NUNCA
+  // caia no getValue cru (que não agrega nada), sempre passa por
+  // getWeekValue (agregação + fallback). Corrige o bug confirmado em
+  // 2026-08-27: colunas de semana fechada apareciam "—" porque a tabela
+  // detalhada lia direto de kpi.valores["Wxx"], que só existe quando a
+  // planilha já tem a linha-resumo daquela semana.
+  function getValueForKey(kpi, colKey) {
+    if (colKey === null || colKey === undefined) return null;
+    if (String(colKey).indexOf("-") !== -1) return getValue(kpi, colKey); // dia
+    const week = typeof DataService !== "undefined" ? DataService.getWeekByLabel(colKey) : null;
+    return getWeekValue(kpi, week);
   }
 
   function stats(values) {
@@ -792,6 +828,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
   window.Calc = {
     getValue,
+    getValueForKey,
     addDaysIso,
     prevDayIso,
     prevWeekLabel,
@@ -806,6 +843,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     getTurnoEntries,
     generateInsights,
     aggregatePeriod,
+    getWeekValue,
     getWeeklySeries,
     getDailySeries,
     getMonthlySeries,
@@ -1657,7 +1695,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
       const labels = series.map((p) => p.label);
       const values = series.map((p) => (p.value === null ? null : (kpi.unit === "percent" ? p.value * 100 : p.value)));
       const pointColors = series.map((p) => {
-        const compareValue = Calc.getValue(kpi, Calc.prevPeriodKey(p.key));
+        const compareValue = Calc.getValueForKey(kpi, Calc.prevPeriodKey(p.key));
         const st = StatusUtil.computeStatusLabel(kpi, p.value, compareValue, p.key);
         return STATUS_HEX[st.color];
       });
@@ -2200,7 +2238,7 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
     const refWeeks = DataService.getRefWeeks();
     const refWeekLabel = refWeeks[refWeeks.length - 1];
-    const valueRefWeek = Calc.getValue(kpi, refWeekLabel);
+    const valueRefWeek = Calc.getValueForKey(kpi, refWeekLabel);
     const deltaRefWeek = Calc.delta(value, valueRefWeek);
 
     const turnoEntries = Calc.getTurnoEntries(kpi, selectedIso, DataService);
@@ -2850,8 +2888,8 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     const todayLineLeft = todayLeaf ? todayLeaf.left + todayLeaf.width : null;
 
     function DataCell({ kpi, colKey, frozen, left, monthStart, aggregate }) {
-      const value = Calc.getValue(kpi, colKey);
-      const compareValue = Calc.getValue(kpi, Calc.prevPeriodKey(colKey));
+      const value = Calc.getValueForKey(kpi, colKey);
+      const compareValue = Calc.getValueForKey(kpi, Calc.prevPeriodKey(colKey));
       const statusLabel = StatusUtil.computeStatusLabel(kpi, value, compareValue, colKey);
       const sc = StatusUtil.STATUS_CLASSES[statusLabel.color];
       const display = Fmt.formatKpiValue(kpi, value);
