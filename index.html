@@ -842,6 +842,109 @@
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     .modal-footer { display: flex; justify-content: flex-end; gap: 10px; margin-top: 22px; }
 
+    /* Kanban de Demandas — post-its por dono × status. Reaproveita os
+       mesmos tokens de cor/raio/sombra do resto do site (var(--surface-2),
+       var(--border), var(--radius), var(--red)/--amber/--green já usados
+       em status por todo o PULSO) — sem paleta nova. */
+    .kanban-unassigned {
+      background: var(--surface); border: 1px solid var(--border);
+      border-left: 3px solid var(--orange); border-radius: var(--radius-lg);
+      padding: 14px 16px; margin-bottom: 18px;
+    }
+    .kanban-unassigned-head {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 12.5px; font-weight: 700; color: var(--text);
+      margin-bottom: 10px;
+    }
+    .kanban-unassigned-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 18px; height: 18px; padding: 0 5px; border-radius: 20px;
+      background: rgba(238,77,45,.14); color: var(--orange);
+      font-size: 10.5px; font-weight: 800;
+    }
+    .kanban-unassigned-list {
+      display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;
+      min-height: 40px; border-radius: var(--radius); transition: background var(--transition);
+    }
+    .kanban-unassigned-list.drag-over { background: rgba(238,77,45,.06); outline: 1.5px dashed var(--orange); }
+    .kanban-unassigned-empty {
+      font-size: 11.5px; color: var(--text-muted); padding: 8px 2px;
+    }
+    .kanban-board-wrap { overflow-x: auto; }
+    .kanban-board { display: flex; flex-direction: column; gap: 14px; min-width: fit-content; }
+    .kanban-head-row, .kanban-row {
+      display: grid; grid-template-columns: 168px repeat(5, minmax(196px, 1fr));
+      gap: 10px; align-items: start; min-width: 1180px;
+    }
+    .kanban-head-cell {
+      font-size: 10.5px; font-weight: 700; letter-spacing: .05em;
+      text-transform: uppercase; color: var(--text-muted); padding: 0 2px 2px;
+    }
+    .kanban-owner-cell { visibility: hidden; } /* alinhamento — a coluna de dono da linha não tem título repetido */
+    .kanban-row-owner {
+      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 10px 12px; align-self: stretch;
+    }
+    .kanban-row-owner-name { font-size: 13px; font-weight: 800; color: var(--text); word-break: break-word; }
+    .kanban-row-owner-del {
+      all: unset; cursor: pointer; color: var(--text-muted); font-size: 11px;
+      padding: 3px 5px; border-radius: 5px; flex: none;
+    }
+    .kanban-row-owner-del:hover { background: var(--surface-3); color: var(--red); }
+    .kanban-col { display: flex; flex-direction: column; gap: 8px; min-height: 64px; border-radius: var(--radius); transition: background var(--transition); }
+    .kanban-col.drag-over { background: rgba(238,77,45,.06); outline: 1.5px dashed var(--orange); }
+    .kanban-col-empty {
+      font-size: 10.5px; color: var(--text-muted); opacity: .55; text-align: center;
+      padding: 16px 4px; border: 1px dashed var(--border); border-radius: var(--radius);
+    }
+    .kanban-postit {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-left: 3px solid var(--border); border-radius: var(--radius);
+      padding: 10px 11px; font-size: 12px; cursor: grab;
+      box-shadow: 0 3px 10px rgba(0,0,0,.12);
+      transition: transform .15s ease, box-shadow .15s ease;
+    }
+    .kanban-postit:nth-child(odd) { transform: rotate(-1.1deg); }
+    .kanban-postit:nth-child(even) { transform: rotate(1deg); }
+    .kanban-postit:hover {
+      transform: rotate(0deg) translateY(-2px); position: relative; z-index: 2;
+      box-shadow: 0 8px 18px rgba(0,0,0,.2);
+    }
+    .kanban-postit.dragging { opacity: .35; }
+    .kanban-postit.prio-alta  { border-left-color: var(--red); }
+    .kanban-postit.prio-media { border-left-color: var(--amber); }
+    .kanban-postit.prio-baixa { border-left-color: var(--green); }
+    .kanban-postit.status-finalizado { opacity: .58; }
+    .kanban-postit.status-finalizado:hover { opacity: .85; }
+    .kanban-postit.is-atrasado { box-shadow: 0 3px 10px color-mix(in srgb, var(--red) 30%, transparent); }
+    .kanban-postit-title { font-weight: 700; color: var(--text); line-height: 1.35; margin-bottom: 7px; }
+    .kanban-postit-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
+    .kanban-postit-date { font-size: 10.5px; color: var(--text-muted); font-weight: 600; }
+    .kanban-postit-date.is-atrasado { color: var(--red); font-weight: 800; }
+    .kanban-postit-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 1px 7px; border-radius: 20px; font-size: 9.5px; font-weight: 800;
+      letter-spacing: .02em; white-space: nowrap;
+    }
+    .kanban-postit-badge.prio-alta  { background: rgba(239,68,68,.14);  color: var(--red); }
+    .kanban-postit-badge.prio-media { background: rgba(245,158,11,.14); color: var(--amber); }
+    .kanban-postit-badge.prio-baixa { background: rgba(16,185,129,.14); color: var(--green); }
+    .kanban-postit-badge.st-fila       { background: rgba(148,151,176,.16); color: var(--text-muted); }
+    .kanban-postit-badge.st-atrasado   { background: rgba(239,68,68,.14);  color: var(--red); }
+    .kanban-postit-badge.st-andamento  { background: rgba(6,182,212,.14);  color: var(--cyan); }
+    .kanban-postit-badge.st-hold       { background: rgba(245,158,11,.14); color: var(--amber); }
+    .kanban-postit-badge.st-finalizado { background: rgba(16,185,129,.14); color: var(--green); }
+    .kanban-postit-assign {
+      width: 100%; margin-top: 8px; background: var(--surface-3);
+      border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 5px 7px; font-size: 10.5px; color: var(--text); font-family: inherit;
+    }
+    .kanban-postit-unassigned { min-width: 170px; max-width: 190px; flex: none; cursor: default; }
+    @media (max-width: 768px) {
+      .kanban-head-row, .kanban-row { grid-template-columns: 140px repeat(5, 180px); }
+    }
+
     /* Grafo de Dados — badges extras de status, no mesmo padrão visual do
        .ds-badge (verde/âmbar/vermelho) já usado no resto do site. */
     .ds-badge.neutral{ background: rgba(148,151,176,.15); color: #b6b9d4; }
@@ -4379,6 +4482,9 @@
         <div class="nav-subitem" data-subkey="datagraph" onclick="navSidebarSubpage(this,'mapadados','datagraph','mapadados')">Grafo de Dados</div>
         <div class="nav-subitem" data-subkey="jarvis" onclick="navSidebarSubpage(this,'mapadados','jarvis','mapadados')">Jarvis</div>
       </div>
+      <div class="nav-item" data-section="kanban" data-label="Kanban de Demandas" onclick="navigateTo('kanban',this)">
+        <i class="fas fa-table-columns nav-icon"></i><span class="nav-label">Kanban de Demandas</span>
+      </div>
       <div class="nav-item" data-section="jornal" data-label="Jornal" onclick="navigateTo('jornal',this)">
         <i class="fas fa-newspaper nav-icon"></i><span class="nav-label">Jornal</span>
       </div>
@@ -6256,6 +6362,66 @@
       </div>
     </section>
 
+    <!-- KANBAN DE DEMANDAS -->
+    <section id="section-kanban" class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">Kanban de Demandas</div>
+          <div class="section-subtitle">Post-its por Responsável · Fila, Atrasado, Em Andamento, On Hold, Finalizado</div>
+        </div>
+        <div class="section-dl-group">
+          <div class="pdf-menu-wrap">
+            <button class="dl-btn dl-btn-pdf" onclick="togglePdfMenu('kanban',event)"><i class="fas fa-file-pdf"></i> PDF <i class="fas fa-chevron-down" style="font-size:9px;margin-left:2px"></i></button>
+            <div class="pdf-dropdown" id="pdf-menu-kanban">
+              <div class="pdf-dropdown-label">Formato</div>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('kanban','corporativo')"><i class="fas fa-file-lines"></i> Corporativo A4</button>
+              <button class="pdf-dropdown-item" onclick="downloadPDF('kanban','dash')"><i class="fas fa-display"></i> Print Dash</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="spr-filters">
+        <div class="spr-filter-group">
+          <select class="filter-select" id="kb-filter-dono" onchange="kbSetFilter('dono',this.value)" style="height:34px"><option value="">Todos os donos</option></select>
+          <select class="filter-select" id="kb-filter-status" onchange="kbSetFilter('status',this.value)" style="height:34px">
+            <option value="">Todos os status</option>
+            <option value="fila">Fila</option>
+            <option value="atrasado">Atrasado</option>
+            <option value="andamento">Em Andamento</option>
+            <option value="hold">On Hold</option>
+            <option value="finalizado">Finalizado</option>
+          </select>
+          <select class="filter-select" id="kb-filter-prioridade" onchange="kbSetFilter('prioridade',this.value)" style="height:34px">
+            <option value="">Todas as prioridades</option>
+            <option value="alta">Alta</option>
+            <option value="media">Média</option>
+            <option value="baixa">Baixa</option>
+          </select>
+          <input type="date" class="filter-select pulso-date-input" id="kb-filter-de" onchange="kbSetFilter('de',this.value)" style="color-scheme:dark" title="Entrega de"/>
+          <input type="date" class="filter-select pulso-date-input" id="kb-filter-ate" onchange="kbSetFilter('ate',this.value)" style="color-scheme:dark" title="Entrega até"/>
+          <input type="text" class="filter-select" id="kb-filter-busca" placeholder="Buscar demanda…" oninput="kbSetFilter('busca',this.value)" style="min-width:180px"/>
+        </div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn-outline" onclick="kbOpenDonoForm()"><i class="fas fa-user-plus"></i> Adicionar Dono</button>
+          <button class="btn btn-primary" onclick="kbOpenDemandaForm()"><i class="fas fa-plus"></i> Nova Demanda</button>
+        </div>
+      </div>
+
+      <div class="pulso-coverage" id="kb-counters"></div>
+
+      <div class="kanban-unassigned" id="kb-unassigned-wrap">
+        <div class="kanban-unassigned-head">
+          <i class="fas fa-inbox"></i> Demandas sem Dono
+          <span class="kanban-unassigned-count" id="kb-unassigned-count">0</span>
+        </div>
+        <div class="kanban-unassigned-list" id="kb-unassigned-list"></div>
+      </div>
+
+      <div class="kanban-board-wrap">
+        <div class="kanban-board" id="kb-board"></div>
+      </div>
+    </section>
 
     <!-- JORNAL -->
     <section id="section-jornal" class="section">
@@ -6537,6 +6703,92 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-outline" onclick="dataMapCloseForm()">Cancelar</button>
         <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Nova Demanda / Detalhe (Kanban de Demandas) -->
+<div class="modal-overlay" id="kb-demanda-modal-overlay" onclick="if(event.target===this) kbCloseDemandaForm()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="kb-demanda-modal-label" style="max-width:600px">
+    <div class="modal-header">
+      <span class="modal-title" id="kb-demanda-modal-label"><i class="fas fa-note-sticky" style="color:var(--orange-ll);margin-right:8px"></i><span id="kb-demanda-modal-titulo">Nova Demanda</span></span>
+      <button class="modal-close" onclick="kbCloseDemandaForm()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <form id="kb-demanda-form" onsubmit="kbDemandaSubmit(event)">
+      <input type="hidden" id="kb-d-id"/>
+      <div class="form-group">
+        <label class="form-label">Nome da Atividade *</label>
+        <input type="text" class="form-input" id="kb-d-titulo" required/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição</label>
+        <textarea class="form-input" id="kb-d-descricao" rows="3" style="resize:vertical"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Dono</label>
+          <select class="form-input" id="kb-d-dono"><option value="">Sem dono</option></select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Prioridade *</label>
+          <select class="form-input" id="kb-d-prioridade" required>
+            <option value="alta">Alta</option>
+            <option value="media">Média</option>
+            <option value="baixa">Baixa</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Status *</label>
+          <select class="form-input" id="kb-d-status" required onchange="kbUpdateAtrasadoHint()">
+            <option value="fila">Fila</option>
+            <option value="andamento">Em Andamento</option>
+            <option value="hold">On Hold</option>
+            <option value="finalizado">Finalizado</option>
+          </select>
+        </div>
+        <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:9px">
+          <span class="kanban-postit-badge st-atrasado" id="kb-d-atrasado-hint" style="display:none">Vencida — aparece em Atrasado</span>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Data da Solicitação</label>
+          <input type="date" class="form-input" id="kb-d-solicitacao" style="color-scheme:dark"/>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Data de Entrega</label>
+          <input type="date" class="form-input" id="kb-d-entrega" style="color-scheme:dark" onchange="kbUpdateAtrasadoHint()"/>
+        </div>
+      </div>
+      <div class="modal-footer" style="justify-content:space-between">
+        <button type="button" class="btn btn-outline" id="kb-d-delete-btn" onclick="kbDeleteDemanda()" style="display:none;color:var(--red)"><i class="fas fa-trash"></i> Excluir</button>
+        <div style="display:flex;gap:10px;margin-left:auto">
+          <button type="button" class="btn btn-outline" onclick="kbCloseDemandaForm()">Cancelar</button>
+          <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Salvar</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Modal Adicionar Dono (Kanban de Demandas) -->
+<div class="modal-overlay" id="kb-dono-modal-overlay" onclick="if(event.target===this) kbCloseDonoForm()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="kb-dono-modal-label" style="max-width:420px">
+    <div class="modal-header">
+      <span class="modal-title" id="kb-dono-modal-label"><i class="fas fa-user-plus" style="color:var(--orange-ll);margin-right:8px"></i>Adicionar Dono</span>
+      <button class="modal-close" onclick="kbCloseDonoForm()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <form id="kb-dono-form" onsubmit="kbDonoSubmit(event)">
+      <div class="form-group">
+        <label class="form-label">Nome do Responsável *</label>
+        <input type="text" class="form-input" id="kb-dono-nome" required/>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="kbCloseDonoForm()">Cancelar</button>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Criar</button>
       </div>
     </form>
   </div>
@@ -6949,7 +7201,7 @@ const ALL_SECTIONS = [
   'gestao','performance','spr','asm','conveyor','inbound','clusterizacao',
   'tratativas','laborplan','backlog','arvore','kpioverview','scorecard',
   'absenteismo','forecast','auditoria','organograma','configuracoes',
-  'tvconfig','livesoc','matriz','mapadados','jornal','switch','justificativas'
+  'tvconfig','livesoc','matriz','mapadados','kanban','jornal','switch','justificativas'
 ];
 
 const GOV_SECTIONS = ['matriz','mapadados','jornal'];
@@ -7372,6 +7624,7 @@ const sectionMeta = {
   auditoria:   {title:'Auditoria',     sub:'Controle de Qualidade Operacional · Qualidade'},
   matriz:      {title:'Matriz',        sub:'Governança Operacional · Governança'},
   mapadados:   {title:'Mapa de Dados', sub:'Queries · Scripts · Links · Governança'},
+  kanban:      {title:'Kanban de Demandas', sub:'Gestão de Demandas · Post-its por Responsável'},
   jornal:      {title:'Jornal',        sub:'Informativo Operacional · Governança'},
   switch:      {title:'Switch',        sub:'Painel de Controle de Automações · Governança'},
   justificativas: {title:'Justificativas', sub:'ASM e Conveyor abaixo da meta · Histórico'},
@@ -7478,7 +7731,7 @@ async function renderSection(section){
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
       configuracoes:renderConfiguracoes, forecast:()=>loadForecast(),
       auditoria:renderAuditoria, clusterizacao:()=>pulsoRender('clusterizacao'),
-      matriz:renderMatriz, mapadados:renderMapaDados, jornal:renderJornal,
+      matriz:renderMatriz, mapadados:renderMapaDados, kanban:renderKanban, jornal:renderJornal,
       switch:renderSwitch, tvconfig:renderTvConfig, livesoc:renderLiveSoc,
       justificativas:()=>loadJustificativas()};
     if(fn[section]) fn[section](data);
@@ -13923,6 +14176,396 @@ async function dataMapDelete(id){
     dataMapEntries = j.entries;
     buildDataMap(DATAMAP_FILTER);
     showToast('✓ Entrada excluída.');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  }
+}
+
+/* ================================================================
+   KANBAN DE DEMANDAS — post-its por dono × status (pedido do Roberto em
+   2026-08-27). Persistido via /api/overview?kanban=1 (ver api/overview.js).
+   "Atrasado" nunca é um status gravado — é a coluna efetiva calculada em
+   kbColunaEfetiva (data_entrega no passado + não finalizado), recalculada
+   toda hora que renderiza; por isso não é um destino de drag válido (ver
+   kbMoveDemanda).
+================================================================ */
+const KB_STATUS_COLUMNS = ['fila','atrasado','andamento','hold','finalizado'];
+const KB_STATUS_LABELS = { fila:'Fila', atrasado:'Atrasado', andamento:'Em Andamento', hold:'On Hold', finalizado:'Finalizado' };
+const KB_PRIORIDADE_LABELS = { alta:'Alta', media:'Média', baixa:'Baixa' };
+const KB_PRIORIDADE_ORDER = { alta:0, media:1, baixa:2 };
+const KB_STATE = { donos:[], demandas:[], filters:{ dono:'', status:'', prioridade:'', de:'', ate:'', busca:'' }, loaded:false };
+
+function kbHojeIso(){
+  const d = new Date();
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+// Regra de atraso (item 11 do pedido): data de entrega no passado + status
+// != finalizado -> some sempre pra coluna Atrasado, sem precisar setar
+// nada manualmente. finalizado sempre vence (item "regra de conclusão").
+function kbColunaEfetiva(d){
+  if(d.status === 'finalizado') return 'finalizado';
+  if(d.data_entrega && d.data_entrega < kbHojeIso()) return 'atrasado';
+  return d.status;
+}
+// Ordenação padrão (itens 4/10): prioridade -> entrega mais próxima -> solicitação mais antiga.
+function kbCompare(a,b){
+  const pa = KB_PRIORIDADE_ORDER[a.prioridade] ?? 1, pb = KB_PRIORIDADE_ORDER[b.prioridade] ?? 1;
+  if(pa !== pb) return pa - pb;
+  const ea = a.data_entrega || '9999-99-99', eb = b.data_entrega || '9999-99-99';
+  if(ea !== eb) return ea < eb ? -1 : 1;
+  const sa = a.data_solicitacao || '', sb = b.data_solicitacao || '';
+  return sa < sb ? -1 : sa > sb ? 1 : 0;
+}
+function kbAllDonoNames(){
+  const set = new Set();
+  KB_STATE.donos.forEach(d => { if(d.nome) set.add(d.nome); });
+  KB_STATE.demandas.forEach(d => { if(d.dono) set.add(d.dono); });
+  return [...set].sort((a,b) => a.localeCompare(b,'pt-BR'));
+}
+// 1 linha por dono conhecido (aba de donos + qualquer nome já usado em
+// demanda), mesmo que não tenha nenhuma demanda no momento — donoId só
+// existe pra quem veio de kanban_donos_input (só esses podem ter a linha
+// removida, e só se totalDemandas for 0).
+function kbOwnerRows(){
+  const porNome = new Map();
+  KB_STATE.donos.forEach(d => { if(d.nome && !porNome.has(d.nome)) porNome.set(d.nome, { nome:d.nome, donoId:d.id, totalDemandas:0 }); });
+  KB_STATE.demandas.forEach(d => {
+    if(!d.dono) return;
+    if(!porNome.has(d.dono)) porNome.set(d.dono, { nome:d.dono, donoId:null, totalDemandas:0 });
+    porNome.get(d.dono).totalDemandas++;
+  });
+  let rows = [...porNome.values()];
+  if(KB_STATE.filters.dono) rows = rows.filter(r => r.nome === KB_STATE.filters.dono);
+  return rows.sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'));
+}
+function kbFilteredDemandas(){
+  const f = KB_STATE.filters;
+  const termo = (f.busca||'').trim().toLowerCase();
+  return KB_STATE.demandas.filter(d => {
+    if(f.dono && d.dono !== f.dono) return false;
+    if(f.status && kbColunaEfetiva(d) !== f.status) return false;
+    if(f.prioridade && d.prioridade !== f.prioridade) return false;
+    if(f.de && (!d.data_entrega || d.data_entrega < f.de)) return false;
+    if(f.ate && (!d.data_entrega || d.data_entrega > f.ate)) return false;
+    if(termo && !String(d.titulo||'').toLowerCase().includes(termo)) return false;
+    return true;
+  });
+}
+
+async function loadKanban(){
+  setBadge('kanban','loading');
+  try {
+    const r = await fetch('/api/overview?kanban=1', { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    KB_STATE.donos = j.donos;
+    KB_STATE.demandas = j.demandas;
+    KB_STATE.loaded = true;
+    setBadge('kanban','ok','Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    kbPopulateDonoFilter();
+    kbRenderAll();
+  } catch(err){
+    setBadge('kanban','error','Erro: '+err.message);
+    console.error('[kanban]', err);
+  }
+}
+function renderKanban(){
+  if(KB_STATE.loaded){ kbRenderAll(); return; }
+  loadKanban();
+}
+function kbSetFilter(campo, valor){
+  KB_STATE.filters[campo] = valor;
+  kbRenderAll();
+}
+function kbPopulateDonoFilter(){
+  const sel = document.getElementById('kb-filter-dono');
+  if(!sel) return;
+  const atual = sel.value;
+  sel.innerHTML = '<option value="">Todos os donos</option>' + kbAllDonoNames().map(n => `<option value="${pulsoEscHtml(n)}">${pulsoEscHtml(n)}</option>`).join('');
+  sel.value = atual;
+}
+
+function kbRenderAll(){
+  if(!KB_STATE.loaded) return;
+  const demandas = kbFilteredDemandas();
+  kbRenderCounters(demandas);
+  kbRenderUnassigned(demandas);
+  kbRenderBoard(demandas);
+}
+
+function kbRenderCounters(demandas){
+  const el = document.getElementById('kb-counters');
+  if(!el) return;
+  const abertas = demandas.filter(d => d.status !== 'finalizado').length;
+  const atrasadas = demandas.filter(d => kbColunaEfetiva(d) === 'atrasado').length;
+  const semDono = demandas.filter(d => !d.dono).length;
+  el.innerHTML = `<i class="fas fa-list-check"></i> <strong style="color:var(--text)">${abertas}</strong> aberta(s) · <strong style="color:var(--red)">${atrasadas}</strong> atrasada(s) · <strong style="color:var(--orange)">${semDono}</strong> sem dono`;
+}
+
+function kbPostitHtml(d, unassigned){
+  const coluna = kbColunaEfetiva(d);
+  const atrasado = coluna === 'atrasado';
+  const entregaTxt = d.data_entrega ? pulsoFmtDataBr(d.data_entrega) : '—';
+  const assignHtml = unassigned
+    ? `<select class="kanban-postit-assign" onclick="event.stopPropagation()" onchange="kbQuickAssign('${d.id}',this.value)">
+        <option value="">Atribuir a…</option>${kbAllDonoNames().map(n => `<option value="${pulsoEscHtml(n)}">${pulsoEscHtml(n)}</option>`).join('')}
+      </select>`
+    : '';
+  return `<div class="kanban-postit prio-${d.prioridade} status-${d.status}${atrasado?' is-atrasado':''}${unassigned?' kanban-postit-unassigned':''}"
+      draggable="true" data-id="${d.id}" onclick="kbOpenDetail('${d.id}')">
+    <div class="kanban-postit-title">${pulsoEscHtml(d.titulo)}</div>
+    <div class="kanban-postit-meta">
+      <span class="kanban-postit-badge prio-${d.prioridade}">${KB_PRIORIDADE_LABELS[d.prioridade]||d.prioridade}</span>
+      <span class="kanban-postit-date${atrasado?' is-atrasado':''}">${entregaTxt}</span>
+    </div>
+    <div class="kanban-postit-meta" style="margin-top:5px">
+      <span class="kanban-postit-badge st-${coluna}">${KB_STATUS_LABELS[coluna]||coluna}</span>
+    </div>
+    ${assignHtml}
+  </div>`;
+}
+
+function kbRenderUnassigned(demandas){
+  const list = document.getElementById('kb-unassigned-list');
+  const countEl = document.getElementById('kb-unassigned-count');
+  const semDono = demandas.filter(d => !d.dono).sort(kbCompare);
+  if(countEl) countEl.textContent = semDono.length;
+  if(!list) return;
+  list.innerHTML = semDono.length
+    ? semDono.map(d => kbPostitHtml(d, true)).join('')
+    : '<div class="kanban-unassigned-empty">Nenhuma demanda sem dono no momento.</div>';
+  list.querySelectorAll('.kanban-postit').forEach(kbBindPostitDrag);
+  kbBindUnassignedDrop();
+}
+
+function kbRenderBoard(demandas){
+  const board = document.getElementById('kb-board');
+  if(!board) return;
+  const rows = kbOwnerRows();
+  if(!rows.length){
+    board.innerHTML = '<div class="switch-hint">Nenhum responsável cadastrado ainda. Clique em "Adicionar Dono" pra começar.</div>';
+    return;
+  }
+  const porDono = new Map();
+  demandas.forEach(d => { if(!d.dono) return; if(!porDono.has(d.dono)) porDono.set(d.dono, []); porDono.get(d.dono).push(d); });
+
+  const head = `<div class="kanban-head-row">
+    <div class="kanban-head-cell kanban-owner-cell">Dono</div>
+    ${KB_STATUS_COLUMNS.map(s => `<div class="kanban-head-cell">${KB_STATUS_LABELS[s]}</div>`).join('')}
+  </div>`;
+
+  const rowsHtml = rows.map(row => {
+    const demandasDono = (porDono.get(row.nome)||[]).slice().sort(kbCompare);
+    const porColuna = {};
+    KB_STATUS_COLUMNS.forEach(s => porColuna[s] = []);
+    demandasDono.forEach(d => { const c = kbColunaEfetiva(d); if(porColuna[c]) porColuna[c].push(d); });
+    const cols = KB_STATUS_COLUMNS.map(s => `
+      <div class="kanban-col" data-dono="${pulsoEscHtml(row.nome)}" data-status="${s}">
+        ${porColuna[s].length ? porColuna[s].map(d => kbPostitHtml(d,false)).join('') : '<div class="kanban-col-empty">—</div>'}
+      </div>`).join('');
+    const podeExcluir = row.donoId && row.totalDemandas === 0;
+    return `<div class="kanban-row">
+      <div class="kanban-row-owner">
+        <span class="kanban-row-owner-name">${pulsoEscHtml(row.nome)}</span>
+        ${podeExcluir ? `<button type="button" class="kanban-row-owner-del" onclick="kbDeleteDono('${row.donoId}','${pulsoEscHtml(row.nome).replace(/'/g,"\\'")}')" title="Remover linha vazia"><i class="fas fa-trash"></i></button>` : ''}
+      </div>
+      ${cols}
+    </div>`;
+  }).join('');
+
+  board.innerHTML = head + rowsHtml;
+  board.querySelectorAll('.kanban-postit').forEach(kbBindPostitDrag);
+  board.querySelectorAll('.kanban-col').forEach(kbBindColDrop);
+}
+
+/* ── Drag and drop (HTML5 nativo, sem lib — item 12 do pedido) ── */
+function kbBindPostitDrag(el){
+  el.addEventListener('dragstart', function(e){
+    el.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', el.dataset.id);
+  });
+  el.addEventListener('dragend', function(){ el.classList.remove('dragging'); });
+}
+function kbBindColDrop(col){
+  col.addEventListener('dragover', function(e){ e.preventDefault(); col.classList.add('drag-over'); });
+  col.addEventListener('dragleave', function(){ col.classList.remove('drag-over'); });
+  col.addEventListener('drop', function(e){
+    e.preventDefault();
+    col.classList.remove('drag-over');
+    const id = e.dataTransfer.getData('text/plain');
+    if(!id) return;
+    kbMoveDemanda(id, col.dataset.dono||'', col.dataset.status);
+  });
+}
+function kbBindUnassignedDrop(){
+  const list = document.getElementById('kb-unassigned-list');
+  if(!list || list.dataset.kbBound) return;
+  list.dataset.kbBound = '1';
+  list.addEventListener('dragover', e => { e.preventDefault(); list.classList.add('drag-over'); });
+  list.addEventListener('dragleave', () => list.classList.remove('drag-over'));
+  list.addEventListener('drop', e => {
+    e.preventDefault();
+    list.classList.remove('drag-over');
+    const id = e.dataTransfer.getData('text/plain');
+    if(id) kbMoveDemanda(id, '', null);
+  });
+}
+
+// novoStatus null = não mexe no status (usado ao soltar em "Demandas sem
+// Dono" ou no quick-assign, que só trocam o dono). "atrasado" nunca é
+// aceito como destino — é calculado, não um valor de status de verdade.
+async function kbMoveDemanda(id, novoDono, novoStatus){
+  const d = KB_STATE.demandas.find(x => x.id === id);
+  if(!d) return;
+  if(novoStatus === 'atrasado'){
+    showToast('Atrasado é automático — mude pra Fila/Em Andamento/On Hold; ele volta sozinho se a entrega já passou.', true);
+    return;
+  }
+  const entry = { id };
+  if(novoDono !== d.dono) entry.dono = novoDono;
+  if(novoStatus !== null && novoStatus !== d.status) entry.status = novoStatus;
+  if(Object.keys(entry).length === 1) return; // nada mudou
+
+  const backup = { dono: d.dono, status: d.status };
+  Object.assign(d, entry); // otimista — não espera o round-trip pra mover o post-it na tela
+  kbRenderAll();
+  try {
+    const r = await fetch('/api/overview?kanban=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'update_demanda', entry }) });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao mover');
+    KB_STATE.demandas = j.demandas;
+    kbRenderAll();
+  } catch(err){
+    Object.assign(d, backup);
+    kbRenderAll();
+    showToast('Erro ao mover: '+err.message, true);
+  }
+}
+function kbQuickAssign(id, dono){
+  if(!dono) return;
+  kbMoveDemanda(id, dono, null);
+}
+
+async function kbDeleteDono(id, nome){
+  if(!confirm(`Remover a linha "${nome}"? Só é possível porque ela ainda não tem nenhuma demanda.`)) return;
+  try {
+    const r = await fetch('/api/overview?kanban=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'delete_dono', entry:{id} }) });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao excluir');
+    KB_STATE.donos = j.donos;
+    kbPopulateDonoFilter();
+    kbRenderAll();
+    showToast('✓ Linha removida.');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  }
+}
+
+/* ── Modal Nova Demanda / Detalhe (mesmo modal cobre os dois — item 6 e 9
+   do pedido; ver dataMapOpenForm em Mapa de Dados pro mesmo padrão) ── */
+function kbUpdateAtrasadoHint(){
+  const entrega = document.getElementById('kb-d-entrega').value;
+  const status = document.getElementById('kb-d-status').value;
+  const hint = document.getElementById('kb-d-atrasado-hint');
+  if(hint) hint.style.display = (entrega && entrega < kbHojeIso() && status !== 'finalizado') ? '' : 'none';
+}
+function kbOpenDetail(id){ kbOpenDemandaForm(id); }
+function kbOpenDemandaForm(id){
+  const d = id ? KB_STATE.demandas.find(x => x.id === id) : null;
+  document.getElementById('kb-demanda-modal-titulo').textContent = d ? 'Detalhes da Demanda' : 'Nova Demanda';
+  document.getElementById('kb-d-id').value = d ? d.id : '';
+  document.getElementById('kb-d-titulo').value = d ? d.titulo : '';
+  document.getElementById('kb-d-descricao').value = d ? d.descricao : '';
+  const donoSel = document.getElementById('kb-d-dono');
+  donoSel.innerHTML = '<option value="">Sem dono</option>' + kbAllDonoNames().map(n => `<option value="${pulsoEscHtml(n)}">${pulsoEscHtml(n)}</option>`).join('');
+  donoSel.value = d ? (d.dono||'') : '';
+  document.getElementById('kb-d-prioridade').value = d ? d.prioridade : 'media';
+  document.getElementById('kb-d-status').value = d ? d.status : 'fila';
+  document.getElementById('kb-d-solicitacao').value = d ? d.data_solicitacao : kbHojeIso();
+  document.getElementById('kb-d-entrega').value = d ? d.data_entrega : '';
+  document.getElementById('kb-d-delete-btn').style.display = d ? '' : 'none';
+  kbUpdateAtrasadoHint();
+  document.getElementById('kb-demanda-modal-overlay').classList.add('open');
+  document.getElementById('kb-d-titulo').focus();
+}
+function kbCloseDemandaForm(){
+  document.getElementById('kb-demanda-modal-overlay').classList.remove('open');
+}
+async function kbDemandaSubmit(ev){
+  ev.preventDefault();
+  const id = document.getElementById('kb-d-id').value;
+  const entry = {
+    titulo: document.getElementById('kb-d-titulo').value.trim(),
+    descricao: document.getElementById('kb-d-descricao').value,
+    dono: document.getElementById('kb-d-dono').value,
+    prioridade: document.getElementById('kb-d-prioridade').value,
+    status: document.getElementById('kb-d-status').value,
+    data_solicitacao: document.getElementById('kb-d-solicitacao').value,
+    data_entrega: document.getElementById('kb-d-entrega').value,
+  };
+  if(!entry.titulo){ showToast('Nome da atividade é obrigatório', true); return; }
+  if(id) entry.id = id;
+  const btn = document.querySelector('#kb-demanda-form button[type="submit"]');
+  if(btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/overview?kanban=1', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action: id ? 'update_demanda' : 'create_demanda', entry }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao salvar');
+    KB_STATE.demandas = j.demandas;
+    kbPopulateDonoFilter();
+    kbCloseDemandaForm();
+    kbRenderAll();
+    showToast(id ? '✓ Demanda atualizada!' : '✓ Demanda criada!');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+async function kbDeleteDemanda(){
+  const id = document.getElementById('kb-d-id').value;
+  if(!id) return;
+  const d = KB_STATE.demandas.find(x => x.id === id);
+  if(!confirm(`Excluir "${d?d.titulo:'esta demanda'}"? Essa ação não pode ser desfeita.`)) return;
+  try {
+    const r = await fetch('/api/overview?kanban=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'delete_demanda', entry:{id} }) });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao excluir');
+    KB_STATE.demandas = j.demandas;
+    kbCloseDemandaForm();
+    kbRenderAll();
+    showToast('✓ Demanda excluída.');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  }
+}
+
+/* ── Modal Adicionar Dono (item 8 do pedido) ── */
+function kbOpenDonoForm(){
+  document.getElementById('kb-dono-nome').value = '';
+  document.getElementById('kb-dono-modal-overlay').classList.add('open');
+  document.getElementById('kb-dono-nome').focus();
+}
+function kbCloseDonoForm(){
+  document.getElementById('kb-dono-modal-overlay').classList.remove('open');
+}
+async function kbDonoSubmit(ev){
+  ev.preventDefault();
+  const nome = document.getElementById('kb-dono-nome').value.trim();
+  if(!nome){ showToast('Nome é obrigatório', true); return; }
+  try {
+    const r = await fetch('/api/overview?kanban=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'create_dono', entry:{nome} }) });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao criar');
+    KB_STATE.donos = j.donos;
+    kbCloseDonoForm();
+    kbPopulateDonoFilter();
+    kbRenderAll();
+    showToast('✓ Dono adicionado!');
   } catch(err){
     showToast('Erro: '+err.message, true);
   }
