@@ -37,7 +37,7 @@
  * uma. Cada chamada é isolada em try/catch — a queda de uma fonte não
  * derruba o Overview inteiro, só zera aquele bloco (`erros` sinaliza qual).
  */
-const { fetchTabByGid, fetchTabRawValues, updateRangeRaw } = require('./_google');
+const { fetchTabByGid, fetchTabRawValues, updateRangeRaw, readRange, writeRange, ensureSheetExists } = require('./_google');
 const { toNum, dataOperacionalDe, hojeOperacionalIso } = require('./_period');
 const { buildArvore, writeArvoreValores, freezeArvoreAll } = require('./_arvore');
 
@@ -492,7 +492,124 @@ async function buildJustificativas(req, res) {
   }
 }
 
+/* ================================================================
+   MAPA DE DADOS (?datamap=1) — pedido do Roberto em 2026-08-27: catálogo
+   de verdade pro time de dados (queries/scripts/docs por card, com quem é
+   o responsável), substituindo o mock em memória que existia antes
+   (perdia tudo no F5). Guarda numa aba própria (mapa_dados_input, criada
+   sozinha no primeiro uso via ensureSheetExists — mesmo padrão de
+   monitor_tags_pulso em api/outbound.js), sem gid fixo pra resolver (aba
+   nova, sem risco de rename por terceiros) — lê/escreve sempre pelo nome
+   literal. Read-modify-write da aba inteira a cada escrita (clear+rewrite
+   via writeRange) — volume esperado é baixo (catálogo, não telemetria),
+   mesmo raciocínio de custo já usado pra Monitor Tags.
+================================================================ */
+const DATAMAP_SHEET_TITLE = 'mapa_dados_input';
+const DATAMAP_HEADER = ['id', 'tipo', 'titulo', 'descricao_md', 'codigo', 'link', 'responsavel_email', 'criado_em', 'atualizado_em'];
+const DATAMAP_TIPOS = new Set(['sql', 'py', 'html', 'link', 'sheet']);
+function datamapRange() {
+  return `'${DATAMAP_SHEET_TITLE}'!A:${String.fromCharCode(64 + DATAMAP_HEADER.length)}`;
+}
+function linhaParaEntradaDatamap(r) {
+  const o = {};
+  DATAMAP_HEADER.forEach((campo, i) => { o[campo] = r[i] || ''; });
+  return o;
+}
+function entradaParaLinhaDatamap(o) {
+  return DATAMAP_HEADER.map(campo => o[campo] != null ? o[campo] : '');
+}
+async function readDatamapEntradas() {
+  let values;
+  try {
+    values = await readRange(LABOR_SHEET.spreadsheetId, datamapRange());
+  } catch (err) {
+    // Aba ainda não existe (1º uso da feature) — cria com o cabeçalho certo.
+    await ensureSheetExists(LABOR_SHEET.spreadsheetId, DATAMAP_SHEET_TITLE);
+    await writeRange(LABOR_SHEET.spreadsheetId, datamapRange(), [DATAMAP_HEADER]);
+    return [];
+  }
+  if (!values.length) return [];
+  return values.slice(1).map(linhaParaEntradaDatamap).filter(e => e.id);
+}
+async function writeDatamapEntradas(entradas) {
+  await writeRange(LABOR_SHEET.spreadsheetId, datamapRange(), [DATAMAP_HEADER, ...entradas.map(entradaParaLinhaDatamap)]);
+}
+function novoDatamapId() {
+  return 'dm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+async function buildDataMap(req, res) {
+  if (req.method === 'POST') {
+    const action = (req.body || {}).action;
+    const entrada = (req.body || {}).entry || {};
+    try {
+      const atuais = await readDatamapEntradas();
+      const agora = new Date().toISOString();
+
+      if (action === 'create') {
+        if (!String(entrada.titulo || '').trim() || !DATAMAP_TIPOS.has(entrada.tipo)) {
+          res.status(400).json({ ok: false, erro: 'titulo e tipo válido (sql/py/html/link/sheet) são obrigatórios' });
+          return;
+        }
+        const nova = {
+          id: novoDatamapId(), tipo: entrada.tipo, titulo: entrada.titulo,
+          descricao_md: entrada.descricao_md || '', codigo: entrada.codigo || '', link: entrada.link || '',
+          responsavel_email: entrada.responsavel_email || '',
+          criado_em: agora, atualizado_em: agora,
+        };
+        atuais.push(nova);
+        await writeDatamapEntradas(atuais);
+        res.status(200).json({ ok: true, entries: atuais });
+        return;
+      }
+
+      if (action === 'update') {
+        const idx = atuais.findIndex(e => e.id === entrada.id);
+        if (idx === -1) { res.status(404).json({ ok: false, erro: 'entrada não encontrada' }); return; }
+        if (entrada.tipo && !DATAMAP_TIPOS.has(entrada.tipo)) { res.status(400).json({ ok: false, erro: 'tipo inválido' }); return; }
+        atuais[idx] = {
+          ...atuais[idx],
+          tipo: entrada.tipo || atuais[idx].tipo,
+          titulo: entrada.titulo || atuais[idx].titulo,
+          descricao_md: entrada.descricao_md ?? atuais[idx].descricao_md,
+          codigo: entrada.codigo ?? atuais[idx].codigo,
+          link: entrada.link ?? atuais[idx].link,
+          responsavel_email: entrada.responsavel_email ?? atuais[idx].responsavel_email,
+          atualizado_em: agora,
+        };
+        await writeDatamapEntradas(atuais);
+        res.status(200).json({ ok: true, entries: atuais });
+        return;
+      }
+
+      if (action === 'delete') {
+        const restantes = atuais.filter(e => e.id !== entrada.id);
+        await writeDatamapEntradas(restantes);
+        res.status(200).json({ ok: true, entries: restantes });
+        return;
+      }
+
+      res.status(400).json({ ok: false, erro: 'action inválida (create/update/delete)' });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+
+  try {
+    const entries = await readDatamapEntradas();
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).json({ ok: true, entries });
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+  }
+}
+
 module.exports = async (req, res) => {
+  if (req.query.datamap !== undefined) {
+    await buildDataMap(req, res);
+    return;
+  }
   if (req.query.justificativas !== undefined) {
     await buildJustificativas(req, res);
     return;

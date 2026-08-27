@@ -10,6 +10,11 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Mapa de Dados (Markdown -> HTML nas descrições dos cards, pedido do
+       Roberto em 2026-08-27): marked converte, DOMPurify sanitiza antes do
+       innerHTML — conteúdo vem de qualquer pessoa com acesso à tela. -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dompurify@3/dist/purify.min.js"></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
@@ -2099,9 +2104,28 @@
     }
     .data-card-type.sql   { background: rgba(6,182,212,.12);  color: var(--cyan); }
     .data-card-type.py    { background: rgba(16,185,129,.12); color: #10b981; }
+    .data-card-type.html  { background: rgba(167,139,250,.14); color: #a78bfa; }
     .data-card-type.link  { background: rgba(238,77,45,.1);   color: var(--orange); }
     .data-card-type.sheet { background: rgba(245,158,11,.12); color: #f59e0b; }
+    .data-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .data-card-actions { display: flex; gap: 4px; }
+    .data-card-action-btn {
+      all: unset; cursor: pointer; color: var(--text-muted); font-size: 11px;
+      padding: 3px 6px; border-radius: 5px;
+    }
+    .data-card-action-btn:hover { background: var(--surface-2); color: var(--text); }
     .data-card-name { font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+    /* Descrição vira HTML renderizado do Markdown (marked+DOMPurify) — reset
+       leve pros elementos que o marked pode gerar (parágrafo, lista, código
+       inline, link), sem herdar margem padrão do navegador. */
+    .data-card-desc p { margin: 0 0 6px; }
+    .data-card-desc p:last-child { margin-bottom: 0; }
+    .data-card-desc ul, .data-card-desc ol { margin: 0 0 6px 18px; padding: 0; }
+    .data-card-desc code { background: var(--surface-3); padding: 1px 4px; border-radius: 3px; font-size: 11px; }
+    .data-card-desc a { color: var(--orange); }
+    .data-card-resp { font-size: 11px; color: var(--text-muted); margin-top: 8px; display: flex; align-items: center; gap: 5px; }
+    .data-card-resp a { color: inherit; text-decoration: none; }
+    .data-card-resp a:hover { text-decoration: underline; }
     .data-card-desc { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; }
     .data-card-code {
       background: var(--surface-3); border-radius: var(--radius);
@@ -6094,15 +6118,66 @@
           <button class="bkl-pf-btn active" onclick="filterDataMap('all',this)">Todos</button>
           <button class="bkl-pf-btn" onclick="filterDataMap('sql',this)"><i class="fas fa-database"></i> SQL</button>
           <button class="bkl-pf-btn" onclick="filterDataMap('py',this)"><i class="fas fa-code"></i> Python</button>
+          <button class="bkl-pf-btn" onclick="filterDataMap('html',this)"><i class="fas fa-code"></i> HTML</button>
           <button class="bkl-pf-btn" onclick="filterDataMap('link',this)"><i class="fas fa-link"></i> Links</button>
           <button class="bkl-pf-btn" onclick="filterDataMap('sheet',this)"><i class="fas fa-table"></i> Planilhas</button>
         </div>
 
+        <div class="pulso-coverage" id="datamap-coverage" style="margin-bottom:14px"></div>
         <div class="data-map-grid" id="data-map-grid"></div>
 
         <!-- Add new entry -->
         <div style="margin-top:20px;display:flex;gap:10px;flex-wrap:wrap">
-          <button class="btn btn-primary" onclick="addDataEntry()"><i class="fas fa-plus"></i> Adicionar Entrada</button>
+          <button class="btn btn-primary" onclick="dataMapOpenForm()"><i class="fas fa-plus"></i> Adicionar Entrada</button>
+        </div>
+      </div>
+
+      <!-- Modal Adicionar/Editar entrada (Mapa de Dados) -->
+      <div class="modal-overlay" id="datamap-modal-overlay" onclick="if(event.target===this) dataMapCloseForm()">
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="datamap-modal-label" style="max-width:640px">
+          <div class="modal-header">
+            <span class="modal-title" id="datamap-modal-label"><i class="fas fa-database" style="color:var(--orange-ll);margin-right:8px"></i><span id="datamap-modal-titulo">Nova Entrada</span></span>
+            <button class="modal-close" onclick="dataMapCloseForm()"><i class="fas fa-xmark"></i></button>
+          </div>
+          <form id="datamap-form" onsubmit="dataMapSubmit(event)">
+            <input type="hidden" id="dm-id"/>
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Tipo *</label>
+                <select class="form-input" id="dm-tipo" required>
+                  <option value="sql">SQL</option>
+                  <option value="py">Python</option>
+                  <option value="html">HTML</option>
+                  <option value="link">Link</option>
+                  <option value="sheet">Planilha</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Responsável (e-mail)</label>
+                <input type="email" class="form-input" id="dm-email" placeholder="nome@shopee.com"/>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Título *</label>
+              <input type="text" class="form-input" id="dm-titulo" required/>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Descrição / Documentação (Markdown)</label>
+              <textarea class="form-input" id="dm-desc" rows="4" placeholder="**negrito**, listas com -, [link](url)…" style="resize:vertical"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Código / Query</label>
+              <textarea class="form-input" id="dm-codigo" rows="6" placeholder="Opcional" style="font-family:'Share Tech Mono','Courier New',monospace;font-size:12px;resize:vertical"></textarea>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Link</label>
+              <input type="url" class="form-input" id="dm-link" placeholder="https://…"/>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-outline" onclick="dataMapCloseForm()">Cancelar</button>
+              <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Salvar</button>
+            </div>
+          </form>
         </div>
       </div>
 
@@ -12808,18 +12883,14 @@ const FOCAL_AREAS = [
   'Leftover',
 ];
 
-const DATA_MAP_ENTRIES = [
-  { type:'sql',  name:'KPIs Operacionais — Dashboard',       desc:'Query principal que alimenta os cards de KPI do Overview. Extrai OTIF, produtividade, OEE e ocorrências abertas.',   code:'SELECT kpi_label, valor, delta\nFROM tb_kpis_operacional\nWHERE data = CURDATE()\nORDER BY kpi_label;', link:'' },
-  { type:'sql',  name:'Backlog por Perfil',                  desc:'Extrai o backlog atual segmentado por perfil de pacote (P/M/G/Bulky) e tipo (Received/Packed/EHA).',                 code:'SELECT perfil, tipo, SUM(qtd) AS total\nFROM tb_backlog\nWHERE status = "pendente"\nGROUP BY perfil, tipo;', link:'' },
-  { type:'sql',  name:'Clusterização — Ocupação por Rua',    desc:'Mapeamento de ocupação das ruas por doca para alimentar a página de Clusterização.',                                  code:'SELECT doca_id, rua_id, pos_occ,\n  pos_cap, aging, pacotes_ovr\nFROM tb_cluster_staging\nWHERE turno = CURRENT_SHIFT();', link:'' },
-  { type:'sql',  name:'Absenteísmo Diário',                  desc:'Levantamento de ausências do dia com motivo, setor e turno para o dashboard de Absenteísmo.',                       code:'SELECT colaborador, setor, turno,\n  motivo, data_falta\nFROM tb_ausencias\nWHERE data_falta = CURDATE();', link:'' },
-  { type:'py',   name:'Gerador de Forecast',                 desc:'Script Python que aplica modelo ARIMA para projeção de volume dos próximos 14 dias com intervalo de confiança 90%.', code:'# forecast_volume.py\nimport pandas as pd\nfrom statsmodels.tsa.arima.model import ARIMA\n# Carregar dados históricos\n# Ajustar modelo e gerar projeção', link:'' },
-  { type:'py',   name:'Score de Clusterização',              desc:'Algoritmo que compara o endereçamento atual com o cluster ideal e calcula o score de conformidade por rua.',         code:'# cluster_score.py\nimport pandas as pd\n# Calcular % match entre fanout\n# endereçado e cluster ideal', link:'' },
-  { type:'link', name:'GitHub — Repositório Principal',      desc:'Repositório com todos os scripts Python, notebooks de análise e automações da operação.',                            code:'', link:'https://github.com/' },
-  { type:'sheet',name:'Planilha Operacional — Google Sheets',desc:'Planilha principal com dados ao vivo das docas, volumes e indicadores, publicada como CSV para o dashboard.',       code:'', link:'https://docs.google.com/spreadsheets/' },
-];
-
-let dataMapEntries = [...DATA_MAP_ENTRIES];
+// Mapa de Dados — antes era um mock hardcoded (8 entradas fictícias, em
+// memória, sumia no F5). Pedido do Roberto em 2026-08-27: virar um
+// catálogo real, persistido na aba mapa_dados_input via /api/overview
+// ?datamap=1 (ver loadDataMap). dataMapEntries começa vazio e é populado
+// pela API no 1º acesso à tela.
+let dataMapEntries = [];
+let DATAMAP_LOADED = false;
+let DATAMAP_FILTER = 'all';
 
 function toggleGovSection(bodyId){
   const body = document.getElementById(bodyId);
@@ -13122,7 +13193,26 @@ function mapadadosSwitchSubpage(key, el){
 }
 
 function renderMapaDados(){
-  buildDataMap('all');
+  if(DATAMAP_LOADED){ buildDataMap(DATAMAP_FILTER); return; }
+  loadDataMap();
+}
+
+async function loadDataMap(){
+  const grid = document.getElementById('data-map-grid');
+  if(grid) grid.innerHTML = '<div class="switch-hint"><i class="fas fa-spinner fa-spin"></i> Carregando…</div>';
+  try {
+    const r = await fetch('/api/overview?datamap=1', { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    dataMapEntries = j.entries;
+    DATAMAP_LOADED = true;
+    const cov = document.getElementById('datamap-coverage');
+    if(cov) cov.innerHTML = `<i class="fas fa-database"></i> ${dataMapEntries.length.toLocaleString('pt-BR')} entrada(s) cadastrada(s)`;
+    buildDataMap(DATAMAP_FILTER);
+  } catch(err){
+    console.error('[datamap]', err);
+    if(grid) grid.innerHTML = `<div class="switch-hint"><i class="fas fa-triangle-exclamation"></i> Erro ao carregar: ${pulsoEscHtml(err.message)}</div>`;
+  }
 }
 
 /* ================================================================
@@ -13689,40 +13779,118 @@ function jarvisCloseDetail(){
 function filterDataMap(type, el){
   document.querySelectorAll('#datamap-filters .bkl-pf-btn').forEach(b=>b.classList.remove('active'));
   el.classList.add('active');
+  DATAMAP_FILTER = type;
   buildDataMap(type);
+}
+
+// http(s) só — o campo `link` é digitado livremente por qualquer um com
+// acesso à tela (não passa pelo DOMPurify da descrição em Markdown), então
+// barra esquema perigoso (ex. "javascript:") antes de virar href de verdade.
+function dataMapSafeUrl(u){
+  const s = String(u||'').trim();
+  return /^https?:\/\//i.test(s) ? s : '';
 }
 
 function buildDataMap(filter){
   const grid = document.getElementById('data-map-grid');
   if(!grid) return;
-  const entries = filter==='all' ? dataMapEntries : dataMapEntries.filter(e=>e.type===filter);
-  const typeIcons = { sql:'fa-database', py:'fa-code', link:'fa-link', sheet:'fa-table' };
-  const typeLabels = { sql:'SQL', py:'Python', link:'Link', sheet:'Planilha' };
-  grid.innerHTML = entries.map((e,i) => `
-    <div class="data-card" data-type="${e.type}">
-      <span class="data-card-type ${e.type}"><i class="fas ${typeIcons[e.type]}"></i> ${typeLabels[e.type]}</span>
-      <div class="data-card-name">${e.name}</div>
-      <div class="data-card-desc">${e.desc}</div>
-      ${e.code ? `<div class="data-card-code">${e.code}</div>` : ''}
-      ${e.link
-        ? `<a class="data-card-link" href="${e.link}" target="_blank"><i class="fas fa-arrow-up-right-from-square"></i> Abrir link</a>`
-        : `<input class="data-card-input" placeholder="Cole o link aqui…" value="${e.link||''}" onchange="dataMapEntries.find(x=>x.name==='${e.name.replace(/'/g,"\\'")}')&&(dataMapEntries.find(x=>x.name==='${e.name.replace(/'/g,"\\'")}').link=this.value)"/>`
-      }
-    </div>`).join('');
+  if(!DATAMAP_LOADED) return; // loadDataMap() já cuida do placeholder de loading/erro
+  const entries = filter==='all' ? dataMapEntries : dataMapEntries.filter(e=>e.tipo===filter);
+  const typeIcons = { sql:'fa-database', py:'fa-code', html:'fa-code', link:'fa-link', sheet:'fa-table' };
+  const typeLabels = { sql:'SQL', py:'Python', html:'HTML', link:'Link', sheet:'Planilha' };
+  if(!entries.length){
+    grid.innerHTML = `<div class="switch-hint">Nenhuma entrada ${filter==='all'?'ainda':'desse tipo'}. Clique em "Adicionar Entrada" pra começar.</div>`;
+    return;
+  }
+  grid.innerHTML = entries.map(e => {
+    const descHtml = e.descricao_md && window.marked && window.DOMPurify
+      ? DOMPurify.sanitize(marked.parse(e.descricao_md))
+      : (e.descricao_md ? pulsoEscHtml(e.descricao_md) : '');
+    const safeLink = dataMapSafeUrl(e.link);
+    return `
+    <div class="data-card" data-type="${e.tipo}">
+      <div class="data-card-head">
+        <span class="data-card-type ${e.tipo}"><i class="fas ${typeIcons[e.tipo]||'fa-file'}"></i> ${typeLabels[e.tipo]||e.tipo}</span>
+        <div class="data-card-actions">
+          <button type="button" class="data-card-action-btn" onclick="dataMapOpenForm('${e.id}')" title="Editar"><i class="fas fa-pen"></i></button>
+          <button type="button" class="data-card-action-btn" onclick="dataMapDelete('${e.id}')" title="Excluir"><i class="fas fa-trash"></i></button>
+        </div>
+      </div>
+      <div class="data-card-name">${pulsoEscHtml(e.titulo)}</div>
+      ${descHtml ? `<div class="data-card-desc">${descHtml}</div>` : ''}
+      ${e.codigo ? `<div class="data-card-code">${pulsoEscHtml(e.codigo)}</div>` : ''}
+      ${safeLink ? `<a class="data-card-link" href="${pulsoEscHtml(safeLink)}" target="_blank" rel="noopener"><i class="fas fa-arrow-up-right-from-square"></i> Abrir link</a>` : ''}
+      ${e.responsavel_email ? `<div class="data-card-resp"><i class="fas fa-user"></i> <a href="mailto:${pulsoEscHtml(e.responsavel_email)}">${pulsoEscHtml(e.responsavel_email)}</a></div>` : ''}
+    </div>`;
+  }).join('');
 }
 
-function addDataEntry(){
-  const type = prompt('Tipo (sql / py / link / sheet):','sql');
-  if(!type) return;
-  const name = prompt('Nome:'); if(!name) return;
-  const desc = prompt('Descrição:') || '';
-  const code = (type==='sql'||type==='py') ? prompt('Código/snippet (opcional):') || '' : '';
-  const link = (type==='link'||type==='sheet') ? prompt('Link (URL):') || '' : '';
-  dataMapEntries.push({type, name, desc, code, link});
-  const activeBtn = document.querySelector('#datamap-filters .bkl-pf-btn.active');
-  const activeFilter = activeBtn?.dataset?.profile || 'all';
-  buildDataMap(activeFilter);
-  showToast('✓ Entrada adicionada!');
+function dataMapOpenForm(id){
+  const entry = id ? dataMapEntries.find(e=>e.id===id) : null;
+  document.getElementById('datamap-modal-titulo').textContent = entry ? 'Editar Entrada' : 'Nova Entrada';
+  document.getElementById('dm-id').value = entry ? entry.id : '';
+  document.getElementById('dm-tipo').value = entry ? entry.tipo : 'sql';
+  document.getElementById('dm-titulo').value = entry ? entry.titulo : '';
+  document.getElementById('dm-desc').value = entry ? entry.descricao_md : '';
+  document.getElementById('dm-codigo').value = entry ? entry.codigo : '';
+  document.getElementById('dm-link').value = entry ? entry.link : '';
+  document.getElementById('dm-email').value = entry ? entry.responsavel_email : '';
+  document.getElementById('datamap-modal-overlay').classList.add('open');
+}
+function dataMapCloseForm(){
+  document.getElementById('datamap-modal-overlay').classList.remove('open');
+}
+
+async function dataMapSubmit(ev){
+  ev.preventDefault();
+  const id = document.getElementById('dm-id').value;
+  const entry = {
+    tipo: document.getElementById('dm-tipo').value,
+    titulo: document.getElementById('dm-titulo').value.trim(),
+    descricao_md: document.getElementById('dm-desc').value,
+    codigo: document.getElementById('dm-codigo').value,
+    link: document.getElementById('dm-link').value.trim(),
+    responsavel_email: document.getElementById('dm-email').value.trim(),
+  };
+  if(!entry.titulo){ showToast('Título é obrigatório', true); return; }
+  if(id) entry.id = id;
+  const btn = document.querySelector('#datamap-form button[type="submit"]');
+  if(btn) btn.disabled = true;
+  try {
+    const r = await fetch('/api/overview?datamap=1', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action: id ? 'update' : 'create', entry }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao salvar');
+    dataMapEntries = j.entries;
+    dataMapCloseForm();
+    buildDataMap(DATAMAP_FILTER);
+    showToast(id ? '✓ Entrada atualizada!' : '✓ Entrada adicionada!');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  } finally {
+    if(btn) btn.disabled = false;
+  }
+}
+
+async function dataMapDelete(id){
+  const entry = dataMapEntries.find(e=>e.id===id);
+  if(!entry) return;
+  if(!confirm(`Excluir "${entry.titulo}"? Essa ação não pode ser desfeita.`)) return;
+  try {
+    const r = await fetch('/api/overview?datamap=1', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'delete', entry:{id} }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao excluir');
+    dataMapEntries = j.entries;
+    buildDataMap(DATAMAP_FILTER);
+    showToast('✓ Entrada excluída.');
+  } catch(err){
+    showToast('Erro: '+err.message, true);
+  }
 }
 
 /* ================================================================
