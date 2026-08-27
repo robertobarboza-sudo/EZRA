@@ -985,7 +985,14 @@
     .kanban-postit.status-finalizado { opacity: .6; }
     .kanban-postit.status-finalizado:hover { opacity: .88; }
     .kanban-postit.is-atrasado { box-shadow: 0 3px 10px rgba(220,38,38,.4); }
-    .kanban-postit-title { font-weight: 700; color: #4a3c08; line-height: 1.35; margin-bottom: 7px; }
+    .kanban-postit-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 6px; margin-bottom: 7px; }
+    .kanban-postit-title { font-weight: 700; color: #4a3c08; line-height: 1.35; }
+    .kanban-postit-link {
+      all: unset; cursor: pointer; flex: none; display: flex; align-items: center; justify-content: center;
+      width: 18px; height: 18px; border-radius: 4px; color: #7a6a2a; font-size: 10.5px;
+      transition: background .15s ease, color .15s ease;
+    }
+    .kanban-postit-link:hover { background: rgba(74,60,8,.12); color: #4a3c08; }
     .kanban-postit-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
     .kanban-postit-date { font-size: 10.5px; color: #7a6a2a; font-weight: 600; }
     .kanban-postit-date.is-atrasado { color: #c0281c; font-weight: 800; }
@@ -6834,6 +6841,10 @@
       <div class="form-group">
         <label class="form-label">Descrição</label>
         <textarea class="form-input" id="kb-d-descricao" rows="3" style="resize:vertical"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Link</label>
+        <input type="url" class="form-input" id="kb-d-url" placeholder="https://..."/>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -14541,6 +14552,11 @@ function kbPostitHtml(d, unassigned, pagerHtml){
   const atrasado = coluna === 'atrasado';
   const entregaTxt = d.data_entrega ? pulsoFmtDataBr(d.data_entrega) : '—';
   const corColuna = KB_STATE.colunaCores[coluna];
+  // só vira link clicável se for http(s) de verdade (evita href com
+  // esquema tipo javascript: mesmo já vindo escapado de pulsoEscHtml).
+  const linkHtml = d.url && /^https?:\/\//i.test(d.url)
+    ? `<a href="${pulsoEscHtml(d.url)}" target="_blank" rel="noopener noreferrer" class="kanban-postit-link" onclick="event.stopPropagation()" title="Abrir link"><i class="fas fa-arrow-up-right-from-square"></i></a>`
+    : '';
   const assignHtml = unassigned
     ? `<select class="kanban-postit-assign" onclick="event.stopPropagation()" onchange="kbQuickAssign('${d.id}',this.value)">
         <option value="">Atribuir a…</option>${kbAllDonoNames().map(n => `<option value="${pulsoEscHtml(n)}">${pulsoEscHtml(n)}</option>`).join('')}
@@ -14548,7 +14564,10 @@ function kbPostitHtml(d, unassigned, pagerHtml){
     : '';
   return `<div class="kanban-postit prio-${d.prioridade} status-${d.status}${atrasado?' is-atrasado':''}${unassigned?' kanban-postit-unassigned':''}"
       draggable="true" data-id="${d.id}" onclick="kbOpenDetail('${d.id}')"${corColuna ? ` style="background:${corColuna}"` : ''}>
-    <div class="kanban-postit-title">${pulsoEscHtml(d.titulo)}</div>
+    <div class="kanban-postit-head">
+      <div class="kanban-postit-title">${pulsoEscHtml(d.titulo)}</div>
+      ${linkHtml}
+    </div>
     <div class="kanban-postit-meta">
       <span class="kanban-postit-badge prio-${d.prioridade}">${KB_PRIORIDADE_LABELS[d.prioridade]||d.prioridade}</span>
       <span class="kanban-postit-date${atrasado?' is-atrasado':''}">${entregaTxt}</span>
@@ -14837,6 +14856,7 @@ function kbOpenDemandaForm(id){
   document.getElementById('kb-d-id').value = d ? d.id : '';
   document.getElementById('kb-d-titulo').value = d ? d.titulo : '';
   document.getElementById('kb-d-descricao').value = d ? d.descricao : '';
+  document.getElementById('kb-d-url').value = d ? (d.url||'') : '';
   const donoSel = document.getElementById('kb-d-dono');
   donoSel.innerHTML = '<option value="">Sem dono</option>' + kbAllDonoNames().map(n => `<option value="${pulsoEscHtml(n)}">${pulsoEscHtml(n)}</option>`).join('');
   donoSel.value = d ? (d.dono||'') : '';
@@ -14859,6 +14879,7 @@ async function kbDemandaSubmit(ev){
   const entry = {
     titulo: document.getElementById('kb-d-titulo').value.trim(),
     descricao: document.getElementById('kb-d-descricao').value,
+    url: document.getElementById('kb-d-url').value.trim(),
     dono: document.getElementById('kb-d-dono').value,
     prioridade: document.getElementById('kb-d-prioridade').value,
     status: document.getElementById('kb-d-status').value,
@@ -14867,6 +14888,7 @@ async function kbDemandaSubmit(ev){
     data_entrega: document.getElementById('kb-d-entrega').value,
   };
   if(!entry.titulo){ showToast('Nome da atividade é obrigatório', true); return; }
+  if(entry.url && !/^https?:\/\//i.test(entry.url)){ showToast('Link precisa começar com http:// ou https://', true); return; }
   if(id) entry.id = id;
   const btn = document.querySelector('#kb-demanda-form button[type="submit"]');
   if(btn) btn.disabled = true;
