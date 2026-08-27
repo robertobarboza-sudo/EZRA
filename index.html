@@ -863,7 +863,7 @@
       font-size: 10.5px; font-weight: 800;
     }
     .kanban-unassigned-list {
-      display: flex; gap: 10px; overflow-x: auto; padding-bottom: 4px;
+      display: flex; align-items: flex-start; gap: 10px; overflow-x: auto; padding-bottom: 4px;
       min-height: 40px; border-radius: var(--radius); transition: background var(--transition);
     }
     .kanban-unassigned-list.drag-over { background: rgba(238,77,45,.06); outline: 1.5px dashed var(--orange); }
@@ -952,7 +952,14 @@
       border: 1px solid #e3d16f; border-radius: var(--radius);
       padding: 5px 7px; font-size: 10.5px; color: #4a3c08; font-family: inherit;
     }
-    .kanban-postit-unassigned { min-width: 170px; max-width: 190px; flex: none; cursor: default; }
+    /* Numa lista horizontal a rotação aleatória do post-it (pensada pra
+       pilha vertical) deixa a fileira com aparência torta — largura fixa +
+       sem rotação aqui, pra ficar alinhado (pedido do Roberto em 2026-08-27). */
+    .kanban-postit-unassigned {
+      width: 180px; flex: none; cursor: default;
+      transform: none !important;
+    }
+    .kanban-postit-unassigned:hover { transform: translateY(-2px) !important; }
     @media (max-width: 768px) {
       .kanban-head-row, .kanban-row { grid-template-columns: 140px repeat(5, 180px); }
     }
