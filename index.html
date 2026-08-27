@@ -898,52 +898,73 @@
       font-size: 10.5px; color: var(--text-muted); opacity: .55; text-align: center;
       padding: 16px 4px; border: 1px dashed var(--border); border-radius: var(--radius);
     }
+    /* Post-it amarelo "de verdade" (pedido do Roberto em 2026-08-27) — cor
+       fixa (não var(--surface-2)) de propósito: a referência visual é o
+       papel do post-it físico, que não muda com o tema claro/escuro do
+       site, então a tinta (texto) também fica fixa em tom de tinta escura
+       pra continuar legível em qualquer tema. Prioridade/status continuam
+       usando as cores semânticas var(--red)/--amber/--green/--cyan já
+       usadas no resto do PULSO — só o "papel" é novo, não a linguagem de
+       cor de status. */
     .kanban-postit {
-      background: var(--surface-2); border: 1px solid var(--border);
-      border-left: 3px solid var(--border); border-radius: var(--radius);
+      background: #fdf3a0; border: 1px solid #e3d16f;
+      border-left: 3px solid #e3d16f; border-radius: var(--radius);
       padding: 10px 11px; font-size: 12px; cursor: grab;
-      box-shadow: 0 3px 10px rgba(0,0,0,.12);
+      box-shadow: 0 3px 10px rgba(120,102,10,.22);
       transition: transform .15s ease, box-shadow .15s ease;
     }
     .kanban-postit:nth-child(odd) { transform: rotate(-1.1deg); }
     .kanban-postit:nth-child(even) { transform: rotate(1deg); }
     .kanban-postit:hover {
       transform: rotate(0deg) translateY(-2px); position: relative; z-index: 2;
-      box-shadow: 0 8px 18px rgba(0,0,0,.2);
+      box-shadow: 0 8px 18px rgba(120,102,10,.32);
     }
     .kanban-postit.dragging { opacity: .35; }
     .kanban-postit.prio-alta  { border-left-color: var(--red); }
     .kanban-postit.prio-media { border-left-color: var(--amber); }
     .kanban-postit.prio-baixa { border-left-color: var(--green); }
-    .kanban-postit.status-finalizado { opacity: .58; }
-    .kanban-postit.status-finalizado:hover { opacity: .85; }
-    .kanban-postit.is-atrasado { box-shadow: 0 3px 10px color-mix(in srgb, var(--red) 30%, transparent); }
-    .kanban-postit-title { font-weight: 700; color: var(--text); line-height: 1.35; margin-bottom: 7px; }
+    .kanban-postit.status-finalizado { opacity: .6; }
+    .kanban-postit.status-finalizado:hover { opacity: .88; }
+    .kanban-postit.is-atrasado { box-shadow: 0 3px 10px rgba(220,38,38,.4); }
+    .kanban-postit-title { font-weight: 700; color: #4a3c08; line-height: 1.35; margin-bottom: 7px; }
     .kanban-postit-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
-    .kanban-postit-date { font-size: 10.5px; color: var(--text-muted); font-weight: 600; }
-    .kanban-postit-date.is-atrasado { color: var(--red); font-weight: 800; }
+    .kanban-postit-date { font-size: 10.5px; color: #7a6a2a; font-weight: 600; }
+    .kanban-postit-date.is-atrasado { color: #c0281c; font-weight: 800; }
     .kanban-postit-badge {
       display: inline-flex; align-items: center; gap: 4px;
       padding: 1px 7px; border-radius: 20px; font-size: 9.5px; font-weight: 800;
       letter-spacing: .02em; white-space: nowrap;
     }
-    .kanban-postit-badge.prio-alta  { background: rgba(239,68,68,.14);  color: var(--red); }
-    .kanban-postit-badge.prio-media { background: rgba(245,158,11,.14); color: var(--amber); }
-    .kanban-postit-badge.prio-baixa { background: rgba(16,185,129,.14); color: var(--green); }
-    .kanban-postit-badge.st-fila       { background: rgba(148,151,176,.16); color: var(--text-muted); }
-    .kanban-postit-badge.st-atrasado   { background: rgba(239,68,68,.14);  color: var(--red); }
-    .kanban-postit-badge.st-andamento  { background: rgba(6,182,212,.14);  color: var(--cyan); }
-    .kanban-postit-badge.st-hold       { background: rgba(245,158,11,.14); color: var(--amber); }
-    .kanban-postit-badge.st-finalizado { background: rgba(16,185,129,.14); color: var(--green); }
+    .kanban-postit-badge.prio-alta  { background: rgba(239,68,68,.16);  color: #b91c1c; }
+    .kanban-postit-badge.prio-media { background: rgba(217,119,6,.18); color: #92400e; }
+    .kanban-postit-badge.prio-baixa { background: rgba(5,150,105,.16);  color: #065f46; }
+    .kanban-postit-badge.st-fila       { background: rgba(74,60,8,.1);   color: #4a3c08; }
+    .kanban-postit-badge.st-atrasado   { background: rgba(239,68,68,.16); color: #b91c1c; }
+    .kanban-postit-badge.st-andamento  { background: rgba(8,145,178,.18); color: #0e7490; }
+    .kanban-postit-badge.st-hold       { background: rgba(217,119,6,.18); color: #92400e; }
+    .kanban-postit-badge.st-finalizado { background: rgba(5,150,105,.16); color: #065f46; }
     .kanban-postit-assign {
-      width: 100%; margin-top: 8px; background: var(--surface-3);
-      border: 1px solid var(--border); border-radius: var(--radius);
-      padding: 5px 7px; font-size: 10.5px; color: var(--text); font-family: inherit;
+      width: 100%; margin-top: 8px; background: #fffce0;
+      border: 1px solid #e3d16f; border-radius: var(--radius);
+      padding: 5px 7px; font-size: 10.5px; color: #4a3c08; font-family: inherit;
     }
     .kanban-postit-unassigned { min-width: 170px; max-width: 190px; flex: none; cursor: default; }
     @media (max-width: 768px) {
       .kanban-head-row, .kanban-row { grid-template-columns: 140px repeat(5, 180px); }
     }
+
+    /* Faixa de indicadores em formato post-it (pedido do Roberto em
+       2026-08-27) — cards estáticos, sem drag/hover-lift (só o quadro
+       principal é arrastável), mesmo "papel" amarelo dos post-its normais. */
+    .kanban-stats { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 18px; }
+    .kanban-stat-postit {
+      flex: 1 1 150px; min-width: 148px; text-align: center;
+      padding: 14px 10px; cursor: default;
+    }
+    .kanban-stat-postit:hover { transform: inherit; box-shadow: 0 3px 10px rgba(120,102,10,.22); }
+    .kanban-stat-value { font-size: 22px; font-weight: 800; color: #4a3c08; line-height: 1; margin-bottom: 5px; }
+    .kanban-stat-label { font-size: 10.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; color: #6b5a1a; }
+    .kanban-stat-sub { font-size: 9.5px; color: #97873f; margin-top: 2px; }
 
     /* Grafo de Dados — badges extras de status, no mesmo padrão visual do
        .ds-badge (verde/âmbar/vermelho) já usado no resto do site. */
@@ -6408,7 +6429,7 @@
         </div>
       </div>
 
-      <div class="pulso-coverage" id="kb-counters"></div>
+      <div class="kanban-stats" id="kb-stats"></div>
 
       <div class="kanban-unassigned" id="kb-unassigned-wrap">
         <div class="kanban-unassigned-head">
@@ -14288,18 +14309,59 @@ function kbPopulateDonoFilter(){
 function kbRenderAll(){
   if(!KB_STATE.loaded) return;
   const demandas = kbFilteredDemandas();
-  kbRenderCounters(demandas);
+  kbRenderStats();
   kbRenderUnassigned(demandas);
   kbRenderBoard(demandas);
 }
 
-function kbRenderCounters(demandas){
-  const el = document.getElementById('kb-counters');
-  if(!el) return;
-  const abertas = demandas.filter(d => d.status !== 'finalizado').length;
-  const atrasadas = demandas.filter(d => kbColunaEfetiva(d) === 'atrasado').length;
-  const semDono = demandas.filter(d => !d.dono).length;
-  el.innerHTML = `<i class="fas fa-list-check"></i> <strong style="color:var(--text)">${abertas}</strong> aberta(s) · <strong style="color:var(--red)">${atrasadas}</strong> atrasada(s) · <strong style="color:var(--orange)">${semDono}</strong> sem dono`;
+// Indicadores da faixa de post-its (pedido do Roberto em 2026-08-27) —
+// sempre sobre o total geral (KB_STATE.demandas), não o filtrado, mesmo
+// padrão dos KPIs de outras páginas do PULSO (o filtro é só pra ver o
+// quadro, não recorta o resumo).
+function kbCalcStats(){
+  const all = KB_STATE.demandas;
+  const pendentes = all.filter(d => d.status !== 'finalizado');
+  const realizadas = all.filter(d => d.status === 'finalizado');
+  const atrasadas = all.filter(d => kbColunaEfetiva(d) === 'atrasado');
+  const semDono = all.filter(d => !d.dono);
+
+  // % de Atendimento: das finalizadas com prazo definido, quantas
+  // concluíram até a data de entrega (SLA cumprido) — sem prazo definido
+  // não entra na conta (não dá pra avaliar atendimento sem um prazo).
+  const finalizadasComPrazo = realizadas.filter(d => d.data_entrega);
+  const noPrazo = finalizadasComPrazo.filter(d => d.data_conclusao && d.data_conclusao <= d.data_entrega);
+  const pctAtendimento = finalizadasComPrazo.length ? Math.round(noPrazo.length / finalizadasComPrazo.length * 100) : null;
+
+  // Produtividade: tempo médio (dias corridos) entre solicitação e
+  // conclusão das finalizadas — quanto menor, mais rápido o time entrega.
+  const comTempo = realizadas.filter(d => d.data_solicitacao && d.data_conclusao);
+  const mediaDias = comTempo.length
+    ? comTempo.reduce((s,d) => s + (new Date(d.data_conclusao+'T00:00:00Z') - new Date(d.data_solicitacao+'T00:00:00Z')) / 86400000, 0) / comTempo.length
+    : null;
+
+  return {
+    pendentes: pendentes.length, realizadas: realizadas.length,
+    atrasadas: atrasadas.length, semDono: semDono.length,
+    pctAtendimento, mediaDias,
+  };
+}
+function kbRenderStats(){
+  const wrap = document.getElementById('kb-stats');
+  if(!wrap) return;
+  const s = kbCalcStats();
+  const cards = [
+    { value: s.mediaDias!=null ? s.mediaDias.toFixed(1).replace('.',',')+' dias' : '—', label:'Produtividade', sub:'tempo médio de conclusão' },
+    { value: s.pendentes, label:'Atividades Pendentes', sub:'ainda em aberto' },
+    { value: s.realizadas, label:'Atividades Realizadas', sub:'finalizadas' },
+    { value: s.atrasadas, label:'Atividades Atrasadas', sub:'entrega vencida' },
+    { value: s.pctAtendimento!=null ? s.pctAtendimento+'%' : '—', label:'% de Atendimento', sub:'finalizadas no prazo' },
+    { value: s.semDono, label:'Demandas sem Dono', sub:'aguardando distribuição' },
+  ];
+  wrap.innerHTML = cards.map(c => `<div class="kanban-postit kanban-stat-postit">
+      <div class="kanban-stat-value">${c.value}</div>
+      <div class="kanban-stat-label">${c.label}</div>
+      <div class="kanban-stat-sub">${c.sub}</div>
+    </div>`).join('');
 }
 
 function kbPostitHtml(d, unassigned){
