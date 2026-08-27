@@ -493,6 +493,155 @@ async function buildJustificativas(req, res) {
 }
 
 /* ================================================================
+   KANBAN DE DEMANDAS (?kanban=1) — pedido do Roberto em 2026-08-27: quadro
+   Kanban (post-its) por responsável × status, com área de "Demandas sem
+   Dono". Mesmo padrão de mapa_dados_input logo abaixo: 2 abas próprias
+   (kanban_donos_input/kanban_demandas_input), criadas sozinhas no 1º uso
+   via ensureSheetExists, read-modify-write da aba inteira a cada escrita.
+
+   kanban_donos_input só existe pra permitir "criar dono sem nenhuma
+   demanda ainda" (linha vazia no quadro) — dono que já tem demanda não
+   precisa de linha aqui; a lista de linhas do quadro no front é a união
+   dos nomes das 2 fontes.
+
+   "Atrasado" NÃO é um status gravado — é calculado no front a partir de
+   data_entrega vs hoje (ver item 11 do pedido), pra não precisar desfazer
+   manualmente toda vez que deixar de estar atrasado. status guardado é só
+   fila/andamento/hold/finalizado.
+================================================================ */
+const KANBAN_DONOS_TITLE = 'kanban_donos_input';
+const KANBAN_DONOS_HEADER = ['id', 'nome', 'criado_em'];
+const KANBAN_DEMANDAS_TITLE = 'kanban_demandas_input';
+const KANBAN_DEMANDAS_HEADER = ['id', 'titulo', 'descricao', 'dono', 'prioridade', 'status', 'data_solicitacao', 'data_entrega', 'data_conclusao', 'criado_em', 'atualizado_em'];
+const KANBAN_PRIORIDADES = new Set(['alta', 'media', 'baixa']);
+const KANBAN_STATUS = new Set(['fila', 'andamento', 'hold', 'finalizado']);
+
+function kanbanRange(title, header) {
+  return `'${title}'!A:${String.fromCharCode(64 + header.length)}`;
+}
+function kanbanLinhaParaObjeto(header, r) {
+  const o = {};
+  header.forEach((campo, i) => { o[campo] = r[i] || ''; });
+  return o;
+}
+function kanbanObjetoParaLinha(header, o) {
+  return header.map(campo => o[campo] != null ? o[campo] : '');
+}
+async function kanbanReadTab(title, header) {
+  let values;
+  try {
+    values = await readRange(LABOR_SHEET.spreadsheetId, kanbanRange(title, header));
+  } catch (err) {
+    await ensureSheetExists(LABOR_SHEET.spreadsheetId, title);
+    await writeRange(LABOR_SHEET.spreadsheetId, kanbanRange(title, header), [header]);
+    return [];
+  }
+  if (!values.length) return [];
+  return values.slice(1).map(r => kanbanLinhaParaObjeto(header, r)).filter(o => o.id);
+}
+async function kanbanWriteTab(title, header, objetos) {
+  await writeRange(LABOR_SHEET.spreadsheetId, kanbanRange(title, header), [header, ...objetos.map(o => kanbanObjetoParaLinha(header, o))]);
+}
+function novoKanbanId(prefixo) {
+  return prefixo + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+async function buildKanban(req, res) {
+  if (req.method === 'POST') {
+    const action = (req.body || {}).action;
+    const entry = (req.body || {}).entry || {};
+    try {
+      const agora = new Date().toISOString();
+
+      if (action === 'create_dono') {
+        const nome = String(entry.nome || '').trim();
+        if (!nome) { res.status(400).json({ ok: false, erro: 'nome é obrigatório' }); return; }
+        const donos = await kanbanReadTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER);
+        donos.push({ id: novoKanbanId('do'), nome, criado_em: agora });
+        await kanbanWriteTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER, donos);
+        res.status(200).json({ ok: true, donos });
+        return;
+      }
+      if (action === 'delete_dono') {
+        const donos = (await kanbanReadTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER)).filter(d => d.id !== entry.id);
+        await kanbanWriteTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER, donos);
+        res.status(200).json({ ok: true, donos });
+        return;
+      }
+
+      if (action === 'create_demanda' || action === 'update_demanda') {
+        const demandas = await kanbanReadTab(KANBAN_DEMANDAS_TITLE, KANBAN_DEMANDAS_HEADER);
+        if (entry.prioridade && !KANBAN_PRIORIDADES.has(entry.prioridade)) { res.status(400).json({ ok: false, erro: 'prioridade inválida' }); return; }
+        if (entry.status && !KANBAN_STATUS.has(entry.status)) { res.status(400).json({ ok: false, erro: 'status inválido' }); return; }
+
+        if (action === 'create_demanda') {
+          if (!String(entry.titulo || '').trim()) { res.status(400).json({ ok: false, erro: 'titulo é obrigatório' }); return; }
+          const status = KANBAN_STATUS.has(entry.status) ? entry.status : 'fila';
+          const nova = {
+            id: novoKanbanId('dm'), titulo: entry.titulo, descricao: entry.descricao || '',
+            dono: entry.dono || '', prioridade: KANBAN_PRIORIDADES.has(entry.prioridade) ? entry.prioridade : 'media',
+            status, data_solicitacao: entry.data_solicitacao || agora.slice(0, 10),
+            data_entrega: entry.data_entrega || '', data_conclusao: status === 'finalizado' ? agora.slice(0, 10) : '',
+            criado_em: agora, atualizado_em: agora,
+          };
+          demandas.push(nova);
+          await kanbanWriteTab(KANBAN_DEMANDAS_TITLE, KANBAN_DEMANDAS_HEADER, demandas);
+          res.status(200).json({ ok: true, demandas });
+          return;
+        }
+
+        // update_demanda
+        const idx = demandas.findIndex(d => d.id === entry.id);
+        if (idx === -1) { res.status(404).json({ ok: false, erro: 'demanda não encontrada' }); return; }
+        const atual = demandas[idx];
+        const statusMudouParaFinalizado = entry.status === 'finalizado' && atual.status !== 'finalizado';
+        const statusSaiuDeFinalizado = entry.status && entry.status !== 'finalizado' && atual.status === 'finalizado';
+        demandas[idx] = {
+          ...atual,
+          titulo: entry.titulo != null ? entry.titulo : atual.titulo,
+          descricao: entry.descricao != null ? entry.descricao : atual.descricao,
+          dono: entry.dono != null ? entry.dono : atual.dono,
+          prioridade: entry.prioridade || atual.prioridade,
+          status: entry.status || atual.status,
+          data_solicitacao: entry.data_solicitacao || atual.data_solicitacao,
+          data_entrega: entry.data_entrega != null ? entry.data_entrega : atual.data_entrega,
+          // data_conclusao é regra de servidor — setada/limpa automaticamente
+          // pela transição de status, não aceita valor arbitrário do cliente.
+          data_conclusao: statusMudouParaFinalizado ? agora.slice(0, 10) : (statusSaiuDeFinalizado ? '' : atual.data_conclusao),
+          atualizado_em: agora,
+        };
+        await kanbanWriteTab(KANBAN_DEMANDAS_TITLE, KANBAN_DEMANDAS_HEADER, demandas);
+        res.status(200).json({ ok: true, demandas });
+        return;
+      }
+
+      if (action === 'delete_demanda') {
+        const demandas = (await kanbanReadTab(KANBAN_DEMANDAS_TITLE, KANBAN_DEMANDAS_HEADER)).filter(d => d.id !== entry.id);
+        await kanbanWriteTab(KANBAN_DEMANDAS_TITLE, KANBAN_DEMANDAS_HEADER, demandas);
+        res.status(200).json({ ok: true, demandas });
+        return;
+      }
+
+      res.status(400).json({ ok: false, erro: 'action inválida' });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+
+  try {
+    const [donos, demandas] = await Promise.all([
+      kanbanReadTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER),
+      kanbanReadTab(KANBAN_DEMANDAS_TITLE, KANBAN_DEMANDAS_HEADER),
+    ]);
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(200).json({ ok: true, donos, demandas });
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+  }
+}
+
+/* ================================================================
    MAPA DE DADOS (?datamap=1) — pedido do Roberto em 2026-08-27: catálogo
    de verdade pro time de dados (queries/scripts/docs por card, com quem é
    o responsável), substituindo o mock em memória que existia antes
@@ -606,6 +755,10 @@ async function buildDataMap(req, res) {
 }
 
 module.exports = async (req, res) => {
+  if (req.query.kanban !== undefined) {
+    await buildKanban(req, res);
+    return;
+  }
   if (req.query.datamap !== undefined) {
     await buildDataMap(req, res);
     return;
