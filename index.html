@@ -887,7 +887,26 @@
       border-radius: var(--radius); padding: 10px 12px; align-self: stretch;
     }
     .kanban-row-owner-name { font-size: 13px; font-weight: 800; color: var(--text); word-break: break-word; }
-    .kanban-row-owner-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+    .kanban-row-owner-actions { display: flex; align-items: center; gap: 5px; flex: none; }
+    /* Reordenar dono + cor do card (pedido do Roberto em 2026-08-27). */
+    .kanban-row-owner-move {
+      all: unset; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      width: 17px; height: 17px; border-radius: 4px; color: var(--text-muted); font-size: 9px;
+    }
+    .kanban-row-owner-move:hover { background: var(--surface-3); color: var(--orange); }
+    .kanban-row-owner-move[disabled] { opacity: .25; pointer-events: none; }
+    .kanban-row-owner-color {
+      width: 16px; height: 16px; padding: 0; border: 1px solid var(--border); border-radius: 4px;
+      background: none; cursor: pointer;
+    }
+    .kanban-row-owner-color-reset, .kanban-col-color-reset {
+      all: unset; cursor: pointer; color: var(--text-muted); font-size: 10px; padding: 2px;
+    }
+    .kanban-row-owner-color-reset:hover, .kanban-col-color-reset:hover { color: var(--orange); }
+    .kanban-col-color-input {
+      width: 12px; height: 12px; padding: 0; border: 1px solid var(--border); border-radius: 3px;
+      background: none; cursor: pointer; margin-left: 5px; vertical-align: middle;
+    }
     .kanban-row-owner-score {
       all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
       font-size: 10.5px; font-weight: 800; color: var(--cyan);
@@ -14305,7 +14324,7 @@ const KB_STATUS_LABELS = { fila:'Fila', atrasado:'Atrasado', andamento:'Em Andam
 const KB_PRIORIDADE_LABELS = { alta:'Alta', media:'Média', baixa:'Baixa' };
 const KB_PRIORIDADE_ORDER = { alta:0, media:1, baixa:2 };
 const KB_TAG_LABELS = { analise:'Análise', sql:'SQL', python:'Python', html:'HTML', outros:'Outros' };
-const KB_STATE = { donos:[], demandas:[], filters:{ dono:'', status:'', prioridade:'', de:'', ate:'', busca:'' }, loaded:false };
+const KB_STATE = { donos:[], demandas:[], colunaCores:{}, filters:{ dono:'', status:'', prioridade:'', de:'', ate:'', busca:'' }, loaded:false };
 
 function kbHojeIso(){
   const d = new Date();
@@ -14338,17 +14357,34 @@ function kbAllDonoNames(){
 // demanda), mesmo que não tenha nenhuma demanda no momento — donoId só
 // existe pra quem veio de kanban_donos_input (só esses podem ter a linha
 // removida, e só se totalDemandas for 0).
-function kbOwnerRows(){
+// Ordem das linhas (pedido do Roberto em 2026-08-27): quem já foi
+// reordenado manualmente (ordem numérica gravada) vem primeiro, na ordem
+// definida; quem nunca foi mexido cai no fim, por ordem alfabética.
+function kbOwnerRowsRaw(){
   const porNome = new Map();
-  KB_STATE.donos.forEach(d => { if(d.nome && !porNome.has(d.nome)) porNome.set(d.nome, { nome:d.nome, donoId:d.id, totalDemandas:0 }); });
+  KB_STATE.donos.forEach(d => {
+    if(!d.nome || porNome.has(d.nome)) return;
+    const ordem = (d.ordem !== '' && d.ordem != null && !isNaN(d.ordem)) ? Number(d.ordem) : null;
+    porNome.set(d.nome, { nome:d.nome, donoId:d.id, totalDemandas:0, ordem, cor:d.cor||'' });
+  });
   KB_STATE.demandas.forEach(d => {
     if(!d.dono) return;
-    if(!porNome.has(d.dono)) porNome.set(d.dono, { nome:d.dono, donoId:null, totalDemandas:0 });
+    if(!porNome.has(d.dono)) porNome.set(d.dono, { nome:d.dono, donoId:null, totalDemandas:0, ordem:null, cor:'' });
     porNome.get(d.dono).totalDemandas++;
   });
-  let rows = [...porNome.values()];
+  const rows = [...porNome.values()];
+  rows.sort((a,b) => {
+    if(a.ordem!=null && b.ordem!=null) return a.ordem - b.ordem;
+    if(a.ordem!=null) return -1;
+    if(b.ordem!=null) return 1;
+    return a.nome.localeCompare(b.nome,'pt-BR');
+  });
+  return rows;
+}
+function kbOwnerRows(){
+  let rows = kbOwnerRowsRaw();
   if(KB_STATE.filters.dono) rows = rows.filter(r => r.nome === KB_STATE.filters.dono);
-  return rows.sort((a,b) => a.nome.localeCompare(b.nome,'pt-BR'));
+  return rows;
 }
 function kbFilteredDemandas(){
   const f = KB_STATE.filters;
@@ -14372,6 +14408,8 @@ async function loadKanban(){
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     KB_STATE.donos = j.donos;
     KB_STATE.demandas = j.demandas;
+    KB_STATE.colunaCores = {};
+    (j.colunas||[]).forEach(c => { KB_STATE.colunaCores[c.status] = c.cor || ''; });
     KB_STATE.loaded = true;
     setBadge('kanban','ok','Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
     kbPopulateDonoFilter();
@@ -14500,13 +14538,14 @@ function kbPostitHtml(d, unassigned){
   const coluna = kbColunaEfetiva(d);
   const atrasado = coluna === 'atrasado';
   const entregaTxt = d.data_entrega ? pulsoFmtDataBr(d.data_entrega) : '—';
+  const corColuna = KB_STATE.colunaCores[coluna];
   const assignHtml = unassigned
     ? `<select class="kanban-postit-assign" onclick="event.stopPropagation()" onchange="kbQuickAssign('${d.id}',this.value)">
         <option value="">Atribuir a…</option>${kbAllDonoNames().map(n => `<option value="${pulsoEscHtml(n)}">${pulsoEscHtml(n)}</option>`).join('')}
       </select>`
     : '';
   return `<div class="kanban-postit prio-${d.prioridade} status-${d.status}${atrasado?' is-atrasado':''}${unassigned?' kanban-postit-unassigned':''}"
-      draggable="true" data-id="${d.id}" onclick="kbOpenDetail('${d.id}')">
+      draggable="true" data-id="${d.id}" onclick="kbOpenDetail('${d.id}')"${corColuna ? ` style="background:${corColuna}"` : ''}>
     <div class="kanban-postit-title">${pulsoEscHtml(d.titulo)}</div>
     <div class="kanban-postit-meta">
       <span class="kanban-postit-badge prio-${d.prioridade}">${KB_PRIORIDADE_LABELS[d.prioridade]||d.prioridade}</span>
@@ -14565,12 +14604,17 @@ function kbRenderBoard(demandas){
     board.innerHTML = '<div class="switch-hint">Nenhum responsável cadastrado ainda. Clique em "Adicionar Dono" pra começar.</div>';
     return;
   }
+  const podeReordenar = !KB_STATE.filters.dono; // reordenar só faz sentido vendo todos os donos
+  const rowsRawOrder = kbOwnerRowsRaw();
   const porDono = new Map();
   demandas.forEach(d => { if(!d.dono) return; if(!porDono.has(d.dono)) porDono.set(d.dono, []); porDono.get(d.dono).push(d); });
 
   const head = `<div class="kanban-head-row">
     <div class="kanban-head-cell kanban-owner-cell">Dono</div>
-    ${KB_STATUS_COLUMNS.map(s => `<div class="kanban-head-cell">${KB_STATUS_LABELS[s]}</div>`).join('')}
+    ${KB_STATUS_COLUMNS.map(s => `<div class="kanban-head-cell">${KB_STATUS_LABELS[s]}
+      <input type="color" class="kanban-col-color-input" value="${KB_STATE.colunaCores[s] || '#fdf3a0'}" onchange="kbSetColunaCor('${s}',this.value)" title="Cor do post-it desta coluna"/>
+      ${KB_STATE.colunaCores[s] ? `<button type="button" class="kanban-col-color-reset" onclick="kbSetColunaCor('${s}','')" title="Restaurar amarelo padrão"><i class="fas fa-rotate-left"></i></button>` : ''}
+    </div>`).join('')}
   </div>`;
 
   const rowsHtml = rows.map(row => {
@@ -14603,10 +14647,17 @@ function kbRenderBoard(demandas){
     const score = kbCalcDonoScore(row.nome);
     const scoreLabel = score.pctAtendimento != null ? score.pctAtendimento + '%' : (score.total ? score.realizadas + '/' + score.total : '—');
     const nomeJs = pulsoEscHtml(row.nome).replace(/'/g,"\\'");
+    const fullIdx = rowsRawOrder.findIndex(r => r.nome === row.nome);
+    const isFirst = fullIdx <= 0, isLast = fullIdx >= rowsRawOrder.length - 1;
+    const corDono = row.cor || '';
     return `<div class="kanban-row">
-      <div class="kanban-row-owner">
+      <div class="kanban-row-owner"${corDono ? ` style="border-left:4px solid ${corDono}"` : ''}>
         <span class="kanban-row-owner-name">${pulsoEscHtml(row.nome)}</span>
         <div class="kanban-row-owner-actions">
+          ${podeReordenar ? `<button type="button" class="kanban-row-owner-move" onclick="kbMoveDonoRow('${nomeJs}','up')"${isFirst?' disabled':''} title="Mover pra cima"><i class="fas fa-chevron-up"></i></button>
+          <button type="button" class="kanban-row-owner-move" onclick="kbMoveDonoRow('${nomeJs}','down')"${isLast?' disabled':''} title="Mover pra baixo"><i class="fas fa-chevron-down"></i></button>` : ''}
+          <input type="color" class="kanban-row-owner-color" value="${corDono || '#5c5f7a'}" onchange="kbSetDonoCor('${nomeJs}',this.value)" title="Cor do card deste dono"/>
+          ${corDono ? `<button type="button" class="kanban-row-owner-color-reset" onclick="kbSetDonoCor('${nomeJs}','')" title="Remover cor"><i class="fas fa-rotate-left"></i></button>` : ''}
           <button type="button" class="kanban-row-owner-score" onclick="kbOpenDonoScore('${nomeJs}')" title="Ver resumo de desempenho"><i class="fas fa-chart-line"></i> ${scoreLabel}</button>
           ${podeExcluir ? `<button type="button" class="kanban-row-owner-del" onclick="kbDeleteDono('${row.donoId}','${nomeJs}')" title="Remover linha vazia"><i class="fas fa-trash"></i></button>` : ''}
         </div>
@@ -14701,6 +14752,67 @@ async function kbDeleteDono(id, nome){
     showToast('✓ Linha removida.');
   } catch(err){
     showToast('Erro: '+err.message, true);
+  }
+}
+
+// Reordenar / colorir dono (pedido do Roberto em 2026-08-27) — otimista
+// (mesmo padrão de kbMoveDemanda): aplica local, sincroniza, reverte no erro.
+async function kbMoveDonoRow(nome, dir){
+  const rows = kbOwnerRowsRaw();
+  const idx = rows.findIndex(r => r.nome === nome);
+  const alvo = idx + (dir === 'up' ? -1 : 1);
+  if(idx === -1 || alvo < 0 || alvo >= rows.length) return;
+  [rows[idx], rows[alvo]] = [rows[alvo], rows[idx]];
+  const ordens = rows.map((r,i) => ({ nome:r.nome, ordem:i }));
+  const prevDonos = KB_STATE.donos.map(d => ({...d}));
+  ordens.forEach(o => {
+    let d = KB_STATE.donos.find(x => x.nome === o.nome);
+    if(!d){ d = { id:'', nome:o.nome, criado_em:'', ordem:'', cor:'' }; KB_STATE.donos.push(d); }
+    d.ordem = o.ordem;
+  });
+  kbRenderAll();
+  try {
+    const r = await fetch('/api/overview?kanban=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'update_dono_ordens', entry:{ ordens } }) });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao reordenar');
+    KB_STATE.donos = j.donos;
+    kbRenderAll();
+  } catch(err){
+    KB_STATE.donos = prevDonos;
+    kbRenderAll();
+    showToast('Erro ao reordenar: '+err.message, true);
+  }
+}
+async function kbSetDonoCor(nome, cor){
+  const prevDonos = KB_STATE.donos.map(d => ({...d}));
+  let d = KB_STATE.donos.find(x => x.nome === nome);
+  if(!d){ d = { id:'', nome, criado_em:'', ordem:'', cor:'' }; KB_STATE.donos.push(d); }
+  d.cor = cor;
+  kbRenderAll();
+  try {
+    const r = await fetch('/api/overview?kanban=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'update_dono_cor', entry:{ nome, cor } }) });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao salvar cor');
+    KB_STATE.donos = j.donos;
+    kbRenderAll();
+  } catch(err){
+    KB_STATE.donos = prevDonos;
+    kbRenderAll();
+    showToast('Erro ao salvar cor: '+err.message, true);
+  }
+}
+async function kbSetColunaCor(status, cor){
+  const prev = KB_STATE.colunaCores[status] || '';
+  KB_STATE.colunaCores[status] = cor;
+  kbRenderAll();
+  try {
+    const r = await fetch('/api/overview?kanban=1', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'update_coluna_cor', entry:{ status, cor } }) });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao salvar cor');
+  } catch(err){
+    KB_STATE.colunaCores[status] = prev;
+    kbRenderAll();
+    showToast('Erro ao salvar cor da coluna: '+err.message, true);
   }
 }
 
