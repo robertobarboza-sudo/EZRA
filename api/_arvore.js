@@ -625,6 +625,27 @@ async function buildArvore() {
   });
 
   const kpis = [...kpiPorChave.values()];
+
+  // "Packed on time" / "% Packed on time" (bloco Inbound, sub bloco
+  // "Packed") foram adicionados no fim da planilha — como a ordem da tela
+  // segue a ordem das linhas da planilha, eles apareciam como um grupo
+  // "Inbound" órfão na última linha, separado do resto do Inbound. Pedido
+  // do Roberto em 2026-08-26: reposicionar só essas 2 linhas pra ficar
+  // entre Triagem e ABS, sem mexer na ordem de mais nada.
+  {
+    const packed = [];
+    for (let i = kpis.length - 1; i >= 0; i--) {
+      if (kpis[i].bloco === 'Inbound' && kpis[i].subBloco === 'Packed') packed.unshift(kpis.splice(i, 1)[0]);
+    }
+    if (packed.length) {
+      let insertAt = kpis.length;
+      for (let i = kpis.length - 1; i >= 0; i--) {
+        if (kpis[i].bloco === 'Inbound' && kpis[i].subBloco === 'Triagem') { insertAt = i + 1; break; }
+      }
+      kpis.splice(insertAt, 0, ...packed);
+    }
+  }
+
   // Quebra por turno (pedido do Roberto em 2026-08-13, mockup "arvore-kpis"
   // bundle): dentro do mesmo Bloco/PIC/Sub Bloco, se existir KPI nomeado
   // exatamente T1/T2/T3/T4, o KPI "Total" desse mesmo grupo ganha turnoRefs
