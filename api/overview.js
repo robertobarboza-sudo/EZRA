@@ -512,9 +512,15 @@ async function buildJustificativas(req, res) {
 const KANBAN_DONOS_TITLE = 'kanban_donos_input';
 const KANBAN_DONOS_HEADER = ['id', 'nome', 'criado_em'];
 const KANBAN_DEMANDAS_TITLE = 'kanban_demandas_input';
-const KANBAN_DEMANDAS_HEADER = ['id', 'titulo', 'descricao', 'dono', 'prioridade', 'status', 'data_solicitacao', 'data_entrega', 'data_conclusao', 'criado_em', 'atualizado_em'];
+// `tag` acrescentada no FIM da lista de propósito (pedido do Roberto em
+// 2026-08-27, depois da aba já ter linhas reais gravadas) — inserir no
+// meio deslocaria a posição de todas as colunas seguintes e corromperia a
+// leitura das linhas já existentes (mapeamento é por posição, mesmo motivo
+// documentado em api/outbound.js TAGS_HEADER pra monitor_tags_pulso).
+const KANBAN_DEMANDAS_HEADER = ['id', 'titulo', 'descricao', 'dono', 'prioridade', 'status', 'data_solicitacao', 'data_entrega', 'data_conclusao', 'criado_em', 'atualizado_em', 'tag'];
 const KANBAN_PRIORIDADES = new Set(['alta', 'media', 'baixa']);
 const KANBAN_STATUS = new Set(['fila', 'andamento', 'hold', 'finalizado']);
+const KANBAN_TAGS = new Set(['analise', 'sql', 'python', 'html', 'outros']);
 
 function kanbanRange(title, header) {
   return `'${title}'!A:${String.fromCharCode(64 + header.length)}`;
@@ -573,6 +579,7 @@ async function buildKanban(req, res) {
         const demandas = await kanbanReadTab(KANBAN_DEMANDAS_TITLE, KANBAN_DEMANDAS_HEADER);
         if (entry.prioridade && !KANBAN_PRIORIDADES.has(entry.prioridade)) { res.status(400).json({ ok: false, erro: 'prioridade inválida' }); return; }
         if (entry.status && !KANBAN_STATUS.has(entry.status)) { res.status(400).json({ ok: false, erro: 'status inválido' }); return; }
+        if (entry.tag && !KANBAN_TAGS.has(entry.tag)) { res.status(400).json({ ok: false, erro: 'tag inválida' }); return; }
 
         if (action === 'create_demanda') {
           if (!String(entry.titulo || '').trim()) { res.status(400).json({ ok: false, erro: 'titulo é obrigatório' }); return; }
@@ -580,7 +587,8 @@ async function buildKanban(req, res) {
           const nova = {
             id: novoKanbanId('dm'), titulo: entry.titulo, descricao: entry.descricao || '',
             dono: entry.dono || '', prioridade: KANBAN_PRIORIDADES.has(entry.prioridade) ? entry.prioridade : 'media',
-            status, data_solicitacao: entry.data_solicitacao || agora.slice(0, 10),
+            status, tag: KANBAN_TAGS.has(entry.tag) ? entry.tag : '',
+            data_solicitacao: entry.data_solicitacao || agora.slice(0, 10),
             data_entrega: entry.data_entrega || '', data_conclusao: status === 'finalizado' ? agora.slice(0, 10) : '',
             criado_em: agora, atualizado_em: agora,
           };
@@ -603,6 +611,7 @@ async function buildKanban(req, res) {
           dono: entry.dono != null ? entry.dono : atual.dono,
           prioridade: entry.prioridade || atual.prioridade,
           status: entry.status || atual.status,
+          tag: entry.tag != null ? entry.tag : atual.tag,
           data_solicitacao: entry.data_solicitacao || atual.data_solicitacao,
           data_entrega: entry.data_entrega != null ? entry.data_entrega : atual.data_entrega,
           // data_conclusao é regra de servidor — setada/limpa automaticamente

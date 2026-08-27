@@ -902,6 +902,19 @@
       text-align: center; font-size: 10px; font-weight: 800;
       color: var(--text-muted); opacity: .7; margin-top: 2px;
     }
+    /* Anterior/Próxima por coluna (pedido do Roberto em 2026-08-27) —
+       aparece só quando a coluna tem mais de 1 post-it. */
+    .kanban-col-pager {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      margin-top: 4px;
+    }
+    .kanban-col-pager-btn {
+      all: unset; cursor: pointer; display: flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 50%; color: var(--text-muted);
+      font-size: 10px; transition: background var(--transition), color var(--transition);
+    }
+    .kanban-col-pager-btn:hover { background: var(--surface-3); color: var(--orange); }
+    .kanban-col-pager-count { font-size: 10px; font-weight: 800; color: var(--text-muted); min-width: 26px; text-align: center; }
     /* Post-it amarelo "de verdade" (pedido do Roberto em 2026-08-27) — cor
        fixa (não var(--surface-2)) de propósito: a referência visual é o
        papel do post-it físico, que não muda com o tema claro/escuro do
@@ -947,6 +960,14 @@
     .kanban-postit-badge.st-andamento  { background: rgba(8,145,178,.18); color: #0e7490; }
     .kanban-postit-badge.st-hold       { background: rgba(217,119,6,.18); color: #92400e; }
     .kanban-postit-badge.st-finalizado { background: rgba(5,150,105,.16); color: #065f46; }
+    /* Tipo de trabalho (pedido do Roberto em 2026-08-27) — mesma paleta por
+       linguagem já usada nos tipos do Mapa de Dados (sql=ciano, python=
+       verde, html=roxo), pra manter a mesma leitura de cor entre as 2 telas. */
+    .kanban-postit-badge.tag-analise { background: rgba(217,119,6,.18);  color: #92400e; }
+    .kanban-postit-badge.tag-sql     { background: rgba(8,145,178,.18);  color: #0e7490; }
+    .kanban-postit-badge.tag-python  { background: rgba(5,150,105,.16);  color: #065f46; }
+    .kanban-postit-badge.tag-html    { background: rgba(124,58,237,.2);  color: #5b21b6; }
+    .kanban-postit-badge.tag-outros  { background: rgba(74,60,8,.12);    color: #6b5a1a; }
     .kanban-postit-assign {
       width: 100%; margin-top: 8px; background: #fffce0;
       border: 1px solid #e3d16f; border-radius: var(--radius);
@@ -6781,9 +6802,20 @@
             <option value="finalizado">Finalizado</option>
           </select>
         </div>
-        <div class="form-group" style="display:flex;align-items:flex-end;padding-bottom:9px">
-          <span class="kanban-postit-badge st-atrasado" id="kb-d-atrasado-hint" style="display:none">Vencida — aparece em Atrasado</span>
+        <div class="form-group">
+          <label class="form-label">Tipo de Trabalho</label>
+          <select class="form-input" id="kb-d-tag">
+            <option value="">Não definido</option>
+            <option value="analise">Análise</option>
+            <option value="sql">SQL</option>
+            <option value="python">Python</option>
+            <option value="html">HTML</option>
+            <option value="outros">Outros</option>
+          </select>
         </div>
+      </div>
+      <div style="margin:-6px 0 14px">
+        <span class="kanban-postit-badge st-atrasado" id="kb-d-atrasado-hint" style="display:none">Vencida — aparece em Atrasado</span>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -14225,6 +14257,7 @@ const KB_STATUS_COLUMNS = ['fila','atrasado','andamento','hold','finalizado'];
 const KB_STATUS_LABELS = { fila:'Fila', atrasado:'Atrasado', andamento:'Em Andamento', hold:'On Hold', finalizado:'Finalizado' };
 const KB_PRIORIDADE_LABELS = { alta:'Alta', media:'Média', baixa:'Baixa' };
 const KB_PRIORIDADE_ORDER = { alta:0, media:1, baixa:2 };
+const KB_TAG_LABELS = { analise:'Análise', sql:'SQL', python:'Python', html:'HTML', outros:'Outros' };
 const KB_STATE = { donos:[], demandas:[], filters:{ dono:'', status:'', prioridade:'', de:'', ate:'', busca:'' }, loaded:false };
 
 function kbHojeIso(){
@@ -14393,6 +14426,7 @@ function kbPostitHtml(d, unassigned){
     </div>
     <div class="kanban-postit-meta" style="margin-top:5px">
       <span class="kanban-postit-badge st-${coluna}">${KB_STATUS_LABELS[coluna]||coluna}</span>
+      ${d.tag ? `<span class="kanban-postit-badge tag-${d.tag}">${KB_TAG_LABELS[d.tag]||d.tag}</span>` : ''}
     </div>
     ${assignHtml}
   </div>`;
@@ -14417,6 +14451,24 @@ function kbRenderUnassigned(demandas){
 // o "+" na frente ("+1", "+2"...).
 function kbCountBadge(n){ return n > 0 ? '+'+n : '0'; }
 
+// Paginação por coluna (pedido do Roberto em 2026-08-27): com mais de 1
+// demanda na mesma coluna, mostra só uma por vez (a de maior prioridade
+// primeiro, mesma ordenação de sempre) com Anterior/Próxima em vez de
+// empilhar tudo — evita a coluna crescer indefinidamente. Índice guardado
+// por "dono|status" e sobrevive a re-renders (não é resetado a cada
+// kbRenderAll), só é recortado se a coluna encolher (demanda movida/
+// excluída) — ver clamp em kbRenderBoard.
+const KB_COL_PAGE = {};
+function kbColKey(dono, status){ return dono + '|' + status; }
+function kbColPage(key, delta, total){
+  const atual = KB_COL_PAGE[key] || 0;
+  let prox = atual + delta;
+  if(prox < 0) prox = total - 1;
+  if(prox >= total) prox = 0;
+  KB_COL_PAGE[key] = prox;
+  kbRenderAll();
+}
+
 function kbRenderBoard(demandas){
   const board = document.getElementById('kb-board');
   if(!board) return;
@@ -14438,11 +14490,26 @@ function kbRenderBoard(demandas){
     const porColuna = {};
     KB_STATUS_COLUMNS.forEach(s => porColuna[s] = []);
     demandasDono.forEach(d => { const c = kbColunaEfetiva(d); if(porColuna[c]) porColuna[c].push(d); });
-    const cols = KB_STATUS_COLUMNS.map(s => `
-      <div class="kanban-col" data-dono="${pulsoEscHtml(row.nome)}" data-status="${s}">
-        ${porColuna[s].length ? porColuna[s].map(d => kbPostitHtml(d,false)).join('') : '<div class="kanban-col-empty">—</div>'}
-        <div class="kanban-col-count">${kbCountBadge(porColuna[s].length)}</div>
-      </div>`).join('');
+    const cols = KB_STATUS_COLUMNS.map(s => {
+      const lista = porColuna[s];
+      const key = kbColKey(row.nome, s);
+      let corpo, rodape;
+      if(lista.length > 1){
+        // mais de 1 -> pagina uma por vez, com Anterior/Próxima
+        const keyJs = key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+        const idx = Math.max(0, Math.min(KB_COL_PAGE[key] || 0, lista.length - 1));
+        corpo = kbPostitHtml(lista[idx], false);
+        rodape = `<div class="kanban-col-pager">
+          <button type="button" class="kanban-col-pager-btn" onclick="kbColPage('${keyJs}',-1,${lista.length})" title="Anterior"><i class="fas fa-chevron-left"></i></button>
+          <span class="kanban-col-pager-count">${idx+1}/${lista.length}</span>
+          <button type="button" class="kanban-col-pager-btn" onclick="kbColPage('${keyJs}',1,${lista.length})" title="Próxima"><i class="fas fa-chevron-right"></i></button>
+        </div>`;
+      } else {
+        corpo = lista.length ? kbPostitHtml(lista[0], false) : '<div class="kanban-col-empty">—</div>';
+        rodape = `<div class="kanban-col-count">${kbCountBadge(lista.length)}</div>`;
+      }
+      return `<div class="kanban-col" data-dono="${pulsoEscHtml(row.nome)}" data-status="${s}">${corpo}${rodape}</div>`;
+    }).join('');
     const podeExcluir = row.donoId && row.totalDemandas === 0;
     return `<div class="kanban-row">
       <div class="kanban-row-owner">
@@ -14562,6 +14629,7 @@ function kbOpenDemandaForm(id){
   donoSel.value = d ? (d.dono||'') : '';
   document.getElementById('kb-d-prioridade').value = d ? d.prioridade : 'media';
   document.getElementById('kb-d-status').value = d ? d.status : 'fila';
+  document.getElementById('kb-d-tag').value = d ? (d.tag||'') : '';
   document.getElementById('kb-d-solicitacao').value = d ? d.data_solicitacao : kbHojeIso();
   document.getElementById('kb-d-entrega').value = d ? d.data_entrega : '';
   document.getElementById('kb-d-delete-btn').style.display = d ? '' : 'none';
@@ -14581,6 +14649,7 @@ async function kbDemandaSubmit(ev){
     dono: document.getElementById('kb-d-dono').value,
     prioridade: document.getElementById('kb-d-prioridade').value,
     status: document.getElementById('kb-d-status').value,
+    tag: document.getElementById('kb-d-tag').value,
     data_solicitacao: document.getElementById('kb-d-solicitacao').value,
     data_entrega: document.getElementById('kb-d-entrega').value,
   };
