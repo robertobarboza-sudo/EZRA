@@ -898,6 +898,10 @@
       font-size: 10.5px; color: var(--text-muted); opacity: .55; text-align: center;
       padding: 16px 4px; border: 1px dashed var(--border); border-radius: var(--radius);
     }
+    .kanban-col-count {
+      text-align: center; font-size: 10px; font-weight: 800;
+      color: var(--text-muted); opacity: .7; margin-top: 2px;
+    }
     /* Post-it amarelo "de verdade" (pedido do Roberto em 2026-08-27) — cor
        fixa (não var(--surface-2)) de propósito: a referência visual é o
        papel do post-it físico, que não muda com o tema claro/escuro do
@@ -14400,6 +14404,12 @@ function kbRenderUnassigned(demandas){
   kbBindUnassignedDrop();
 }
 
+// Contador no rodapé de cada coluna do quadro (pedido do Roberto em
+// 2026-08-27) — fica mais fácil ver o volume de cada status sem contar os
+// post-its um a um quando a coluna acumula vários. 0 fica só "0", 1+ ganha
+// o "+" na frente ("+1", "+2"...).
+function kbCountBadge(n){ return n > 0 ? '+'+n : '0'; }
+
 function kbRenderBoard(demandas){
   const board = document.getElementById('kb-board');
   if(!board) return;
@@ -14424,6 +14434,7 @@ function kbRenderBoard(demandas){
     const cols = KB_STATUS_COLUMNS.map(s => `
       <div class="kanban-col" data-dono="${pulsoEscHtml(row.nome)}" data-status="${s}">
         ${porColuna[s].length ? porColuna[s].map(d => kbPostitHtml(d,false)).join('') : '<div class="kanban-col-empty">—</div>'}
+        <div class="kanban-col-count">${kbCountBadge(porColuna[s].length)}</div>
       </div>`).join('');
     const podeExcluir = row.donoId && row.totalDemandas === 0;
     return `<div class="kanban-row">
