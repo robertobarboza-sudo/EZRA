@@ -960,6 +960,21 @@
     .kanban-postit-badge.st-andamento  { background: rgba(8,145,178,.18); color: #0e7490; }
     .kanban-postit-badge.st-hold       { background: rgba(217,119,6,.18); color: #92400e; }
     .kanban-postit-badge.st-finalizado { background: rgba(5,150,105,.16); color: #065f46; }
+    /* Pilha de post-it (pedido do Roberto em 2026-08-27) — quando a coluna
+       tem mais de 1 card, mostra "folhas" de papel espiadas atrás do card
+       visível, como uma pilha física. Puramente visual: o pager já controla
+       navegação, isso só entrega a sensação de pilha. */
+    .kanban-postit-stack { position: relative; margin-bottom: 4px; }
+    .kanban-postit-stack::before, .kanban-postit-stack::after {
+      content: ''; position: absolute; left: 6%; right: 6%; bottom: -5px;
+      height: 100%; background: #f5e58c; border: 1px solid #d9c563;
+      border-radius: var(--radius); z-index: -1;
+    }
+    .kanban-postit-stack::before { bottom: -9px; left: 10%; right: 10%; background: #efdd78; border-color: #cdb856; transform: rotate(1.4deg); }
+    .kanban-postit-stack::after { transform: rotate(-1.6deg); }
+    .kanban-postit-stack.stack-1::before { display: none; }
+    .kanban-postit-stack .kanban-postit { transform: rotate(.4deg); }
+    .kanban-postit-stack .kanban-postit:hover { transform: rotate(0deg) translateY(-2px); }
     /* Tipo de trabalho (pedido do Roberto em 2026-08-27) — mesma paleta por
        linguagem já usada nos tipos do Mapa de Dados (sql=ciano, python=
        verde, html=roxo), pra manter a mesma leitura de cor entre as 2 telas. */
@@ -14498,7 +14513,8 @@ function kbRenderBoard(demandas){
         // mais de 1 -> pagina uma por vez, com Anterior/Próxima
         const keyJs = key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         const idx = Math.max(0, Math.min(KB_COL_PAGE[key] || 0, lista.length - 1));
-        corpo = kbPostitHtml(lista[idx], false);
+        const extra = Math.min(lista.length - 1, 2); // 1 ou 2 "folhas" por baixo, no máximo (visual)
+        corpo = `<div class="kanban-postit-stack stack-${extra}">${kbPostitHtml(lista[idx], false)}</div>`;
         rodape = `<div class="kanban-col-pager">
           <button type="button" class="kanban-col-pager-btn" onclick="kbColPage('${keyJs}',-1,${lista.length})" title="Anterior"><i class="fas fa-chevron-left"></i></button>
           <span class="kanban-col-pager-count">${idx+1}/${lista.length}</span>
