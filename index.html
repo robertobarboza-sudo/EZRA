@@ -887,11 +887,32 @@
       border-radius: var(--radius); padding: 10px 12px; align-self: stretch;
     }
     .kanban-row-owner-name { font-size: 13px; font-weight: 800; color: var(--text); word-break: break-word; }
+    .kanban-row-owner-actions { display: flex; align-items: center; gap: 6px; flex: none; }
+    .kanban-row-owner-score {
+      all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
+      font-size: 10.5px; font-weight: 800; color: var(--cyan);
+      background: rgba(6,182,212,.12); border: 1px solid rgba(6,182,212,.25);
+      padding: 3px 9px; border-radius: 20px; transition: background var(--transition), color var(--transition);
+      font-variant-numeric: tabular-nums;
+    }
+    .kanban-row-owner-score:hover { background: rgba(6,182,212,.22); }
     .kanban-row-owner-del {
       all: unset; cursor: pointer; color: var(--text-muted); font-size: 11px;
       padding: 3px 5px; border-radius: 5px; flex: none;
     }
     .kanban-row-owner-del:hover { background: var(--surface-3); color: var(--red); }
+    /* Score do Dono (pedido do Roberto em 2026-08-27) — grid de indicadores
+       dentro do modal, mesmos tokens de superfície/borda do site. */
+    .kb-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .kb-score-item {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px; text-align: center;
+    }
+    .kb-score-value { font-size: 20px; font-weight: 800; color: var(--text); font-variant-numeric: tabular-nums; }
+    .kb-score-label {
+      font-size: 10px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: .03em; color: var(--text-muted); margin-top: 4px;
+    }
     .kanban-col { display: flex; flex-direction: column; gap: 8px; min-height: 64px; border-radius: var(--radius); transition: background var(--transition); }
     .kanban-col.drag-over { background: rgba(238,77,45,.06); outline: 1.5px dashed var(--orange); }
     .kanban-col-empty {
@@ -6870,6 +6891,17 @@
         <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Criar</button>
       </div>
     </form>
+  </div>
+</div>
+
+<!-- Modal Score do Dono (Kanban de Demandas) -->
+<div class="modal-overlay" id="kb-score-modal-overlay" onclick="if(event.target===this) kbCloseDonoScore()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="kb-score-modal-label" style="max-width:460px">
+    <div class="modal-header">
+      <span class="modal-title" id="kb-score-modal-label"><i class="fas fa-chart-line" style="color:var(--orange-ll);margin-right:8px"></i>Score — <span id="kb-score-nome"></span></span>
+      <button class="modal-close" onclick="kbCloseDonoScore()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="kb-score-grid" id="kb-score-body"></div>
   </div>
 </div>
 
@@ -14423,6 +14455,47 @@ function kbRenderStats(){
     </div>`).join('');
 }
 
+// Score por Dono (pedido do Roberto em 2026-08-27) — mesmas fórmulas de
+// kbCalcStats(), só que filtradas por um único dono em vez do board inteiro.
+function kbCalcDonoScore(nome){
+  const all = KB_STATE.demandas.filter(d => d.dono === nome);
+  const pendentes = all.filter(d => d.status !== 'finalizado');
+  const realizadas = all.filter(d => d.status === 'finalizado');
+  const atrasadas = all.filter(d => kbColunaEfetiva(d) === 'atrasado');
+  const finalizadasComPrazo = realizadas.filter(d => d.data_entrega);
+  const noPrazo = finalizadasComPrazo.filter(d => d.data_conclusao && d.data_conclusao <= d.data_entrega);
+  const pctAtendimento = finalizadasComPrazo.length ? Math.round(noPrazo.length / finalizadasComPrazo.length * 100) : null;
+  const pctPendente = all.length ? Math.round(pendentes.length / all.length * 100) : null;
+  const comTempo = realizadas.filter(d => d.data_solicitacao && d.data_conclusao);
+  const mediaDias = comTempo.length
+    ? comTempo.reduce((s,d) => s + (new Date(d.data_conclusao+'T00:00:00Z') - new Date(d.data_solicitacao+'T00:00:00Z')) / 86400000, 0) / comTempo.length
+    : null;
+  return {
+    total: all.length, pendentes: pendentes.length, realizadas: realizadas.length,
+    atrasadas: atrasadas.length, pctAtendimento, pctPendente, mediaDias,
+  };
+}
+function kbOpenDonoScore(nome){
+  const s = kbCalcDonoScore(nome);
+  const items = [
+    { value: s.realizadas, label: 'Tarefas Realizadas' },
+    { value: s.pctAtendimento!=null ? s.pctAtendimento+'%' : '—', label: '% de Atendimento' },
+    { value: s.pctPendente!=null ? s.pctPendente+'%' : '—', label: '% Pendente' },
+    { value: s.mediaDias!=null ? s.mediaDias.toFixed(1).replace('.',',')+' dias' : '—', label: 'Tempo Médio de Realização' },
+    { value: s.atrasadas, label: 'Atrasos' },
+    { value: s.total, label: 'Total de Demandas' },
+  ];
+  document.getElementById('kb-score-nome').textContent = nome;
+  document.getElementById('kb-score-body').innerHTML = items.map(i => `<div class="kb-score-item">
+      <div class="kb-score-value">${i.value}</div>
+      <div class="kb-score-label">${i.label}</div>
+    </div>`).join('');
+  document.getElementById('kb-score-modal-overlay').classList.add('open');
+}
+function kbCloseDonoScore(){
+  document.getElementById('kb-score-modal-overlay').classList.remove('open');
+}
+
 function kbPostitHtml(d, unassigned){
   const coluna = kbColunaEfetiva(d);
   const atrasado = coluna === 'atrasado';
@@ -14527,10 +14600,16 @@ function kbRenderBoard(demandas){
       return `<div class="kanban-col" data-dono="${pulsoEscHtml(row.nome)}" data-status="${s}">${corpo}${rodape}</div>`;
     }).join('');
     const podeExcluir = row.donoId && row.totalDemandas === 0;
+    const score = kbCalcDonoScore(row.nome);
+    const scoreLabel = score.pctAtendimento != null ? score.pctAtendimento + '%' : (score.total ? score.realizadas + '/' + score.total : '—');
+    const nomeJs = pulsoEscHtml(row.nome).replace(/'/g,"\\'");
     return `<div class="kanban-row">
       <div class="kanban-row-owner">
         <span class="kanban-row-owner-name">${pulsoEscHtml(row.nome)}</span>
-        ${podeExcluir ? `<button type="button" class="kanban-row-owner-del" onclick="kbDeleteDono('${row.donoId}','${pulsoEscHtml(row.nome).replace(/'/g,"\\'")}')" title="Remover linha vazia"><i class="fas fa-trash"></i></button>` : ''}
+        <div class="kanban-row-owner-actions">
+          <button type="button" class="kanban-row-owner-score" onclick="kbOpenDonoScore('${nomeJs}')" title="Ver resumo de desempenho"><i class="fas fa-chart-line"></i> ${scoreLabel}</button>
+          ${podeExcluir ? `<button type="button" class="kanban-row-owner-del" onclick="kbDeleteDono('${row.donoId}','${nomeJs}')" title="Remover linha vazia"><i class="fas fa-trash"></i></button>` : ''}
+        </div>
       </div>
       ${cols}
     </div>`;
