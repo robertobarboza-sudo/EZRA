@@ -3966,6 +3966,19 @@
   text-transform: uppercase;
   margin-bottom: 8px;
 }
+/* Sub-bloco por nível dentro de cada zona (1 chute físico por nível, não a
+   mesma linha repetida — ver comentário de GRID_LEVEL_ORDER no JS). */
+.cm-grid-level { margin-bottom: 10px; }
+.cm-grid-level:last-child { margin-bottom: 0; }
+.cm-grid-level-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: var(--cm-text-faint);
+  text-transform: uppercase;
+  opacity: .7;
+  margin-bottom: 5px;
+}
 .cm-tile-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(30px, 1fr));
@@ -16493,6 +16506,16 @@ function rejGenerateInsights(){
   // the rest of the system for consistency.
   var GRID_ZONE_ORDER = ["C", "A", "B"];
   var CARD_ZONE_ORDER = ["A", "B", "C"];
+  // `layer` = Nível do sorter (1/2/3, mesmo conceito de LEVEL_ORDER do
+  // SorterMonitor/Mesas acima) — cada zona tem 3 chutes numerados 1-255
+  // independentes, um por nível, não um único chute repetido 3x. A aba
+  // vinha 765 linhas × 3 níveis = 2295 registros; sem separar por nível o
+  // grid misturava tudo numa lista só e o mesmo número aparecia 3x lado a
+  // lado na mesma zona (bug relatado pelo Roberto em 2026-08-27). Cada zona
+  // agora tem 3 sub-grades, uma por nível — 765 chutes por nível, como o
+  // subtítulo da tela já dizia.
+  var GRID_LEVEL_ORDER = [3, 2, 1]; // Nível 3 topo -> Nível 1 base, mesma ordem do SorterMonitor
+  var GRID_LEVEL_LABEL = { 3: "Nível 3", 2: "Nível 2", 1: "Nível 1" };
 
   var BANDS = [
     { key: "atencao", label: "Atenção", range: "< 20 min", emoji: "🟢" },
@@ -16663,7 +16686,7 @@ function rejGenerateInsights(){
     this.root = root;
     this.records = records.slice();
     this.state = { zoneFilter: "all", critFilter: "all", problemOnly: false, rankingExpanded: false };
-    this.tileRefs = {}; // problematic chutes only, keyed by numero
+    this.tileRefs = {}; // problematic chutes only, keyed by "zona|nível|numero"
     this.rankItemRefs = {};
     this.timer = null;
     this._build();
@@ -16837,10 +16860,15 @@ function rejGenerateInsights(){
     GRID_ZONE_ORDER.concat(["none"]).forEach(function (zKey) {
       var wrap = el("div", "cm-grid-zone");
       wrap.appendChild(el("div", "cm-grid-zone-title", { text: zKey === "none" ? "Zona não informada" : "Zona " + zKey }));
-      var grid = el("div", "cm-tile-grid");
-      wrap.appendChild(grid);
+      GRID_LEVEL_ORDER.forEach(function (lvl) {
+        var levelWrap = el("div", "cm-grid-level");
+        levelWrap.appendChild(el("div", "cm-grid-level-title", { text: GRID_LEVEL_LABEL[lvl] }));
+        var grid = el("div", "cm-tile-grid");
+        levelWrap.appendChild(grid);
+        wrap.appendChild(levelWrap);
+        gridZoneRefs[zKey + "|" + lvl] = grid;
+      });
       gridSection.appendChild(wrap);
-      gridZoneRefs[zKey] = grid;
     });
     this.root.appendChild(gridSection);
     this.gridZoneRefs = gridZoneRefs;
@@ -16891,24 +16919,39 @@ function rejGenerateInsights(){
     var self = this;
     this.tileRefs = {};
 
-    var byZone = { C: [], A: [], B: [], none: [] };
-    this.records.forEach(function (r) { byZone[zoneKey(r.zona)].push(r); });
+    // Agrupa por zona E nível — mesmo numero existe uma vez por nível
+    // (chute físico distinto), não é a mesma linha repetida (ver comentário
+    // de GRID_LEVEL_ORDER acima).
+    var byZoneLevel = {};
+    GRID_ZONE_ORDER.concat(["none"]).forEach(function (zKey) {
+      byZoneLevel[zKey] = {};
+      GRID_LEVEL_ORDER.forEach(function (lvl) { byZoneLevel[zKey][lvl] = []; });
+    });
+    this.records.forEach(function (r) {
+      var zKey = zoneKey(r.zona);
+      if (byZoneLevel[zKey] && byZoneLevel[zKey][r.layer]) byZoneLevel[zKey][r.layer].push(r);
+    });
 
     GRID_ZONE_ORDER.concat(["none"]).forEach(function (zKey) {
-      var grid = self.gridZoneRefs[zKey];
-      grid.innerHTML = "";
-      var frag = document.createDocumentFragment();
-      byZone[zKey].slice().sort(function (a, b) { return a.numero - b.numero; }).forEach(function (r) {
-        var isProblem = r.status_name === PROBLEM_STATUS;
-        var tile = el("div", "cm-tile tile-normal", { text: String(r.numero) });
-        tile.dataset.numero = r.numero;
-        if (isProblem) {
-          tile.addEventListener("click", function () { self._openPanel(r); });
-          self.tileRefs[r.numero] = { el: tile, record: r };
-        }
-        frag.appendChild(tile);
+      GRID_LEVEL_ORDER.forEach(function (lvl) {
+        var grid = self.gridZoneRefs[zKey + "|" + lvl];
+        if (!grid) return;
+        grid.innerHTML = "";
+        var frag = document.createDocumentFragment();
+        byZoneLevel[zKey][lvl].slice().sort(function (a, b) { return a.numero - b.numero; }).forEach(function (r) {
+          var isProblem = r.status_name === PROBLEM_STATUS;
+          var tile = el("div", "cm-tile tile-normal", { text: String(r.numero) });
+          tile.dataset.numero = r.numero;
+          if (isProblem) {
+            tile.addEventListener("click", function () { self._openPanel(r); });
+            // Chave por zona+nível+numero — o mesmo numero existe em até 3
+            // níveis, uma chave só por numero sobrescrevia as anteriores.
+            self.tileRefs[zKey + "|" + lvl + "|" + r.numero] = { el: tile, record: r };
+          }
+          frag.appendChild(tile);
+        });
+        grid.appendChild(frag);
       });
-      grid.appendChild(frag);
     });
   };
 
@@ -16946,7 +16989,9 @@ function rejGenerateInsights(){
 
       item.addEventListener("click", function () { self._openPanel(chute); });
       self.rankList.appendChild(item);
-      self.rankItemRefs[chute.numero] = { root: item, time: timeEl, badge: badgeEl, record: chute, rankIndex: idx };
+      // Mesma chave composta do tileRefs (zona+nível+numero) — o numero
+      // sozinho colide entre níveis diferentes.
+      self.rankItemRefs[zoneKey(chute.zona) + "|" + chute.layer + "|" + chute.numero] = { root: item, time: timeEl, badge: badgeEl, record: chute, rankIndex: idx };
     });
 
     this._applyRankingVisibility();
@@ -16955,8 +17000,8 @@ function rejGenerateInsights(){
   Instance.prototype._applyRankingVisibility = function () {
     var self = this;
     var expanded = this.state.rankingExpanded;
-    Object.keys(this.rankItemRefs).forEach(function (numero) {
-      var ref = self.rankItemRefs[numero];
+    Object.keys(this.rankItemRefs).forEach(function (key) {
+      var ref = self.rankItemRefs[key];
       var withinInitial = ref.rankIndex < RANKING_INITIAL_COUNT;
       ref.root.hidden = !(expanded || withinInitial) || !self._matchesFilters(ref.record);
     });
@@ -16981,19 +17026,24 @@ function rejGenerateInsights(){
 
   Instance.prototype._applyFilters = function () {
     var self = this;
-    Object.keys(this.tileRefs).forEach(function (numero) {
-      var ref = self.tileRefs[numero];
+    Object.keys(this.tileRefs).forEach(function (key) {
+      var ref = self.tileRefs[key];
       ref.el.classList.toggle("is-dimmed", !self._matchesFilters(ref.record));
     });
     // Non-problematic tiles are only affected by the zone filter (they never
     // match a criticidade filter or the "somente problemáticos" toggle).
-    Object.keys(this.gridZoneRefs).forEach(function (zKey) {
-      var grid = self.gridZoneRefs[zKey];
-      Array.prototype.forEach.call(grid.children, function (tile) {
-        if (self.tileRefs[tile.dataset.numero]) return; // handled above
-        var matchesZone = self.state.zoneFilter === "all" || zKey === self.state.zoneFilter;
-        var hideForOtherFilters = self.state.problemOnly || self.state.critFilter !== "all";
-        tile.classList.toggle("is-dimmed", !matchesZone || hideForOtherFilters);
+    // gridZoneRefs agora é por zona+nível (ver GRID_LEVEL_ORDER) — percorre
+    // as duas dimensões pra reconstruir a mesma chave composta do tileRefs.
+    GRID_ZONE_ORDER.concat(["none"]).forEach(function (zKey) {
+      GRID_LEVEL_ORDER.forEach(function (lvl) {
+        var grid = self.gridZoneRefs[zKey + "|" + lvl];
+        if (!grid) return;
+        Array.prototype.forEach.call(grid.children, function (tile) {
+          if (self.tileRefs[zKey + "|" + lvl + "|" + tile.dataset.numero]) return; // handled above
+          var matchesZone = self.state.zoneFilter === "all" || zKey === self.state.zoneFilter;
+          var hideForOtherFilters = self.state.problemOnly || self.state.critFilter !== "all";
+          tile.classList.toggle("is-dimmed", !matchesZone || hideForOtherFilters);
+        });
       });
     });
     this._applyRankingVisibility();
@@ -17109,7 +17159,8 @@ function rejGenerateInsights(){
     // ranking de chutes críticos + tiles: live time/badge updates
     problematic.forEach(function (r) {
       var band = classifyCriticality((now - r.since) / 60);
-      var tileRef = self.tileRefs[r.numero];
+      var refKey = zoneKey(r.zona) + "|" + r.layer + "|" + r.numero;
+      var tileRef = self.tileRefs[refKey];
       if (tileRef) {
         // Visão dos chutes (seção 3.4): vermelho só a partir de 45s fechado,
         // regra independente das 4 faixas de criticidade usadas no resto da
@@ -17120,7 +17171,7 @@ function rejGenerateInsights(){
         tileRef.el.className = "cm-tile " + tileStateClass + (wasDimmed ? " is-dimmed" : "");
       }
 
-      var rankRef = self.rankItemRefs[r.numero];
+      var rankRef = self.rankItemRefs[refKey];
       if (rankRef) {
         rankRef.time.textContent = formatElapsedLive(now - r.since);
         rankRef.badge.textContent = band.emoji + " " + band.label;
