@@ -6132,55 +6132,6 @@
         </div>
       </div>
 
-      <!-- Modal Adicionar/Editar entrada (Mapa de Dados) -->
-      <div class="modal-overlay" id="datamap-modal-overlay" onclick="if(event.target===this) dataMapCloseForm()">
-        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="datamap-modal-label" style="max-width:640px">
-          <div class="modal-header">
-            <span class="modal-title" id="datamap-modal-label"><i class="fas fa-database" style="color:var(--orange-ll);margin-right:8px"></i><span id="datamap-modal-titulo">Nova Entrada</span></span>
-            <button class="modal-close" onclick="dataMapCloseForm()"><i class="fas fa-xmark"></i></button>
-          </div>
-          <form id="datamap-form" onsubmit="dataMapSubmit(event)">
-            <input type="hidden" id="dm-id"/>
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Tipo *</label>
-                <select class="form-input" id="dm-tipo" required>
-                  <option value="sql">SQL</option>
-                  <option value="py">Python</option>
-                  <option value="html">HTML</option>
-                  <option value="link">Link</option>
-                  <option value="sheet">Planilha</option>
-                </select>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Responsável (e-mail)</label>
-                <input type="email" class="form-input" id="dm-email" placeholder="nome@shopee.com"/>
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Título *</label>
-              <input type="text" class="form-input" id="dm-titulo" required/>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Descrição / Documentação (Markdown)</label>
-              <textarea class="form-input" id="dm-desc" rows="4" placeholder="**negrito**, listas com -, [link](url)…" style="resize:vertical"></textarea>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Código / Query</label>
-              <textarea class="form-input" id="dm-codigo" rows="6" placeholder="Opcional" style="font-family:'Share Tech Mono','Courier New',monospace;font-size:12px;resize:vertical"></textarea>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Link</label>
-              <input type="url" class="form-input" id="dm-link" placeholder="https://…"/>
-            </div>
-            <div class="modal-footer">
-              <button type="button" class="btn btn-outline" onclick="dataMapCloseForm()">Cancelar</button>
-              <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Salvar</button>
-            </div>
-          </form>
-        </div>
-      </div>
-
       <!-- Grafo de Dados — monitor de saúde das abas da planilha PULSO:
            quando cada uma recebeu dado pela última vez e se está dentro
            da cadência esperada. Reformulado do zero a pedido do Roberto em
@@ -6521,6 +6472,63 @@
 </div>
 
 <!-- Justificar hora fora da meta (ASM/Conveyor) -->
+<!-- Modal Adicionar/Editar entrada (Mapa de Dados) — precisa ficar no nível
+     do body (fora de qualquer .section): .section tem animation:fadeUp com
+     fill-mode:both, cujo keyframe final (transform:translateY(0)) fica
+     aplicado pra sempre depois da entrada — um transform em qualquer
+     ancestral vira containing block novo pra position:fixed, e o overlay
+     (que precisa cobrir a viewport inteira) encolhia pro tamanho do
+     conteúdo da section em vez da tela toda. Mesmo motivo pelo qual todo
+     modal "normal" do site (ex. just-modal-overlay logo abaixo) já mora
+     aqui embaixo, fora das sections. -->
+<div class="modal-overlay" id="datamap-modal-overlay" onclick="if(event.target===this) dataMapCloseForm()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="datamap-modal-label" style="max-width:600px">
+    <div class="modal-header">
+      <span class="modal-title" id="datamap-modal-label"><i class="fas fa-database" style="color:var(--orange-ll);margin-right:8px"></i><span id="datamap-modal-titulo">Nova Entrada</span></span>
+      <button class="modal-close" onclick="dataMapCloseForm()"><i class="fas fa-xmark"></i></button>
+    </div>
+    <form id="datamap-form" onsubmit="dataMapSubmit(event)">
+      <input type="hidden" id="dm-id"/>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Tipo *</label>
+          <select class="form-input" id="dm-tipo" required onchange="dataMapUpdateFieldVisibility()">
+            <option value="sql">SQL</option>
+            <option value="py">Python</option>
+            <option value="html">HTML</option>
+            <option value="link">Link</option>
+            <option value="sheet">Planilha</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Responsável (e-mail)</label>
+          <input type="email" class="form-input" id="dm-email" placeholder="nome@shopee.com"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Título *</label>
+        <input type="text" class="form-input" id="dm-titulo" required placeholder="Ex.: Query de KPIs Operacionais"/>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Descrição / Documentação (Markdown)</label>
+        <textarea class="form-input" id="dm-desc" rows="3" placeholder="Pra que serve, quando usar… aceita **negrito**, listas com -, [link](url)" style="resize:vertical"></textarea>
+      </div>
+      <div class="form-group" id="dm-codigo-group">
+        <label class="form-label">Código / Query</label>
+        <textarea class="form-input" id="dm-codigo" rows="7" placeholder="Cole o código aqui" style="font-family:'Share Tech Mono','Courier New',monospace;font-size:12px;resize:vertical"></textarea>
+      </div>
+      <div class="form-group" id="dm-link-group">
+        <label class="form-label">Link</label>
+        <input type="url" class="form-input" id="dm-link" placeholder="https://…"/>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="dataMapCloseForm()">Cancelar</button>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-check"></i> Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="modal-overlay" id="just-modal-overlay" onclick="if(event.target===this) justCloseForm()">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="just-modal-label" style="max-width:480px">
     <div class="modal-header">
@@ -13825,6 +13833,18 @@ function buildDataMap(filter){
   }).join('');
 }
 
+// Código faz sentido pra SQL/Python/HTML; Link faz sentido pra Link/
+// Planilha — mostra só o campo relevante pro tipo escolhido (o outro fica
+// oculto, não obrigatório, dá pra editar depois se trocar o tipo). Chamada
+// na abertura do modal e sempre que o Tipo muda.
+const DATAMAP_TIPOS_COM_CODIGO = new Set(['sql','py','html']);
+function dataMapUpdateFieldVisibility(){
+  const tipo = document.getElementById('dm-tipo').value;
+  const comCodigo = DATAMAP_TIPOS_COM_CODIGO.has(tipo);
+  document.getElementById('dm-codigo-group').style.display = comCodigo ? '' : 'none';
+  document.getElementById('dm-link-group').style.display = comCodigo ? 'none' : '';
+}
+
 function dataMapOpenForm(id){
   const entry = id ? dataMapEntries.find(e=>e.id===id) : null;
   document.getElementById('datamap-modal-titulo').textContent = entry ? 'Editar Entrada' : 'Nova Entrada';
@@ -13835,7 +13855,9 @@ function dataMapOpenForm(id){
   document.getElementById('dm-codigo').value = entry ? entry.codigo : '';
   document.getElementById('dm-link').value = entry ? entry.link : '';
   document.getElementById('dm-email').value = entry ? entry.responsavel_email : '';
+  dataMapUpdateFieldVisibility();
   document.getElementById('datamap-modal-overlay').classList.add('open');
+  document.getElementById('dm-titulo').focus();
 }
 function dataMapCloseForm(){
   document.getElementById('datamap-modal-overlay').classList.remove('open');
