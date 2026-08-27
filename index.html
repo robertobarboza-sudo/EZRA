@@ -882,44 +882,45 @@
     }
     .kanban-owner-cell { visibility: hidden; } /* alinhamento — a coluna de dono da linha não tem título repetido */
     .kanban-row-owner {
-      display: flex; align-items: center; justify-content: space-between; gap: 6px;
+      position: relative; display: flex; align-items: center; justify-content: center;
       background: var(--surface); border: 1px solid var(--border);
-      border-radius: var(--radius); padding: 10px 12px; align-self: stretch;
+      border-radius: var(--radius); padding: 14px 26px 20px; align-self: stretch; min-height: 58px;
     }
-    .kanban-row-owner-name { font-size: 13px; font-weight: 800; color: var(--text); word-break: break-word; }
-    .kanban-row-owner-actions { display: flex; align-items: center; gap: 5px; flex: none; }
-    /* Reordenar dono + cor do card (pedido do Roberto em 2026-08-27). */
-    .kanban-row-owner-move {
+    /* Nome é o próprio gatilho do score (pedido do Roberto em 2026-08-27:
+       nada de badge/botão ao lado — clicar no nome é que abre o resumo). */
+    .kanban-row-owner-name {
+      font-size: 13px; font-weight: 800; color: var(--text); word-break: break-word;
+      text-align: center; cursor: pointer; transition: color var(--transition);
+    }
+    .kanban-row-owner-name:hover { color: var(--cyan); text-decoration: underline; text-decoration-style: dotted; }
+    /* Reordenar/excluir num cantinho discreto, fora do fluxo do nome. */
+    .kanban-row-owner-toolbar {
+      position: absolute; top: 3px; right: 3px; display: flex; align-items: center; gap: 1px;
+    }
+    .kanban-row-owner-move, .kanban-row-owner-del {
       all: unset; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      width: 17px; height: 17px; border-radius: 4px; color: var(--text-muted); font-size: 9px;
+      width: 16px; height: 16px; border-radius: 4px; color: var(--text-muted); font-size: 9px;
     }
     .kanban-row-owner-move:hover { background: var(--surface-3); color: var(--orange); }
     .kanban-row-owner-move[disabled] { opacity: .25; pointer-events: none; }
+    .kanban-row-owner-del:hover { background: var(--surface-3); color: var(--red); }
+    /* Cor do card no canto inferior (pedido do Roberto em 2026-08-27) — não
+       compete com o nome, fica pequena e discreta. */
+    .kanban-row-owner-color-wrap {
+      position: absolute; bottom: 3px; right: 5px; display: flex; align-items: center; gap: 2px;
+    }
     .kanban-row-owner-color {
-      width: 16px; height: 16px; padding: 0; border: 1px solid var(--border); border-radius: 4px;
+      width: 12px; height: 12px; padding: 0; border: 1px solid var(--border); border-radius: 3px;
       background: none; cursor: pointer;
     }
     .kanban-row-owner-color-reset, .kanban-col-color-reset {
-      all: unset; cursor: pointer; color: var(--text-muted); font-size: 10px; padding: 2px;
+      all: unset; cursor: pointer; color: var(--text-muted); font-size: 9px; padding: 1px;
     }
     .kanban-row-owner-color-reset:hover, .kanban-col-color-reset:hover { color: var(--orange); }
     .kanban-col-color-input {
       width: 12px; height: 12px; padding: 0; border: 1px solid var(--border); border-radius: 3px;
       background: none; cursor: pointer; margin-left: 5px; vertical-align: middle;
     }
-    .kanban-row-owner-score {
-      all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;
-      font-size: 10.5px; font-weight: 800; color: var(--cyan);
-      background: rgba(6,182,212,.12); border: 1px solid rgba(6,182,212,.25);
-      padding: 3px 9px; border-radius: 20px; transition: background var(--transition), color var(--transition);
-      font-variant-numeric: tabular-nums;
-    }
-    .kanban-row-owner-score:hover { background: rgba(6,182,212,.22); }
-    .kanban-row-owner-del {
-      all: unset; cursor: pointer; color: var(--text-muted); font-size: 11px;
-      padding: 3px 5px; border-radius: 5px; flex: none;
-    }
-    .kanban-row-owner-del:hover { background: var(--surface-3); color: var(--red); }
     /* Score do Dono (pedido do Roberto em 2026-08-27) — grid de indicadores
        dentro do modal, mesmos tokens de superfície/borda do site. */
     .kb-score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -14644,22 +14645,21 @@ function kbRenderBoard(demandas){
       return `<div class="kanban-col" data-dono="${pulsoEscHtml(row.nome)}" data-status="${s}">${corpo}${rodape}</div>`;
     }).join('');
     const podeExcluir = row.donoId && row.totalDemandas === 0;
-    const score = kbCalcDonoScore(row.nome);
-    const scoreLabel = score.pctAtendimento != null ? score.pctAtendimento + '%' : (score.total ? score.realizadas + '/' + score.total : '—');
     const nomeJs = pulsoEscHtml(row.nome).replace(/'/g,"\\'");
     const fullIdx = rowsRawOrder.findIndex(r => r.nome === row.nome);
     const isFirst = fullIdx <= 0, isLast = fullIdx >= rowsRawOrder.length - 1;
     const corDono = row.cor || '';
     return `<div class="kanban-row">
       <div class="kanban-row-owner"${corDono ? ` style="border-left:4px solid ${corDono}"` : ''}>
-        <span class="kanban-row-owner-name">${pulsoEscHtml(row.nome)}</span>
-        <div class="kanban-row-owner-actions">
+        ${(podeReordenar || podeExcluir) ? `<div class="kanban-row-owner-toolbar">
           ${podeReordenar ? `<button type="button" class="kanban-row-owner-move" onclick="kbMoveDonoRow('${nomeJs}','up')"${isFirst?' disabled':''} title="Mover pra cima"><i class="fas fa-chevron-up"></i></button>
           <button type="button" class="kanban-row-owner-move" onclick="kbMoveDonoRow('${nomeJs}','down')"${isLast?' disabled':''} title="Mover pra baixo"><i class="fas fa-chevron-down"></i></button>` : ''}
+          ${podeExcluir ? `<button type="button" class="kanban-row-owner-del" onclick="kbDeleteDono('${row.donoId}','${nomeJs}')" title="Remover linha vazia"><i class="fas fa-trash"></i></button>` : ''}
+        </div>` : ''}
+        <span class="kanban-row-owner-name" onclick="kbOpenDonoScore('${nomeJs}')" title="Ver resumo de desempenho">${pulsoEscHtml(row.nome)}</span>
+        <div class="kanban-row-owner-color-wrap">
           <input type="color" class="kanban-row-owner-color" value="${corDono || '#5c5f7a'}" onchange="kbSetDonoCor('${nomeJs}',this.value)" title="Cor do card deste dono"/>
           ${corDono ? `<button type="button" class="kanban-row-owner-color-reset" onclick="kbSetDonoCor('${nomeJs}','')" title="Remover cor"><i class="fas fa-rotate-left"></i></button>` : ''}
-          <button type="button" class="kanban-row-owner-score" onclick="kbOpenDonoScore('${nomeJs}')" title="Ver resumo de desempenho"><i class="fas fa-chart-line"></i> ${scoreLabel}</button>
-          ${podeExcluir ? `<button type="button" class="kanban-row-owner-del" onclick="kbDeleteDono('${row.donoId}','${nomeJs}')" title="Remover linha vazia"><i class="fas fa-trash"></i></button>` : ''}
         </div>
       </div>
       ${cols}
