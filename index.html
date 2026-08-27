@@ -943,19 +943,20 @@
       text-align: center; font-size: 10px; font-weight: 800;
       color: var(--text-muted); opacity: .7; margin-top: 2px;
     }
-    /* Anterior/Próxima por coluna (pedido do Roberto em 2026-08-27) —
-       aparece só quando a coluna tem mais de 1 post-it. */
-    .kanban-col-pager {
+    /* Anterior/Próxima (pedido do Roberto em 2026-08-27) — embutido dentro
+       do próprio card, não mais num rodapé separado, pra herdar a cor do
+       post-it (padrão amarelo, ou a cor da coluna quando definida). */
+    .kanban-postit-pager {
       display: flex; align-items: center; justify-content: center; gap: 8px;
-      margin-top: 4px;
+      margin-top: 8px; padding-top: 6px; border-top: 1px dashed rgba(74,60,8,.22);
     }
-    .kanban-col-pager-btn {
+    .kanban-postit-pager-btn {
       all: unset; cursor: pointer; display: flex; align-items: center; justify-content: center;
-      width: 20px; height: 20px; border-radius: 50%; color: var(--text-muted);
-      font-size: 10px; transition: background var(--transition), color var(--transition);
+      width: 18px; height: 18px; border-radius: 50%; color: #7a6a2a;
+      font-size: 9px; transition: background .15s ease, color .15s ease;
     }
-    .kanban-col-pager-btn:hover { background: var(--surface-3); color: var(--orange); }
-    .kanban-col-pager-count { font-size: 10px; font-weight: 800; color: var(--text-muted); min-width: 26px; text-align: center; }
+    .kanban-postit-pager-btn:hover { background: rgba(74,60,8,.12); color: #4a3c08; }
+    .kanban-postit-pager-count { font-size: 9.5px; font-weight: 800; color: #7a6a2a; min-width: 24px; text-align: center; }
     /* Post-it amarelo "de verdade" (pedido do Roberto em 2026-08-27) — cor
        fixa (não var(--surface-2)) de propósito: a referência visual é o
        papel do post-it físico, que não muda com o tema claro/escuro do
@@ -14535,7 +14536,7 @@ function kbCloseDonoScore(){
   document.getElementById('kb-score-modal-overlay').classList.remove('open');
 }
 
-function kbPostitHtml(d, unassigned){
+function kbPostitHtml(d, unassigned, pagerHtml){
   const coluna = kbColunaEfetiva(d);
   const atrasado = coluna === 'atrasado';
   const entregaTxt = d.data_entrega ? pulsoFmtDataBr(d.data_entrega) : '—';
@@ -14557,6 +14558,7 @@ function kbPostitHtml(d, unassigned){
       ${d.tag ? `<span class="kanban-postit-badge tag-${d.tag}">${KB_TAG_LABELS[d.tag]||d.tag}</span>` : ''}
     </div>
     ${assignHtml}
+    ${pagerHtml || ''}
   </div>`;
 }
 
@@ -14628,16 +14630,20 @@ function kbRenderBoard(demandas){
       const key = kbColKey(row.nome, s);
       let corpo, rodape;
       if(lista.length > 1){
-        // mais de 1 -> pagina uma por vez, com Anterior/Próxima
+        // mais de 1 -> pagina uma por vez, com Anterior/Próxima embutido no
+        // próprio card (pedido do Roberto em 2026-08-27) — herda a cor do
+        // post-it (amarelo padrão, ou a cor da coluna quando definida) em
+        // vez de ficar num rodapé cinza separado.
         const keyJs = key.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
         const idx = Math.max(0, Math.min(KB_COL_PAGE[key] || 0, lista.length - 1));
         const extra = Math.min(lista.length - 1, 2); // 1 ou 2 "folhas" por baixo, no máximo (visual)
-        corpo = `<div class="kanban-postit-stack stack-${extra}">${kbPostitHtml(lista[idx], false)}</div>`;
-        rodape = `<div class="kanban-col-pager">
-          <button type="button" class="kanban-col-pager-btn" onclick="kbColPage('${keyJs}',-1,${lista.length})" title="Anterior"><i class="fas fa-chevron-left"></i></button>
-          <span class="kanban-col-pager-count">${idx+1}/${lista.length}</span>
-          <button type="button" class="kanban-col-pager-btn" onclick="kbColPage('${keyJs}',1,${lista.length})" title="Próxima"><i class="fas fa-chevron-right"></i></button>
+        const pagerHtml = `<div class="kanban-postit-pager" onclick="event.stopPropagation()">
+          <button type="button" class="kanban-postit-pager-btn" onclick="kbColPage('${keyJs}',-1,${lista.length})" title="Anterior"><i class="fas fa-chevron-left"></i></button>
+          <span class="kanban-postit-pager-count">${idx+1}/${lista.length}</span>
+          <button type="button" class="kanban-postit-pager-btn" onclick="kbColPage('${keyJs}',1,${lista.length})" title="Próxima"><i class="fas fa-chevron-right"></i></button>
         </div>`;
+        corpo = `<div class="kanban-postit-stack stack-${extra}">${kbPostitHtml(lista[idx], false, pagerHtml)}</div>`;
+        rodape = '';
       } else {
         corpo = lista.length ? kbPostitHtml(lista[0], false) : '<div class="kanban-col-empty">—</div>';
         rodape = `<div class="kanban-col-count">${kbCountBadge(lista.length)}</div>`;
