@@ -67,7 +67,12 @@ const ARVORE_META = {
   "Inventário|Diogo (INV)|Inventário|Pacotes Coletados com Losses":"nl",
   "Planejamento|Rodrigo (PCP)|Forecast|Inbound Forecast S&OP":"nh",
   "Planejamento|Rodrigo (PCP)|Forecast|Received Inbound Total":"nh",
-  "Planejamento|Rodrigo (PCP)||(%) Desvio de Forecast":"pz",
+  // "pc" = faixa de tolerância ±target em torno de 100% (não em torno de
+  // zero) — valor da planilha já vem como razão (ex.: 1,0677 = 106,77%),
+  // não como desvio. Pedido do Roberto em 2026-08-28: target 5% deve
+  // significar "entre 95% e 105%", não "abaixo de 5%" (ver polarity
+  // "band100" em arvore.html isWithinTarget).
+  "Planejamento|Rodrigo (PCP)||(%) Desvio de Forecast":"pc",
   "Planejamento|Rodrigo (PCP)|Planejamento|Packed Planejado D-1":"nh",
   "Planejamento|Rodrigo (PCP)|Planejamento|Packed Real D-1":"nh",
   "Planejamento|Rodrigo (PCP)|Planejamento|(%) Aderência ao Plano All":"ph",
@@ -89,7 +94,10 @@ const ARVORE_META = {
   "Planejamento|Rodrigo (PCP)|Aderência|T3":"ph",
   "Inbound|COP|LH|Forecast Received":"nh",
   "Inbound|COP|LH|Received":"nh",
-  "Inbound|COP|LH|(%) Forecast x Received":"ph",
+  // "pz" (near_zero), não "ph" (pedido do Roberto em 2026-08-28): valor já
+  // vem como desvio (ex.: -0,053 = -5,3%), não como razão — target 5% já
+  // significa "|desvio| <= 5%", que é exatamente a fórmula de near_zero.
+  "Inbound|COP|LH|(%) Forecast x Received":"pz",
   "Inbound|COP|LH|LH Qtd de carros planejados":"nh",
   "Inbound|COP|LH|LH | Qtd de carros descarregados":"nh",
   "Inbound|COP|LH|Qtd de carros em Fila D0 (retrato das 06:00)":"nl",
@@ -104,7 +112,7 @@ const ARVORE_META = {
   "Inbound|COP|LH|% Share de Sacas":"ph",
   "Inbound|COP|FM|Forecast Received":"nh",
   "Inbound|COP|FM|Received":"nh",
-  "Inbound|COP|FM|(%) Forecast x Received":"ph",
+  "Inbound|COP|FM|(%) Forecast x Received":"pz", // ver comentário no LH acima
   "Inbound|COP|FM|Tempo de Fila FM":"nl",
   "Inbound|COP|QB|Packed QB":"nh",
   "Inbound|COP|QB|Share QB":"ph",
@@ -433,7 +441,7 @@ function metaDoKpi(bloco, pic, sub, kpi, targetNum, targetRaw) {
   const m = cfg
     ? {
       unit: cfg[0] === 'p' ? 'percent' : 'number',
-      polarity: cfg[1] === 'l' ? 'lower_better' : cfg[1] === 'z' ? 'near_zero' : 'higher_better',
+      polarity: cfg[1] === 'l' ? 'lower_better' : cfg[1] === 'z' ? 'near_zero' : cfg[1] === 'c' ? 'band100' : 'higher_better',
     }
     : metaHeuristica(kpi, targetNum, targetRaw);
 

@@ -350,6 +350,10 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
     if (value === null || value === undefined || !isFinite(value)) return null;
     if (kpi.target === null || kpi.target === undefined) return null;
     if (kpi.polarity === "near_zero") return Math.abs(value) <= Math.abs(kpi.target);
+    // "band100" (pedido do Roberto em 2026-08-28, KPI "(%) Desvio de
+    // Forecast"): valor é uma razão em torno de 100% (1.0), não um desvio
+    // em torno de zero — dentro do target = |valor - 1| <= tolerância.
+    if (kpi.polarity === "band100") return Math.abs(value - 1) <= Math.abs(kpi.target);
     if (kpi.polarity === "lower_better") return value <= kpi.target;
     return value >= kpi.target;
   }
@@ -403,6 +407,8 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
       if (trend.key !== "stable") {
         if (kpi.polarity === "near_zero") {
           trendState = Math.abs(value) < Math.abs(compareValue) ? "improving" : "worsening";
+        } else if (kpi.polarity === "band100") {
+          trendState = Math.abs(value - 1) < Math.abs(compareValue - 1) ? "improving" : "worsening";
         } else {
           const goingUp = trend.key === "up";
           const improving = kpi.polarity === "lower_better" ? !goingUp : goingUp;
