@@ -709,6 +709,19 @@ async function buildKanban(req, res) {
         return;
       }
 
+      // TEMPORÁRIO 2 — restauração de novo (a 1ª rodada foi sobrescrita por
+      // engano com um teste de payload vazio na mesma action). SÓ escreve
+      // se vier pelo menos 1 dono OU 1 demanda — barreira contra repetir o
+      // mesmo erro. Remover depois de usado.
+      if (action === 'restore_bulk') {
+        const donosNovos = Array.isArray(entry.donos) ? entry.donos : [];
+        const demandasNovas = Array.isArray(entry.demandas) ? entry.demandas : [];
+        if (!donosNovos.length && !demandasNovas.length) { res.status(400).json({ ok: false, erro: 'payload vazio recusado' }); return; }
+        await kanbanWriteAll(donosNovos, [], demandasNovas);
+        res.status(200).json({ ok: true, donos: donosNovos, demandas: demandasNovas });
+        return;
+      }
+
       res.status(400).json({ ok: false, erro: 'action inválida' });
     } catch (err) {
       res.status(502).json({ ok: false, erro: err.message });
