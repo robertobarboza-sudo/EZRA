@@ -832,78 +832,7 @@ async function buildDataMap(req, res) {
   }
 }
 
-/* ================================================================
-   AUTENTICAÇÃO (?auth=1) — pedido do Roberto em 2026-08-28: tela de
-   login/cadastro real, sem JWT/cookie de sessão. O servidor só valida
-   e-mail+senha contra a aba `usuarios` e devolve {nome,email,papel}; quem
-   decide se a tela de login aparece é o FRONT, guardando esse resultado
-   em localStorage — isso não é um gate de API, é só "pular a tela de
-   login de novo a cada reload". Quem realmente protege os dados é a
-   service account do backend (o navegador nunca fala direto com o
-   Sheets). Sem dependência externa pra hash — só crypto nativo do Node
-   (scrypt + comparação em tempo constante via timingSafeEqual).
-================================================================ */
-const crypto = require('crypto');
-const USUARIOS_TITLE = 'usuarios';
-// `id` = email (minúsculo) só pra reaproveitar kanbanReadTab/kanbanWriteTab
-// sem helper novo (o filtro genérico exige o.id truthy pra manter a linha).
-const USUARIOS_HEADER = ['id', 'nome', 'email', 'senha_hash', 'salt', 'papel', 'criado_em'];
-
-function hashSenha(senha) {
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = crypto.scryptSync(senha, salt, 64).toString('hex');
-  return { salt, hash };
-}
-function verificaSenha(senha, salt, hashSalvo) {
-  if (!salt || !hashSalvo) return false;
-  const hash = crypto.scryptSync(senha, salt, 64).toString('hex');
-  const a = Buffer.from(hash, 'hex'), b = Buffer.from(hashSalvo, 'hex');
-  return a.length === b.length && crypto.timingSafeEqual(a, b);
-}
-
-async function buildAuth(req, res) {
-  if (req.method !== 'POST') { res.status(405).json({ ok: false, erro: 'Use POST' }); return; }
-  const body = req.body || {};
-  const action = body.action;
-  const email = String(body.email || '').trim().toLowerCase();
-  const senha = String(body.senha || '');
-  try {
-    if (action === 'register') {
-      const nome = String(body.nome || '').trim();
-      if (!nome || !email) { res.status(400).json({ ok: false, erro: 'Nome e e-mail são obrigatórios' }); return; }
-      if (senha.length < 6) { res.status(400).json({ ok: false, erro: 'Senha precisa ter 6 ou mais caracteres' }); return; }
-      const usuarios = await kanbanReadTab(USUARIOS_TITLE, USUARIOS_HEADER);
-      if (usuarios.some(u => u.email === email)) { res.status(409).json({ ok: false, erro: 'E-mail já cadastrado' }); return; }
-      const { salt, hash } = hashSenha(senha);
-      const papel = 'Usuário';
-      const criado_em = new Date().toISOString();
-      usuarios.push({ id: email, nome, email, senha_hash: hash, salt, papel, criado_em });
-      await kanbanWriteTab(USUARIOS_TITLE, USUARIOS_HEADER, usuarios);
-      res.status(200).json({ ok: true, nome, email, papel });
-      return;
-    }
-    if (action === 'login') {
-      // Mensagem sempre genérica (e-mail inexistente ou senha errada
-      // devolvem o mesmo erro) — não revela qual dos dois foi o problema.
-      const erroGenerico = { ok: false, erro: 'E-mail ou senha incorretos' };
-      if (!email || !senha) { res.status(401).json(erroGenerico); return; }
-      const usuarios = await kanbanReadTab(USUARIOS_TITLE, USUARIOS_HEADER);
-      const u = usuarios.find(x => x.email === email);
-      if (!u || !verificaSenha(senha, u.salt, u.senha_hash)) { res.status(401).json(erroGenerico); return; }
-      res.status(200).json({ ok: true, nome: u.nome, email: u.email, papel: u.papel });
-      return;
-    }
-    res.status(400).json({ ok: false, erro: 'action inválida' });
-  } catch (err) {
-    res.status(502).json({ ok: false, erro: err.message });
-  }
-}
-
 module.exports = async (req, res) => {
-  if (req.query.auth !== undefined) {
-    await buildAuth(req, res);
-    return;
-  }
   if (req.query.kanban !== undefined) {
     await buildKanban(req, res);
     return;
