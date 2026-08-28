@@ -244,10 +244,16 @@ module.exports = async (req, res) => {
     // o Roberto definiu o card).
     const checkinDestino = parseDT(r.checkin_destino);
     const aberturaBau = parseDT(r.abertura_bau);
-    const inicioDescarga = parseDT(r.inicio_descarga);
     const fimDescarga = parseDT(r.fim_descarga);
     const tempoFilaMin = (checkinDestino && fimDescarga) ? Math.round((fimDescarga - checkinDestino) / 60000) : null;
-    const tempoDescargaMin = (inicioDescarga && fimDescarga) ? Math.round((fimDescarga - inicioDescarga) / 60000) : null;
+    // "Tempo de Descarga" usa abertura_bau -> fim_descarga, não
+    // inicio_descarga -> fim_descarga (pedido do Roberto em 2026-08-28,
+    // card "Tempo de Descarga" na LineHaul aparecendo zerado): na prática
+    // inicio_descarga e fim_descarga vêm gravados quase simultâneos na
+    // planilha (0-45s de diferença em toda amostra verificada, mesmo com
+    // fila de horas), então não refletem a duração real da descarga.
+    // abertura_bau (docagem) tem gap real contra fim_descarga.
+    const tempoDescargaMin = (aberturaBau && fimDescarga) ? Math.round((fimDescarga - aberturaBau) / 60000) : null;
     return {
       viagem: r.viagem,
       // Cutoff de cada evento, expostos separados pro front escolher o

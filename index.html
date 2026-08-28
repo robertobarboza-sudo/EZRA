@@ -10765,7 +10765,7 @@ function lhRenderKpis(){
       type: LH_ACTIVE_CARD==='antecipada'?'info':'', icon:'fa-forward',
       clickable: true, active: LH_ACTIVE_CARD==='antecipada', onclickAttr: `lhCardClick('antecipada')` },
     { label:'Tempo de Fila (h)', value:pulsoFmtHoraVirgula(mediaCampoMin('tempoFilaMin')), sub:'Chegada → Fim Descarga', delta:'', trend:'up', type:'', icon:'fa-hourglass' },
-    { label:'Tempo de Descarga (h)', value:pulsoFmtHoraVirgula(mediaCampoMin('tempoDescargaMin')), sub:'Início → Fim Descarga', delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
+    { label:'Tempo de Descarga (h)', value:pulsoFmtHoraVirgula(mediaCampoMin('tempoDescargaMin')), sub:'Docagem → Fim Descarga', delta:'', trend:'up', type:'', icon:'fa-truck-ramp-box' },
     { label:'Pacotes Recebidos', value:pacotes.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-boxes-stacked' },
     { label:'TOs Recebidos', value:tos.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-clipboard-list' },
     { label:'No Prazo', value:onTime.length.toLocaleString('pt-BR'), delta:'', trend:'up', type:'', icon:'fa-circle-check' },
