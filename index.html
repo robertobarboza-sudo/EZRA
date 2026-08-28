@@ -872,36 +872,6 @@
     }
     .kanban-board-wrap { overflow-x: auto; }
     .kanban-board { display: flex; flex-direction: column; gap: 14px; min-width: fit-content; }
-    /* Visão Gantt (pedido do Roberto em 2026-08-28, "visão de gestão") —
-       card do dono à esquerda (mesma linguagem visual do .kanban-row-owner
-       do quadro), esticado pra cobrir a altura de todas as demandas dele;
-       linha do tempo à direita, 1 raia por demanda empilhada verticalmente. */
-    .kanban-gantt { min-width: fit-content; display: flex; flex-direction: column; gap: 10px; }
-    .kb-gantt-head { display: flex; position: sticky; top: 0; z-index: 5; background: var(--bg); }
-    .kb-gantt-head-spacer { width: 168px; flex: none; }
-    .kb-gantt-dono-block { display: flex; align-items: stretch; gap: 10px; }
-    .kb-gantt-dono-card {
-      width: 168px; flex: none; display: flex; align-items: center; justify-content: center;
-      text-align: center; padding: 10px 12px; font-size: 13px; font-weight: 800; color: var(--text);
-      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-      word-break: break-word; position: sticky; left: 0; z-index: 3;
-    }
-    .kb-gantt-lanes {
-      position: relative; flex: none; border: 1px solid var(--border); border-radius: var(--radius);
-      background-image: repeating-linear-gradient(to right, var(--border) 0, var(--border) 1px, transparent 1px, transparent 28px);
-      overflow: hidden;
-    }
-    .kb-gantt-dia { position: absolute; top: 6px; font-size: 9.5px; color: var(--text-muted); width: 28px; text-align: center; }
-    .kb-gantt-dia.hoje { color: var(--orange); font-weight: 800; }
-    .kb-gantt-bar {
-      position: absolute; height: 22px; border-radius: 6px; cursor: pointer; min-width: 6px;
-      box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: transform .15s ease, filter .15s ease;
-    }
-    .kb-gantt-bar:hover { transform: translateY(-1px); filter: brightness(1.15); }
-    .kb-gantt-bar-label {
-      position: absolute; top: 3px; font-size: 10.5px; color: var(--text); white-space: nowrap;
-      pointer-events: none; line-height: 22px;
-    }
     .kanban-head-row, .kanban-row {
       display: grid; grid-template-columns: 168px repeat(5, minmax(196px, 1fr));
       gap: 10px; align-items: start; min-width: 1180px;
@@ -6549,7 +6519,7 @@
           <input type="text" class="filter-select" id="kb-filter-busca" placeholder="Buscar demanda…" oninput="kbSetFilter('busca',this.value)" style="min-width:180px"/>
         </div>
         <div style="display:flex;gap:10px">
-          <button class="btn btn-outline" id="kb-view-toggle" onclick="kbToggleView()"><i class="fas fa-chart-gantt"></i> Ver como Gantt</button>
+          <button class="btn btn-outline" onclick="kbExportCsv()"><i class="fas fa-file-csv"></i> Exportar CSV</button>
           <button class="btn btn-outline" onclick="kbOpenDonoForm()"><i class="fas fa-user-plus"></i> Adicionar Dono</button>
           <button class="btn btn-primary" onclick="kbOpenDemandaForm()"><i class="fas fa-plus"></i> Nova Demanda</button>
         </div>
@@ -6567,9 +6537,6 @@
 
       <div class="kanban-board-wrap" id="kb-board-wrap">
         <div class="kanban-board" id="kb-board"></div>
-      </div>
-      <div class="kanban-board-wrap" id="kb-gantt-wrap" style="display:none">
-        <div class="kanban-gantt" id="kb-gantt"></div>
       </div>
     </section>
 
@@ -14696,105 +14663,45 @@ function kbPopulateDonoFilter(){
   sel.value = atual;
 }
 
-// Kanban <-> Gantt (pedido do Roberto em 2026-08-28, "visão de gestão") —
-// mesmo filtro/estado, só troca como o quadro é desenhado.
-let KB_VIEW = 'kanban'; // 'kanban' | 'gantt'
-function kbToggleView(){
-  KB_VIEW = KB_VIEW === 'kanban' ? 'gantt' : 'kanban';
-  const isGantt = KB_VIEW === 'gantt';
-  const btn = document.getElementById('kb-view-toggle');
-  if(btn) btn.innerHTML = isGantt ? '<i class="fas fa-table-columns"></i> Ver como Kanban' : '<i class="fas fa-chart-gantt"></i> Ver como Gantt';
-  const boardWrap = document.getElementById('kb-board-wrap');
-  const ganttWrap = document.getElementById('kb-gantt-wrap');
-  const unassignedWrap = document.getElementById('kb-unassigned-wrap');
-  if(boardWrap) boardWrap.style.display = isGantt ? 'none' : '';
-  if(ganttWrap) ganttWrap.style.display = isGantt ? '' : 'none';
-  if(unassignedWrap) unassignedWrap.style.display = isGantt ? 'none' : '';
-  kbRenderAll();
-}
-
 function kbRenderAll(){
   if(!KB_STATE.loaded) return;
   const demandas = kbFilteredDemandas();
   kbRenderStats();
-  if(KB_VIEW === 'gantt'){
-    kbRenderGantt(demandas);
-  } else {
-    kbRenderUnassigned(demandas);
-    kbRenderBoard(demandas);
-  }
+  kbRenderUnassigned(demandas);
+  kbRenderBoard(demandas);
 }
 
-// Cor da barra = mesmo mapeamento semântico dos badges de status do
-// post-it (st-fila/st-atrasado/st-andamento/st-hold/st-finalizado).
-const KB_GANTT_COR = { fila:'var(--text-muted)', atrasado:'var(--red)', andamento:'var(--cyan)', hold:'var(--amber)', finalizado:'var(--green)' };
-const KB_GANTT_DIA_PX = 28;
-function kbRenderGantt(demandas){
-  const el = document.getElementById('kb-gantt');
-  if(!el) return;
-  if(!demandas.length){
-    el.innerHTML = '<div class="switch-hint">Nenhuma demanda com os filtros atuais.</div>';
-    return;
-  }
-  const hojeIso = kbHojeIso();
-  // Intervalo = do início mais antigo (data_solicitacao) ao fim mais
-  // distante (data_conclusao, senão data_entrega, senão a própria
-  // solicitação) entre as demandas visíveis, com 2 dias de folga pra cada
-  // lado — sempre inclui hoje, pra a régua nunca ficar sem referência.
-  const todasDatas = demandas.flatMap(d => [d.data_solicitacao, d.data_conclusao || d.data_entrega || d.data_solicitacao]).filter(Boolean);
-  todasDatas.push(hojeIso);
-  const minIso = todasDatas.reduce((a,b) => a < b ? a : b);
-  const maxIso = todasDatas.reduce((a,b) => a > b ? a : b);
-  const minD = new Date(minIso+'T00:00:00'); minD.setDate(minD.getDate()-2);
-  const maxD = new Date(maxIso+'T00:00:00'); maxD.setDate(maxD.getDate()+2);
-  const totalDias = Math.max(1, Math.round((maxD - minD)/86400000));
-
-  const dias = [];
-  for(let i=0;i<=totalDias;i++) dias.push(new Date(minD.getTime()+i*86400000));
-  const trackWidth = dias.length * KB_GANTT_DIA_PX;
-  const reguaHtml = dias.map((d,i) => {
-    const iso = d.toISOString().slice(0,10);
-    const rotulo = (d.getDate()===1 || i===0) ? d.toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'}) : d.getDate();
-    return `<div class="kb-gantt-dia${iso===hojeIso?' hoje':''}" style="left:${i*KB_GANTT_DIA_PX}px">${rotulo}</div>`;
-  }).join('');
-
-  const porDono = new Map();
-  demandas.forEach(d => {
-    const key = d.dono || 'Sem Dono';
-    if(!porDono.has(key)) porDono.set(key, []);
-    porDono.get(key).push(d);
-  });
-  const donosOrdenados = [...porDono.keys()].sort((a,b) => a==='Sem Dono' ? 1 : (b==='Sem Dono' ? -1 : a.localeCompare(b,'pt-BR')));
-
-  const LANE_H = 30; // altura de cada raia (1 raia = 1 demanda empilhada verticalmente)
-  const blocosHtml = donosOrdenados.map(dono => {
-    const lista = porDono.get(dono).slice().sort(kbCompare);
-    const raiasHtml = lista.map((d, i) => {
-      const coluna = kbColunaEfetiva(d);
-      const inicioIso = d.data_solicitacao || hojeIso;
-      const fimIso = d.data_conclusao || d.data_entrega || inicioIso;
-      const left = Math.round((new Date(inicioIso+'T00:00:00') - minD)/86400000) * KB_GANTT_DIA_PX;
-      const duracaoDias = Math.max(0, Math.round((new Date(fimIso+'T00:00:00') - new Date(inicioIso+'T00:00:00'))/86400000));
-      const largura = Math.max(10, (duracaoDias+1) * KB_GANTT_DIA_PX - 4);
-      const cor = KB_GANTT_COR[coluna] || 'var(--text-muted)';
-      const top = i * LANE_H + 4;
-      const tip = `${d.titulo} · ${KB_STATUS_LABELS[coluna]||coluna} · ${pulsoFmtDataBr(inicioIso)} → ${pulsoFmtDataBr(fimIso)}`;
-      return `<div class="kb-gantt-bar" style="left:${left}px;top:${top}px;width:${largura}px;background:${cor}" title="${pulsoEscHtml(tip)}" onclick="kbOpenDemandaForm('${d.id}')"></div>
-        <div class="kb-gantt-bar-label" style="left:${left+largura+6}px;top:${top}px">${pulsoEscHtml(d.titulo)}</div>`;
-    }).join('');
-    const alturaLanes = lista.length * LANE_H + 8;
-    return `<div class="kb-gantt-dono-block">
-      <div class="kb-gantt-dono-card">${pulsoEscHtml(dono)}</div>
-      <div class="kb-gantt-lanes" style="width:${trackWidth}px;height:${alturaLanes}px">${raiasHtml}</div>
-    </div>`;
-  }).join('');
-
-  el.innerHTML = `
-    <div class="kb-gantt-head">
-      <div class="kb-gantt-head-spacer"></div>
-      <div class="kb-gantt-lanes" style="width:${trackWidth}px;height:24px;background-image:none">${reguaHtml}</div>
-    </div>
-    ${blocosHtml}`;
+// Exportar CSV (pedido do Roberto em 2026-08-28) — respeita os filtros
+// atuais (dono/status/prioridade/período/busca), mesmo padrão de
+// pulsoExportRowsCsv já usado no resto do PULSO (ex. bklExportPivotCsv).
+function kbExportCsv(){
+  const demandas = kbFilteredDemandas();
+  if(!demandas.length){ showToast('Nada pra exportar com os filtros atuais.', true); return; }
+  const cols = [
+    { key:'titulo', label:'Título' },
+    { key:'dono', label:'Dono' },
+    { key:'prioridade', label:'Prioridade' },
+    { key:'status', label:'Status' },
+    { key:'data_solicitacao', label:'Data da Solicitação' },
+    { key:'data_entrega', label:'Data de Entrega' },
+    { key:'data_conclusao', label:'Data de Conclusão' },
+    { key:'tag', label:'Tipo de Trabalho' },
+    { key:'descricao', label:'Descrição' },
+    { key:'url', label:'Link' },
+  ];
+  const linhas = demandas.slice().sort(kbCompare).map(d => ({
+    titulo: d.titulo,
+    dono: d.dono || 'Sem Dono',
+    prioridade: KB_PRIORIDADE_LABELS[d.prioridade] || d.prioridade,
+    status: KB_STATUS_LABELS[kbColunaEfetiva(d)] || d.status,
+    data_solicitacao: d.data_solicitacao ? pulsoFmtDataBr(d.data_solicitacao) : '',
+    data_entrega: d.data_entrega ? pulsoFmtDataBr(d.data_entrega) : '',
+    data_conclusao: d.data_conclusao ? pulsoFmtDataBr(d.data_conclusao) : '',
+    tag: KB_TAG_LABELS[d.tag] || '',
+    descricao: d.descricao || '',
+    url: d.url || '',
+  }));
+  pulsoExportRowsCsv('kanban_demandas.csv', cols, linhas);
 }
 
 // Indicadores da faixa de post-its (pedido do Roberto em 2026-08-27) —
