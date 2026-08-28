@@ -5529,6 +5529,7 @@
           <div class="chart-title" id="bkl-chart-title">Pacotes por hora — clusters de aging</div>
           <div style="display:flex;gap:8px">
             <button type="button" class="spr-ms-action-btn" id="bkl-chart-metric-toggle" onclick="bklToggleChartMetric()">Ver Aging Médio</button>
+            <button type="button" class="spr-ms-action-btn" id="bkl-chart-group-toggle" onclick="bklToggleChartGroup()">Ver por Perfil</button>
             <button type="button" class="spr-ms-action-btn" id="bkl-pivot-metric-toggle" onclick="bklTogglePivotMetric()" style="display:none">Ver Soma de Pacotes</button>
             <button type="button" class="spr-ms-action-btn" id="bkl-chart-toggle" onclick="bklToggleChartView()">Ver Tabela por Origem</button>
             <button class="dl-btn dl-btn-csv" onclick="bklExportPivotCsv()" title="Exportar CSV"><i class="fas fa-file-csv"></i> CSV</button>
@@ -12174,6 +12175,7 @@ let BACKLOG_ON_TIME_ACTIVE = false; // true logo após clicar "On Time", até o 
 let BACKLOG_DATA = null;
 let BACKLOG_CHART_VIEW = 'chart';     // 'chart' | 'table'
 let BACKLOG_CHART_METRIC = 'pacotes'; // 'pacotes' | 'aging'
+let BACKLOG_CHART_GROUP = 'aging';    // 'aging' | 'perfil' — linhas do gráfico por cluster de aging ou por perfil
 let BACKLOG_PIVOT_METRIC = 'aging';   // 'aging' | 'qtd'
 let BACKLOG_ACTIVE_CARD = null;       // 'perfil:<label>' | 'cluster:<label>' | null
 
@@ -12325,21 +12327,31 @@ function bklRenderKpis(){
   ]);
 }
 
+// Título do gráfico de linha (fora da tabela por origem) — combina métrica
+// (pacotes/aging) com agrupamento (clusters de aging/perfil), reaproveitado
+// pelos 3 toggles que mexem numa dessas duas dimensões.
+function bklChartTitle(){
+  const metrica = BACKLOG_CHART_METRIC === 'aging' ? 'Aging médio' : 'Pacotes';
+  const grupo = BACKLOG_CHART_GROUP === 'perfil' ? 'por hora — por perfil' : 'por hora — clusters de aging';
+  return `${metrica} ${grupo}`;
+}
 function bklToggleChartView(){
   BACKLOG_CHART_VIEW = BACKLOG_CHART_VIEW === 'chart' ? 'table' : 'chart';
   const isTable = BACKLOG_CHART_VIEW === 'table';
   const btn = document.getElementById('bkl-chart-toggle');
   const metricBtn = document.getElementById('bkl-pivot-metric-toggle');
   const chartMetricBtn = document.getElementById('bkl-chart-metric-toggle');
+  const chartGroupBtn = document.getElementById('bkl-chart-group-toggle');
   const title = document.getElementById('bkl-chart-title');
   const chartWrap = document.getElementById('bkl-chart-wrap');
   const pivotWrap = document.getElementById('bkl-pivot-wrap');
   if(btn) btn.textContent = isTable ? 'Ver Gráfico' : 'Ver Tabela por Origem';
   if(metricBtn) metricBtn.style.display = isTable ? '' : 'none';
   if(chartMetricBtn) chartMetricBtn.style.display = isTable ? 'none' : '';
+  if(chartGroupBtn) chartGroupBtn.style.display = isTable ? 'none' : '';
   if(title) title.textContent = isTable
     ? (BACKLOG_PIVOT_METRIC === 'aging' ? 'Aging médio por origem x perfil' : 'Soma de pacotes por origem x perfil')
-    : (BACKLOG_CHART_METRIC === 'aging' ? 'Aging médio por hora — clusters de aging' : 'Pacotes por hora — clusters de aging');
+    : bklChartTitle();
   if(chartWrap) chartWrap.style.display = isTable ? 'none' : '';
   if(pivotWrap) pivotWrap.style.display = isTable ? '' : 'none';
   bklRenderAll();
@@ -12349,7 +12361,17 @@ function bklToggleChartMetric(){
   const btn = document.getElementById('bkl-chart-metric-toggle');
   const title = document.getElementById('bkl-chart-title');
   if(btn) btn.textContent = BACKLOG_CHART_METRIC === 'pacotes' ? 'Ver Aging Médio' : 'Ver Pacotes';
-  if(title) title.textContent = BACKLOG_CHART_METRIC === 'aging' ? 'Aging médio por hora — clusters de aging' : 'Pacotes por hora — clusters de aging';
+  if(title) title.textContent = bklChartTitle();
+  bklRenderChart();
+}
+// Linhas do gráfico por Perfil em vez de cluster de aging (pedido do
+// Roberto em 2026-08-28) — mesmos grupos consolidados dos cards (PERFIL_CARDS).
+function bklToggleChartGroup(){
+  BACKLOG_CHART_GROUP = BACKLOG_CHART_GROUP === 'aging' ? 'perfil' : 'aging';
+  const btn = document.getElementById('bkl-chart-group-toggle');
+  const title = document.getElementById('bkl-chart-title');
+  if(btn) btn.textContent = BACKLOG_CHART_GROUP === 'perfil' ? 'Ver por Aging' : 'Ver por Perfil';
+  if(title) title.textContent = bklChartTitle();
   bklRenderChart();
 }
 function bklTogglePivotMetric(){
@@ -12364,19 +12386,35 @@ function bklTogglePivotMetric(){
 // Linhas por hora — ignora o filtro de hora (o gráfico é a evolução do dia
 // inteiro; o filtro de hora é só pros cards/pivot de uma leitura
 // específica). Respeita perfil (dropdown + card ativo).
+// Cores por perfil (pedido do Roberto em 2026-08-28, "Ver por Perfil") —
+// paleta qualitativa própria, sem sobrepor as cores semânticas de aging
+// (verde/âmbar/vermelho já usadas pros clusters 0-4h/4-24h/>24h acima).
+const PERFIL_CORES = ['#06b6d4', '#a78bfa', '#f472b6', '#f59e0b', '#10b981'];
 function bklRenderChart(){
   if(!BACKLOG_DATA) return;
   const rows = BACKLOG_DATA.rows.filter(r => (!BACKLOG_STATE.perfil || r.perfil === BACKLOG_STATE.perfil) && bklActiveCardFilter(r));
   if(chartInstances['chart-backlog-faixa']){ chartInstances['chart-backlog-faixa'].destroy(); delete chartInstances['chart-backlog-faixa']; }
-  const cores = { '0-4h':'#10b981', '4-24h':'#f59e0b', '>24h':'#ee4d2d' };
-  const datasets = AGING_CLUSTERS.map(c => ({
-    label: c,
-    data: HORAS_CUTOFF.map(h => {
-      const subset = rows.filter(r => r.hora===h && AGING_CLUSTER_OF[r.faixaAging]===c);
-      return BACKLOG_CHART_METRIC === 'aging' ? +(bklAgingPonderado(subset)/60).toFixed(1) : subset.reduce((s,r)=>s+r.qtdPacotes,0);
-    }),
-    borderColor: cores[c], backgroundColor: cores[c]+'22', fill:false, tension:.3, pointRadius:2,
-  }));
+  let datasets;
+  if(BACKLOG_CHART_GROUP === 'perfil'){
+    datasets = PERFIL_CARDS.map((pc,i) => ({
+      label: pc.label,
+      data: HORAS_CUTOFF.map(h => {
+        const subset = rows.filter(r => r.hora===h && pc.match(r.perfil));
+        return BACKLOG_CHART_METRIC === 'aging' ? +(bklAgingPonderado(subset)/60).toFixed(1) : subset.reduce((s,r)=>s+r.qtdPacotes,0);
+      }),
+      borderColor: PERFIL_CORES[i], backgroundColor: PERFIL_CORES[i]+'22', fill:false, tension:.3, pointRadius:2,
+    }));
+  } else {
+    const cores = { '0-4h':'#10b981', '4-24h':'#f59e0b', '>24h':'#ee4d2d' };
+    datasets = AGING_CLUSTERS.map(c => ({
+      label: c,
+      data: HORAS_CUTOFF.map(h => {
+        const subset = rows.filter(r => r.hora===h && AGING_CLUSTER_OF[r.faixaAging]===c);
+        return BACKLOG_CHART_METRIC === 'aging' ? +(bklAgingPonderado(subset)/60).toFixed(1) : subset.reduce((s,r)=>s+r.qtdPacotes,0);
+      }),
+      borderColor: cores[c], backgroundColor: cores[c]+'22', fill:false, tension:.3, pointRadius:2,
+    }));
+  }
   mkLine('chart-backlog-faixa', HORAS_CUTOFF_LABELS, datasets);
 }
 
