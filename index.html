@@ -11030,6 +11030,24 @@ function fmRenderKpis(){
   // "Veículos em fila no FM" (pedido do Roberto em 2026-08-26): checkin
   // feito e SEM doca atribuída ainda (mais estrito que emFila acima).
   const emFilaSemDoca = rows.filter(r => r.checkinDriver && !r.atribuicaoDoca);
+  // Docado/Descarregando/Atrasado (pedido do Roberto em 2026-08-28) — 3
+  // estágios sequenciais a partir dos timestamps brutos do FM, mesmo
+  // raciocínio já usado no LH (presença do timestamp = estágio atingido):
+  // checkin -> doca atribuída (fila) -> doca ocupada (docado/início da
+  // descarga) -> finalização (fim). FM não distingue "docado esperando
+  // iniciar" de "descarregando" com um timestamp próprio — ocupacao_doca é
+  // o único sinal de chegada física na doca, então ele já conta como
+  // "descarregando"; "Docados" aqui é o estágio intermediário (doca
+  // reservada, caminhão ainda a caminho dela).
+  const now = new Date();
+  const docadosFm = rows.filter(r => r.atribuicaoDoca && !r.ocupacaoDoca);
+  const descarregandoFm = rows.filter(r => r.ocupacaoDoca && !r.finalizacaoJornada);
+  const atrasadosFm = rows.filter(r => {
+    if(r.finalizacaoJornada || !r.checkinDriver) return false;
+    const desde = r.ocupacaoDoca || r.checkinDriver;
+    const d = new Date(String(desde).replace(' ','T'));
+    return !isNaN(d) && (now - d) > 3600000;
+  });
 
   // Médias "por hora" usam só as horas com dado (não /24) — mesmo padrão
   // usado no Backlog. Trocou o card Desvio Médio por esses 3 (pedido do
@@ -11061,6 +11079,9 @@ function fmRenderKpis(){
     // que o card "Veículos em Fila" acima (que é "sem finalização"), os
     // dois convivem lado a lado.
     { label:'Veículos em Fila no FM', value:emFilaSemDoca.length.toLocaleString('pt-BR'), sub:'checkin feito, sem doca atribuída', delta:'', trend:'up', type: emFilaSemDoca.length?'warning':'', icon:'fa-door-closed' },
+    { label:'Carros Docados', value:docadosFm.length.toLocaleString('pt-BR'), sub:'doca atribuída, a caminho dela', delta:'', trend:'up', type: docadosFm.length?'info':'', icon:'fa-warehouse' },
+    { label:'Descarregando', value:descarregandoFm.length.toLocaleString('pt-BR'), sub:'doca ocupada, descarga em andamento', delta:'', trend:'up', type:'', icon:'fa-dolly' },
+    { label:'Atrasado (+1h)', value:atrasadosFm.length.toLocaleString('pt-BR'), sub:'aguardando ou descarregando há mais de 1h', delta:'', trend:'up', type: atrasadosFm.length?'danger':'success', icon:'fa-triangle-exclamation' },
   ]);
 }
 
@@ -11422,6 +11443,26 @@ function filaBarraInicio(lh){
   return checkin || eta || null;
 }
 
+// Estado ao vivo por timestamp bruto (pedido do Roberto em 2026-08-28) —
+// independente do status do fila_pulso (que é sobre atribuição física de
+// doca no sistema de portaria, só existe pra quem já passou pela catraca);
+// isso usa direto os 4 timestamps de inbound_lh_pulso, que existem pra toda
+// viagem real, chegada->docagem->início descarga->fim descarga (mesma
+// convenção "presença do timestamp = estágio atingido" do resto do
+// arquivo). Alerta = chegou e passou 1h sem iniciar descarga (cobre fila E
+// docado esperando), OU iniciou descarga e passou 1h sem terminar.
+function filaEstadoTempo(t, now){
+  const lh = t.lh;
+  if(!lh || !lh.checkinDestino) return null;
+  const checkin = filaDate(lh.checkinDestino);
+  const docado = filaDate(lh.aberturaBau);
+  const inicio = filaDate(lh.inicioDescarga);
+  const fim = filaDate(lh.fimDescarga);
+  if(fim) return { estado:'finalizado', alerta:false };
+  if(inicio) return { estado:'descarregando', alerta: (now - inicio) > 3600000 };
+  return { estado: docado ? 'docado' : 'fila', alerta: checkin ? (now - checkin) > 3600000 : false };
+}
+
 function filaPopulateFilterOptions(){
   const agencias = [...new Set(FILA_TRIPS.map(t => t.agency).filter(Boolean))].sort();
   const sel = document.getElementById('fq-f-agencia');
@@ -11509,6 +11550,18 @@ function filaRenderKpis(now){
   const ativos = FILA_TRIPS.filter(t => t.emFila && t.status!=='Ended' && t.addToQueueD);
   const esperaMedia = ativos.length ? ativos.reduce((s,t) => s + (now - t.addToQueueD)/60000, 0) / ativos.length : null;
 
+  // Em Fila/Docados/Descarregando/Atrasado (pedido do Roberto em
+  // 2026-08-28) — direto dos timestamps brutos da viagem (ver
+  // filaEstadoTempo), cobre toda viagem com chegada confirmada mesmo sem
+  // registro no monitor físico da portaria (ao contrário dos cards
+  // Planejado/Em Andamento/Docado/Atrasado acima, que dependem do
+  // fila_pulso).
+  const estadosTempo = FILA_TRIPS.map(t => filaEstadoTempo(t, now)).filter(Boolean);
+  const emFilaTempo = estadosTempo.filter(e => e.estado==='fila').length;
+  const docadoTempo = estadosTempo.filter(e => e.estado==='docado').length;
+  const descarregandoTempo = estadosTempo.filter(e => e.estado==='descarregando').length;
+  const alertaTempo = estadosTempo.filter(e => e.alerta).length;
+
   // KPIs clicáveis — cada card filtra a Lineage abaixo (mesmo estado dos
   // botões do toolbar) — pedido do Roberto em 2026-08-15. Status/cores
   // (Planejado cinza, Em andamento amarelo, Docado azul, Finalizado
@@ -11531,6 +11584,10 @@ function filaRenderKpis(now){
     { label:'Atrasado', value: atrasado, icon:'fa-triangle-exclamation', type: atrasado?'danger':'success',
       clickable:true, active: FILA_VIEW==='atrasado', onclickAttr:"filaSetView('atrasado')" },
     { label:'Espera Média (ativos)', value: filaFmtMin(esperaMedia), icon:'fa-clock', type:'' },
+    { label:'Em Fila', value: emFilaTempo, sub:'chegou, aguardando docar', icon:'fa-truck-field', type: emFilaTempo?'warning':'' },
+    { label:'Carros Docados', value: docadoTempo, sub:'docado, aguardando iniciar descarga', icon:'fa-warehouse', type: docadoTempo?'info':'' },
+    { label:'Descarregando', value: descarregandoTempo, sub:'descarga em andamento', icon:'fa-dolly', type:'' },
+    { label:'Atrasado (+1h)', value: alertaTempo, sub:'aguardando ou descarregando há mais de 1h', icon:'fa-triangle-exclamation', type: alertaTempo?'danger':'success' },
   ]);
 }
 
@@ -11597,8 +11654,17 @@ function filaRenderRows(list, nowLeft){
 }
 
 function filaRenderAlerts(now){
-  const criticos = FILA_TRIPS
-    .filter(t => t.outOfThreshold && t.status !== 'Ended')
+  // Une os dois critérios de alerta (pedido do Roberto em 2026-08-28): o
+  // "out of threshold" que já vinha do sistema de portaria, e o novo alerta
+  // de +1h por timestamp bruto (ver filaEstadoTempo) — um veículo pode
+  // disparar por qualquer um dos dois, sem duplicar no sino.
+  const criticosMap = new Map();
+  FILA_TRIPS.forEach(t => {
+    if(t.outOfThreshold && t.status !== 'Ended') criticosMap.set(t.idx, t);
+    const et = filaEstadoTempo(t, now);
+    if(et && et.alerta) criticosMap.set(t.idx, t);
+  });
+  const criticos = [...criticosMap.values()]
     .sort((a,b) => (a.addToQueueD?.getTime()||0) - (b.addToQueueD?.getTime()||0));
 
   const countEl = document.getElementById('fq-alert-count');

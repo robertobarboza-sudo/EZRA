@@ -93,6 +93,11 @@ module.exports = async (req, res) => {
     hora: toNum(r.slot_chegada),
     checkinDriver: r.checkin_driver || '',
     atribuicaoDoca: r.atribuicao_doca || '',
+    // Existia na aba mas não era exposta (pedido do Roberto em 2026-08-28,
+    // card "Carros Docados") — é o único timestamp que marca a doca
+    // FISICAMENTE ocupada; atribuicao_doca só marca que uma doca foi
+    // reservada, o caminhão pode ainda estar chegando até ela.
+    ocupacaoDoca: r.ocupacao_doca || '',
     finalizacaoJornada: r.finalizacao_jornada || '',
     tempoFilaMin: toNum(r.tempo_fila_minutos),
     tempoDescargaMin: toNum(r.tempo_descarga_minutos),
