@@ -873,33 +873,35 @@
     .kanban-board-wrap { overflow-x: auto; }
     .kanban-board { display: flex; flex-direction: column; gap: 14px; min-width: fit-content; }
     /* Visão Gantt (pedido do Roberto em 2026-08-28, "visão de gestão") —
-       1 linha por demanda, agrupada por dono, barra de data_solicitacao
-       até data_conclusao (ou data_entrega/solicitação, o que tiver). */
-    .kanban-gantt { min-width: fit-content; }
-    .kb-gantt-head { display: flex; position: sticky; top: 0; z-index: 5; background: var(--surface); border-bottom: 1px solid var(--border); }
-    .kb-gantt-group-label {
-      font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
-      color: var(--text-muted); padding: 12px 12px 4px; position: sticky; left: 0; background: var(--bg); z-index: 2;
+       card do dono à esquerda (mesma linguagem visual do .kanban-row-owner
+       do quadro), esticado pra cobrir a altura de todas as demandas dele;
+       linha do tempo à direita, 1 raia por demanda empilhada verticalmente. */
+    .kanban-gantt { min-width: fit-content; display: flex; flex-direction: column; gap: 10px; }
+    .kb-gantt-head { display: flex; position: sticky; top: 0; z-index: 5; background: var(--bg); }
+    .kb-gantt-head-spacer { width: 168px; flex: none; }
+    .kb-gantt-dono-block { display: flex; align-items: stretch; gap: 10px; }
+    .kb-gantt-dono-card {
+      width: 168px; flex: none; display: flex; align-items: center; justify-content: center;
+      text-align: center; padding: 10px 12px; font-size: 13px; font-weight: 800; color: var(--text);
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      word-break: break-word; position: sticky; left: 0; z-index: 3;
     }
-    .kb-gantt-row { display: flex; align-items: center; border-bottom: 1px solid var(--border); }
-    .kb-gantt-meta {
-      width: 280px; flex: none; display: flex; align-items: center; gap: 6px;
-      padding: 8px 12px; font-size: 12px; color: var(--text); overflow: hidden;
-      position: sticky; left: 0; z-index: 3; background: var(--surface);
-    }
-    .kb-gantt-titulo { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .kb-gantt-track {
-      position: relative; height: 40px; flex: none;
+    .kb-gantt-lanes {
+      position: relative; flex: none; border: 1px solid var(--border); border-radius: var(--radius);
       background-image: repeating-linear-gradient(to right, var(--border) 0, var(--border) 1px, transparent 1px, transparent 28px);
+      overflow: hidden;
     }
-    .kb-gantt-head .kb-gantt-track { height: 26px; background-image: none; }
     .kb-gantt-dia { position: absolute; top: 6px; font-size: 9.5px; color: var(--text-muted); width: 28px; text-align: center; }
     .kb-gantt-dia.hoje { color: var(--orange); font-weight: 800; }
     .kb-gantt-bar {
-      position: absolute; top: 8px; height: 24px; border-radius: 6px; cursor: pointer; min-width: 6px;
+      position: absolute; height: 22px; border-radius: 6px; cursor: pointer; min-width: 6px;
       box-shadow: 0 2px 6px rgba(0,0,0,.25); transition: transform .15s ease, filter .15s ease;
     }
     .kb-gantt-bar:hover { transform: translateY(-1px); filter: brightness(1.15); }
+    .kb-gantt-bar-label {
+      position: absolute; top: 3px; font-size: 10.5px; color: var(--text); white-space: nowrap;
+      pointer-events: none; line-height: 22px;
+    }
     .kanban-head-row, .kanban-row {
       display: grid; grid-template-columns: 168px repeat(5, minmax(196px, 1fr));
       gap: 10px; align-items: start; min-width: 1180px;
@@ -14764,8 +14766,10 @@ function kbRenderGantt(demandas){
   });
   const donosOrdenados = [...porDono.keys()].sort((a,b) => a==='Sem Dono' ? 1 : (b==='Sem Dono' ? -1 : a.localeCompare(b,'pt-BR')));
 
-  const gruposHtml = donosOrdenados.map(dono => {
-    const linhasHtml = porDono.get(dono).slice().sort(kbCompare).map(d => {
+  const LANE_H = 30; // altura de cada raia (1 raia = 1 demanda empilhada verticalmente)
+  const blocosHtml = donosOrdenados.map(dono => {
+    const lista = porDono.get(dono).slice().sort(kbCompare);
+    const raiasHtml = lista.map((d, i) => {
       const coluna = kbColunaEfetiva(d);
       const inicioIso = d.data_solicitacao || hojeIso;
       const fimIso = d.data_conclusao || d.data_entrega || inicioIso;
@@ -14773,29 +14777,24 @@ function kbRenderGantt(demandas){
       const duracaoDias = Math.max(0, Math.round((new Date(fimIso+'T00:00:00') - new Date(inicioIso+'T00:00:00'))/86400000));
       const largura = Math.max(10, (duracaoDias+1) * KB_GANTT_DIA_PX - 4);
       const cor = KB_GANTT_COR[coluna] || 'var(--text-muted)';
+      const top = i * LANE_H + 4;
       const tip = `${d.titulo} · ${KB_STATUS_LABELS[coluna]||coluna} · ${pulsoFmtDataBr(inicioIso)} → ${pulsoFmtDataBr(fimIso)}`;
-      return `<div class="kb-gantt-row">
-        <div class="kb-gantt-meta" title="${pulsoEscHtml(d.titulo)}">
-          <span class="kanban-postit-badge prio-${d.prioridade}" style="flex:none">${KB_PRIORIDADE_LABELS[d.prioridade]||''}</span>
-          <span class="kb-gantt-titulo">${pulsoEscHtml(d.titulo)}</span>
-        </div>
-        <div class="kb-gantt-track" style="width:${trackWidth}px">
-          <div class="kb-gantt-bar" style="left:${left}px;width:${largura}px;background:${cor}" title="${pulsoEscHtml(tip)}" onclick="kbOpenDemandaForm('${d.id}')"></div>
-        </div>
-      </div>`;
+      return `<div class="kb-gantt-bar" style="left:${left}px;top:${top}px;width:${largura}px;background:${cor}" title="${pulsoEscHtml(tip)}" onclick="kbOpenDemandaForm('${d.id}')"></div>
+        <div class="kb-gantt-bar-label" style="left:${left+largura+6}px;top:${top}px">${pulsoEscHtml(d.titulo)}</div>`;
     }).join('');
-    return `<div class="kb-gantt-group">
-      <div class="kb-gantt-group-label">${pulsoEscHtml(dono)}</div>
-      ${linhasHtml}
+    const alturaLanes = lista.length * LANE_H + 8;
+    return `<div class="kb-gantt-dono-block">
+      <div class="kb-gantt-dono-card">${pulsoEscHtml(dono)}</div>
+      <div class="kb-gantt-lanes" style="width:${trackWidth}px;height:${alturaLanes}px">${raiasHtml}</div>
     </div>`;
   }).join('');
 
   el.innerHTML = `
     <div class="kb-gantt-head">
-      <div class="kb-gantt-meta"></div>
-      <div class="kb-gantt-track" style="width:${trackWidth}px">${reguaHtml}</div>
+      <div class="kb-gantt-head-spacer"></div>
+      <div class="kb-gantt-lanes" style="width:${trackWidth}px;height:24px;background-image:none">${reguaHtml}</div>
     </div>
-    ${gruposHtml}`;
+    ${blocosHtml}`;
 }
 
 // Indicadores da faixa de post-its (pedido do Roberto em 2026-08-27) —
