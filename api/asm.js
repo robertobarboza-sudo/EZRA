@@ -63,17 +63,18 @@ async function getPhdPorNivel() {
   return phd;
 }
 
-// Threshold de "mesa efetivamente aberta" (item 4.2 do pedido do Roberto
-// em 2026-08-19): performance da mesa (scan_numbers da hora ÷ PHD do
-// nível) precisa bater esse % pra contar como aberta — abaixo disso é
-// atividade residual, não capacidade operacional real. Analisei os dados
-// reais de asm_pulso (34.229 linhas, 5.572 combinações mesa×hora): ~49,6%
-// têm scan_numbers=0 (fechada, sinal limpo); o resto sobe gradual de ~5%
-// até 100%+ sem um corte natural óbvio. 25% é um ponto de partida
-// conservador — não há UI de parametrização ainda (sem página de
-// escrita), ajustar aqui se a operação achar que está sub/superestimando
-// mesas abertas.
-const THRESHOLD_MESA_ABERTA = 0.25;
+// Threshold de "mesa efetivamente aberta" (pedido do Roberto em
+// 2026-08-28, fórmula confirmada contra o relatório de referência do
+// time de PCP — substitui o threshold percentual anterior de 25% do PHD,
+// que era uma aproximação sem parametrização confirmada): scan_numbers da
+// hora×nível×mesa > 80 conta como mesa aberta, sem depender do PHD.
+const MESA_ABERTA_SCAN_MIN = 80;
+// Nível 1 (= "NC" no PHD, ver PHD_PROCESSO_PARA_NIVEL) tem exatamente 24
+// mesas físicas (Layer 1 — ver asm_extra_pulso, "24 Layer 1" mesas reais).
+// A contagem de mesas abertas desse nível nunca deve passar de 24, mesmo
+// que a fonte tenha ruído (ex. mesa duplicada/fantasma); os demais níveis
+// não têm essa contagem física confirmada ainda, então ficam sem teto.
+const TETO_MESAS_NIVEL1 = 24;
 
 // Sorting Exception (subaba nova dentro de ASM, pedido do Roberto em
 // 2026-08-14) — rejeito da esteira por máquina/hora, fonte própria
@@ -281,29 +282,39 @@ module.exports = async (req, res) => {
 
   const zonasReais = [...new Set(linhas.filter(l => !l.isSystemDefault && l.zona).map(l => l.zona))].sort();
 
-  // Capacidade horária (item 4.3 do pedido): Σ PHD das mesas efetivamente
-  // abertas naquela hora (ver THRESHOLD_MESA_ABERTA acima), por nível e
-  // consolidado. Mesa "aberta" = existiu naquela hora×nível com
-  // performance (scan_numbers ÷ PHD do nível) ≥ threshold — não conta só
-  // por ter linha na planilha (regra 4.2, evita atividade residual virar
-  // capacidade).
+  // Capacidade horária: quantidade de mesas abertas naquela hora×nível
+  // (scan_numbers > MESA_ABERTA_SCAN_MIN, teto de 24 pro Nível 1) vezes o
+  // PHD do nível — mesma lógica de sempre (mesas abertas × PHD), só a
+  // definição de "aberta" mudou (ver comentário acima das constantes).
   const capacidadePorHora = Array(24).fill(0);
   const realizadoPorHora = Array(24).fill(0);
   if (Object.keys(phdPorNivel).length) {
     // scan por (hora, nivel, mesa) — uma mesa pode ter mais de 1 operador
-    // na mesma hora, soma tudo antes de comparar com o PHD.
+    // na mesma hora, soma tudo antes de comparar com o threshold.
     const porMesaHora = new Map();
     linhas.forEach(l => {
       if (l.isSystemDefault || !l.mesa || !l.nivel) return;
       const chave = `${l.hora}|${l.nivel}|${l.mesa}`;
       porMesaHora.set(chave, (porMesaHora.get(chave) || 0) + l.scanNumbers);
     });
+    // Mesas abertas por hora×nível (contagem, não soma de PHD ainda) — o
+    // teto do Nível 1 se aplica sobre essa CONTAGEM, não mesa a mesa.
+    const abertasPorHoraNivel = new Map();
     porMesaHora.forEach((scan, chave) => {
       const [horaStr, nivel] = chave.split('|');
       const hora = Number(horaStr);
+      if (hora < 0 || hora > 23 || !phdPorNivel[nivel]) return;
+      if (scan > MESA_ABERTA_SCAN_MIN) {
+        const chaveHN = `${hora}|${nivel}`;
+        abertasPorHoraNivel.set(chaveHN, (abertasPorHoraNivel.get(chaveHN) || 0) + 1);
+      }
+    });
+    abertasPorHoraNivel.forEach((qtdAbertas, chaveHN) => {
+      const [horaStr, nivel] = chaveHN.split('|');
+      const hora = Number(horaStr);
       const phd = phdPorNivel[nivel];
-      if (!phd || hora < 0 || hora > 23) return;
-      if (scan / phd >= THRESHOLD_MESA_ABERTA) capacidadePorHora[hora] += phd;
+      const qtd = nivel === 'Nível 1' ? Math.min(TETO_MESAS_NIVEL1, qtdAbertas) : qtdAbertas;
+      capacidadePorHora[hora] += qtd * phd;
     });
   }
   linhas.forEach(l => { if (l.hora >= 0 && l.hora <= 23) realizadoPorHora[l.hora] += l.scanNumbers; });
@@ -328,7 +339,7 @@ module.exports = async (req, res) => {
     rows: linhas,
     zonas: zonasReais,
     opcoes,
-    capacidade: { porHora: capacidadePorHora, realizadoPorHora, pctAtendimento: pctAtendimentoCapacidade, thresholdMesaAberta: THRESHOLD_MESA_ABERTA },
+    capacidade: { porHora: capacidadePorHora, realizadoPorHora, pctAtendimento: pctAtendimentoCapacidade, mesaAbertaScanMin: MESA_ABERTA_SCAN_MIN },
     cobertura: { inicio: dataMinima, fim: dataMaxima },
   });
 };
