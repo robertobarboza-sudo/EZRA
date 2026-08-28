@@ -5406,13 +5406,10 @@
            lendo /api/inbound-lh?fila=1 (join fila_pulso + inbound_lh_pulso). -->
       <div id="inbound-panel-fila" style="display:none">
         <div class="mon-toolbar">
-          <select class="filter-select" id="fq-f-status" onchange="filaSetFilter('status', this.value)">
-            <option value="">Status: Todos</option>
-            <option value="Pending">Planejado</option>
-            <option value="Assigned">Em andamento</option>
-            <option value="Occupied">Docado</option>
-            <option value="Ended">Finalizado</option>
-          </select>
+          <div class="rej-msel" id="fila-msel-status">
+            <button class="rej-msel-btn" type="button" onclick="filaToggleStatusMsel(event)"><span id="fila-msel-status-label">Status: Todos</span> <i class="fas fa-caret-down"></i></button>
+            <div class="rej-msel-panel" id="fila-msel-status-panel"></div>
+          </div>
           <select class="filter-select" id="fq-f-agencia" onchange="filaSetFilter('agencia', this.value)"><option value="">Agência: Todas</option></select>
           <input class="filter-select" type="text" id="fq-f-busca" placeholder="Buscar motorista, placa, viagem…" oninput="filaSetFilter('q', this.value)" style="min-width:200px"/>
           <div class="mon-view-switcher">
@@ -5462,6 +5459,7 @@
           <span class="modal-title" id="fq-detail-title"><i class="fas fa-truck-ramp-box" style="color:var(--orange);margin-right:8px"></i>Detalhe da fila</span>
           <button class="modal-close" onclick="filaCloseDetail()"><i class="fas fa-xmark"></i></button>
         </div>
+        <div id="fq-detail-tags" class="mon-tag-picker"></div>
         <div id="fq-detail-body" class="mon-detail-grid"></div>
       </div>
     </div>
@@ -11326,7 +11324,49 @@ let FILA_DATA = null;
 let FILA_TRIPS = [];
 let FILA_DIA = null;
 let FILA_DAY_START = null;
-let FILA_FILTERS = { status:'', agencia:'', q:'' };
+let FILA_FILTERS = { status:[], agencia:'', q:'' };
+// Rótulos do multi-select de Status (pedido do Roberto em 2026-08-28,
+// "permita selecionar mais de um") — reaproveita o padrão genérico de
+// multi-select já usado no Sorting Exception (.rej-msel-*).
+const FILA_STATUS_OPCOES = [
+  { value:'Pending', label:'Planejado' },
+  { value:'Assigned', label:'Em andamento' },
+  { value:'Occupied', label:'Docado' },
+  { value:'Ended', label:'Finalizado' },
+];
+function filaRenderStatusMsel(){
+  const btn = document.querySelector('#fila-msel-status .rej-msel-btn span');
+  const btnEl = document.querySelector('#fila-msel-status .rej-msel-btn');
+  const panel = document.getElementById('fila-msel-status-panel');
+  if(!btn || !panel) return;
+  const sel = FILA_FILTERS.status;
+  const rotulo = !sel.length ? 'Todos' : sel.length<=2 ? sel.map(v=>FILA_STATUS_OPCOES.find(o=>o.value===v)?.label||v).join(', ') : `${sel.length} selecionados`;
+  btn.textContent = `Status: ${rotulo}`;
+  btnEl.classList.toggle('has-value', sel.length>0);
+  panel.innerHTML = FILA_STATUS_OPCOES.map(o => `
+      <label class="rej-msel-opt"><input type="checkbox" value="${o.value}" ${sel.includes(o.value)?'checked':''} onchange="filaMselCheckStatus(this)"> ${o.label}</label>
+    `).join('')
+    + (sel.length ? `<div class="rej-msel-actions"><button type="button" onclick="filaMselClearStatus()">Limpar</button></div>` : '');
+}
+function filaToggleStatusMsel(ev){
+  ev.stopPropagation();
+  rejBindMselDocClose(); // fecha ao clicar fora — reaproveita o listener global já existente
+  const panel = document.getElementById('fila-msel-status-panel');
+  const abrir = !panel.classList.contains('open');
+  document.querySelectorAll('.rej-msel-panel.open').forEach(p => p.classList.remove('open'));
+  panel.classList.toggle('open', abrir);
+}
+function filaMselCheckStatus(cb){
+  const arr = FILA_FILTERS.status;
+  const i = arr.indexOf(cb.value);
+  if(cb.checked && i===-1) arr.push(cb.value);
+  if(!cb.checked && i!==-1) arr.splice(i,1);
+  filaRenderAll();
+}
+function filaMselClearStatus(){
+  FILA_FILTERS.status = [];
+  filaRenderAll();
+}
 let FILA_VIEW = 'todas';
 let FILA_TICK_STARTED = false;
 let FILA_REFRESH_STARTED = false;
@@ -11335,6 +11375,28 @@ let FILA_REFRESH_STARTED = false;
 // mesmo padrão já usado no PULSO (var(--cyan)).
 const FILA_STATUS_LABEL = { Pending:'Planejado', Assigned:'Em andamento', Occupied:'Docado', Ended:'Finalizado' };
 const FILA_STATUS_COLOR = { Pending:'var(--text-muted)', Assigned:'var(--amber)', Occupied:'var(--cyan)', Ended:'var(--green)' };
+
+// Tags por LT (pedido do Roberto em 2026-08-28, mesmo padrão do Monitor
+// Live do Outbound — MON_TAGS/monSetTag) — guardadas em MONITOR_TAGS_INPUT
+// colunas T:W (ver api/inbound-lh.js), histórico completo (cada marcação
+// vira uma linha nova, nada é sobrescrito).
+const FILA_TAGS = [
+  { label:'Em Fila',        color:'var(--amber)' },
+  { label:'Docado',         color:'var(--cyan)' },
+  { label:'Descarregando',  color:'var(--cyan)' },
+  { label:'Finalizado',     color:'var(--green)' },
+];
+function filaTagColor(label){ return (FILA_TAGS.find(t => t.label === label) || {}).color || 'var(--text-muted)'; }
+let FILA_TAGS_HISTORICO = [];
+// Última marcação por LT (o array vem em ordem de gravação — a última
+// ocorrência de cada trip_number é a mais recente).
+function filaTagAtual(tripNumber){
+  if(!tripNumber) return null;
+  for(let i = FILA_TAGS_HISTORICO.length - 1; i >= 0; i--){
+    if(FILA_TAGS_HISTORICO[i].lt_trip_number === tripNumber) return FILA_TAGS_HISTORICO[i];
+  }
+  return null;
+}
 
 function filaRender(){
   if(!FILA_TICK_STARTED){
@@ -11361,7 +11423,10 @@ function filaAutoRefresh(){
 
 async function filaLoad(){
   try{
-    const r = await fetch('/api/inbound-lh?fila=1', { cache:'no-store' });
+    const [r, rTags] = await Promise.all([
+      fetch('/api/inbound-lh?fila=1', { cache:'no-store' }),
+      fetch('/api/inbound-lh?tags=1', { cache:'no-store' }),
+    ]);
     const j = await r.json();
     if(!j.ok) throw new Error(j.erro || 'resposta inválida');
     setBadge('inbound', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
@@ -11369,6 +11434,8 @@ async function filaLoad(){
     FILA_DAY_START = new Date(j.dia + 'T06:00:00');
     FILA_TRIPS = (j.rows || []).map(filaParse).map((t,i) => ({ ...t, idx:i }));
     FILA_DATA = j;
+    const jTags = await rTags.json().catch(() => null);
+    FILA_TAGS_HISTORICO = (jTags && jTags.ok) ? (jTags.historico || []) : FILA_TAGS_HISTORICO;
     filaPopulateFilterOptions();
     filaBuildHours();
     filaRenderAll();
@@ -11504,14 +11571,17 @@ function filaToggleAlerts(){
 function filaScrollToNow(){
   const wrap = document.querySelector('#inbound-panel-fila .mon-scroll');
   if(!wrap) return;
-  wrap.scrollLeft = Math.max(0, 280 + filaPos(new Date()) - wrap.clientWidth/2);
+  // 340 = largura real de .mon-row-meta (pedido do Roberto em 2026-08-28,
+  // "painel da 05h sobreposto") — estava com 280, herdado por engano de
+  // um valor antigo; o Monitor Live do Outbound (mesmo padrão) já usa 340.
+  wrap.scrollLeft = Math.max(0, 340 + filaPos(new Date()) - wrap.clientWidth/2);
 }
 
 function filaFilteredTrips(){
   const { status, agencia, q } = FILA_FILTERS;
   const busca = q.trim().toLowerCase();
   return FILA_TRIPS.filter(t => {
-    if(status && t.status !== status) return false;
+    if(status.length && !status.includes(t.status)) return false;
     if(agencia && t.agency !== agencia) return false;
     if(FILA_VIEW === 'planejado' && t.status !== 'Pending') return false;
     if(FILA_VIEW === 'andamento' && t.status !== 'Assigned') return false;
@@ -11533,6 +11603,7 @@ function filaRenderAll(){
   if(lastEl) lastEl.textContent = 'Agora: ' + now.toLocaleTimeString('pt-BR') + ' · dia exibido ' + filaFmtDate(FILA_DIA);
 
   filaSyncViewButtons();
+  filaRenderStatusMsel();
   filaRenderKpis(now);
   filaRenderRows(filaFilteredTrips(), filaPos(now));
   filaRenderAlerts(now);
@@ -11620,6 +11691,8 @@ function filaRowHtml(t, nowLeft){
     }
   }
 
+  const tagInfo = filaTagAtual(t.lhTripNumber);
+
   return `
     <div class="mon-row" onclick="filaOpenDetail(${t.idx})">
       <div class="mon-row-meta">
@@ -11628,6 +11701,7 @@ function filaRowHtml(t, nowLeft){
           <div class="mon-row-text"><b>${pulsoEscHtml(label)}</b> · ${pulsoEscHtml(t.queueNumber||'')}</div>
           <div class="mon-row-sub">${pulsoEscHtml(t.driver||'—')} · ${pulsoEscHtml(t.agency||'—')} · ${pulsoEscHtml(statusLabel)}</div>
         </div>
+        ${tagInfo && tagInfo.lt_tag ? `<span class="mon-row-tag" style="background:${filaTagColor(tagInfo.lt_tag)}" title="${pulsoEscHtml(tagInfo.lt_usuario ? `Marcado por ${tagInfo.lt_usuario}` : 'Tag')}">${pulsoEscHtml(tagInfo.lt_tag)}</span>` : ''}
       </div>
       <div class="mon-track" title="${pulsoEscHtml(tip)}">
         <div class="fq-marker" style="left:${left}px;background:${color}"></div>
@@ -11650,7 +11724,7 @@ function filaRenderRows(list, nowLeft){
     return (a.addToQueueD?.getTime()||0) - (b.addToQueueD?.getTime()||0);
   });
   let html = sorted.map(t => filaRowHtml(t, nowLeft)).join('');
-  html += `<div class="mon-now-line" style="left:${280 + nowLeft}px"></div>`;
+  html += `<div class="mon-now-line" style="left:${340 + nowLeft}px"></div>`;
   el.innerHTML = html;
 }
 
@@ -11695,10 +11769,46 @@ function filaExportCsv(){
   ], rows, (r,k) => k==='status' ? filaStatusLabel(r) : k==='addToQueueD' ? filaFmtHM(r.addToQueueD) : (r[k] ?? ''));
 }
 
+// Chips de tag (pedido do Roberto em 2026-08-28) — reaproveitado nos dois
+// ramos de filaOpenDetail (com ou sem viagem vinculada), já que a tag é
+// por LT, independente de ter dado casado com inbound_lh_pulso ou não.
+function filaRenderTagPicker(tripNumber){
+  const el = document.getElementById('fq-detail-tags');
+  if(!el) return;
+  if(!tripNumber){ el.innerHTML = ''; return; }
+  const tagInfo = filaTagAtual(tripNumber);
+  const chipsHtml = FILA_TAGS.map(ft => {
+    const active = tagInfo && tagInfo.lt_tag === ft.label;
+    const tnJs = tripNumber.replace(/'/g,"\\'");
+    return `<div class="mon-tag-chip${active?' active':''}" style="${active?`background:${ft.color};`:''}" onclick="filaSetTag('${tnJs}', ${active ? "''" : `'${ft.label.replace(/'/g,"\\'")}'`})">${pulsoEscHtml(ft.label)}</div>`;
+  }).join('');
+  el.innerHTML = chipsHtml +
+    (tagInfo && tagInfo.lt_tag ? `<div class="mon-tag-meta">Marcado${tagInfo.lt_usuario ? ' por ' + pulsoEscHtml(tagInfo.lt_usuario) : ''} · ${pulsoEscHtml(new Date(tagInfo.lt_atualizado_em).toLocaleString('pt-BR', {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}))}</div>` : '');
+}
+async function filaSetTag(tripNumber, tagLabel){
+  const usuario = tagLabel ? monGetMe() : (filaTagAtual(tripNumber)?.lt_usuario || '');
+  // Otimista + histórico local (append, nunca sobrescreve) — mesmo padrão
+  // do backend (ver readLhTags/buildLhTags em api/inbound-lh.js).
+  FILA_TAGS_HISTORICO.push({ lt_trip_number:tripNumber, lt_tag:tagLabel, lt_usuario:usuario, lt_atualizado_em:new Date().toISOString() });
+  filaRenderTagPicker(tripNumber);
+  filaRenderAll();
+  try{
+    const r = await fetch('/api/inbound-lh?tags=1', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ trip_number:tripNumber, tag:tagLabel, usuario }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'Falha ao salvar tag');
+  }catch(err){
+    alert('Não foi possível salvar a tag: ' + err.message);
+    filaLoad();
+  }
+}
 function filaOpenDetail(idx){
   const t = FILA_TRIPS.find(x => x.idx === idx);
   if(!t) return;
   document.getElementById('fq-detail-title').innerHTML = `<i class="fas fa-truck-ramp-box" style="color:var(--orange);margin-right:8px"></i>${pulsoEscHtml(t.lhTripNumber || t.veiculo || t.queueNumber || '—')}`;
+  filaRenderTagPicker(t.lhTripNumber);
   const body = document.getElementById('fq-detail-body');
   if(!t.lh){
     body.className = '';

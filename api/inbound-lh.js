@@ -25,7 +25,7 @@
  *   from, to   YYYY-MM-DD (default = hoje, ou o dia mais recente disponível
  *              se hoje não tiver dado ainda)
  */
-const { fetchTabByGid } = require('./_google');
+const { fetchTabByGid, readRange, writeRange, resolveTitle, ensureSheetExists } = require('./_google');
 const { toNum, hojeOperacionalIso, dataOperacionalDe } = require('./_period');
 
 const SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '1485919739' };
@@ -180,7 +180,76 @@ async function buildFila(req, res) {
   });
 }
 
+// Tags de andamento por LT no Monitor - Fila (pedido do Roberto em
+// 2026-08-28) — mesma aba MONITOR_TAGS_INPUT que o Monitor Live do
+// Outbound já usa (gid 1506357496, ver TAGS_HEADER em api/outbound.js,
+// colunas A:R), mas em colunas separadas a partir de T (S fica de
+// intervalo, sem uso) — evita qualquer colisão com o bloco do Outbound.
+// Ao contrário do Outbound (1 linha por trip, sobrescrita a cada tag
+// nova), aqui cada marcação vira uma linha NOVA — "guarde histórico na
+// mesma base": nada é apagado/sobrescrito, só acrescentado.
+const LH_TAGS_SHEET_ID = '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4';
+const LH_TAGS_TAB_GID = '1506357496';
+const LH_TAGS_HEADER = ['lt_trip_number', 'lt_tag', 'lt_usuario', 'lt_atualizado_em'];
+const LH_TAGS = new Set(['Em Fila', 'Docado', 'Descarregando', 'Finalizado']);
+
+async function lhTagsTitle() {
+  try {
+    return await resolveTitle(LH_TAGS_SHEET_ID, LH_TAGS_TAB_GID);
+  } catch (err) {
+    await ensureSheetExists(LH_TAGS_SHEET_ID, 'MONITOR_TAGS_INPUT');
+    return 'MONITOR_TAGS_INPUT';
+  }
+}
+async function lhTagsRange() {
+  const title = await lhTagsTitle();
+  return `'${title}'!T:W`;
+}
+function lhTagLinhaParaObjeto(r) {
+  const o = {};
+  LH_TAGS_HEADER.forEach((campo, i) => { o[campo] = r[i] || ''; });
+  return o;
+}
+async function readLhTags() {
+  let values;
+  try {
+    values = await readRange(LH_TAGS_SHEET_ID, await lhTagsRange());
+  } catch (err) {
+    return [];
+  }
+  if (!values.length) return [];
+  return values.slice(1).map(lhTagLinhaParaObjeto).filter(o => o.lt_trip_number);
+}
+
+async function buildLhTags(req, res) {
+  if (req.method === 'POST') {
+    const { trip_number, tag, usuario } = req.body || {};
+    if (!trip_number) { res.status(400).json({ ok: false, erro: 'trip_number obrigatório' }); return; }
+    if (tag && !LH_TAGS.has(tag)) { res.status(400).json({ ok: false, erro: 'tag inválida' }); return; }
+    try {
+      const historico = await readLhTags();
+      historico.push({ lt_trip_number: trip_number, lt_tag: tag || '', lt_usuario: usuario || '', lt_atualizado_em: new Date().toISOString() });
+      const values = [LH_TAGS_HEADER, ...historico.map(o => LH_TAGS_HEADER.map(c => o[c] != null ? o[c] : ''))];
+      await writeRange(LH_TAGS_SHEET_ID, await lhTagsRange(), values);
+      res.status(200).json({ ok: true, historico });
+    } catch (err) {
+      res.status(502).json({ ok: false, erro: err.message });
+    }
+    return;
+  }
+  try {
+    const historico = await readLhTags();
+    res.status(200).json({ ok: true, historico });
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+  }
+}
+
 module.exports = async (req, res) => {
+  if (req.query.tags !== undefined) {
+    await buildLhTags(req, res);
+    return;
+  }
   if (req.query.fila !== undefined) {
     await buildFila(req, res);
     return;
