@@ -7,7 +7,7 @@
  * conhecidos (nunca aceita spreadsheetId arbitrário via query, pra não
  * virar um scanner de qualquer planilha da Service Account).
  */
-const { listTabs, fetchTabByGid, fetchTabRawValues, fetchTabFormatting, renameTab } = require('./_google');
+const { listTabs, fetchTabByGid, fetchTabRawValues, fetchTabFormatting, renameTab, deleteTab } = require('./_google');
 
 const PERMITIDAS = new Set([
   '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4',
@@ -29,6 +29,23 @@ module.exports = async (req, res) => {
         return;
       }
       const resultado = await renameTab(id, req.query.gid, req.query.rename);
+      res.status(200).json({ ok: true, resultado });
+      return;
+    }
+    // Exclusão de aba sob demanda (limpeza de aba órfã depois de uma
+    // consolidação, pedido do Roberto em 2026-08-28) — POST só, uma aba de
+    // cada vez, exige repetir o gid em ?confirmGid= igual ao ?gid= pra
+    // reduzir chance de excluir a aba errada por engano.
+    if (req.query.gid !== undefined && req.query.delete !== undefined) {
+      if (req.method !== 'POST') {
+        res.status(405).json({ ok: false, erro: 'Use POST' });
+        return;
+      }
+      if (req.query.confirmGid !== req.query.gid) {
+        res.status(400).json({ ok: false, erro: 'confirmGid precisa repetir o mesmo valor de gid' });
+        return;
+      }
+      const resultado = await deleteTab(id, req.query.gid);
       res.status(200).json({ ok: true, resultado });
       return;
     }

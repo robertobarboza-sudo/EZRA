@@ -270,6 +270,24 @@ async function renameTab(spreadsheetId, gid, newTitle) {
   return body;
 }
 
+// Exclui uma aba pelo gid — usado pra limpar aba órfã depois de uma
+// consolidação (ex.: kanban_config_input/kanban_demandas_input depois de
+// tudo migrar pra kanban_input). Exposto via api/debug-meta.js
+// (?gid=X&delete=1), mesmo padrão de renameTab logo acima — nunca aceita
+// spreadsheetId arbitrário (ver PERMITIDAS em debug-meta.js).
+async function deleteTab(spreadsheetId, gid) {
+  const token = await getAccessToken();
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`, {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: [{ deleteSheet: { sheetId: Number(gid) } }] }),
+  });
+  const body = await r.json();
+  if (!r.ok) throw new Error('Sheets deleteSheet: ' + (body.error?.message || r.status));
+  _titleCache.delete(spreadsheetId);
+  return body;
+}
+
 // Cria a aba se ainda não existir (idempotente) — usado pra provisionar
 // monitor_tags_pulso no primeiro uso da feature de tags, sem exigir setup
 // manual do Roberto na planilha.
@@ -288,4 +306,4 @@ async function ensureSheetExists(spreadsheetId, title) {
   }
 }
 
-module.exports = { fetchTabByGid, fetchTabRawValues, fetchTabFormatting, resolveTitle, listTabs, readRange, writeRange, updateRangeRaw, batchUpdateValues, ensureSheetExists, renameTab };
+module.exports = { fetchTabByGid, fetchTabRawValues, fetchTabFormatting, resolveTitle, listTabs, readRange, writeRange, updateRangeRaw, batchUpdateValues, ensureSheetExists, renameTab, deleteTab };
