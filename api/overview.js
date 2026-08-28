@@ -509,15 +509,12 @@ async function buildJustificativas(req, res) {
    manualmente toda vez que deixar de estar atrasado. status guardado é só
    fila/andamento/hold/finalizado.
 ================================================================ */
-const KANBAN_DONOS_TITLE = 'kanban_donos_input';
-// `ordem` e `cor` acrescentadas no FIM (pedido do Roberto em 2026-08-27,
-// aba já tinha linhas reais) — mesmo motivo de `tag` em KANBAN_DEMANDAS_HEADER.
-const KANBAN_DONOS_HEADER = ['id', 'nome', 'criado_em', 'ordem', 'cor'];
-// Cor por coluna de status (pedido do Roberto em 2026-08-27) — 1 linha por
-// coluna (fila/atrasado/andamento/hold/finalizado), 'id' == 'status' só pra
-// reaproveitar kanbanReadTab/kanbanWriteTab sem helper novo.
-const KANBAN_COLUNAS_TITLE = 'kanban_colunas_input';
-const KANBAN_COLUNAS_HEADER = ['id', 'status', 'cor'];
+// Donos e cores de coluna unificados numa aba só (pedido do Roberto em
+// 2026-08-28, "economizar espaço" — antes eram 2 abas, kanban_donos_input
+// e kanban_colunas_input). `tipo` distingue a linha: 'dono' (chave=nome,
+// usa criado_em/ordem/cor) ou 'coluna' (chave=status, só usa cor).
+const KANBAN_CONFIG_TITLE = 'kanban_config_input';
+const KANBAN_CONFIG_HEADER = ['tipo', 'id', 'chave', 'criado_em', 'ordem', 'cor'];
 const KANBAN_COLUNA_IDS = new Set(['fila', 'atrasado', 'andamento', 'hold', 'finalizado']);
 const KANBAN_COR_RE = /^#[0-9a-fA-F]{6}$/;
 const KANBAN_DEMANDAS_TITLE = 'kanban_demandas_input';
@@ -563,6 +560,25 @@ function novoKanbanId(prefixo) {
   return prefixo + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 }
 
+// Lê a aba unificada e já separa em {donos, colunas} no formato que o
+// front espera (mesmo shape de antes, quando eram 2 abas) — mutações
+// sempre leem tudo, mexem só no subconjunto que interessa, e escrevem tudo
+// de volta junto (kanbanWriteTab reescreve a aba inteira a cada chamada).
+async function kanbanReadConfig() {
+  const rows = await kanbanReadTab(KANBAN_CONFIG_TITLE, KANBAN_CONFIG_HEADER);
+  return {
+    donos: rows.filter(r => r.tipo === 'dono').map(r => ({ id: r.id, nome: r.chave, criado_em: r.criado_em, ordem: r.ordem, cor: r.cor })),
+    colunas: rows.filter(r => r.tipo === 'coluna').map(r => ({ id: r.id, status: r.chave, cor: r.cor })),
+  };
+}
+async function kanbanWriteConfig(donos, colunas) {
+  const linhas = [
+    ...donos.map(d => ({ tipo: 'dono', id: d.id, chave: d.nome, criado_em: d.criado_em || '', ordem: d.ordem != null ? d.ordem : '', cor: d.cor || '' })),
+    ...colunas.map(c => ({ tipo: 'coluna', id: c.id, chave: c.status, criado_em: '', ordem: '', cor: c.cor || '' })),
+  ];
+  await kanbanWriteTab(KANBAN_CONFIG_TITLE, KANBAN_CONFIG_HEADER, linhas);
+}
+
 async function buildKanban(req, res) {
   if (req.method === 'POST') {
     const action = (req.body || {}).action;
@@ -573,30 +589,31 @@ async function buildKanban(req, res) {
       if (action === 'create_dono') {
         const nome = String(entry.nome || '').trim();
         if (!nome) { res.status(400).json({ ok: false, erro: 'nome é obrigatório' }); return; }
-        const donos = await kanbanReadTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER);
+        const { donos, colunas } = await kanbanReadConfig();
         donos.push({ id: novoKanbanId('do'), nome, criado_em: agora });
-        await kanbanWriteTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER, donos);
+        await kanbanWriteConfig(donos, colunas);
         res.status(200).json({ ok: true, donos });
         return;
       }
       if (action === 'delete_dono') {
-        const donos = (await kanbanReadTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER)).filter(d => d.id !== entry.id);
-        await kanbanWriteTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER, donos);
-        res.status(200).json({ ok: true, donos });
+        const { donos, colunas } = await kanbanReadConfig();
+        const restantes = donos.filter(d => d.id !== entry.id);
+        await kanbanWriteConfig(restantes, colunas);
+        res.status(200).json({ ok: true, donos: restantes });
         return;
       }
-      // Upsert por nome — o dono pode ainda não ter linha própria em
-      // KANBAN_DONOS_TITLE (só existe via nome usado em demanda.dono).
+      // Upsert por nome — o dono pode ainda não ter linha própria na
+      // config (só existe via nome usado em demanda.dono).
       if (action === 'update_dono_ordens') {
         const ordens = Array.isArray(entry.ordens) ? entry.ordens : [];
-        const donos = await kanbanReadTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER);
+        const { donos, colunas } = await kanbanReadConfig();
         ordens.forEach(({ nome, ordem }) => {
           if (!nome) return;
           const atual = donos.find(d => d.nome === nome);
           if (atual) atual.ordem = ordem;
           else donos.push({ id: novoKanbanId('do'), nome, criado_em: agora, ordem, cor: '' });
         });
-        await kanbanWriteTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER, donos);
+        await kanbanWriteConfig(donos, colunas);
         res.status(200).json({ ok: true, donos });
         return;
       }
@@ -604,11 +621,11 @@ async function buildKanban(req, res) {
         const nome = String(entry.nome || '').trim();
         const cor = entry.cor && KANBAN_COR_RE.test(entry.cor) ? entry.cor : '';
         if (!nome) { res.status(400).json({ ok: false, erro: 'nome é obrigatório' }); return; }
-        const donos = await kanbanReadTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER);
+        const { donos, colunas } = await kanbanReadConfig();
         const atual = donos.find(d => d.nome === nome);
         if (atual) atual.cor = cor;
         else donos.push({ id: novoKanbanId('do'), nome, criado_em: agora, ordem: '', cor });
-        await kanbanWriteTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER, donos);
+        await kanbanWriteConfig(donos, colunas);
         res.status(200).json({ ok: true, donos });
         return;
       }
@@ -616,11 +633,11 @@ async function buildKanban(req, res) {
         const status = String(entry.status || '');
         if (!KANBAN_COLUNA_IDS.has(status)) { res.status(400).json({ ok: false, erro: 'coluna inválida' }); return; }
         const cor = entry.cor && KANBAN_COR_RE.test(entry.cor) ? entry.cor : '';
-        const colunas = await kanbanReadTab(KANBAN_COLUNAS_TITLE, KANBAN_COLUNAS_HEADER);
+        const { donos, colunas } = await kanbanReadConfig();
         const atual = colunas.find(c => c.status === status);
         if (atual) atual.cor = cor;
         else colunas.push({ id: status, status, cor });
-        await kanbanWriteTab(KANBAN_COLUNAS_TITLE, KANBAN_COLUNAS_HEADER, colunas);
+        await kanbanWriteConfig(donos, colunas);
         res.status(200).json({ ok: true, colunas });
         return;
       }
@@ -691,10 +708,9 @@ async function buildKanban(req, res) {
   }
 
   try {
-    const [donos, demandas, colunas] = await Promise.all([
-      kanbanReadTab(KANBAN_DONOS_TITLE, KANBAN_DONOS_HEADER),
+    const [{ donos, colunas }, demandas] = await Promise.all([
+      kanbanReadConfig(),
       kanbanReadTab(KANBAN_DEMANDAS_TITLE, KANBAN_DEMANDAS_HEADER),
-      kanbanReadTab(KANBAN_COLUNAS_TITLE, KANBAN_COLUNAS_HEADER),
     ]);
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({ ok: true, donos, demandas, colunas });
