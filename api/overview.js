@@ -709,20 +709,6 @@ async function buildKanban(req, res) {
         return;
       }
 
-      // TEMPORÁRIO — restauração de dados perdidos (pedido do Roberto em
-      // 2026-08-28, apagou kanban_demandas_input/kanban_config_input por
-      // engano). Escreve os objetos EXATAMENTE como vieram (preserva id/
-      // criado_em/atualizado_em/data_conclusao originais, ao contrário de
-      // create_demanda que sempre gera novo). Remover depois de usado uma
-      // vez — não é uma action pra ficar exposta permanentemente.
-      if (action === 'restore_bulk') {
-        const donosNovos = Array.isArray(entry.donos) ? entry.donos : [];
-        const demandasNovas = Array.isArray(entry.demandas) ? entry.demandas : [];
-        await kanbanWriteAll(donosNovos, [], demandasNovas);
-        res.status(200).json({ ok: true, donos: donosNovos, demandas: demandasNovas });
-        return;
-      }
-
       res.status(400).json({ ok: false, erro: 'action inválida' });
     } catch (err) {
       res.status(502).json({ ok: false, erro: err.message });
