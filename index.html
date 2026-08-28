@@ -1126,10 +1126,34 @@
       position: relative; overflow: hidden;
     }
     .login-brand::before {
-      content: ''; position: absolute; inset: -60px;
-      background: radial-gradient(circle at 60% 40%, rgba(238,77,45,.25) 0%, transparent 65%);
+      content: ''; position: absolute; inset: -60px; z-index: 1;
+      background: radial-gradient(circle at 60% 40%, rgba(238,77,45,.25) 0%, transparent 65%),
+                  linear-gradient(145deg, rgba(26,10,0,.88) 0%, rgba(61,20,0,.82) 40%, rgba(122,40,0,.75) 100%);
       pointer-events: none;
     }
+    /* Carrossel de fundo (pedido do Roberto em 2026-08-28) — imagens
+       cross-fade, troca a cada 15s (ver loginBgInit). Fica atrás do
+       gradiente escuro acima (contraste do texto) e do conteúdo da marca. */
+    .login-bg-carousel { position: absolute; inset: 0; z-index: 0; overflow: hidden; }
+    .login-bg-slide {
+      position: absolute; inset: 0; background-size: cover; background-position: center;
+      opacity: 0; transition: opacity 1.2s ease;
+    }
+    .login-bg-slide.active { opacity: 1; }
+    .login-brand-content { position: relative; z-index: 2; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    .login-mode-toggle { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 18px; }
+    .login-mode-toggle a { color: var(--orange-ll); font-weight: 700; cursor: pointer; text-decoration: none; }
+    .login-mode-toggle a:hover { text-decoration: underline; }
+    .login-forgot { text-align: right; margin: -8px 0 16px; }
+    .login-forgot a { font-size: 11px; color: var(--text-muted); cursor: pointer; text-decoration: none; }
+    .login-forgot a:hover { color: var(--orange-ll); text-decoration: underline; }
+    .login-visitor-btn {
+      width: 100%; padding: 10px; margin-top: 10px;
+      background: transparent; border: 1.5px solid var(--border); border-radius: var(--radius);
+      color: var(--text-sub); font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+      transition: all var(--transition);
+    }
+    .login-visitor-btn:hover { border-color: var(--orange); color: var(--orange-ll); background: rgba(238,77,45,.06); }
     .login-brand-eye {
       width: 80px; height: 80px;
       background: linear-gradient(135deg, var(--orange), #ff8c00);
@@ -4298,6 +4322,8 @@
 <div id="login-screen">
   <div class="login-wrap">
     <div class="login-brand">
+      <div class="login-bg-carousel" id="login-bg-carousel"></div>
+      <div class="login-brand-content">
       <div class="login-brand-eye"><svg class="jarvis-arc-lg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
   <defs>
     <radialGradient id="coreGradLg" cx="50%" cy="50%" r="50%">
@@ -4373,13 +4399,22 @@
       <div class="login-brand-sub">Sistema de monitoramento operacional</div>
       <div class="jarvis-sub-bottom">COP RJ2 2026</div>
       <div class="login-brand-dots"><b></b><b></b><b></b></div>
+      </div>
     </div>
     <div class="login-form-panel">
-      <div class="login-form-title">Bem-vindo de volta</div>
-      <div class="login-form-sub">Faça login para acessar o portal</div>
+      <div class="login-form-title" id="login-form-title">Bem-vindo de volta</div>
+      <div class="login-form-sub" id="login-form-sub">Faça login para acessar o portal</div>
       <div class="login-error" id="login-error">
         <i class="fas fa-circle-exclamation"></i>
         <span id="login-error-msg">E-mail ou senha incorretos.</span>
+      </div>
+      <div class="login-field" id="login-nome-field" style="display:none">
+        <label class="login-label">Nome</label>
+        <div class="login-input-wrap">
+          <i class="fas fa-user"></i>
+          <input type="text" class="login-input" id="login-nome"
+            placeholder="Seu nome completo" autocomplete="name" />
+        </div>
       </div>
       <div class="login-field">
         <label class="login-label">E-mail</label>
@@ -4403,9 +4438,16 @@
           </button>
         </div>
       </div>
-      <button class="login-btn" id="login-btn" onclick="doLogin()">
+      <div class="login-forgot"><a onclick="authForgotPassword()">Esqueci minha senha</a></div>
+      <button class="login-btn" id="login-btn">
         <i class="fas fa-arrow-right-to-bracket"></i> Entrar
       </button>
+      <button type="button" class="login-visitor-btn" onclick="doVisitante()">
+        <i class="fas fa-user-clock"></i> Acesso Visitante
+      </button>
+      <div class="login-mode-toggle" id="login-mode-toggle">
+        Não tem conta? <a onclick="authSetMode('cadastro')">Criar conta</a>
+      </div>
       <div class="login-footer">
         JARVIS v1.0 · COP RJ2 2026 · Acesso restrito
       </div>
@@ -4424,6 +4466,9 @@
   </div>
   <div class="user-menu-item" onclick="location.reload()">
     <i class="fas fa-rotate-right"></i> Atualizar portal
+  </div>
+  <div class="user-menu-item danger" onclick="pulsoLogout()">
+    <i class="fas fa-arrow-right-from-bracket"></i> Sair
   </div>
 </div>
 
@@ -7390,9 +7435,27 @@ function applyAccessControl(){
 }
 
 /* ================================================================
-   AUTH — session via sessionStorage
+   AUTH — Sentinela CCO (pedido do Roberto em 2026-08-28): login/cadastro
+   reais contra a aba `usuarios` via /api/overview?auth=1 (hash de senha,
+   scrypt — ver api/overview.js). Sessão salva em localStorage (sobrevive
+   a reload, só sai clicando "Sair") — isso NÃO é um gate de API, só
+   decide se a tela de login aparece de novo ou não; quem protege os
+   dados de verdade é a service account do backend.
 ================================================================ */
 let currentUser = null;
+const PULSO_SESSION_KEY = 'pulso_session';
+function pulsoSalvarSessao(user){ localStorage.setItem(PULSO_SESSION_KEY, JSON.stringify(user)); }
+function pulsoLerSessao(){
+  try { const raw = localStorage.getItem(PULSO_SESSION_KEY); return raw ? JSON.parse(raw) : null; }
+  catch(e){ return null; }
+}
+function pulsoLogout(){ localStorage.removeItem(PULSO_SESSION_KEY); location.reload(); }
+function pulsoIniciais(nome){
+  const partes = String(nome||'').trim().split(/\s+/).filter(Boolean);
+  if(!partes.length) return '?';
+  if(partes.length === 1) return partes[0].slice(0,2).toUpperCase();
+  return (partes[0][0] + partes[partes.length-1][0]).toUpperCase();
+}
 const PORTAL_USER = {
   name: 'Operações', initials: 'OP', role: 'Administrador', email: 'portal@interno'
 };
@@ -7423,18 +7486,18 @@ function applyUser(user){
   if(ue) ue.textContent = user.email;
 }
 
-function doLogin(){
-  const email    = document.getElementById('login-email').value.trim().toLowerCase();
-  const password = document.getElementById('login-password').value;
-  const btn      = document.getElementById('login-btn');
-  const errBox   = document.getElementById('login-error');
-  const errMsg   = document.getElementById('login-error-msg');
+async function doLogin(){
+  const email  = document.getElementById('login-email').value.trim().toLowerCase();
+  const senha  = document.getElementById('login-password').value;
+  const btn    = document.getElementById('login-btn');
+  const errBox = document.getElementById('login-error');
+  const errMsg = document.getElementById('login-error-msg');
 
   errBox.classList.remove('show');
   document.getElementById('login-email').classList.remove('input-error');
   document.getElementById('login-password').classList.remove('input-error');
 
-  if(!email || !password){
+  if(!email || !senha){
     errMsg.textContent = 'Preencha e-mail e senha.';
     errBox.classList.add('show');
     return;
@@ -7442,22 +7505,123 @@ function doLogin(){
 
   btn.disabled = true;
   btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Entrando…';
+  try {
+    const r = await fetch('/api/overview?auth=1', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'login', email, senha }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'E-mail ou senha incorretos.');
+    const user = { name:j.nome, email:j.email, role:j.papel, initials:pulsoIniciais(j.nome) };
+    pulsoSalvarSessao(user);
+    enterPortal(user);
+  } catch(err){
+    errMsg.textContent = err.message;
+    errBox.classList.add('show');
+    document.getElementById('login-email').classList.add('input-error');
+    document.getElementById('login-password').classList.add('input-error');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
+  }
+}
 
-  // Simulate async auth (replace with real API call when ready)
-  setTimeout(() => {
-    const user = USERS.find(u => u.email === email && u.password === password);
-    if(user){
-      sessionStorage.setItem('od2-user', JSON.stringify(user));
-      enterPortal(user);
-    } else {
-      errMsg.textContent = 'E-mail ou senha incorretos.';
-      errBox.classList.add('show');
-      document.getElementById('login-email').classList.add('input-error');
-      document.getElementById('login-password').classList.add('input-error');
-      btn.disabled = false;
-      btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
-    }
-  }, 600);
+async function doRegister(){
+  const nome   = document.getElementById('login-nome').value.trim();
+  const email  = document.getElementById('login-email').value.trim().toLowerCase();
+  const senha  = document.getElementById('login-password').value;
+  const btn    = document.getElementById('login-btn');
+  const errBox = document.getElementById('login-error');
+  const errMsg = document.getElementById('login-error-msg');
+
+  errBox.classList.remove('show');
+  if(!nome || !email || !senha){
+    errMsg.textContent = 'Preencha nome, e-mail e senha.';
+    errBox.classList.add('show');
+    return;
+  }
+  if(senha.length < 6){
+    errMsg.textContent = 'Senha precisa ter 6 ou mais caracteres.';
+    errBox.classList.add('show');
+    return;
+  }
+
+  btn.disabled = true;
+  btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Criando conta…';
+  try {
+    const r = await fetch('/api/overview?auth=1', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ action:'register', nome, email, senha }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'Não foi possível criar a conta.');
+    const user = { name:j.nome, email:j.email, role:j.papel, initials:pulsoIniciais(j.nome) };
+    pulsoSalvarSessao(user);
+    enterPortal(user);
+  } catch(err){
+    errMsg.textContent = err.message;
+    errBox.classList.add('show');
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-user-plus"></i> Criar conta';
+  }
+}
+
+function doVisitante(){
+  const user = { name:'Visitante', email:null, role:'Visitante', initials:'VI' };
+  pulsoSalvarSessao(user);
+  enterPortal(user);
+}
+
+function authForgotPassword(){
+  showToast('Em breve.');
+}
+
+// Login <-> Cadastro (pedido do Roberto em 2026-08-28) — 1 tela só, alterna
+// campo Nome/título/texto do botão por um estado em memória, sem rota própria.
+let AUTH_MODE = 'login';
+function authSetMode(modo){
+  AUTH_MODE = modo;
+  document.getElementById('login-error').classList.remove('show');
+  const nomeField = document.getElementById('login-nome-field');
+  const title = document.getElementById('login-form-title');
+  const sub = document.getElementById('login-form-sub');
+  const btn = document.getElementById('login-btn');
+  const toggle = document.getElementById('login-mode-toggle');
+  if(modo === 'cadastro'){
+    nomeField.style.display = '';
+    title.textContent = 'Criar conta';
+    sub.textContent = 'Cadastre-se pra acessar o portal';
+    btn.innerHTML = '<i class="fas fa-user-plus"></i> Criar conta';
+    btn.onclick = doRegister;
+    toggle.innerHTML = 'Já tem conta? <a onclick="authSetMode(\'login\')">Entrar</a>';
+  } else {
+    nomeField.style.display = 'none';
+    title.textContent = 'Bem-vindo de volta';
+    sub.textContent = 'Faça login para acessar o portal';
+    btn.innerHTML = '<i class="fas fa-arrow-right-to-bracket"></i> Entrar';
+    btn.onclick = doLogin;
+    toggle.innerHTML = 'Não tem conta? <a onclick="authSetMode(\'cadastro\')">Criar conta</a>';
+  }
+}
+
+// Carrossel de fundo da tela de login (pedido do Roberto em 2026-08-28) —
+// imagens em /login-bg, troca a cada 15s, cross-fade via opacidade.
+const LOGIN_BG_IMAGES = [
+  'login-bg/login-1.webp', 'login-bg/login-2.jpg', 'login-bg/login-3.jpg',
+  'login-bg/login-4.webp', 'login-bg/login-5.jpg', 'login-bg/login-6.jpg',
+  'login-bg/login-7.jpg', 'login-bg/login-8.jpg', 'login-bg/login-9.jpg',
+];
+let LOGIN_BG_IDX = 0;
+function loginBgInit(){
+  const el = document.getElementById('login-bg-carousel');
+  if(!el) return;
+  el.innerHTML = LOGIN_BG_IMAGES.map((src,i) => `<div class="login-bg-slide${i===0?' active':''}" style="background-image:url('${src}')"></div>`).join('');
+  setInterval(() => {
+    const slides = el.querySelectorAll('.login-bg-slide');
+    if(!slides.length) return;
+    slides[LOGIN_BG_IDX].classList.remove('active');
+    LOGIN_BG_IDX = (LOGIN_BG_IDX + 1) % slides.length;
+    slides[LOGIN_BG_IDX].classList.add('active');
+  }, 15000);
 }
 
 function enterPortal(user){
@@ -7714,10 +7878,16 @@ function tvRotationStop(){
 }
 
 /* ================================================================
-   PORTAL INITIALIZATION — modo kiosk, sem tela de login
+   PORTAL INITIALIZATION — gate de login real (ver bloco AUTH acima).
+   Sessão salva em localStorage -> entra direto, sem mostrar a tela de
+   login de novo; sem sessão -> #login-screen fica visível (já é o
+   padrão, sem .hidden) esperando login/cadastro/acesso visitante.
 ================================================================ */
 document.addEventListener('DOMContentLoaded', () => {
-  enterPortal(PORTAL_USER);
+  loginBgInit();
+  authSetMode('login');
+  const sessao = pulsoLerSessao();
+  if(sessao) enterPortal(sessao);
   tvModeInit();
   jarvisApplyPageTags();
 });
