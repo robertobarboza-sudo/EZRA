@@ -704,9 +704,27 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
   // Roberto em 2026-08-27 (v2): a v1 aceitava dias faltando e ainda assim
   // calculava, o que já não causava o "—", mas mascarava semana incompleta
   // como se fosse fechada. Incompleto -> null, quem chamou cai pro fallback.
+  // Primeiro dia (ISO) com valor gravado pro KPI — usado por aggregatePeriod
+  // pra saber onde a série dele realmente começa (ver comentário abaixo).
+  function primeiraDataComValor(kpi) {
+    const isoKeys = Object.keys(kpi.valores || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
+    return isoKeys.length ? isoKeys.sort()[0] : null;
+  }
+
   function aggregatePeriod(kpi, periodDays) {
     const tipo = kpi.memoriaCalculo;
     if (!tipo || !periodDays || !periodDays.length) return null;
+
+    // Semana/mês estruturalmente parcial (pedido do Roberto em 2026-08-28):
+    // a série de um KPI pode começar no meio de um período civil (ex.:
+    // primeira semana rastreada com só 4 dos 7 dias) — dia ANTERIOR ao
+    // início da série nunca vai ganhar valor, então não conta como "dia
+    // esperado" pra completude (senão esse período fica em fallback pra
+    // sempre por uma expectativa que nunca vai ser atingida). Dia faltando
+    // DEPOIS que a série já começou continua contando normalmente.
+    const primeiraData = primeiraDataComValor(kpi);
+    const periodoNaSerie = primeiraData ? periodDays.filter((d) => d.iso >= primeiraData) : periodDays;
+    if (!periodoNaSerie.length) return null;
 
     if (tipo === "formula_diff_pct") {
       if (!kpi.aggRefs || typeof DataService === "undefined") return null;
@@ -714,19 +732,19 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
       const den = DataService.getKPIById(kpi.aggRefs.denominadorId);
       if (!num || !den) return null;
       // Completo = todo dia do período tem valor de numerador E denominador.
-      const completo = periodDays.every((d) => {
+      const completo = periodoNaSerie.every((d) => {
         const vn = getValue(num, d.iso), vd = getValue(den, d.iso);
         return vn !== null && vn !== undefined && vd !== null && vd !== undefined;
       });
       if (!completo) return null;
       let somaNum = 0, somaDen = 0;
-      periodDays.forEach((d) => { somaNum += getValue(num, d.iso); somaDen += getValue(den, d.iso); });
+      periodoNaSerie.forEach((d) => { somaNum += getValue(num, d.iso); somaDen += getValue(den, d.iso); });
       // SEERRO(...,"") do original: denominador zerado vira vazio, nunca divide por zero.
       if (somaDen === 0) return null;
       return (somaNum - somaDen) / somaDen;
     }
 
-    const dias = tipo === "media_sem_domingo" ? periodDays.filter((d) => d.wd !== "Dom") : periodDays;
+    const dias = tipo === "media_sem_domingo" ? periodoNaSerie.filter((d) => d.wd !== "Dom") : periodoNaSerie;
     if (!dias.length) return null;
     const nums = dias.map((d) => getValue(kpi, d.iso));
     const completo = nums.every((v) => v !== null && v !== undefined && isFinite(v));
