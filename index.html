@@ -7719,6 +7719,7 @@ function tvRotationStop(){
 document.addEventListener('DOMContentLoaded', () => {
   enterPortal(PORTAL_USER);
   tvModeInit();
+  tvcfgSeedDefaultPresets();
   jarvisApplyPageTags();
 });
 
@@ -15378,6 +15379,35 @@ function tvcfgToggleRotation(){
 /* ── Configurações salvas com nome (localStorage) ── */
 function tvcfgPresets(){
   try { return JSON.parse(localStorage.getItem('pulso_tvmode_presets') || '[]'); } catch(e){ return []; }
+}
+// TV Mode padrões (pedido do Roberto em 2026-08-28) — 1 configuração por
+// TV da operação, pra só selecionar "Usar" e entrar na rotação certa.
+// Presets ficam no localStorage (por navegador/TV, não vem da planilha),
+// então cada TV precisa carregar o site pelo menos 1 vez pra ganhar essas
+// 5 — por isso semeadas automaticamente no boot (tvcfgSeedDefaultPresets),
+// não só quando alguém abre a tela TV Mode Config. IDs no formato de
+// tvItemId() (key ou key::sub) resolvidos contra tvFlatItems() em tempo de
+// semeadura, pra nunca dessincronizar do rótulo que a tela realmente usa.
+const TV_DEFAULT_PRESETS = [
+  { name:'Inbound',  intervalSec:30, ids:['inbound::lh','inbound::fm','inbound::fila','inbound::triagem'] },
+  { name:'Outbound', intervalSec:30, ids:['spr::outbound','spr::spr','spr::leftover','spr::monitor','clusterizacao'] },
+  { name:'Esteira',  intervalSec:30, ids:['conveyor::performance','conveyor::conveyor','conveyor::esteira'] },
+  { name:'Asm',      intervalSec:30, ids:['asm::performance','asm::rejeito','asm::sorter'] },
+  { name:'Labor',    intervalSec:30, ids:['gestao','backlog','forecast'] },
+];
+function tvcfgSeedDefaultPresets(){
+  const existentes = tvcfgPresets();
+  const nomesExistentes = new Set(existentes.map(p => p.name));
+  const todosItens = tvFlatItems();
+  let mudou = false;
+  TV_DEFAULT_PRESETS.forEach(dp => {
+    if(nomesExistentes.has(dp.name)) return; // já existe (padrão ou renomeado pelo usuário) — não sobrescreve
+    const items = dp.ids.map(id => todosItens.find(it => tvItemId(it) === id)).filter(Boolean);
+    if(!items.length) return;
+    existentes.push({ name:dp.name, items, intervalSec:dp.intervalSec });
+    mudou = true;
+  });
+  if(mudou) localStorage.setItem('pulso_tvmode_presets', JSON.stringify(existentes));
 }
 function tvcfgSavePreset(){
   const nameInput = document.getElementById('tvcfg-preset-name');
