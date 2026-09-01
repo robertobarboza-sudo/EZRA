@@ -995,9 +995,11 @@ async function buildReadme(req, res) {
       return;
     }
 
-    // Edição manual (RESPONSÁVEL/OBSERVAÇÃO/FREQUÊNCIA ESPERADA) de 1 linha.
+    // Edição manual (RESPONSÁVEL/OBSERVAÇÃO/FREQUÊNCIA ESPERADA/URL) de 1
+    // linha — URL inclusa pra corrigir link quebrado/preencher aba sem
+    // link ainda, sem precisar reabrir o "seed".
     if (req.method === 'POST' && req.query.editRow !== undefined) {
-      const { workflow, responsavel, observacao, frequenciaEsperada } = req.body || {};
+      const { workflow, responsavel, observacao, frequenciaEsperada, url } = req.body || {};
       if (frequenciaEsperada != null && frequenciaEsperada !== '' && !README_FREQ_VALIDAS.has(frequenciaEsperada)) {
         res.status(400).json({ ok: false, erro: 'frequenciaEsperada inválida' });
         return;
@@ -1008,6 +1010,7 @@ async function buildReadme(req, res) {
       if (responsavel != null) row[README_COLS.responsavel] = responsavel;
       if (observacao != null) row[README_COLS.observacao] = observacao;
       if (frequenciaEsperada != null) row[README_COLS.frequenciaEsperada] = frequenciaEsperada;
+      if (url != null) row[README_COLS.url] = url;
       await writeReadmeRows(rows);
       res.status(200).json({ ok: true });
       return;
