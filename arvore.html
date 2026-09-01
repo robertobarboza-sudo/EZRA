@@ -698,14 +698,17 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
   // filtrado pro período. Sem memoriaCalculo -> null (quem chamou cai pro
   // comportamento de sempre: valor cru do backend na semana, média simples
   // no mês) — nunca inventa consolidado pra KPI sem essa definição.
-  // Só devolve número quando o período está COMPLETO (todo dia esperado já
-  // tem valor carregado pro cálculo em questão) — dia faltando não vira
-  // "soma parcial" mascarada de resultado fechado. Correção pedida pelo
-  // Roberto em 2026-08-27 (v2): a v1 aceitava dias faltando e ainda assim
-  // calculava, o que já não causava o "—", mas mascarava semana incompleta
-  // como se fosse fechada. Incompleto -> null, quem chamou cai pro fallback.
+  // Tolera até TOLERANCIA_DIAS_FALTANDO dias sem valor no período (pedido
+  // do Roberto em 2026-08-29: semanas como a W33/W34 tinham só 1-2 dias
+  // sem entrada na planilha — ex. Produtividade Planejada sem 12/08 e
+  // 13/08 na W33 — e ficavam eternamente em "—" mesmo com o resto da
+  // semana preenchido; calcula com os dias que existem em vez de exigir
+  // 100%). Acima da tolerância -> null, quem chamou cai pro fallback (v2,
+  // pedido do Roberto em 2026-08-27: evita mascarar semana MUITO
+  // incompleta como se fosse fechada).
   // Primeiro dia (ISO) com valor gravado pro KPI — usado por aggregatePeriod
   // pra saber onde a série dele realmente começa (ver comentário abaixo).
+  const TOLERANCIA_DIAS_FALTANDO = 2;
   function primeiraDataComValor(kpi) {
     const isoKeys = Object.keys(kpi.valores || {}).filter((k) => /^\d{4}-\d{2}-\d{2}$/.test(k));
     return isoKeys.length ? isoKeys.sort()[0] : null;
@@ -731,14 +734,15 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
       const num = DataService.getKPIById(kpi.aggRefs.numeradorId);
       const den = DataService.getKPIById(kpi.aggRefs.denominadorId);
       if (!num || !den) return null;
-      // Completo = todo dia do período tem valor de numerador E denominador.
-      const completo = periodoNaSerie.every((d) => {
+      // Dias com numerador E denominador presentes — tolera até
+      // TOLERANCIA_DIAS_FALTANDO dias sem os dois (soma só os presentes).
+      const presentesFormula = periodoNaSerie.filter((d) => {
         const vn = getValue(num, d.iso), vd = getValue(den, d.iso);
         return vn !== null && vn !== undefined && vd !== null && vd !== undefined;
       });
-      if (!completo) return null;
+      if (periodoNaSerie.length - presentesFormula.length > TOLERANCIA_DIAS_FALTANDO || !presentesFormula.length) return null;
       let somaNum = 0, somaDen = 0;
-      periodoNaSerie.forEach((d) => { somaNum += getValue(num, d.iso); somaDen += getValue(den, d.iso); });
+      presentesFormula.forEach((d) => { somaNum += getValue(num, d.iso); somaDen += getValue(den, d.iso); });
       // SEERRO(...,"") do original: denominador zerado vira vazio, nunca divide por zero.
       if (somaDen === 0) return null;
       return (somaNum - somaDen) / somaDen;
@@ -746,9 +750,9 @@ tr.bloco-start-row td { border-top: 2px solid #C8401F; }
 
     const dias = tipo === "media_sem_domingo" ? periodoNaSerie.filter((d) => d.wd !== "Dom") : periodoNaSerie;
     if (!dias.length) return null;
-    const nums = dias.map((d) => getValue(kpi, d.iso));
-    const completo = nums.every((v) => v !== null && v !== undefined && isFinite(v));
-    if (!completo) return null;
+    const presentes = dias.map((d) => getValue(kpi, d.iso)).filter((v) => v !== null && v !== undefined && isFinite(v));
+    if (dias.length - presentes.length > TOLERANCIA_DIAS_FALTANDO || !presentes.length) return null;
+    const nums = presentes;
 
     if (tipo === "soma") return nums.reduce((a, b) => a + b, 0);
     if (tipo === "maximo") return Math.max(...nums);
