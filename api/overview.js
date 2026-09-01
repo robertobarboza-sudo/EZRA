@@ -881,6 +881,15 @@ const README_LIMIARES = {
   'MENSAL': { atencao: 30 * 24 * 60, atrasado: 35 * 24 * 60 },
 };
 
+// Horário de Brasília fixo (UTC-3, sem horário de verão desde 2019) —
+// mesma convenção de BR_OFFSET_MS em api/_period.js (hojeOperacionalIso).
+// Sem isso, "agora" usa o fuso do runtime da Vercel (UTC), gravando
+// ÚLTIMA ATUALIZAÇÃO ~3h no futuro em relação ao relógio de Brasília
+// (achado pelo Roberto em 2026-09-01, primeira checagem real).
+const README_BR_OFFSET_MS = -3 * 60 * 60 * 1000;
+function readmeAgoraBr() {
+  return new Date(Date.now() + README_BR_OFFSET_MS);
+}
 function readmeExtraiGid(url) {
   const m = String(url || '').match(/[?&]gid=(\d+)/);
   return m ? m[1] : null;
@@ -894,15 +903,22 @@ async function readmeCalcularFingerprint(spreadsheetId, gid) {
   if (!values.length) return '0|';
   return `${values.length}|${JSON.stringify(values[values.length - 1])}`;
 }
+// `d` já vem deslocado pro horário de Brasília (ver readmeAgoraBr) — usa
+// getters UTC pra ler os campos sem o runtime da Vercel aplicar outro fuso
+// em cima (esse é literalmente o bug que o Roberto encontrou: getDate()/
+// getHours() locais liam UTC de novo, empurrando o horário ~3h à frente).
 function readmeFmtDataHora(d) {
   const p = n => String(n).padStart(2, '0');
-  return `${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`;
+  return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
 }
 function readmeParseDataHora(s) {
   const m = String(s || '').match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/);
   if (!m) return null;
   const [, dd, mm, yyyy, hh, mi] = m;
-  return new Date(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(mi));
+  // Reconstrói como instante UTC "espelhado" (mesmo truque de
+  // readmeAgoraBr) pra comparar em ms direto contra outra data também
+  // deslocada, sem precisar reaplicar o offset de novo.
+  return new Date(Date.UTC(Number(yyyy), Number(mm) - 1, Number(dd), Number(hh), Number(mi)));
 }
 function readmeFmtTempo(min) {
   if (min < 60) return `${min}min`;
@@ -1022,7 +1038,7 @@ async function buildReadme(req, res) {
     // derruba a checagem das outras.
     if (req.method === 'POST' && req.query.refresh !== undefined) {
       const rows = await readReadmeRows();
-      const agora = new Date();
+      const agora = readmeAgoraBr();
       await Promise.all(rows.map(async (r) => {
         const url = r[README_COLS.url];
         const gid = readmeExtraiGid(url);
@@ -1048,7 +1064,7 @@ async function buildReadme(req, res) {
 
     // GET — só lê e recalcula tempo/status na hora, sem tocar em fingerprint.
     const rows = await readReadmeRows();
-    readmeRecalcularTempoEStatus(rows, new Date());
+    readmeRecalcularTempoEStatus(rows, readmeAgoraBr());
     res.setHeader('Cache-Control', 'no-store');
     res.status(200).json({ ok: true, rows: rows.map(readmeLinhaParaObjeto) });
   } catch (err) {

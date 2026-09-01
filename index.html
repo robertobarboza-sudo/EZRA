@@ -993,6 +993,26 @@
       transition: background .15s ease, color .15s ease;
     }
     .kanban-postit-link:hover { background: rgba(74,60,8,.12); color: #4a3c08; }
+    /* Painel de Governança / README (pedido do Roberto em 2026-08-29) */
+    .prm-table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1200px; }
+    .prm-table th {
+      text-align: left; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em;
+      color: var(--text-muted); padding: 8px 10px; border-bottom: 1px solid var(--border); white-space: nowrap;
+    }
+    .prm-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text); }
+    .prm-table tr.prm-inativo td { opacity: .5; }
+    .prm-table tr.prm-atrasado td:first-child { box-shadow: inset 3px 0 0 var(--red); }
+    .prm-workflow { font-weight: 700; }
+    .prm-badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 800; white-space: nowrap; }
+    .prm-badge.flag-sql { background: rgba(6,182,212,.14); color: var(--cyan); }
+    .prm-badge.flag-python { background: rgba(16,185,129,.14); color: var(--green); }
+    .prm-badge.flag-input { background: rgba(245,158,11,.14); color: var(--amber); }
+    .prm-ativo-dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+    .prm-input { width: 100%; min-width: 90px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 7px; font-size: 11.5px; color: var(--text); font-family: inherit; }
+    .prm-input:focus { border-color: var(--orange); outline: none; }
+    .prm-freq-select { background: var(--surface-2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 6px; font-size: 11px; color: var(--text); font-family: inherit; }
+    .prm-link { color: var(--text-muted); font-size: 13px; }
+    .prm-link:hover { color: var(--orange); }
     .kanban-postit-meta { display: flex; align-items: center; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
     .kanban-postit-date { font-size: 10.5px; color: #7a6a2a; font-weight: 600; }
     .kanban-postit-date.is-atrasado { color: #c0281c; font-weight: 800; }
@@ -4602,6 +4622,9 @@
       <div class="nav-item" data-section="kanban" data-label="Kanban de Demandas" onclick="navigateTo('kanban',this)">
         <i class="fas fa-table-columns nav-icon"></i><span class="nav-label">Kanban de Demandas</span>
       </div>
+      <div class="nav-item" data-section="painelreadme" data-label="Painel de Governança" onclick="navigateTo('painelreadme',this)">
+        <i class="fas fa-clipboard-list nav-icon"></i><span class="nav-label">Painel de Governança</span>
+      </div>
       <div class="nav-item" data-section="jornal" data-label="Jornal" onclick="navigateTo('jornal',this)">
         <i class="fas fa-newspaper nav-icon"></i><span class="nav-label">Jornal</span>
       </div>
@@ -6540,6 +6563,49 @@
       </div>
     </section>
 
+    <!-- PAINEL DE GOVERNANÇA (README) -->
+    <section id="section-painelreadme" class="section">
+      <div class="section-header">
+        <div class="section-header-left">
+          <div class="section-title">Painel de Governança <span class="ds-badge ok" id="ds-badge-painelreadme" style="margin-left:8px"></span></div>
+          <div class="section-subtitle">Catálogo de abas da planilha · Origem do dado · Última atualização detectada</div>
+        </div>
+        <div class="section-dl-group">
+          <button class="dl-btn dl-btn-csv" id="prm-refresh-btn" onclick="prmRefresh()"><i class="fas fa-rotate-right"></i> Checar Atualizações</button>
+        </div>
+      </div>
+
+      <div class="pulso-coverage" id="prm-last"></div>
+      <div class="kanban-stats" id="prm-stats" style="margin-top:10px"></div>
+
+      <div class="spr-filters" style="margin-top:16px">
+        <div class="spr-filter-group">
+          <div class="rej-msel" id="prm-msel-flag">
+            <button class="rej-msel-btn" type="button" onclick="prmToggleMsel('flag',event)"><span id="prm-msel-flag-label">Flag: Todas</span> <i class="fas fa-caret-down"></i></button>
+            <div class="rej-msel-panel" id="prm-msel-flag-panel"></div>
+          </div>
+          <div class="rej-msel" id="prm-msel-status">
+            <button class="rej-msel-btn" type="button" onclick="prmToggleMsel('status',event)"><span id="prm-msel-status-label">Status: Todos</span> <i class="fas fa-caret-down"></i></button>
+            <div class="rej-msel-panel" id="prm-msel-status-panel"></div>
+          </div>
+          <input type="text" class="filter-select" id="prm-busca" placeholder="Buscar workflow…" oninput="prmSetBusca(this.value)" style="min-width:200px"/>
+        </div>
+      </div>
+
+      <div class="table-card full" style="margin-top:14px;overflow-x:auto">
+        <table class="prm-table">
+          <thead>
+            <tr>
+              <th>Workflow</th><th>Flag</th><th>Dimensão</th><th>Ativo</th>
+              <th>Última Atualização</th><th>Origem</th><th>Frequência</th>
+              <th>Há quanto tempo</th><th>Status</th><th>Responsável</th><th>Observação</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="prm-tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- JORNAL -->
     <section id="section-jornal" class="section">
       <div class="section-header">
@@ -7344,7 +7410,7 @@ const ALL_SECTIONS = [
   'gestao','performance','spr','asm','conveyor','inbound','clusterizacao',
   'tratativas','laborplan','backlog','arvore','kpioverview','scorecard',
   'absenteismo','forecast','auditoria','organograma','configuracoes',
-  'tvconfig','livesoc','matriz','mapadados','kanban','jornal','switch','justificativas'
+  'tvconfig','livesoc','matriz','mapadados','kanban','painelreadme','jornal','switch','justificativas'
 ];
 
 const GOV_SECTIONS = ['matriz','mapadados','jornal'];
@@ -7768,6 +7834,7 @@ const sectionMeta = {
   auditoria:   {title:'Auditoria',     sub:'Controle de Qualidade Operacional · Qualidade'},
   matriz:      {title:'Matriz',        sub:'Governança Operacional · Governança'},
   mapadados:   {title:'Mapa de Dados', sub:'Queries · Scripts · Links · Governança'},
+  painelreadme:{title:'Painel de Governança', sub:'README · Catálogo de abas · Última atualização'},
   kanban:      {title:'Kanban de Demandas', sub:'Gestão de Demandas · Post-its por Responsável'},
   jornal:      {title:'Jornal',        sub:'Informativo Operacional · Governança'},
   switch:      {title:'Switch',        sub:'Painel de Controle de Automações · Governança'},
@@ -7875,7 +7942,7 @@ async function renderSection(section){
       scorecard:renderScorecard, absenteismo:renderAbsenteismo,
       configuracoes:renderConfiguracoes, forecast:()=>loadForecast(),
       auditoria:renderAuditoria, clusterizacao:()=>pulsoRender('clusterizacao'),
-      matriz:renderMatriz, mapadados:renderMapaDados, kanban:renderKanban, jornal:renderJornal,
+      matriz:renderMatriz, mapadados:renderMapaDados, kanban:renderKanban, painelreadme:renderPainelReadme, jornal:renderJornal,
       switch:renderSwitch, tvconfig:renderTvConfig, livesoc:renderLiveSoc,
       justificativas:()=>loadJustificativas()};
     if(fn[section]) fn[section](data);
@@ -14703,6 +14770,196 @@ function kbExportCsv(){
     url: d.url || '',
   }));
   pulsoExportRowsCsv('kanban_demandas.csv', cols, linhas);
+}
+
+/* ================================================================
+   PAINEL DE GOVERNANÇA (README) — pedido do Roberto em 2026-08-29:
+   transforma a aba README (catálogo das abas da planilha) num painel
+   visual, lendo /api/overview?readme=1. "Checar Atualizações" dispara o
+   refresh (fingerprint de cada aba referenciada); a leitura simples só
+   recalcula tempo/status decorrido em cima da hora atual.
+================================================================ */
+const PRM_STATUS_COR = {
+  '🟢 ATUALIZADO': 'success', '🟡 ATENÇÃO': 'warning', '🔴 ATRASADO': 'danger',
+  'SEM MONITORAMENTO AUTOMÁTICO': '', 'Sem atualização identificada': '',
+};
+let PRM_DATA = null;
+let PRM_FILTERS = { flag:[], status:[], busca:'' };
+
+async function renderPainelReadme(){
+  if(PRM_DATA){ prmRenderAll(); return; }
+  await prmLoad();
+}
+async function prmLoad(){
+  setBadge('painelreadme', 'loading');
+  try{
+    const r = await fetch('/api/overview?readme=1', { cache:'no-store' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'resposta inválida');
+    PRM_DATA = j.rows;
+    setBadge('painelreadme', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    prmRenderAll();
+  }catch(err){
+    setBadge('painelreadme', 'error', 'Erro: '+err.message);
+    console.error('[painelreadme]', err);
+  }
+}
+async function prmRefresh(){
+  const btn = document.getElementById('prm-refresh-btn');
+  if(btn){ btn.disabled = true; btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Checando…'; }
+  try{
+    const r = await fetch('/api/overview?readme=1&refresh=1', { method:'POST' });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao checar atualizações');
+    PRM_DATA = j.rows;
+    setBadge('painelreadme', 'ok', 'Planilha · '+new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'}));
+    prmRenderAll();
+    showToast('Atualizações checadas.');
+  }catch(err){
+    showToast('Erro ao checar atualizações: '+err.message, true);
+  }finally{
+    if(btn){ btn.disabled = false; btn.innerHTML = '<i class="fas fa-rotate-right"></i> Checar Atualizações'; }
+  }
+}
+function prmSetBusca(v){ PRM_FILTERS.busca = v; prmRenderAll(); }
+
+const PRM_MULTISELECTS = [
+  { campo:'flag', id:'flag', label:'Flag', opcoes: () => [...new Set((PRM_DATA||[]).map(r=>r.flag).filter(Boolean))].sort().map(v=>({value:v,label:v})) },
+  { campo:'status', id:'status', label:'Status', opcoes: () => [...new Set((PRM_DATA||[]).map(r=>r.statusAtualizacao).filter(Boolean))].map(v=>({value:v,label:v})) },
+];
+function prmRenderMultiSelect(cfg){
+  const btn = document.querySelector(`#prm-msel-${cfg.id} .rej-msel-btn span`);
+  const btnEl = document.querySelector(`#prm-msel-${cfg.id} .rej-msel-btn`);
+  const panel = document.getElementById('prm-msel-'+cfg.id+'-panel');
+  if(!btn || !panel) return;
+  const opcoes = cfg.opcoes();
+  const sel = PRM_FILTERS[cfg.campo];
+  const rotulo = !sel.length ? 'Todos' : sel.length<=2 ? sel.join(', ') : `${sel.length} selecionados`;
+  btn.textContent = `${cfg.label}: ${rotulo}`;
+  btnEl.classList.toggle('has-value', sel.length>0);
+  panel.innerHTML = (opcoes.length ? opcoes.map(o => `
+      <label class="rej-msel-opt"><input type="checkbox" value="${pulsoEscHtml(o.value)}" ${sel.includes(o.value)?'checked':''} onchange="prmMselCheck('${cfg.campo}',this)"> ${pulsoEscHtml(o.label)}</label>
+    `).join('') : `<div class="rej-msel-empty">nada pra filtrar ainda</div>`)
+    + (sel.length ? `<div class="rej-msel-actions"><button type="button" onclick="prmMselClear('${cfg.campo}')">Limpar</button></div>` : '');
+}
+function prmToggleMsel(id, ev){
+  ev.stopPropagation();
+  rejBindMselDocClose();
+  const panel = document.getElementById('prm-msel-'+id+'-panel');
+  const abrir = !panel.classList.contains('open');
+  document.querySelectorAll('.rej-msel-panel.open').forEach(p => p.classList.remove('open'));
+  panel.classList.toggle('open', abrir);
+}
+function prmMselCheck(campo, cb){
+  const arr = PRM_FILTERS[campo];
+  const i = arr.indexOf(cb.value);
+  if(cb.checked && i===-1) arr.push(cb.value);
+  if(!cb.checked && i!==-1) arr.splice(i,1);
+  prmRenderAll();
+}
+function prmMselClear(campo){ PRM_FILTERS[campo] = []; prmRenderAll(); }
+
+function prmFilteredRows(){
+  if(!PRM_DATA) return [];
+  const busca = PRM_FILTERS.busca.trim().toLowerCase();
+  return PRM_DATA.filter(r =>
+    (!PRM_FILTERS.flag.length || PRM_FILTERS.flag.includes(r.flag)) &&
+    (!PRM_FILTERS.status.length || PRM_FILTERS.status.includes(r.statusAtualizacao)) &&
+    (!busca || r.workflow.toLowerCase().includes(busca))
+  );
+}
+// Minutos decorridos desde ÚLTIMA ATUALIZAÇÃO (só pra ordenar por "mais
+// atrasado primeiro") — reaproveita o mesmo parser do backend, sem
+// precisar que o backend exponha o número cru além do texto formatado.
+function prmMinutosDecorridos(r){
+  const m = String(r.ultimaAtualizacao||'').match(/^(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2})$/);
+  if(!m) return Infinity; // "sem atualização identificada" fica no topo (pior caso)
+  const [,dd,mm,yyyy,hh,mi] = m;
+  const dt = new Date(Number(yyyy), Number(mm)-1, Number(dd), Number(hh), Number(mi));
+  return (Date.now() - dt.getTime()) / 60000;
+}
+
+function prmRenderAll(){
+  if(!PRM_DATA) return;
+  PRM_MULTISELECTS.forEach(prmRenderMultiSelect);
+
+  const ultimaChecagem = PRM_DATA.reduce((max,r) => {
+    const m = prmMinutosDecorridos(r);
+    return m===Infinity ? max : Math.min(max, m);
+  }, Infinity);
+  const lastEl = document.getElementById('prm-last');
+  if(lastEl) lastEl.innerHTML = `<i class="fas fa-clock"></i> Checagem mais recente: <strong style="color:var(--text)">${ultimaChecagem===Infinity ? 'nunca' : prmFmtMin(ultimaChecagem)+' atrás'}</strong> · ${PRM_DATA.length} workflows catalogados`;
+
+  const total = PRM_DATA.length;
+  const porStatus = s => PRM_DATA.filter(r=>r.statusAtualizacao===s).length;
+  buildKPIs('prm-stats', [
+    { label:'Total de Workflows', value: total, icon:'fa-clipboard-list', type:'' },
+    { label:'Atualizados', value: porStatus('🟢 ATUALIZADO'), icon:'fa-circle-check', type:'success' },
+    { label:'Atenção', value: porStatus('🟡 ATENÇÃO'), icon:'fa-triangle-exclamation', type:'warning' },
+    { label:'Atrasados', value: porStatus('🔴 ATRASADO'), icon:'fa-triangle-exclamation', type: porStatus('🔴 ATRASADO')?'danger':'success' },
+    { label:'Sem Monitoramento', value: porStatus('SEM MONITORAMENTO AUTOMÁTICO'), icon:'fa-ban', type:'' },
+  ]);
+
+  prmRenderTable();
+}
+function prmFmtMin(min){
+  if(min < 60) return `${Math.round(min)}min`;
+  const h = Math.floor(min/60);
+  if(h < 24) return `${h}h`;
+  return `${Math.floor(h/24)} dia(s)`;
+}
+function prmRenderTable(){
+  const tbody = document.getElementById('prm-tbody');
+  if(!tbody) return;
+  // Pior caso primeiro (mais tempo sem atualizar) — pedido do Roberto:
+  // "ordenação por última atualização".
+  const rows = prmFilteredRows().slice().sort((a,b) => prmMinutosDecorridos(b) - prmMinutosDecorridos(a));
+  if(!rows.length){ tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--text-muted)">Nenhum workflow com os filtros atuais.</td></tr>`; return; }
+
+  tbody.innerHTML = rows.map(r => {
+    const ativo = String(r.status||'').trim().toUpperCase() === 'ATIVO';
+    const atrasado = r.statusAtualizacao === '🔴 ATRASADO';
+    const flagClass = 'flag-'+String(r.flag||'').toLowerCase();
+    const cor = PRM_STATUS_COR[r.statusAtualizacao] || '';
+    const wfJs = r.workflow.replace(/'/g,"\\'");
+    return `<tr class="${!ativo && r.status ? 'prm-inativo' : ''}${atrasado?' prm-atrasado':''}">
+      <td class="prm-workflow">${pulsoEscHtml(r.workflow)}</td>
+      <td>${r.flag ? `<span class="prm-badge ${flagClass}">${pulsoEscHtml(r.flag)}</span>` : '—'}</td>
+      <td>${pulsoEscHtml(r.dimensaoJarvis||'—')}</td>
+      <td><span class="prm-ativo-dot" style="background:${ativo?'var(--green)':'var(--text-muted)'}" title="${r.status?pulsoEscHtml(r.status):'não definido'}"></span></td>
+      <td>${pulsoEscHtml(r.ultimaAtualizacao||'—')}</td>
+      <td style="white-space:nowrap">${pulsoEscHtml(r.origemAtualizacao||'—')}</td>
+      <td>
+        <select class="prm-freq-select" onchange="prmEditRow('${wfJs}',{frequenciaEsperada:this.value})">
+          ${['HORÁRIA','DIÁRIA','SEMANAL','MENSAL','SOB DEMANDA'].map(f=>`<option value="${f}" ${r.frequenciaEsperada===f?'selected':''}>${f}</option>`).join('')}
+        </select>
+      </td>
+      <td>${pulsoEscHtml(r.tempoDesde||'—')}</td>
+      <td>${cor ? `<span class="ds-badge ${cor}">${pulsoEscHtml(r.statusAtualizacao)}</span>` : pulsoEscHtml(r.statusAtualizacao||'—')}</td>
+      <td><input class="prm-input" value="${pulsoEscHtml(r.responsavel)}" placeholder="—" onchange="prmEditRow('${wfJs}',{responsavel:this.value})"/></td>
+      <td><input class="prm-input" value="${pulsoEscHtml(r.observacao)}" placeholder="—" onchange="prmEditRow('${wfJs}',{observacao:this.value})"/></td>
+      <td>${r.url ? `<a class="prm-link" href="${pulsoEscHtml(r.url)}" target="_blank" rel="noopener noreferrer" title="Abrir aba na planilha"><i class="fas fa-arrow-up-right-from-square"></i></a>` : ''}</td>
+    </tr>`;
+  }).join('');
+}
+async function prmEditRow(workflow, campos){
+  // Otimista: aplica local antes do round-trip, reverte se a escrita falhar.
+  const row = PRM_DATA.find(r => r.workflow === workflow);
+  const antes = row ? { ...row } : null;
+  if(row) Object.assign(row, campos);
+  prmRenderTable();
+  try{
+    const r = await fetch('/api/overview?readme=1&editRow=1', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ workflow, ...campos }),
+    });
+    const j = await r.json();
+    if(!j.ok) throw new Error(j.erro || 'falha ao salvar');
+  }catch(err){
+    if(row && antes) Object.assign(row, antes);
+    prmRenderTable();
+    showToast('Erro ao salvar: '+err.message, true);
+  }
 }
 
 // Indicadores da faixa de post-its (pedido do Roberto em 2026-08-27) —
