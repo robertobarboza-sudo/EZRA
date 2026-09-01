@@ -1046,7 +1046,11 @@ async function buildReadme(req, res) {
         const sheetId = readmeExtraiSpreadsheetId(url) || README_SHEET_ID;
         try {
           const fp = await readmeCalcularFingerprint(sheetId, gid);
-          if (fp !== r[README_COLS.fingerprint]) {
+          // &force=1 ignora a comparação e regrava todo mundo — usado 1x
+          // pra corrigir o lote inicial gravado com o bug de fuso (ver
+          // readmeAgoraBr), já que fingerprint igual nunca dispararia a
+          // regravação sozinho.
+          if (fp !== r[README_COLS.fingerprint] || req.query.force !== undefined) {
             r[README_COLS.ultimaAtualizacao] = readmeFmtDataHora(agora);
             r[README_COLS.fingerprint] = fp;
             const flag = String(r[README_COLS.flag] || '').trim().toUpperCase();
