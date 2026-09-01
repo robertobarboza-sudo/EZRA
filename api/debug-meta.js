@@ -7,7 +7,7 @@
  * conhecidos (nunca aceita spreadsheetId arbitrário via query, pra não
  * virar um scanner de qualquer planilha da Service Account).
  */
-const { listTabs, fetchTabByGid, fetchTabRawValues, fetchTabFormatting, renameTab, deleteTab } = require('./_google');
+const { listTabs, fetchTabByGid, fetchTabRawValues, fetchTabFormatting, renameTab, deleteTab, batchUpdateValues, resolveTitle } = require('./_google');
 
 const PERMITIDAS = new Set([
   '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4',
@@ -46,6 +46,29 @@ module.exports = async (req, res) => {
         return;
       }
       const resultado = await deleteTab(id, req.query.gid);
+      res.status(200).json({ ok: true, resultado });
+      return;
+    }
+    // Patch pontual de células (pedido do Roberto em 2026-09-01, ajuste
+    // manual de dado histórico) — POST só, uma lista de células soltas
+    // (linha+coluna exatas, nunca reescreve o range inteiro), pra corrigir
+    // valores sem virar um endpoint de escrita genérico permanente.
+    // ?gid=X&patchCells=1, body { updates: [{ row, col, value }] } — row/col
+    // 1-based (row 1 = cabeçalho), col em número (A=1).
+    if (req.query.gid !== undefined && req.query.patchCells !== undefined) {
+      if (req.method !== 'POST') {
+        res.status(405).json({ ok: false, erro: 'Use POST' });
+        return;
+      }
+      const updates = (req.body || {}).updates;
+      if (!Array.isArray(updates) || !updates.length) {
+        res.status(400).json({ ok: false, erro: 'updates precisa ser uma lista não vazia' });
+        return;
+      }
+      const title = await resolveTitle(id, req.query.gid);
+      const colLetra = n => { let s = ''; while (n > 0) { const r = (n - 1) % 26; s = String.fromCharCode(65 + r) + s; n = Math.floor((n - 1) / 26); } return s; };
+      const data = updates.map(u => ({ range: `'${title}'!${colLetra(u.col)}${u.row}`, values: [[u.value]] }));
+      const resultado = await batchUpdateValues(id, data);
       res.status(200).json({ ok: true, resultado });
       return;
     }
