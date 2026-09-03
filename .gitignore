@@ -1,0 +1,3 @@
+# App fonte do Olho de Deus (repo proprio, com node_modules) — no JARVIS
+# entra so o build estatico em /olho-de-deus/, gerado com `npm run build`.
+Olho de Deus v2/

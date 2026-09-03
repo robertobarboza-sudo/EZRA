@@ -5675,6 +5675,10 @@
       <div class="section-header" id="section-laborplan-header">
         <!-- header restored below by JS -->
       </div>
+      <!-- Olho de Deus é uma PÁGINA DEDICADA (/olho-de-deus/), no mesmo padrão
+           da Árvore de KPI's: app próprio (Next exportado estático), o JARVIS
+           só encaminha pra lá. Acesso protegido por senha na própria página
+           (pedido do Roberto em 2026-09-03). -->
       <div id="section-laborplan-wip" style="
         display:flex;flex-direction:column;align-items:center;justify-content:center;
         min-height:420px;text-align:center;gap:20px;padding:40px">
@@ -5682,20 +5686,24 @@
           width:90px;height:90px;border-radius:50%;
           background:rgba(238,77,45,.08);border:2px solid rgba(238,77,45,.2);
           display:flex;align-items:center;justify-content:center;font-size:36px">
-          🚧
+          👁️
         </div>
         <div>
-          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Labor Plan</div>
-          <div style="font-size:14px;color:var(--text-muted);max-width:400px;line-height:1.6">
-            Esta seção está em construção.<br/>
-            Os dados reais serão integrados via Google Sheets.
+          <div style="font-size:22px;font-weight:800;color:var(--text);margin-bottom:8px">Olho de Deus</div>
+          <div style="font-size:14px;color:var(--text-muted);max-width:440px;line-height:1.6">
+            Capacidade e dimensionamento operacional — cronograma, simulador e cenários.<br/>
+            Abre numa página dedicada, fora do JARVIS.
           </div>
         </div>
+        <button class="btn btn-primary" onclick="window.location.href='/olho-de-deus/'"
+          style="display:flex;align-items:center;gap:8px;font-size:14px;padding:12px 24px">
+          <i class="fas fa-arrow-up-right-from-square"></i> Abrir Olho de Deus
+        </button>
         <div style="display:flex;align-items:center;gap:10px;
           background:var(--surface);border:1px solid var(--border);
           border-radius:var(--radius-lg);padding:12px 24px;font-size:13px;color:var(--text-muted)">
-          <i class="fas fa-database" style="color:var(--orange)"></i>
-          Aguardando conexão com a fonte de dados
+          <i class="fas fa-lock" style="color:var(--orange)"></i>
+          Acesso restrito — a página pede senha
         </div>
         <div style="display:flex;gap:10px">
           <div class="pdf-menu-wrap">
@@ -12558,7 +12566,7 @@ function bklOpenPipboy(){
 }
 
 function renderLaborplan(){
-  setBadge('laborplan','ok','Em Construção');
+  setBadge('laborplan','ok','Página dedicada');
 }
 
 /* ================================================================
