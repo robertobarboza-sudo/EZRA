@@ -43,7 +43,7 @@ a fórmula**:
   Ex.: `BEEP LH` PHD 4.355 · `INDUÇÕES NÍVEL 3` PHD 1.584 · `PESCA ESTEIRA` PHD 352.
 - **Indireto / apoio** (39 sem PHD): não escala com volume, escala com estrutura.
   Ex.: `GAIOLEIRO`, `FISCAL DE PÁTIO`, `GOLEIRO ESTEIRA`, `TRIAGEM SACAS VAZIAS`.
-  Tem `POR WS` mas não tem PHD — precisa de uma regra própria (ver §4, ponto 2).
+  Tem `POR WS` mas não tem PHD — precisa de uma regra própria (ver §4, ponto 3).
 
 **b) Recursos instalados** (MACRO = `ATIVO`, 15 linhas) — o teto físico da casa:
 `MÁX DOCAS IN` 29 · `MÁX DOCAS OUT` 13 · `BEEP LH T1/T2/T3` 18 cada · `PDA` 78 ·
@@ -74,8 +74,10 @@ Somas conferidas: **fecham 100% por dia** (variação de ±0,04pp, arredondament
 
 168 linhas = 7 dias (31/08 a 06/09/2026) × 24 horas, na ordem do cutoff (6h→5h).
 
-O ponto que muda o modelo: **as escalas se sobrepõem**. Não são 3 turnos
-estanques — são 5 escalas com janelas próprias, e em algumas horas duas convivem:
+O ponto que muda o modelo: **as escalas se sobrepõem por desenho**. A escala é
+**5x2 com jornada de 9h45**, então o time do turno seguinte entra ainda dentro da
+janela do anterior — a sobreposição é a virada de turno, não erro de dado. São 5
+escalas com janelas próprias, e em algumas horas duas convivem:
 
 | Escala | Janela | Observação |
 |---|---|---|
@@ -89,7 +91,25 @@ estanques — são 5 escalas com janelas próprias, e em algumas horas duas conv
 linhas, sem divergência**. É por isso que o quadro salta de 459 (só T1A) para 963
 às 12h (T1A + T2) e cai para 504 às 15h (só T2).
 
-`FOLGAS` (AO) segue a mesma lógica de soma por escala ativa na hora.
+`FOLGAS` (AO) segue a mesma lógica de soma por escala ativa na hora — mas **não é
+a rotação da 5x2**. Testado isolando as horas em que só uma escala está ativa:
+
+| Escala | Folgas por dia na semana | Soma | Esperado numa 5x2 |
+|---|---|---|---|
+| `T1A` | 141 · 118 · 12 · 10 · 0 · 145 | 426 | ~918 (2 × 459) |
+| `T2` | 112 · 3 · 72 · 126 · 101 · 232 · 50 | 696 | ~1.120 |
+| `T3` | 99 · 66 · 66 · 158 · 157 · 271 · 24 | 841 | ~1.176 |
+
+Numa 5x2 toda escala teria ~28,6% de folga **todo dia**, sem variação. O real
+oscila de 0% (T1A na sexta) a 65% (T2 no domingo), e a soma da semana dá 46–72%
+do que a rotação exigiria. Ou seja: `FOLGAS` é outra coisa — provavelmente
+ausências/folgas já solicitadas, e com preenchimento irregular.
+
+**Isso responde se `QUADRO FIXO` é bruto ou líquido:** ele já é o **efetivo
+escalado**. A prova está no domingo, quando o próprio quadro encolhe (T2 cai de
+560 para 77, T3 de 588 para 212) em vez de manter o número cheio com folga alta —
+quadro de efetivo encolhe, quadro nominal não. Logo o modelo usa `QUADRO FIXO`
+direto como teto, **sem subtrair `FOLGAS`**.
 
 A coluna `TURNO` (AH) é o **turno operacional** (T1/T2/T3, 8h cada) — não confundir
 com as colunas de escala T1A/T2/T4/T3, que são outra coisa apesar do nome parecido.
@@ -103,7 +123,7 @@ com as colunas de escala T1A/T2/T4/T3, que são outra coisa apesar do nome parec
                 demanda_ESTEIRA = demanda × 15%
 
 3. por posto direto:   HC(processo, hora) = CEIL(demanda_hora ÷ PHD) × POR WS
-   por posto indireto: regra a definir (§4.2)
+   por posto indireto: regra a definir (§4.3)
 
 4. restrições:  Σ HC alocado(hora) ≤ QUADRO FIXO(dia, hora)    ← bloco AC–AO
                 HC(subprocesso) ≤ recurso instalado (bloco ATIVO)
@@ -117,35 +137,40 @@ O teto é **por hora**, não por turno — nas horas de sobreposição (12–14h
 
 ## 4. O que falta pro modelo fechar
 
-**1. `QUADRO FIXO` é bruto ou líquido?** Ou seja: das 459 pessoas do T1A na
-segunda, as 141 de `FOLGAS` já estão fora (efetivo = 459) ou ainda dentro
-(efetivo = 318)? É a diferença entre planejar com 459 ou com 318 — nada mais no
-modelo muda tanto o resultado.
+**1. O que é `FOLGAS`, então?** Já sabemos o que **não** é (§2.4): não é a rotação
+da 5x2. O modelo hoje ignora a coluna e usa `QUADRO FIXO` como teto. Se ela for
+ausência a descontar, o teto vira `QUADRO FIXO − FOLGAS` e o plano muda bastante
+— mas aí o preenchimento precisa fechar (tem dia com 0).
 
-**2. Regra dos 39 subprocessos indiretos (sem PHD).** Eles têm `POR WS` mas não
+**2. A cauda do T3 some às 6h.** Com jornada de 9h45 entrando às 22h, o T3 sai
+por volta de 07h45 — mas o quadro mostra só T1A (459) nas 6h e 7h, sem resto de
+T3. O quadro não modela essa virada, ou o T3 encerra mesmo às 05h59? Importa
+porque 6h–7h é justamente o pico da curva de Line Haul.
+
+**3. Regra dos 39 subprocessos indiretos (sem PHD).** Eles têm `POR WS` mas não
 escalam com volume. Três caminhos possíveis — qual é o certo?
    - `POR WS` × nº de estações abertas do subprocesso âncora do mesmo MACRO;
    - proporção fixa do HC do MACRO;
    - valor fixo por turno (posição fixa).
 
-**3. Min/máx por macro.** Você citou que cada processo macro tem mínimo e máximo
+**4. Min/máx por macro.** Você citou que cada processo macro tem mínimo e máximo
 de pessoas, mas não há essas colunas. É derivado (`POR WS` × recurso instalado),
 ou são dois números novos a preencher por macro?
 
-**4. `PRIORIZAÇÃO` vazia em 25 subprocessos** (valor `-`) e `0` em 1. Significa
+**5. `PRIORIZAÇÃO` vazia em 25 subprocessos** (valor `-`) e `0` em 1. Significa
 "não prioriza", "não roda", ou "preencher depois"? É o que decide quem é cortado
 primeiro quando o HC não dá.
 
-**5. Curva First Mile sem domingo.** As 24 linhas de domingo existem com `HORA`,
+**6. Curva First Mile sem domingo.** As 24 linhas de domingo existem com `HORA`,
 `CURVA` e `DIA`, mas `% CURVA` está vazio — FM não opera domingo, ou faltou
 preencher?
 
-**6. Cobertura desigual entre blocos.** O forecast tem o ano inteiro (358 datas),
+**7. Cobertura desigual entre blocos.** O forecast tem o ano inteiro (358 datas),
 o quadro tem **1 semana** (31/08–06/09). Fora dessa semana o modelo não tem
 escala pra comparar. O quadro se repete por dia da semana, ou vai ser preenchido
 data a data?
 
-**7. `T1B` está vazia** e `DIA` vem em inglês no quadro (`Monday`) mas em
+**8. `T1B` está vazia** e `DIA` vem em inglês no quadro (`Monday`) mas em
 português nas curvas (`SEGUNDA`) — detalhe de join, resolvo no código.
 
 ## 5. O que a tela precisa entregar
