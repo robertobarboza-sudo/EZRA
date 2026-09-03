@@ -1,143 +1,130 @@
-# Prompt — Modelo de Labor Plan (aba `bat` + app Olho de Deus)
+# Modelo de Labor Plan — aba `bat`
 
-> Documento de especificação **e** prompt reutilizável. Descreve o modelo de
-> planejamento de mão de obra do COP RJ2: de onde vem cada dado, como os três
-> blocos se ligam, e o que a tela precisa deixar ajustar.
+> Especificação do modelo de planejamento de mão de obra do COP RJ2, escrita em
+> cima do **input real** da aba `bat` (2.014 linhas, 4 blocos de colunas).
 
 ---
 
 ## 1. Objetivo
 
-Montar o planejamento de um dia/turno respondendo a uma pergunta só:
-
 > **Com o HC que a escala me dá, quanto de capacidade eu consigo instalar, e isso
 > cobre o forecast hora a hora?**
 
-O plano nasce de três blocos, nessa ordem — cada um restringe o próximo:
-
 ```
-RECURSOS (o que eu tenho)  →  DEMANDA (o que vai chegar)  →  CAPACIDADE (o que eu consigo entregar)
-   HC da escala                 forecast × curva              alocação por processo macro
-   por dia e turno              por origem, por hora          respeitando min/max de cada um
+RECURSOS (o que eu tenho)  →  DEMANDA (o que vai chegar)  →  CAPACIDADE (o que entrego)
+   HC da escala                 forecast × curva              HC por processo, por hora
+   + recursos instalados        por fluxo (LH / FM)           respeitando priorização
 ```
 
-## 2. Quem é dono de cada dado
+## 2. O que a aba `bat` já tem
 
-Isso define o que é **editável na tela** e o que é **só leitura**:
+Quatro blocos de colunas lado a lado, cada um com sua própria altura:
 
-| Dado | Origem | Editável? |
-|---|---|---|
-| **Forecast** (volume por origem) | Setado pela **companhia** | Não — entra como está; a tela permite simular por cima, sem sobrescrever |
-| **Curva de chegada** (share por hora) | Vem do **histórico** | Não no dia a dia; recalculada periodicamente. Ajuste manual é exceção e fica registrado |
-| **Escala / HC disponível** | Definido por **nós** | Sim |
-| **Capacidade instalada** (posições, PHD, min/max por processo) | Definido por **nós** | Sim |
-
-Regra que decorre disso: **simular ≠ salvar**. A tela deixa mexer em tudo pra ver
-o efeito, mas só grava o que é nosso (escala e capacidade). Forecast e curva
-voltam ao valor de origem quando a simulação é descartada.
-
-## 3. Os três blocos
-
-### 3.1 Recursos — quanto HC eu tenho
-
-Ponto de partida. A escala do dia diz quantas pessoas existem por **dia × turno**
-(turnos do padrão PULSO: T1 06–13h, T2 14–21h, T3 22–05h; dia operacional com
-cutoff às 06h).
-
-A partir do HC total, decide-se **quais processos macro rodar** — porque cada
-processo tem um **mínimo** (abaixo disso não faz sentido abrir) e um **máximo**
-(acima disso não cabe mais gente na posição). Os processos macro já existem hoje
-na aba `config`, com PHD por processo: `ASM`, `INBOUND LH`, `INBOUND FM`,
-`ESTEIRA`, `ESTEIRA TERMO`, `EXPEDIÇÃO HUB`, `EXPEDIÇÃO SOC`, `TINTA`, `REVERSA`.
-
-> **Restrição dura:** `Σ HC alocado ≤ HC disponível da escala`, e por processo
-> `min ≤ HC alocado ≤ max` (ou zero, se o processo não roda no turno).
-
-### 3.2 Demanda — quanto vai chegar, e quando
-
-Duas camadas:
-
-1. **Volume por origem** (o forecast da companhia). As origens reais hoje são
-   `FMH`, `INTER-SOC`, `CB`, `BIG SELLER`, `PUDO SVP`, `SOC`, `FULL`.
-2. **Curva de chegada** — o share que distribui esse volume ao longo das horas,
-   por **dia da semana × turno × hora**. Vem do histórico.
-
-```
-demanda(hora) = Σ_origem [ forecast(dia, origem) × curva(dia_semana, turno, hora) ]
-```
-
-A curva é o que transforma um número do dia numa necessidade hora a hora — sem
-ela o plano vira média, e média esconde o pico que quebra a operação.
-
-### 3.3 Capacidade — quanto eu consigo entregar
-
-Para cada processo macro:
-
-```
-capacidade(processo, hora) = HC alocado × PHD(processo)
-```
-
-O plano fecha quando, para cada hora, a capacidade instalada cobre a demanda
-daquela hora — respeitando o teto de HC da escala. Onde não cobrir, o modelo
-mostra o **gap** (em unidades e em HC equivalente), que é o pedido de ajuste:
-mais gente, outro turno, ou aceitar backlog.
-
-## 4. Estrutura da aba `bat`
-
-**Uma aba só, uma tabela só** — a coluna `bloco` diz o que a linha é (mesmo
-padrão já usado no `kanban_input`). Isso mantém tudo num lugar, editável na mão,
-e trivial de ler pela API.
-
-Cabeçalho (linha 1):
-
-```
-bloco | data | dia_semana | turno | hora | macro | origem | valor | min | max | obs
-```
-
-Como cada bloco preenche:
-
-| `bloco` | Preenche | `valor` significa | Exemplo |
+| Colunas | Bloco | Linhas | Conteúdo |
 |---|---|---|---|
-| `escala` | `data`, `turno` | HC disponível | `escala \| 2026-09-04 \| \| T1 \| \| \| \| 110` |
-| `processo` | `macro`, `min`, `max` | PHD (un/h por pessoa) | `processo \| \| \| \| \| ASM \| \| 1584 \| 4 \| 24` |
-| `recurso` | `macro` | posições instaladas | `recurso \| \| \| \| \| ASM \| \| 24` |
-| `forecast` | `data`, `origem` | volume (un) | `forecast \| 2026-09-04 \| \| \| \| \| CB \| 27973` |
-| `curva` | `dia_semana`, `turno`, `hora` | peso (0–1 ou %) | `curva \| \| QUI \| T1 \| 8 \| \| \| 0,12` |
+| **A–F** | Premissas | 92 | `PROCESSO · POR WS · PHD · NOMINAL · PRIORIZAÇÃO · MACRO` |
+| **G–P** | Forecast | 2.013 | `date · destination · origin_type · direct · transhipment · total · key · APOIO` |
+| **Q–V** | Curva Line Haul | 168 | `HORA · CURVA · % CURVA · NÚM_DIA · DIA` |
+| **W–AB** | Curva First Mile | 168 | idem |
 
-Regras:
+### 2.1 Premissas (A–F) — três tipos de linha no mesmo bloco
 
-- **Célula vazia é vazia, não zero.** Faltou dado, o modelo avisa — não assume 0.
-- `data` em `YYYY-MM-DD`; `hora` em 0–23 (cutoff 06h→05h); `dia_semana` como
-  `SEG…DOM`.
-- Número com vírgula decimal, sem separador de milhar.
-- A soma dos pesos da curva de um mesmo `dia_semana × turno` deve fechar em 100%;
-  se não fechar, a tela mostra o desvio em vez de normalizar em silêncio.
-- Linha nova = registro novo. Não se reaproveita linha de outro bloco.
+As 92 linhas não são todas processo operacional. Há três naturezas misturadas:
+
+**a) Postos de trabalho** (~66 linhas) — MACRO = `ASM`, `INBOUND LH`, `INBOUND FM`,
+`ESTEIRA`, `ESTEIRA TERMO`, `EXPEDIÇÃO HUB`, `EXPEDIÇÃO SOC`, `TINTA`, `REVERSA`,
+`TRANSIÇÃO`. Dividem-se em dois tipos, e **a diferença define a fórmula**:
+
+- **Direto** (53 com PHD): dimensionado por volume.
+  `HC = CEIL(demanda_hora ÷ PHD) × POR WS`
+  Ex.: `BEEP LH` PHD 4.355 · `INDUÇÕES NÍVEL 3` PHD 1.584 · `PESCA ESTEIRA` PHD 352.
+- **Indireto / apoio** (39 sem PHD): não escala com volume, escala com estrutura.
+  Ex.: `GAIOLEIRO`, `FISCAL DE PÁTIO`, `GOLEIRO ESTEIRA`, `TRIAGEM SACAS VAZIAS`.
+  Tem `POR WS` mas não tem PHD — precisa de uma regra própria (ver §4, ponto 2).
+
+**b) Recursos instalados** (MACRO = `ATIVO`, 15 linhas) — o teto físico da casa:
+`MÁX DOCAS IN` 29 · `MÁX DOCAS OUT` 13 · `BEEP LH T1/T2/T3` 18 cada · `PDA` 78 ·
+`ESTEIRAS` 2 · `MANUAIS` 5 · `MÁX FILA FM` 20 · `CAP STAGE IN/OUT` ·
+`TEMPO DE FILA/DESCARGA TARGET FM`.
+
+**c) Parâmetros de modelo** (MACRO = `PERFIL`, `OEE`, `SPR`, `INDICADOR`, `MINUTOS`):
+- `PERFIL` — **roteamento e mix**: `DEMANDA ASM` 85% / `DEMANDA ESTEIRA` 15%
+  (soma 100%) e perfil de pacote `P` 40% / `M` 45% / `G` 9% / `BULKY` 6% (soma 100%).
+- `OEE` — `CAPACIDADE ASM` 27.371 · `CAPACIDADE ESTEIRA` 2.534.
+- `SPR OUT` 6.224 · `PRODUTIVIDADE OVERALL` 629 · `ATENDIMENTO SODEXO` 240 min.
+
+### 2.2 Forecast (G–P) — ano inteiro, por data × origem
+
+2.013 linhas cobrindo **358 datas** (02/01 a 31/12/2026), 7 origens: `FMH`,
+`INTER-SOC`, `CB`, `BIG SELLER`, `PUDO SVP`, `SOC`, `FULL`. Cada linha traz
+`direct` + `transhipment` = `total`.
+
+A coluna **`APOIO`** é a peça que liga forecast e curva: classifica cada linha em
+**`HUB`** (1.074) ou **`FM`** (939) — ou seja, qual fluxo aquele volume percorre.
+
+### 2.3 Curvas (Q–V e W–AB) — 24h × 7 dias, por fluxo
+
+168 linhas cada = 24 horas × 7 dias da semana, com `% CURVA` já calculado.
+Somas conferidas: **fecham 100% por dia** (variação de ±0,04pp, arredondamento).
+
+## 3. Como o modelo calcula
+
+```
+1. demanda(dia, hora, fluxo) = Σ_origens[APOIO = fluxo] total(dia, origem) × %curva_fluxo(dia_semana, hora)
+
+2. roteamento:  demanda_ASM     = demanda × 85%        (PERFIL)
+                demanda_ESTEIRA = demanda × 15%
+
+3. por posto direto:   HC(processo, hora) = CEIL(demanda_hora ÷ PHD) × POR WS
+   por posto indireto: regra a definir (§4.2)
+
+4. restrições:  Σ HC alocado ≤ HC disponível da escala        ← falta esse dado
+                HC(processo) ≤ recurso instalado (bloco ATIVO)
+                ordem de corte quando falta gente = PRIORIZAÇÃO (1 → 2 → 3)
+
+5. gap(hora) = demanda(hora) − capacidade instalada(hora)
+```
+
+## 4. O que falta pro modelo fechar
+
+Em ordem de impacto:
+
+**1. HC disponível por dia × turno (a escala).** É a etapa 1 do modelo e o teto de
+tudo — não existe na aba. O bloco `ATIVO` tem recurso *físico* (docas, PDAs,
+esteiras), não gente. Sem isso o modelo calcula o **necessário**, mas não
+consegue dizer o que cabe. Sugestão: um 5º bloco (AD–AG) com
+`DATA · TURNO · HC DISPONÍVEL · OBS`.
+
+**2. Regra dos 39 postos indiretos (sem PHD).** Eles têm `POR WS` mas não escalam
+com volume. Três caminhos possíveis — qual é o certo?
+   - `POR WS` × nº de estações abertas do processo âncora do mesmo MACRO;
+   - proporção fixa do HC do MACRO;
+   - valor fixo por turno (posição fixa).
+
+**3. Min/máx por processo.** Você citou "cada processo macro tem um mínimo e um
+máximo de pessoas", mas a aba não tem essas colunas. É derivado de `POR WS` ×
+recurso instalado, ou são dois números novos a preencher?
+
+**4. `PRIORIZAÇÃO` vazia em 25 processos** (valor `-`) e `0` em 1. Significa "não
+prioriza", "não roda", ou "preencher depois"? É o que decide quem é cortado
+primeiro quando o HC não dá.
+
+**5. Curva First Mile sem domingo.** As 24 linhas de domingo existem com `HORA`,
+`CURVA` e `DIA`, mas `% CURVA` está vazio — FM não opera domingo, ou faltou
+preencher?
 
 ## 5. O que a tela precisa entregar
 
-1. **Ver o plano do dia/turno**: HC disponível, HC alocado, demanda prevista,
-   capacidade instalada, gap — hora a hora e no consolidado.
-2. **Ajustar e ver o efeito na hora**: mexer no HC por processo (respeitando
-   min/max), no total da escala, e simular forecast diferente.
-3. **Enxergar o gargalo**: qual processo trava a linha naquela hora, e quanto de
-   HC resolveria.
-4. **Deixar claro o que é premissa e o que é resultado** — número que veio da
-   companhia/histórico não se confunde com número que nós definimos.
-5. **Salvar só o que é nosso**: escala e capacidade voltam pra aba `bat`;
-   forecast e curva, não.
-
-## 6. Fora do escopo desta primeira versão
-
-- Escala nominal por pessoa (nome, matrícula) — o modelo trabalha com **HC
-  agregado** por turno, não com alocação individual.
-- Absenteísmo e turnover como variável separada — por ora entram já descontados
-  no HC disponível da escala.
-- Reescrita da aba `config` — os processos macro e PHD continuam vindo de lá; a
-  aba `bat` guarda só o que é do planejamento (min/max, escala, forecast, curva).
+1. **Plano do dia/turno**: demanda hora a hora por fluxo, HC necessário por
+   processo, HC disponível, gap.
+2. **Ajustar e ver o efeito na hora**: HC por processo, total da escala, e
+   simular forecast diferente.
+3. **Gargalo explícito**: qual processo trava a hora, e quanto de HC resolve.
+4. **Premissa ≠ resultado**: forecast (companhia) e curva (histórico) entram como
+   leitura; escala e alocação são nossas e voltam pra aba `bat`.
 
 ---
 
-*Base real usada pra ancorar o modelo: `config` (processos macro + PHD),
-`forecast_backlog_pulso` (origens e volumes), turnos T1/T2/T3 e cutoff 06h do
-padrão PULSO.*
+*Ancorado no conteúdo real da aba `bat` em 2026-09-03: 92 premissas, 2.013 linhas
+de forecast (358 datas), 2 curvas de 168 linhas. Turnos T1/T2/T3 e cutoff 06h
+seguem o padrão do resto do PULSO.*
