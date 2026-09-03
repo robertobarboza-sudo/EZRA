@@ -43,7 +43,7 @@ a fórmula**:
   Ex.: `BEEP LH` PHD 4.355 · `INDUÇÕES NÍVEL 3` PHD 1.584 · `PESCA ESTEIRA` PHD 352.
 - **Indireto / apoio** (39 sem PHD): não escala com volume, escala com estrutura.
   Ex.: `GAIOLEIRO`, `FISCAL DE PÁTIO`, `GOLEIRO ESTEIRA`, `TRIAGEM SACAS VAZIAS`.
-  Tem `POR WS` mas não tem PHD — precisa de uma regra própria (ver §4, ponto 3).
+  Tem `POR WS` mas não tem PHD — precisa de uma regra própria (ver §4, ponto 2).
 
 **b) Recursos instalados** (MACRO = `ATIVO`, 15 linhas) — o teto físico da casa:
 `MÁX DOCAS IN` 29 · `MÁX DOCAS OUT` 13 · `BEEP LH T1/T2/T3` 18 cada · `PDA` 78 ·
@@ -79,13 +79,19 @@ O ponto que muda o modelo: **as escalas se sobrepõem por desenho**. A escala é
 janela do anterior — a sobreposição é a virada de turno, não erro de dado. São 5
 escalas com janelas próprias, e em algumas horas duas convivem:
 
-| Escala | Janela | Observação |
-|---|---|---|
-| `T1A` | 06h–14h | |
-| `T1B` | — | coluna existe, **sem nenhum valor** |
-| `T2` | 12h–21h | sobrepõe T1A das 12h às 14h |
-| `T4` | 19h–03h | sobrepõe T2 das 19h às 21h |
-| `T3` | 22h–05h | sobrepõe T4 das 22h às 03h |
+| Escala | Janela | Horas de relógio | Observação |
+|---|---|---|---|
+| `T1A` | 06h–14h | 9 | |
+| `T1B` | — | — | coluna existe, **sem nenhum valor** |
+| `T2` | 12h–21h | 10 | sobrepõe T1A das 12h às 14h |
+| `T4` | 19h–03h | 9 | sobrepõe T2 das 19h às 21h |
+| `T3` | 22h–05h | 8 | sobrepõe T4 das 22h às 03h · **janela menor por lei** |
+
+O `T3` cobrir só 8 horas de relógio não é dado faltando: é a **hora noturna
+reduzida** (CLT art. 73 §1º — das 22h às 5h a hora conta como 52min30). Com a
+hora valendo menos tempo de relógio, a mesma jornada de 9h45 se completa em menos
+horas presentes. Consequência prática pro planejamento: **cobrir a madrugada
+custa mais HC por hora de operação** do que cobrir o mesmo intervalo de dia.
 
 `QUADRO FIXO` (AN) é a soma das escalas ativas naquela hora — **confere nas 168
 linhas, sem divergência**. É por isso que o quadro salta de 459 (só T1A) para 963
@@ -123,7 +129,7 @@ com as colunas de escala T1A/T2/T4/T3, que são outra coisa apesar do nome parec
                 demanda_ESTEIRA = demanda × 15%
 
 3. por posto direto:   HC(processo, hora) = CEIL(demanda_hora ÷ PHD) × POR WS
-   por posto indireto: regra a definir (§4.3)
+   por posto indireto: regra a definir (§4.2)
 
 4. restrições:  Σ HC alocado(hora) ≤ QUADRO FIXO(dia, hora)    ← bloco AC–AO
                 HC(subprocesso) ≤ recurso instalado (bloco ATIVO)
@@ -142,35 +148,30 @@ da 5x2. O modelo hoje ignora a coluna e usa `QUADRO FIXO` como teto. Se ela for
 ausência a descontar, o teto vira `QUADRO FIXO − FOLGAS` e o plano muda bastante
 — mas aí o preenchimento precisa fechar (tem dia com 0).
 
-**2. A cauda do T3 some às 6h.** Com jornada de 9h45 entrando às 22h, o T3 sai
-por volta de 07h45 — mas o quadro mostra só T1A (459) nas 6h e 7h, sem resto de
-T3. O quadro não modela essa virada, ou o T3 encerra mesmo às 05h59? Importa
-porque 6h–7h é justamente o pico da curva de Line Haul.
-
-**3. Regra dos 39 subprocessos indiretos (sem PHD).** Eles têm `POR WS` mas não
+**2. Regra dos 39 subprocessos indiretos (sem PHD).** Eles têm `POR WS` mas não
 escalam com volume. Três caminhos possíveis — qual é o certo?
    - `POR WS` × nº de estações abertas do subprocesso âncora do mesmo MACRO;
    - proporção fixa do HC do MACRO;
    - valor fixo por turno (posição fixa).
 
-**4. Min/máx por macro.** Você citou que cada processo macro tem mínimo e máximo
+**3. Min/máx por macro.** Você citou que cada processo macro tem mínimo e máximo
 de pessoas, mas não há essas colunas. É derivado (`POR WS` × recurso instalado),
 ou são dois números novos a preencher por macro?
 
-**5. `PRIORIZAÇÃO` vazia em 25 subprocessos** (valor `-`) e `0` em 1. Significa
+**4. `PRIORIZAÇÃO` vazia em 25 subprocessos** (valor `-`) e `0` em 1. Significa
 "não prioriza", "não roda", ou "preencher depois"? É o que decide quem é cortado
 primeiro quando o HC não dá.
 
-**6. Curva First Mile sem domingo.** As 24 linhas de domingo existem com `HORA`,
+**5. Curva First Mile sem domingo.** As 24 linhas de domingo existem com `HORA`,
 `CURVA` e `DIA`, mas `% CURVA` está vazio — FM não opera domingo, ou faltou
 preencher?
 
-**7. Cobertura desigual entre blocos.** O forecast tem o ano inteiro (358 datas),
+**6. Cobertura desigual entre blocos.** O forecast tem o ano inteiro (358 datas),
 o quadro tem **1 semana** (31/08–06/09). Fora dessa semana o modelo não tem
 escala pra comparar. O quadro se repete por dia da semana, ou vai ser preenchido
 data a data?
 
-**8. `T1B` está vazia** e `DIA` vem em inglês no quadro (`Monday`) mas em
+**7. `T1B` está vazia** e `DIA` vem em inglês no quadro (`Monday`) mas em
 português nas curvas (`SEGUNDA`) — detalhe de join, resolvo no código.
 
 ## 5. O que a tela precisa entregar
