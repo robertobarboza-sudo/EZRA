@@ -38,12 +38,17 @@ ele pertence. As 92 linhas têm três naturezas misturadas:
 `TINTA`, `REVERSA`, `TRANSIÇÃO`. Dividem-se em dois tipos, e **a diferença define
 a fórmula**:
 
-- **Direto** (53 com PHD): dimensionado por volume.
-  `HC = CEIL(demanda_hora ÷ PHD) × POR WS`
+- **Direto** (53 com PHD): atua em área que define capacidade efetiva.
+  Consome HC **e** entrega capacidade.
   Ex.: `BEEP LH` PHD 4.355 · `INDUÇÕES NÍVEL 3` PHD 1.584 · `PESCA ESTEIRA` PHD 352.
-- **Indireto / apoio** (39 sem PHD): não escala com volume, escala com estrutura.
+- **Indireto / apoio** (39 sem PHD): atua dentro do processo, mas **não em área que
+  define capacidade efetiva**. Consome HC (entra na distribuição de labor) e
+  **não soma capacidade nenhuma**.
   Ex.: `GAIOLEIRO`, `FISCAL DE PÁTIO`, `GOLEIRO ESTEIRA`, `TRIAGEM SACAS VAZIAS`.
-  Tem `POR WS` mas não tem PHD — precisa de uma regra própria (ver §4, ponto 2).
+
+A consequência é importante: **PHD vazio não é dado faltando** — é a marca de que
+aquele subprocesso não gera capacidade. O modelo trata os dois grupos igual na
+hora de consumir HC, e diferente na hora de somar capacidade.
 
 **b) Recursos instalados** (MACRO = `ATIVO`, 15 linhas) — o teto físico da casa:
 `MÁX DOCAS IN` 29 · `MÁX DOCAS OUT` 13 · `BEEP LH T1/T2/T3` 18 cada · `PDA` 78 ·
@@ -108,19 +113,50 @@ a rotação da 5x2**. Testado isolando as horas em que só uma escala está ativ
 
 Numa 5x2 toda escala teria ~28,6% de folga **todo dia**, sem variação. O real
 oscila de 0% (T1A na sexta) a 65% (T2 no domingo), e a soma da semana dá 46–72%
-do que a rotação exigiria. Ou seja: `FOLGAS` é outra coisa — provavelmente
-ausências/folgas já solicitadas, e com preenchimento irregular.
+do que a rotação exigiria. `FOLGAS` é outra coisa: **ausência programada**
+(férias, folga pedida, banco de horas), com preenchimento ainda irregular.
 
-**Isso responde se `QUADRO FIXO` é bruto ou líquido:** ele já é o **efetivo
-escalado**. A prova está no domingo, quando o próprio quadro encolhe (T2 cai de
-560 para 77, T3 de 588 para 212) em vez de manter o número cheio com folga alta —
-quadro de efetivo encolhe, quadro nominal não. Logo o modelo usa `QUADRO FIXO`
-direto como teto, **sem subtrair `FOLGAS`**.
+São **duas camadas diferentes**, e as duas valem:
+
+- `QUADRO FIXO` já é quem está **escalado** naquele dia — a rotação da 5x2 já está
+  refletida nele (por isso o domingo encolhe: T2 cai de 560 para 77, T3 de 588
+  para 212, em vez de manter número cheio com folga alta).
+- `FOLGAS` é **ausência programada** por cima disso (férias, folga pedida, banco
+  de horas) — gente escalada que não vai estar lá.
+
+```
+HC efetivo(dia, hora) = QUADRO FIXO − FOLGAS
+```
+
+Ex.: segunda no T1A → 459 − 141 = **318** pessoas de verdade. Sexta → 446 − 0 = 446.
 
 A coluna `TURNO` (AH) é o **turno operacional** (T1/T2/T3, 8h cada) — não confundir
 com as colunas de escala T1A/T2/T4/T3, que são outra coisa apesar do nome parecido.
 
 ## 3. Como o modelo calcula
+
+### 3.1 A unidade de decisão: quantas instâncias do macro rodar
+
+Não existe min/máx como número solto. O que existe é: **o macro roda em N
+instâncias**, e tudo escala linear com N.
+
+```
+HC(macro, N)         = Σ_subprocessos (POR WS)         × N
+capacidade(macro, N) = Σ_subprocessos_com_PHD (PHD)    × N        ← indiretos entram com 0
+```
+
+Rodou 1 esteira, conta os subprocessos ×1; rodou 2, ×2; e assim por diante. Daí
+saem naturalmente o mínimo e o máximo do macro:
+
+```
+mínimo = HC(macro, 1)          ← o macro roda, ou não roda
+máximo = HC(macro, N_instalado) ← N_instalado vem do bloco ATIVO (ex.: ESTEIRAS = 2)
+```
+
+**N é a variável que o planejamento decide.** É isso que a tela precisa deixar
+ajustar: quantas instâncias de cada macro abrir, dado o HC que a escala permite.
+
+### 3.2 A conta, ponta a ponta
 
 ```
 1. demanda(dia, hora, fluxo) = Σ_origens[APOIO = fluxo] total(dia, origem) × %curva_fluxo(dia_semana, hora)
@@ -128,50 +164,34 @@ com as colunas de escala T1A/T2/T4/T3, que são outra coisa apesar do nome parec
 2. roteamento:  demanda_ASM     = demanda × 85%        (PERFIL)
                 demanda_ESTEIRA = demanda × 15%
 
-3. por posto direto:   HC(processo, hora) = CEIL(demanda_hora ÷ PHD) × POR WS
-   por posto indireto: regra a definir (§4.2)
+3. escolhe N por macro  →  HC(macro, N) e capacidade(macro, N)   (§3.1)
 
-4. restrições:  Σ HC alocado(hora) ≤ QUADRO FIXO(dia, hora)    ← bloco AC–AO
-                HC(subprocesso) ≤ recurso instalado (bloco ATIVO)
+4. restrições:  Σ_macros HC(macro, N) ≤ HC efetivo(dia, hora)   ← QUADRO FIXO − FOLGAS
+                N ≤ N_instalado (bloco ATIVO)
                 ordem de corte quando falta gente = PRIORIZAÇÃO (1 → 2 → 3)
 
-5. gap(hora) = demanda(hora) − capacidade instalada(hora)
+5. gap(hora) = demanda(hora) − Σ capacidade(macro, N)
 ```
 
 O teto é **por hora**, não por turno — nas horas de sobreposição (12–14h, 19–21h,
 22–03h) há mais gente na casa, e o modelo pode alocar mais ali.
 
-## 4. O que falta pro modelo fechar
+## 4. Pontas soltas (não bloqueiam o cálculo)
 
-**1. O que é `FOLGAS`, então?** Já sabemos o que **não** é (§2.4): não é a rotação
-da 5x2. O modelo hoje ignora a coluna e usa `QUADRO FIXO` como teto. Se ela for
-ausência a descontar, o teto vira `QUADRO FIXO − FOLGAS` e o plano muda bastante
-— mas aí o preenchimento precisa fechar (tem dia com 0).
-
-**2. Regra dos 39 subprocessos indiretos (sem PHD).** Eles têm `POR WS` mas não
-escalam com volume. Três caminhos possíveis — qual é o certo?
-   - `POR WS` × nº de estações abertas do subprocesso âncora do mesmo MACRO;
-   - proporção fixa do HC do MACRO;
-   - valor fixo por turno (posição fixa).
-
-**3. Min/máx por macro.** Você citou que cada processo macro tem mínimo e máximo
-de pessoas, mas não há essas colunas. É derivado (`POR WS` × recurso instalado),
-ou são dois números novos a preencher por macro?
-
-**4. `PRIORIZAÇÃO` vazia em 25 subprocessos** (valor `-`) e `0` em 1. Significa
+**1. `PRIORIZAÇÃO` vazia em 25 subprocessos** (valor `-`) e `0` em 1. Significa
 "não prioriza", "não roda", ou "preencher depois"? É o que decide quem é cortado
 primeiro quando o HC não dá.
 
-**5. Curva First Mile sem domingo.** As 24 linhas de domingo existem com `HORA`,
+**2. Curva First Mile sem domingo.** As 24 linhas de domingo existem com `HORA`,
 `CURVA` e `DIA`, mas `% CURVA` está vazio — FM não opera domingo, ou faltou
 preencher?
 
-**6. Cobertura desigual entre blocos.** O forecast tem o ano inteiro (358 datas),
+**3. Cobertura desigual entre blocos.** O forecast tem o ano inteiro (358 datas),
 o quadro tem **1 semana** (31/08–06/09). Fora dessa semana o modelo não tem
 escala pra comparar. O quadro se repete por dia da semana, ou vai ser preenchido
 data a data?
 
-**7. `T1B` está vazia** e `DIA` vem em inglês no quadro (`Monday`) mas em
+**4. `T1B` está vazia** e `DIA` vem em inglês no quadro (`Monday`) mas em
 português nas curvas (`SEGUNDA`) — detalhe de join, resolvo no código.
 
 ## 5. O que a tela precisa entregar
