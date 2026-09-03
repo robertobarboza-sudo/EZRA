@@ -4472,8 +4472,12 @@
       <div class="nav-item nav-item-locked" data-section="performance" data-label="Performance">
         <i class="fas fa-chart-line nav-icon"></i><span class="nav-label">Performance</span><i class="fas fa-lock nav-lock-icon"></i>
       </div>
-      <div class="nav-item nav-item-locked" data-section="laborplan" data-label="Labor Plan">
-        <i class="fas fa-brain nav-icon"></i><span class="nav-label">Labor Plan</span><i class="fas fa-lock nav-lock-icon"></i>
+      <!-- Labor Plan é uma PÁGINA DEDICADA (/olho-de-deus/, app próprio com
+           senha), não uma seção interna — mesmo padrão da Árvore de KPI's: o
+           item continua com data-section pro controle de acesso por perfil,
+           mas o clique encaminha pra fora. -->
+      <div class="nav-item" data-section="laborplan" data-label="Labor Plan" onclick="window.location.href='/olho-de-deus/'">
+        <i class="fas fa-brain nav-icon"></i><span class="nav-label">Labor Plan</span>
       </div>
       <div class="nav-item" data-section="backlog" data-label="Backlog" onclick="navigateTo('backlog',this)">
         <i class="fas fa-layer-group nav-icon"></i><span class="nav-label">Backlog</span>
