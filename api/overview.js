@@ -838,7 +838,225 @@ async function buildDataMap(req, res) {
   }
 }
 
+/* ================================================================
+   LABOR PLAN (?laborplan=1) — modelo de planejamento de mão de obra,
+   lido direto da aba `bat` (planilha construída pelo Roberto, 2026-09).
+   Ver docs/prompt-modelo-labor-plan.md pro modelo completo — resumo:
+     RECURSOS (escala)  →  DEMANDA (forecast × curva)  →  CAPACIDADE (HC × PHD)
+   Mora aqui (não em api/labor-plan.js) pelo mesmo motivo do bloco Labor
+   Plan do Overview logo acima: teto de 12 functions do plano Hobby.
+
+   A aba `bat` é UMA planilha larga com 5 blocos de colunas lado a lado,
+   cada um com sua própria altura de linhas (não são abas separadas):
+     A–F   premissas (subprocessos, cada um vinculado a um MACRO)
+     G–P   forecast (data × origem, ano inteiro)
+     Q–V   curva Line Haul (24h × 7 dias, fluxo "HUB")
+     W–AB  curva First Mile (24h × 7 dias, fluxo "FM")
+     AC–AO quadro (escala hora a hora, 1 semana)
+
+   IMPORTANTE: essa aba usa formatação de número em INGLÊS (vírgula =
+   milhar, ponto = decimal — ex. "4,355" = 4355), o OPOSTO do padrão
+   pt-BR (vírgula=decimal) que o resto do PULSO usa via toNum() de
+   _period.js. Por isso um parser próprio aqui (numBat), NUNCA toNum.
+================================================================ */
+const BAT_SHEET = { spreadsheetId: '1BqZElDRwVaGpDYZzHTq9UQvVLy2guRVfTdvwGHL1qC4', gid: '176897844' };
+
+// Índices de coluna (0-based) confirmados ao vivo em 2026-09-03 via
+// debug-meta — a aba não tem cabeçalho único, então acesso é posicional.
+const BAT_COL = {
+  processo: 0, porWs: 1, phd: 2, nominal: 3, priorizacao: 4, macro: 5,
+  fctData: 7, fctDestino: 8, fctOrigem: 9, fctDireto: 10, fctTransp: 11, fctTotal: 12, fctApoio: 15,
+  lhHora: 17, lhPct: 19, lhDia: 21,
+  fmHora: 23, fmPct: 25, fmDia: 27,
+  qData: 29, qDiaEn: 30, qHora: 32, qTurno: 33, qT1A: 34, qT1B: 35, qT2: 36, qT4: 37, qT3: 38, qFixo: 39, qFolgas: 40,
+};
+
+// Formato inglês (vírgula=milhar, ponto=decimal) — ver comentário acima.
+// "-" e vazio viram null (célula sem dado, não zero).
+function numBat(v) {
+  const s = String(v ?? '').trim().replace(/%$/, '');
+  if (!s || s === '-') return null;
+  const n = Number(s.replace(/,/g, ''));
+  return isNaN(n) ? null : n;
+}
+function batDataIso(v) {
+  const m = String(v || '').trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : null;
+}
+const DIAS_PT = ['DOMINGO', 'SEGUNDA', 'TERÇA', 'QUARTA', 'QUINTA', 'SEXTA', 'SÁBADO'];
+function diaSemanaPtDe(dataIso) {
+  const [y, m, d] = dataIso.split('-').map(Number);
+  return DIAS_PT[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+}
+
+// Macros "especiais" das premissas — não são subprocesso operacional (ver
+// docs/prompt-modelo-labor-plan.md §2.1b/c): ATIVO = recurso instalado,
+// os demais = parâmetro solto (roteamento, OEE, SPR...).
+const BAT_MACROS_ESPECIAIS = new Set(['ATIVO', 'PERFIL', 'OEE', 'SPR', 'INDICADOR', 'MINUTOS']);
+
+// Único mapeamento direto e confirmado hoje entre um macro operacional e
+// sua contagem de recurso instalado (bloco ATIVO) — os demais macros não
+// têm uma linha ATIVO equivalente ainda, então N_instalado fica null e a
+// tela deixa o planejador escolher N livremente (ver §3.1 do modelo).
+const BAT_MACRO_ATIVO = { ESTEIRA: 'ESTEIRAS' };
+
+async function buildLaborplan(req, res) {
+  let values;
+  try {
+    ({ values } = await fetchTabRawValues(BAT_SHEET.spreadsheetId, BAT_SHEET.gid));
+  } catch (err) {
+    res.status(502).json({ ok: false, erro: err.message });
+    return;
+  }
+  const rows = values.slice(1);
+  const avisos = [];
+
+  // --- Premissas (A–F): subprocessos vinculados a um macro -----------
+  const subprocessos = rows
+    .filter(r => String(r[BAT_COL.processo] || '').trim())
+    .map(r => ({
+      processo: String(r[BAT_COL.processo]).trim(),
+      porWs: numBat(r[BAT_COL.porWs]),
+      phd: numBat(r[BAT_COL.phd]),
+      nominal: numBat(r[BAT_COL.nominal]),
+      priorizacao: numBat(r[BAT_COL.priorizacao]),
+      macro: String(r[BAT_COL.macro] || '').trim(),
+    }));
+  const semPriorizacao = subprocessos.filter(s => !BAT_MACROS_ESPECIAIS.has(s.macro) && s.priorizacao === null).length;
+  if (semPriorizacao) avisos.push(`${semPriorizacao} subprocesso(s) sem PRIORIZAÇÃO definida — não entram na ordem de corte quando o HC não fecha.`);
+
+  const ativos = subprocessos.filter(s => s.macro === 'ATIVO');
+  const perfil = subprocessos.filter(s => s.macro === 'PERFIL');
+  const oee = subprocessos.filter(s => s.macro === 'OEE');
+
+  const operacionais = subprocessos.filter(s => !BAT_MACROS_ESPECIAIS.has(s.macro));
+  const nomesMacro = [...new Set(operacionais.map(s => s.macro))];
+  const macros = nomesMacro.map(macro => {
+    const subs = operacionais.filter(s => s.macro === macro).map(s => ({ ...s, indireto: s.phd === null }));
+    const somaPorWs = subs.reduce((acc, s) => acc + (s.porWs || 0), 0);
+    const somaPhd = subs.reduce((acc, s) => acc + (s.phd || 0), 0); // indiretos (phd null) somam 0
+    const ativoRef = BAT_MACRO_ATIVO[macro] ? ativos.find(a => a.processo === BAT_MACRO_ATIVO[macro]) : null;
+    const nInstalado = ativoRef ? (ativoRef.nominal ?? ativoRef.phd ?? ativoRef.porWs) : null;
+    return {
+      macro,
+      subprocessos: subs,
+      hcPorInstancia: somaPorWs,   // HC(macro, N=1) — múltiplo linear em N
+      capacidadePorInstancia: somaPhd, // capacidade(macro, N=1)
+      nInstalado,
+      qtdIndiretos: subs.filter(s => s.indireto).length,
+    };
+  });
+
+  // --- Forecast (G–P): volume por data × origem, classificado HUB/FM -
+  const forecastRows = rows
+    .filter(r => batDataIso(r[BAT_COL.fctData]))
+    .map(r => ({
+      data: batDataIso(r[BAT_COL.fctData]),
+      origem: String(r[BAT_COL.fctOrigem] || '').trim(),
+      total: numBat(r[BAT_COL.fctTotal]) || 0,
+      apoio: String(r[BAT_COL.fctApoio] || '').trim().toUpperCase(),
+    }));
+  const datasForecast = [...new Set(forecastRows.map(f => f.data))].sort();
+
+  // --- Curvas (Q–V, W–AB): % por dia da semana × hora, por fluxo -----
+  function lerCurva(colHora, colPct, colDia) {
+    const porDiaHora = {};
+    rows.forEach(r => {
+      const dia = String(r[colDia] || '').trim().toUpperCase();
+      if (!dia) return;
+      const hora = numBat(r[colHora]);
+      const pct = numBat(r[colPct]);
+      if (hora === null) return;
+      if (!porDiaHora[dia]) porDiaHora[dia] = Array(24).fill(null);
+      porDiaHora[dia][hora] = pct === null ? null : pct / 100;
+    });
+    return porDiaHora;
+  }
+  const curvaHub = lerCurva(BAT_COL.lhHora, BAT_COL.lhPct, BAT_COL.lhDia);
+  const curvaFm = lerCurva(BAT_COL.fmHora, BAT_COL.fmPct, BAT_COL.fmDia);
+  if (curvaFm.DOMINGO && curvaFm.DOMINGO.some(v => v === null)) {
+    avisos.push('Curva First Mile de domingo está sem % preenchido.');
+  }
+
+  // --- Quadro (AC–AO): escala hora a hora, efetivo = fixo − folgas ---
+  const quadroPorData = {};
+  rows.forEach(r => {
+    const data = batDataIso(r[BAT_COL.qData]);
+    if (!data) return;
+    const hora = numBat(r[BAT_COL.qHora]);
+    if (hora === null) return;
+    const fixo = numBat(r[BAT_COL.qFixo]) || 0;
+    const folgas = numBat(r[BAT_COL.qFolgas]) || 0;
+    if (!quadroPorData[data]) quadroPorData[data] = Array(24).fill(null);
+    quadroPorData[data][hora] = { fixo, folgas, efetivo: fixo - folgas };
+  });
+  const datasQuadro = Object.keys(quadroPorData).sort();
+  if (datasQuadro.length && datasForecast.length) {
+    avisos.push(`Quadro cobre ${datasQuadro.length} dia(s) (${datasQuadro[0]} a ${datasQuadro[datasQuadro.length - 1]}); forecast cobre ${datasForecast.length} dia(s) (${datasForecast[0]} a ${datasForecast[datasForecast.length - 1]}) — fora da janela do quadro não há escala pra comparar.`);
+  }
+
+  // --- Dia selecionado -------------------------------------------------
+  const hojeIso = hojeOperacionalIso();
+  const dataSel = (req.query.data && datasQuadro.includes(req.query.data)) ? req.query.data
+    : (datasQuadro.includes(hojeIso) ? hojeIso : (datasQuadro[0] || null));
+
+  let demanda = null, efetivoPorHora = null, diaSemana = null;
+  if (dataSel) {
+    diaSemana = diaSemanaPtDe(dataSel);
+    const doDia = forecastRows.filter(f => f.data === dataSel);
+    const totalHub = doDia.filter(f => f.apoio === 'HUB').reduce((s, f) => s + f.total, 0);
+    const totalFm = doDia.filter(f => f.apoio === 'FM').reduce((s, f) => s + f.total, 0);
+    const curvaHubDia = curvaHub[diaSemana] || Array(24).fill(null);
+    const curvaFmDia = curvaFm[diaSemana] || Array(24).fill(null);
+    const hub = curvaHubDia.map(pct => pct === null ? null : totalHub * pct);
+    const fm = curvaFmDia.map(pct => pct === null ? null : totalFm * pct);
+
+    const pctAsm = perfil.find(p => p.processo === 'DEMANDA ASM')?.porWs ?? 0.85;
+    const pctEsteira = perfil.find(p => p.processo === 'DEMANDA ESTEIRA')?.porWs ?? 0.15;
+    demanda = {
+      hub, fm,
+      asm: hub.map(v => v === null ? null : v * pctAsm),
+      esteira: hub.map(v => v === null ? null : v * pctEsteira),
+    };
+    efetivoPorHora = quadroPorData[dataSel].map(h => h ? h.efetivo : null);
+  } else {
+    avisos.push('Nenhuma data com escala (quadro) disponível.');
+  }
+
+  // Roteamento por demanda só está confirmado pra ASM/ESTEIRA (PERFIL);
+  // os demais macros entram sem demanda calculada — sinaliza em vez de
+  // inventar uma % de roteamento não confirmada (ver §4 do modelo).
+  const macrosComRoteamento = new Set(['ASM', 'ESTEIRA']);
+  macros.forEach(m => {
+    m.demandaPorHora = macrosComRoteamento.has(m.macro) && demanda
+      ? (m.macro === 'ASM' ? demanda.asm : demanda.esteira)
+      : null;
+    if (!macrosComRoteamento.has(m.macro)) m.semRoteamento = true;
+  });
+
+  res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=1500');
+  res.status(200).json({
+    ok: true,
+    data: dataSel,
+    diaSemana,
+    coberturaForecast: datasForecast.length ? { inicio: datasForecast[0], fim: datasForecast[datasForecast.length - 1] } : null,
+    coberturaQuadro: datasQuadro.length ? { inicio: datasQuadro[0], fim: datasQuadro[datasQuadro.length - 1] } : null,
+    datasQuadroDisponiveis: datasQuadro,
+    efetivoPorHora,
+    demanda,
+    macros,
+    ativos,
+    perfil,
+    oee,
+    avisos,
+  });
+}
+
 module.exports = async (req, res) => {
+  if (req.query.laborplan !== undefined) {
+    await buildLaborplan(req, res);
+    return;
+  }
   if (req.query.kanban !== undefined) {
     await buildKanban(req, res);
     return;
