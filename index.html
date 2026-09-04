@@ -11296,6 +11296,7 @@ let FILA_FILTERS = { status:[], agencia:'', q:'' };
 // multi-select já usado no Sorting Exception (.rej-msel-*).
 const FILA_STATUS_OPCOES = [
   { value:'Pending', label:'Planejado' },
+  { value:'EmFila', label:'Em Fila' },
   { value:'Assigned', label:'Em andamento' },
   { value:'Occupied', label:'Docado' },
   { value:'Ended', label:'Finalizado' },
@@ -11339,8 +11340,8 @@ let FILA_REFRESH_STARTED = false;
 // Cores pedidas pelo Roberto em 2026-08-16: planejado cinza, em andamento
 // (Assigned) amarelo, docado azul, finalizado verde — "azul" segue o
 // mesmo padrão já usado no PULSO (var(--cyan)).
-const FILA_STATUS_LABEL = { Pending:'Planejado', Assigned:'Em andamento', Occupied:'Docado', Ended:'Finalizado' };
-const FILA_STATUS_COLOR = { Pending:'var(--text-muted)', Assigned:'var(--amber)', Occupied:'var(--cyan)', Ended:'var(--green)' };
+const FILA_STATUS_LABEL = { Pending:'Planejado', EmFila:'Em Fila', Assigned:'Em andamento', Occupied:'Docado', Ended:'Finalizado' };
+const FILA_STATUS_COLOR = { Pending:'var(--text-muted)', EmFila:'var(--amber)', Assigned:'var(--amber)', Occupied:'var(--cyan)', Ended:'var(--green)' };
 
 // Tags por LT (pedido do Roberto em 2026-08-28, mesmo padrão do Monitor
 // Live do Outbound — MON_TAGS/monSetTag) — guardadas em MONITOR_TAGS_INPUT

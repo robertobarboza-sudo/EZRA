@@ -109,6 +109,23 @@ function filaLhDetalhe(lh) {
   };
 }
 
+// Status "Em Fila" (pedido do Roberto em 2026-09-04) — bucket novo entre
+// Planejado e Docado: caminhão já passou pela catraca (emFila=true, tem
+// registro no fila_pulso) mas ainda sem doca nenhuma atribuída. A aba
+// fila_pulso só grava 3 status hoje (Pending/Occupied/Ended) — "Pending"
+// cobre tanto "ainda não chegou" (sem registro, emFila=false) quanto
+// "chegou, aguardando doca" (com registro), então a distinção real está
+// em emFila + assignedDock/occupiedDock, não no texto do status. Se já
+// tem assignedDock mas ainda não ocupou, cai no bucket "Assigned" (label
+// "Em andamento") que já existia na lista mas nunca era alcançado.
+function filaStatusEfetivo(row) {
+  if (row.status === 'Occupied' || row.status === 'Ended') return row.status;
+  if (!row.emFila) return row.status || 'Pending'; // sem registro no monitor = Planejado
+  if (row.occupiedDock) return 'Occupied';
+  if (row.assignedDock) return 'Assigned';
+  return 'EmFila';
+}
+
 async function buildFila(req, res) {
   let filaRows, lhRows;
   try {
@@ -138,7 +155,7 @@ async function buildFila(req, res) {
     const monitor = lt ? filaPorLT.get(lt) : null;
     if (monitor) usadas.add(lt);
     const fimDescarga = !!lh.fim_descarga;
-    return {
+    const base = {
       lhTripNumber: lt,
       emFila: !!monitor,
       // Sem registro no monitor: status inferido do próprio plano (Ended
@@ -153,6 +170,8 @@ async function buildFila(req, res) {
       ...(monitor ? filaRowFromMonitor(monitor) : {}),
       lh: filaLhDetalhe(lh),
     };
+    base.status = filaStatusEfetivo(base);
+    return base;
   });
 
   // Sobras de fila_pulso não vinculadas a uma viagem do plano de hoje —
@@ -164,12 +183,16 @@ async function buildFila(req, res) {
   const orfas = filaRows
     .filter(r => { const lt = r['lh trip number'] || ''; return !lt || !usadas.has(lt); })
     .filter(r => r.status !== 'Ended' || dataOperacionalDe(r['add to queue time']) === dia)
-    .map(r => ({
-      lhTripNumber: r['lh trip number'] || '',
-      emFila: true,
-      ...filaRowFromMonitor(r),
-      lh: null,
-    }));
+    .map(r => {
+      const base = {
+        lhTripNumber: r['lh trip number'] || '',
+        emFila: true,
+        ...filaRowFromMonitor(r),
+        lh: null,
+      };
+      base.status = filaStatusEfetivo(base);
+      return base;
+    });
 
   res.setHeader('Cache-Control', 's-maxage=60, stale-while-revalidate=180');
   res.status(200).json({
