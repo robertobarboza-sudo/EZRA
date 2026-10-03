@@ -64,3 +64,22 @@ tone mapping cinematográfico e perspectiva forte (ponto de fuga) para dar profu
   controles de velocidade da esteira, taxa de indução, pausar, ligar/desligar **cotas** (42 m,
   8 m, 34 m, 1,50 m, 2,00 m, 1,70 m) e tooltip ao passar o mouse sobre caixas/gaiolas.
 - Responsivo (desktop e celular), tema claro/escuro no painel.
+
+---
+
+## Revisão 2 (ajustes sobre o primeiro modelo)
+- **Flow rack deitado**: mesa de roletes horizontal (1,00 × 3,30 m, ~0,85 m de altura) no eixo da ilha,
+  perpendicular à esteira, com prateleira inferior e volumes em espera. O colaborador **não** fica
+  dentro dele.
+- **Ilha**: flow rack no centro, **corredor de 1,20 m** de cada lado e os **gaylords** (nome das caixas
+  de 2 m sobre PBR) depois do corredor, 3 de cada lado. Largura total da ilha 5,80 m; passo 7,20 m.
+- O separador fica na cabeceira da ilha, pega o volume da esteira e **caminha pelo corredor** até o
+  gaylord de destino (animação de caminhada). Enquanto ele está ocupado, o que passa vai para o goleiro.
+- **Esteira**: 44 m (8 m de indução + 36 m de ilhas) e largura **1,65 m**.
+- **Indução com 7 posições**: 3 de cada lado e 1 na ponta da esteira; cada operador pega o volume de
+  dentro de uma **gaiola** de abastecimento atrás dele (nível da gaiola baixa e é reposta).
+- **Gaiolas sem porta** (goleiro e indução): face aberta voltada para o operador.
+- **Volumes maiores** na esteira (caixas de 0,45 a 0,70 m e sacos volumosos).
+- **Vista de ponto de fuga mais alta** (câmera elevada no eixo da esteira).
+- **Colaboradores mais detalhados**: tronco e colete moldados, braços e pernas com cotovelo e joelho,
+  rosto, boné ou cabelo, botas com solado, faixas e alças refletivas, cores em espaço sRGB correto.

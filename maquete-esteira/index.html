@@ -148,13 +148,14 @@ body {
 <section class="sheet" aria-label="Especificação">
   <div class="eyebrow"><span>Layout operacional</span><span>Linha 01</span></div>
   <h1>Esteira 01 <span>·</span> separação manual</h1>
-  <p>10 ilhas com flow rack, 60 posições de caixa e goleiro no fim da linha.</p>
+  <p>10 ilhas com flow rack deitado e 6 gaylords, 7 posições de indução e goleiro no fim da linha.</p>
   <dl class="spec">
-    <dt>Esteira</dt><dd>42,00 × 1,50 m</dd>
-    <dt>Indução</dt><dd>8,00 m · 4 operadores</dd>
-    <dt>Ilhas</dt><dd>5 + 5 · passo 6,80 m</dd>
-    <dt>Caixa</dt><dd>1,20 × 1,00 × 2,00 m sobre PBR</dd>
-    <dt>Gaiola</dt><dd>1,20 × 1,00 × 1,70 m · 2 un.</dd>
+    <dt>Esteira</dt><dd>44,00 × 1,65 m</dd>
+    <dt>Indução</dt><dd>8,00 m · 7 posições com gaiola</dd>
+    <dt>Ilhas</dt><dd>5 + 5 · passo 7,20 m · 5,80 m</dd>
+    <dt>Gaylord</dt><dd>1,20 × 1,00 × 2,00 m sobre PBR</dd>
+    <dt>Corredor</dt><dd>1,20 m gaylord ↔ flow rack</dd>
+    <dt>Gaiola</dt><dd>1,20 × 1,00 × 1,70 m · sem porta</dd>
   </dl>
   <div class="legend" aria-hidden="true">
     <span><i style="background:var(--induct)"></i>Indução</span>
@@ -175,7 +176,7 @@ body {
       </div>
 
       <div>
-        <div class="sec-title"><span>Pacotes por ilha</span><span id="kHour">0 pct/h</span></div>
+        <div class="sec-title"><span>Pescados por ilha</span><span id="kHour">0 pct/h</span></div>
         <div class="bars" id="bars"></div>
       </div>
 
@@ -202,7 +203,7 @@ body {
       <div class="row">
         <button class="btn" id="play" aria-pressed="false">Pausar</button>
         <label class="check" for="dims"><input id="dims" type="checkbox" checked> Cotas</label>
-        <label class="check" for="ghost"><input id="ghost" type="checkbox"> Caixas translúcidas</label>
+        <label class="check" for="ghost"><input id="ghost" type="checkbox"> Gaylords translúcidos</label>
         <label class="check" for="orbit"><input id="orbit" type="checkbox"> Girar</label>
       </div>
     </div>
@@ -233,14 +234,19 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 /* ------------------------------------------------------------------ */
 /* Medidas da operação (metros)                                        */
 /* ------------------------------------------------------------------ */
-const BELT_LEN = 42, INDUCT = 8, BELT_W = 1.5, BELT_TOP = 0.82;
+const BELT_LEN = 44, INDUCT = 8, BELT_W = 1.65, BELT_TOP = 0.82;
 const X0 = -BELT_LEN / 2, X1 = BELT_LEN / 2, XP = X0 + INDUCT;
-const PITCH = (X1 - XP) / 5;                 // 6,8 m
-const PAL_H = 0.144, BOX_H = 2.0;            // pallet PBR + caixa 2 m
-const ISL_GAP = 0.45;                        // folga borda da esteira → ilha
-const RACK_L = 3.3;
+const PITCH = (X1 - XP) / 5;                 // 7,2 m
+const PAL_H = 0.144, BOX_H = 2.0;            // pallet PBR + gaylord 2 m
+const ISL_GAP = 0.3;                         // folga borda da esteira → ilha
+const RACK_W = 1.0, RACK_L = 3.3, RACK_Z0 = 1.2;   // flow rack deitado (largura, comprimento, início)
+const AISLE = 1.2;                           // corredor flow rack ↔ gaylord
+const GAY_X = RACK_W / 2 + AISLE + .6;       // centro do gaylord (2,30 m do eixo da ilha)
+const ISL_HALF = GAY_X + .6;                 // meia largura da ilha (2,90 m)
 const CAGE_H = 1.7;
-const BOX_CAP = 60, CAGE_CAP = 90;
+const BOX_CAP = 35, CAGE_CAP = 45;
+const INDUCT_X = [X0 + 1.5, X0 + 4.0, X0 + 6.5];
+const WALK = 1.4;                            // m/s
 
 /* ------------------------------------------------------------------ */
 /* Renderer, cena, câmera                                              */
@@ -263,7 +269,7 @@ scene.background = BG;
 scene.fog = new THREE.Fog(BG, 70, 170);
 
 const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 400);
-camera.position.set(-31, 17, 25);
+camera.position.set(-34, 20, 28);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.target.set(3, 0.5, 0);
 controls.enableDamping = true;
@@ -500,7 +506,7 @@ function floorText(lines, x, z, w, h, rotY = 0, opts = {}, group = scene) {
 /* ------------------------------------------------------------------ */
 /* Plinto (base da maquete) + grade                                    */
 /* ------------------------------------------------------------------ */
-const PL = { x0: -29, x1: 30, z0: -10, z1: 10 };
+const PL = { x0: -27, x1: 31, z0: -11, z1: 11 };
 {
   const w = PL.x1 - PL.x0, d = PL.z1 - PL.z0, cx = (PL.x0 + PL.x1) / 2, cz = (PL.z0 + PL.z1) / 2;
   const slab = new THREE.Mesh(new THREE.BoxGeometry(w, .6, d),
@@ -551,19 +557,19 @@ let beltMesh;
   // faixa amarela na longarina da zona de indução
   for (const s of [-1, 1]) put('estop', box(INDUCT, .05, .012), X0 + INDUCT / 2, BELT_TOP - .07, s * (hw + .04));
   // mesa de acúmulo do goleiro (roletes) + batente
-  const tx0 = X1 + .05, tl = .75;
-  for (const s of [-1, 1]) put('rackGray', box(tl, .1, .04), tx0 + tl / 2, BELT_TOP - .04, s * .52);
-  for (let x = tx0 + .05; x < tx0 + tl; x += .07) put('roller', cyl(.024, 1.0, 10), x, BELT_TOP - .02, 0, PI / 2, 0, 0);
-  for (const s of [-1, 1]) for (const xx of [tx0 + .08, tx0 + tl - .06]) put('rackGray', box(.04, BELT_TOP - .06, .04), xx, (BELT_TOP - .06) / 2, s * .5);
-  put('rackDark', box(.05, .18, 1.08), tx0 + tl + .02, BELT_TOP + .06, 0);
+  const tx0 = X1 + .05, tl = .95, tw = 1.2;
+  for (const s of [-1, 1]) put('rackGray', box(tl, .1, .04), tx0 + tl / 2, BELT_TOP - .04, s * (tw / 2 + .02));
+  for (let x = tx0 + .05; x < tx0 + tl; x += .07) put('roller', cyl(.024, tw, 10), x, BELT_TOP - .02, 0, PI / 2, 0, 0);
+  for (const s of [-1, 1]) for (const xx of [tx0 + .08, tx0 + tl - .06]) put('rackGray', box(.04, BELT_TOP - .06, .04), xx, (BELT_TOP - .06) / 2, s * tw / 2);
+  put('rackDark', box(.05, .18, tw + .08), tx0 + tl + .02, BELT_TOP + .06, 0);
   // botoeira de emergência no início da linha
-  put('steelDark', box(.06, 1.1, .06), X0 - .55, .55, BELT_W / 2 + .35);
-  put('estop', box(.22, .26, .14), X0 - .55, 1.18, BELT_W / 2 + .35);
-  put('red', cyl(.045, .05, 16), X0 - .55, 1.22, BELT_W / 2 + .44, PI / 2, 0, 0);
+  put('steelDark', box(.06, 1.1, .06), X0 + .35, .55, -(BELT_W / 2 + .3));
+  put('estop', box(.22, .26, .14), X0 + .35, 1.18, -(BELT_W / 2 + .3));
+  put('red', cyl(.045, .05, 16), X0 + .35, 1.22, -(BELT_W / 2 + .39), PI / 2, 0, 0);
 }
 
 /* ------------------------------------------------------------------ */
-/* Pallet PBR + caixa 2 m (local: X = 1,00 frente, Z = 1,20 profundidade, frente em +Z) */
+/* Pallet PBR + gaylord 2 m (local: X = 1,00 frente, Z = 1,20 profundidade, frente em +Z) */
 /* ------------------------------------------------------------------ */
 function pallet() {
   for (const x of [-.45, 0, .45]) {
@@ -598,44 +604,35 @@ function gaylord() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Flow rack cinza (local: corredor central em x=0, Z de 0 a RACK_L, saindo da esteira) */
+/* Flow rack cinza deitado (local: eixo da ilha em x=0, Z de RACK_Z0 a RACK_Z0+RACK_L, saindo da esteira) */
 /* ------------------------------------------------------------------ */
 function flowRack() {
-  const lanes = [-.575, .575], laneW = .45;
-  const tiers = [[1.02, .86], [.42, .56]];      // [altura junto à esteira, altura no fundo]
-  for (const lx of lanes) {
-    for (const ux of [lx - laneW / 2 - .02, lx + laneW / 2 + .02]) {
-      for (const z of [.04, RACK_L / 2, RACK_L - .04]) {
-        put('rackGray', box(.045, 1.55, .045), ux, .775, z);
-        put('rackDark', box(.12, .01, .12), ux, .005, z);
-      }
-      put('rackGray', box(.04, .04, RACK_L), ux, 1.55, RACK_L / 2);       // longarina superior
-      put('rackGray', box(.035, .035, RACK_L), ux, .12, RACK_L / 2);      // longarina inferior
+  const z0 = RACK_Z0, z1 = RACK_Z0 + RACK_L, hw = RACK_W / 2, yN = .86, yF = .8;
+  const ang = Math.atan2(yF - yN, RACK_L), deck = z => lerp(yN, yF, (z - z0) / RACK_L);
+  const zs = [z0 + .05, z0 + RACK_L / 2, z1 - .05];
+  for (const s of [-1, 1]) {
+    for (const z of zs) {
+      const h = deck(z) - .04;
+      put('rackGray', box(.05, h, .05), s * (hw - .03), h / 2, z);
+      put('rackDark', box(.12, .01, .12), s * (hw - .03), .005, z);
     }
-    for (const z of [.04, RACK_L - .04]) {
-      put('rackGray', box(laneW + .08, .04, .04), lx, 1.55, z);
-      put('rackGray', box(laneW + .08, .035, .035), lx, .12, z);
-    }
-    for (const [yN, yF] of tiers) {
-      const ang = Math.atan2(yF - yN, RACK_L);
-      for (const ux of [lx - laneW / 2, lx + laneW / 2]) {
-        put('rackGray', box(.03, .07, RACK_L), ux, (yN + yF) / 2 - .02, RACK_L / 2, -ang, 0, 0);
-      }
-      for (let z = .08; z < RACK_L - .04; z += .1) {
-        put('roller', cyl(.024, laneW - .02, 10), lx, lerp(yN, yF, z / RACK_L) + .012, z, 0, 0, PI / 2);
-      }
-      put('rackGray', box(laneW, .05, .02), lx, yN + .05, .02);          // batente da pista
-    }
+    put('rackGray', box(.045, .1, RACK_L), s * hw, (yN + yF) / 2 - .01, z0 + RACK_L / 2, -ang, 0, 0);   // longarina
+    put('rackGray', box(.035, .035, RACK_L), s * (hw - .03), .22, z0 + RACK_L / 2);
   }
-  // travessa superior ligando os dois módulos (pórtico) + placa de identificação
-  put('rackGray', box(1.66, .05, .05), 0, 1.6, RACK_L - .04);
-  put('rackGray', box(1.66, .05, .05), 0, 1.6, .04);
-  // tapete antifadiga no corredor
-  put('mat', box(.62, .012, 1.4), 0, .006, .95);
+  for (const z of zs) put('rackGray', box(RACK_W - .06, .035, .035), 0, .22, z);
+  put('rackDark', box(RACK_W - .1, .02, RACK_L - .12), 0, .25, z0 + RACK_L / 2);                    // prateleira inferior
+  for (let z = z0 + .06; z < z1 - .03; z += .09) put('roller', cyl(.026, RACK_W - .06, 10), 0, deck(z), z, 0, 0, PI / 2);
+  put('rackGray', box(RACK_W, .1, .04), 0, yF + .06, z1);                                             // batente
+  // volumes em espera sobre os roletes e na prateleira
+  put('pkg', box(.5, .34, .4), .12, deck(z0 + .7) + .2, z0 + .7, 0, .12, 0);
+  put('pkg', box(.42, .3, .46), -.14, deck(z0 + 2.2) + .18, z0 + 2.2, 0, -.2, 0);
+  put('pkg', box(.5, .3, .4), 0, .41, z0 + 1.5, 0, .08, 0);
+  // tapete antifadiga nos dois corredores
+  for (const s of [-1, 1]) put('mat', box(.95, .012, RACK_L), s * (hw + AISLE / 2), .006, z0 + RACK_L / 2);
 }
 
 /* ------------------------------------------------------------------ */
-/* Gaiola 1,20 × 1,00 × 1,70 (local: porta em −Z, voltada para o meio) */
+/* Gaiola 1,20 × 1,00 × 1,70 sem porta (local: face aberta em −Z)       */
 /* ------------------------------------------------------------------ */
 function cage() {
   const W = 1.2, D = 1.0, y0 = .16, H = CAGE_H, ph = H - y0;
@@ -648,23 +645,10 @@ function cage() {
     put('cageFrame', cyl(.018, ph, 10), x, y0 + ph / 2, z);
   for (const z of [-D / 2, D / 2]) put('cageFrame', cyl(.014, W, 8), 0, H, z, 0, 0, PI / 2);
   for (const x of [-W / 2, W / 2]) put('cageFrame', cyl(.014, D, 8), x, H, 0, PI / 2, 0, 0);
+  put('cageFrame', cyl(.014, W, 8), 0, y0 + .12, -D / 2, 0, 0, PI / 2);    // travessa baixa na face aberta
   put('wire', box(W, ph, .004), 0, y0 + ph / 2, D / 2);
   put('wire', box(.004, ph, D), -W / 2, y0 + ph / 2, 0);
   put('wire', box(.004, ph, D), W / 2, y0 + ph / 2, 0);
-  // duas meias-portas abertas para o meio
-  const a = PI * .74, dw = W / 2;
-  const door = (hx, rot) => {
-    const o = new THREE.Object3D(); o.position.set(hx, 0, -D / 2); o.rotation.y = rot;
-    o.updateMatrix();
-    const prev = FRAME; FRAME = prev.clone().multiply(o.matrix);
-    put('wire', box(dw, ph - .06, .004), dw / 2, y0 + ph / 2, 0);
-    put('cageFrame', cyl(.012, dw, 8), dw / 2, H - .03, 0, 0, 0, PI / 2);
-    put('cageFrame', cyl(.012, dw, 8), dw / 2, y0 + .05, 0, 0, 0, PI / 2);
-    put('cageFrame', cyl(.012, ph - .06, 8), dw, y0 + ph / 2, 0);
-    FRAME = prev;
-  };
-  door(-W / 2, a);
-  door(W / 2, PI - a);
 }
 
 /* ------------------------------------------------------------------ */
@@ -672,56 +656,107 @@ function cage() {
 /* ------------------------------------------------------------------ */
 const workerMats = {};
 function wm(key, color, rough = .8, metal = 0, extra = {}) {
-  return workerMats[key] || (workerMats[key] = std({ color, roughness: rough, metalness: metal, ...extra }));
+  // cores em sRGB → lineares (o renderer converte de volta na saída), para tecidos e pele não desbotarem
+  const lin = c => new THREE.Color(c).convertSRGBToLinear();
+  if (extra.emissive !== undefined) extra = { ...extra, emissive: lin(extra.emissive) };
+  return workerMats[key] || (workerMats[key] = std({ color: lin(color), roughness: rough, metalness: metal, ...extra }));
 }
 const SKIN = [0xc68a62, 0x8d5a3b, 0xe2b48f, 0xa86f4a, 0x6e432a];
 const HAIR = [0x1e1712, 0x3b2a1c, 0x101010, 0x5a4330];
-function makeWorker(vest, idx = 0) {
+function capsule(r, len, seg = 14) {
+  const k = `cap${r}|${len}|${seg}`; if (G[k]) return G[k];
+  const c = new THREE.CylinderGeometry(r, r, len, seg, 1, true);
+  const a = new THREE.SphereGeometry(r, seg, 8, 0, TAU, 0, PI / 2).translate(0, len / 2, 0);
+  const b = new THREE.SphereGeometry(r, seg, 8, 0, TAU, PI / 2, PI / 2).translate(0, -len / 2, 0);
+  return (G[k] = THREE.BufferGeometryUtils.mergeBufferGeometries([c, a, b]));
+}
+const lathe = (pts, seg = 24) => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y)), seg);
+const BODY = {
+  pants: lathe([[0, -.1], [.15, -.095], [.172, -.03], [.168, .06], [.15, .12], [0, .12]]),
+  torso: lathe([[0, .06], [.152, .07], [.158, .16], [.17, .28], [.188, .38], [.196, .45], [.17, .51], [.1, .55], [.05, .57], [0, .575]]),
+  vest:  lathe([[.162, .1], [.166, .18], [.178, .28], [.196, .38], [.204, .45], [.18, .5]]),
+};
+function makeWorker(vest, idx = 0, capColor = null) {
   const root = new THREE.Group();
-  const add = (parent, geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => {
+  const add = (parent, geo, mat, x = 0, y = 0, z = 0, sx = 1, sy = 1, sz = 1) => {
     const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz);
     m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
   };
-  const skin = wm('skin' + idx % 5, SKIN[idx % 5], .6);
+  const skin = wm('skin' + idx % 5, SKIN[idx % 5], .62);
   const hair = wm('hair' + idx % 4, HAIR[idx % 4], .85);
-  const pants = wm('pants', 0x2a3140, .85), shoe = wm('shoe', 0x1a1c1f, .55);
-  const shirt = wm('shirt', 0x3a3f46, .9), refl = wm('refl', 0xe3e6e8, .25, .35, { emissive: 0x2a2a2a });
-  const vestM = wm('vest' + vest, vest, .55), glove = wm('glove', 0x2d3136, .8);
+  const pants = wm('pants', 0x27303f, .88), boot = wm('boot', 0x1b1c1f, .5), sole = wm('sole', 0x0e0e0f, .9);
+  const shirt = wm('shirt', 0x3b4048, .92);
+  const vestM = wm('vest' + vest, vest, .5, 0, { emissive: vest, emissiveIntensity: .12, side: THREE.DoubleSide });
+  const refl = wm('refl', 0xdfe3e6, .22, .45, { emissive: 0x3a3a3a, side: THREE.DoubleSide });
+  const glove = wm('glove', 0x2b2f35, .75), eye = wm('eye', 0x111111, .3);
+
+  // pernas: quadril → coxa → joelho → canela → bota
+  const legs = [], knees = [];
   for (const s of [-1, 1]) {
-    add(root, box(.11, .07, .27), shoe, s * .1, .035, .03);
-    add(root, cyl(.072, .8, 12), pants, s * .1, .47, 0);
+    const hip = new THREE.Group(); hip.position.set(s * .095, .885, 0); root.add(hip);
+    add(hip, capsule(.074, .3), pants, 0, -.2, 0);
+    const knee = new THREE.Group(); knee.position.y = -.43; hip.add(knee);
+    add(knee, capsule(.062, .3), pants, 0, -.19, 0);
+    add(knee, box(.105, .08, .2), boot, 0, -.4, .012);
+    add(knee, new THREE.SphereGeometry(.055, 12, 8), boot, 0, -.405, .1, 1, .7, 1.15);
+    add(knee, box(.112, .02, .28), sole, 0, -.445, .035);
+    legs.push(hip); knees.push(knee);
   }
-  const upper = new THREE.Group(); upper.position.y = .88; root.add(upper);
-  add(upper, box(.36, .16, .22), pants, 0, .02, 0);
-  add(upper, new THREE.CylinderGeometry(.2, .17, .55, 16), shirt, 0, .32, 0, 1, 1, .66);
-  add(upper, new THREE.CylinderGeometry(.212, .184, .46, 16, 1, true), vestM, 0, .33, 0, 1, 1, .7);
-  add(upper, new THREE.CylinderGeometry(.215, .2, .035, 16, 1, true), refl, 0, .22, 0, 1, 1, .71);
-  add(upper, new THREE.CylinderGeometry(.215, .205, .035, 16, 1, true), refl, 0, .4, 0, 1, 1, .71);
-  add(upper, cyl(.052, .09, 10), skin, 0, .63, 0);
-  const head = new THREE.Group(); head.position.y = .75; upper.add(head);
-  add(head, new THREE.SphereGeometry(.105, 18, 14), skin, 0, 0, .005, .92, 1.08, 1);
-  add(head, new THREE.SphereGeometry(.112, 18, 10, 0, TAU, 0, PI * .55), hair, 0, .012, -.008, .95, 1.05, 1.02);
-  add(head, box(.05, .02, .03), skin, 0, -.01, .1);
+  // tronco moldado (quadril, camisa, colete refletivo)
+  const upper = new THREE.Group(); upper.position.y = .9; root.add(upper);
+  add(upper, BODY.pants, pants, 0, 0, 0, 1, 1, .68);
+  add(upper, BODY.torso, shirt, 0, 0, 0, 1, 1, .64);
+  add(upper, BODY.vest, vestM, 0, 0, 0, 1.03, 1, .68);
+  add(upper, new THREE.CylinderGeometry(.176, .171, .04, 24, 1, true), refl, 0, .2, 0, 1.03, 1, .69);
+  add(upper, new THREE.CylinderGeometry(.197, .19, .04, 24, 1, true), refl, 0, .33, 0, 1.03, 1, .69);
+  for (const s of [-1, 1]) for (const f of [-1, 1]) add(upper, box(.045, .2, .006), refl, s * .085, .42, f * .136);
+  add(upper, capsule(.047, .06, 10), skin, 0, .6, 0);
+  // cabeça
+  const head = new THREE.Group(); head.position.y = .73; upper.add(head);
+  add(head, new THREE.SphereGeometry(.1, 22, 16), skin, 0, 0, 0, .9, 1.08, 1);
+  add(head, new THREE.SphereGeometry(.07, 16, 10), skin, 0, -.055, .025, 1.05, .8, 1);
+  for (const s of [-1, 1]) {
+    add(head, new THREE.SphereGeometry(.022, 8, 6), skin, s * .09, -.005, 0, .5, 1, .8);
+    add(head, new THREE.SphereGeometry(.011, 8, 6), eye, s * .033, .012, .088);
+  }
+  add(head, new THREE.SphereGeometry(.016, 8, 6), skin, 0, -.015, .098, .8, 1, 1.2);
+  if (capColor) {
+    const capM = wm('cap' + capColor, capColor, .7);
+    add(head, new THREE.SphereGeometry(.105, 20, 10, 0, TAU, 0, PI * .5), capM, 0, .015, 0, .94, .95, 1.02);
+    add(head, new THREE.CylinderGeometry(.085, .085, .012, 20, 1, false, -PI / 2, PI), capM, 0, .02, .05, 1, 1, 1.1);
+  } else {
+    add(head, new THREE.SphereGeometry(.106, 20, 12, 0, TAU, 0, PI * .56), hair, 0, .012, -.006, .93, 1.06, 1.02);
+  }
+  // braços: ombro → manga → cotovelo → antebraço → luva
   const arm = s => {
-    const sh = new THREE.Group(); sh.position.set(s * .235, .54, 0); upper.add(sh);
-    add(sh, new THREE.SphereGeometry(.058, 10, 8), vestM, 0, 0, 0);
-    add(sh, cyl(.05, .3, 10), shirt, 0, -.15, 0);
-    const el = new THREE.Group(); el.position.y = -.3; sh.add(el);
-    add(el, cyl(.043, .27, 10), shirt, 0, -.135, 0);
-    add(el, new THREE.SphereGeometry(.048, 10, 8), glove, 0, -.29, 0, 1, 1.2, .8);
-    const hand = new THREE.Object3D(); hand.position.y = -.3; el.add(hand);
+    const sh = new THREE.Group(); sh.position.set(s * .2, .49, 0); upper.add(sh);
+    add(sh, new THREE.SphereGeometry(.052, 12, 10), shirt, 0, -.02, 0);
+    add(sh, capsule(.052, .1), shirt, 0, -.075, 0);
+    add(sh, capsule(.046, .2), skin, 0, -.16, 0);
+    const el = new THREE.Group(); el.position.y = -.29; sh.add(el);
+    add(el, capsule(.041, .18), skin, 0, -.12, 0);
+    add(el, new THREE.SphereGeometry(.05, 12, 10), glove, 0, -.27, .005, .85, 1.25, .62);
+    add(el, capsule(.016, .03, 8), glove, -s * .035, -.25, .025);
+    const hand = new THREE.Object3D(); hand.position.y = -.29; el.add(hand);
     return { sh, el, hand };
   };
   const L = arm(-1), R = arm(1);
   const w = {
-    root, upper, head, L, R, task: null, yaw: 0, restYaw: 0, phase: Math.random() * 10,
+    root, upper, head, L, R, legs, knees, task: null, yaw: 0, restYaw: 0, phase: Math.random() * 10,
     pose(reach, lean = reach) {
       for (const [a, s] of [[L, -1], [R, 1]]) {
-        a.sh.rotation.x = -1.25 * reach - .05;
-        a.sh.rotation.z = s * (.1 - .16 * reach);
-        a.el.rotation.x = -.15 - .55 * reach * (1 - reach * .4);
+        a.sh.rotation.x = -1.2 * reach - .04;
+        a.sh.rotation.z = s * (.08 - .16 * reach);
+        a.el.rotation.x = -.12 - .5 * reach * (1 - reach * .4);
       }
       upper.rotation.x = .2 * lean;
+    },
+    walkPose(sw, carrying) {
+      legs[0].rotation.x = sw * .5; legs[1].rotation.x = -sw * .5;
+      knees[0].rotation.x = Math.max(0, sw) * .75 + .02;
+      knees[1].rotation.x = Math.max(0, -sw) * .75 + .02;
+      root.position.y = -Math.abs(sw) * .018;
+      if (!carrying) { L.sh.rotation.x = -.04 - sw * .38; R.sh.rotation.x = -.04 + sw * .38; }
     },
     handsWorld(out) {
       const a = V3(), b = V3();
@@ -734,7 +769,7 @@ function makeWorker(vest, idx = 0) {
       return Math.atan2(p.x - root.position.x, p.z - root.position.z);
     },
   };
-  w.pose(0);
+  w.pose(0); w.walkPose(0, true);
   return w;
 }
 
@@ -753,22 +788,24 @@ for (let side = 0; side < 2; side++) {
     grp.rotation.y = s > 0 ? 0 : PI;
     scene.add(grp);
     withFrame(grp, flowRack);
-    // contorno amarelo da ilha
+    // contorno amarelo da ilha + faixa da área de pega
     withFrame(grp, () => {
-      const x0 = -2.25, x1 = 2.25, z0 = -.15, z1 = RACK_L + .25, t = .06;
-      put('yellow', plane(x1 - x0, t), 0, .006, z0);
-      put('yellow', plane(x1 - x0, t), 0, .006, z1);
-      put('yellow', plane(t, z1 - z0), x0, .006, (z0 + z1) / 2);
+      const x1 = ISL_HALF + .1, z0 = -.1, z1 = RACK_Z0 + RACK_L + .2, t = .06;
+      put('yellow', plane(2 * x1, t), 0, .006, z0);
+      put('yellow', plane(2 * x1, t), 0, .006, z1);
+      put('yellow', plane(t, z1 - z0), -x1, .006, (z0 + z1) / 2);
       put('yellow', plane(t, z1 - z0), x1, .006, (z0 + z1) / 2);
+      put('white', plane(RACK_W + 2 * AISLE, .05), 0, .006, RACK_Z0 - .12);
     });
     const code = String(num).padStart(2, '0');
-    floorText([{ t: `ILHA ${code}`, size: 92 }], 0, RACK_L + .95, 3.2, .8, 0, { w: 512, h: 128, color: '#2a2f2d' }, grp);
+    floorText([{ t: `ILHA ${code}`, size: 92 }], 0, RACK_Z0 + RACK_L + .85, 3.2, .8, 0, { w: 512, h: 128, color: '#2a2f2d' }, grp);
     const isl = { num, code, side: s, xc, grp, boxes: [], count: 0, worker: null };
     const posNames = [['E1', 'E2', 'E3'], ['D1', 'D2', 'D3']];
     [-1, 1].forEach((bs, bi) => {
       for (let r = 0; r < 3; r++) {
+        const bz = RACK_Z0 + .5 + r * 1.1;
         const bg = new THREE.Group();
-        bg.position.set(bs * 1.5, 0, .5 + r * 1.1);
+        bg.position.set(bs * GAY_X, 0, bz);
         bg.rotation.y = bs > 0 ? -PI / 2 : PI / 2;      // janela voltada para o corredor
         grp.add(bg);
         withFrame(bg, () => { pallet(); gaylord(); });
@@ -782,14 +819,14 @@ for (let side = 0; side < 2; side++) {
         label.position.set(0, PAL_H + 1.8, .597); bg.add(label);
         const hit = new THREE.Mesh(box(1.0, BOX_H + PAL_H, 1.2), MAT.hit);
         hit.position.y = (BOX_H + PAL_H) / 2; bg.add(hit);
-        const b = { grp: bg, fillM, fill: Math.floor(rand(0, BOX_CAP * .55)), cap: BOX_CAP, pos, isl, swaps: 0 };
+        const b = { grp: bg, fillM, fill: Math.floor(rand(0, BOX_CAP * .55)), cap: BOX_CAP, pos, isl, swaps: 0, bs, z: bz };
         hit.userData = { kind: 'box', ref: b };
         hitTargets.push(hit);
         isl.boxes.push(b);
       }
     });
-    const w = makeWorker(0xff6a13, num);
-    w.root.position.set(0, .012, .55);
+    const w = makeWorker(0xff6a13, num, num % 2 ? 0x26324a : null);
+    w.home = V3(0, 0, .4); w.root.position.copy(w.home);
     w.restYaw = PI; w.setYaw(PI);
     grp.add(w.root);
     isl.worker = w;
@@ -798,44 +835,55 @@ for (let side = 0; side < 2; side++) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Zona de indução                                                     */
+/* Zona de indução: 7 posições (3 por lado + 1 na ponta), cada uma com gaiola de abastecimento */
 /* ------------------------------------------------------------------ */
 const inductors = [];
+function cageFill(cg, fill, name, kind) {
+  const fillM = new THREE.Mesh(box(1.1, 1, .9).clone().translate(0, .5, 0), MAT.fill);
+  fillM.position.y = .17; fillM.receiveShadow = true; cg.add(fillM);
+  const hit = new THREE.Mesh(box(1.2, CAGE_H, 1.0), MAT.hit); hit.position.y = CAGE_H / 2; cg.add(hit);
+  const c = { grp: cg, fillM, fill, cap: CAGE_CAP, fillMax: .85, name, swaps: 0 };
+  hit.userData = { kind, ref: c }; hitTargets.push(hit);
+  setFill(c);
+  return c;
+}
+function addInductor(num, pos, restYaw, cagePos, cageRy, toCage, spot) {
+  const cg = new THREE.Group(); cg.position.copy(cagePos); cg.rotation.y = cageRy; scene.add(cg);
+  withFrame(cg, cage);
+  const c = cageFill(cg, Math.floor(rand(18, CAGE_CAP)), `Indução ${String(num).padStart(2, '0')}`, 'icage');
+  const w = makeWorker(0xf2c200, num + 10, num % 3 ? 0x5a6068 : null);
+  w.home = pos.clone(); w.root.position.copy(pos);
+  w.restYaw = restYaw; w.setYaw(restYaw);
+  scene.add(w.root);
+  Object.assign(w, { cage: c, toCage, spot, timer: rand(.3, 5), num });
+  inductors.push(w);
+}
 {
-  for (const s of [-1, 1]) {
-    const hz = s * (BELT_W / 2 + 1.6);
-    const hatch = new THREE.Mesh(new THREE.PlaneGeometry(INDUCT, 3.0).rotateX(-PI / 2), MAT.hatch);
-    texHatch.repeat.set(INDUCT / 1.2, 3.0 / 1.2);
-    hatch.position.set(X0 + INDUCT / 2, .005, hz); hatch.receiveShadow = true; scene.add(hatch);
-    put('yellow', plane(INDUCT, .08), X0 + INDUCT / 2, .006, s * (BELT_W / 2 + .1));
-    put('yellow', plane(INDUCT, .08), X0 + INDUCT / 2, .006, s * (BELT_W / 2 + 3.1));
-    put('yellow', plane(.08, 3.0), X0, .006, hz);
-    put('yellow', plane(.08, 3.0), XP, .006, hz);
-    for (const ix of [X0 + 2.2, X0 + 5.8]) {
-      // pallet de entrada com volumes empilhados
-      const pg = new THREE.Group(); pg.position.set(ix + .9, 0, s * (BELT_W / 2 + 2.1)); pg.rotation.y = PI / 2; scene.add(pg);
-      withFrame(pg, () => {
-        pallet();
-        const sizes = [[.4, .3, .35], [.3, .25, .3], [.45, .3, .4]];
-        for (let layer = 0; layer < 3; layer++) {
-          for (let i = 0; i < 6; i++) {
-            if (layer === 2 && i > 3) continue;
-            const [a, b, c] = sizes[(i + layer) % 3];
-            put('pkg', box(a, b, c), -.27 + (i % 2) * .5 + rand(-.03, .03), PAL_H + b / 2 + layer * .34, -.4 + Math.floor(i / 2) * .42, 0, rand(-.1, .1), 0);
-          }
-        }
-      });
-      const w = makeWorker(0xf2c200, inductors.length + 7);
-      w.root.position.set(ix, .012, s * (BELT_W / 2 + .55));
-      w.restYaw = s > 0 ? PI : 0; w.setYaw(w.restYaw);
-      scene.add(w.root);
-      w.side = s; w.pallet = V3(ix + .9, PAL_H + 1.0, s * (BELT_W / 2 + 2.1));
-      w.timer = rand(.2, 2);
-      inductors.push(w);
+  const hw = BELT_W / 2;
+  let num = 1;
+  for (const s of [1, -1]) {
+    const hatch = new THREE.Mesh(new THREE.PlaneGeometry(INDUCT, 3.2).rotateX(-PI / 2), MAT.hatch);
+    hatch.position.set(X0 + INDUCT / 2, .005, s * (hw + 1.7)); hatch.receiveShadow = true; scene.add(hatch);
+    put('yellow', plane(INDUCT, .08), X0 + INDUCT / 2, .006, s * (hw + .1));
+    put('yellow', plane(INDUCT, .08), X0 + INDUCT / 2, .006, s * (hw + 3.3));
+    put('yellow', plane(.08, 3.2), X0, .006, s * (hw + 1.7));
+    put('yellow', plane(.08, 3.2), XP, .006, s * (hw + 1.7));
+    for (const ix of INDUCT_X) {
+      addInductor(num++, V3(ix, 0, s * (hw + .5)), s > 0 ? PI : 0, V3(ix, 0, s * (hw + 1.95)), s > 0 ? 0 : PI,
+        V3(0, 0, s), () => V3(ix + rand(-.3, .3), 0, s * rand(.1, .42)));
     }
   }
-  floorText([{ t: 'INDUÇÃO', size: 96 }, { t: '8,00 m', size: 48, weight: 600, font: MONO }], X0 + INDUCT / 2, BELT_W / 2 + 3.9, 4.2, 1.6, 0, { w: 512, h: 196, color: '#7a5d00' });
-  floorText([{ t: 'INDUÇÃO', size: 96 }, { t: '8,00 m', size: 48, weight: 600, font: MONO }], X0 + INDUCT / 2, -(BELT_W / 2 + 3.9), 4.2, 1.6, PI, { w: 512, h: 196, color: '#7a5d00' });
+  // posição da ponta: de frente para o início da esteira
+  const tipHatchMat = MAT.hatch.clone(); tipHatchMat.map = texHatch.clone(); tipHatchMat.map.needsUpdate = true;
+  tipHatchMat.map.repeat.set(3.0 / 1.2, 2.6 / 1.2);
+  const th = new THREE.Mesh(new THREE.PlaneGeometry(3.0, 2.6).rotateX(-PI / 2), tipHatchMat);
+  th.position.set(X0 - 1.6, .005, 0); th.receiveShadow = true; scene.add(th);
+  put('yellow', plane(3.0, .08), X0 - 1.6, .006, 1.3);
+  put('yellow', plane(3.0, .08), X0 - 1.6, .006, -1.3);
+  put('yellow', plane(.08, 2.6), X0 - 3.1, .006, 0);
+  addInductor(num, V3(X0 - .6, 0, 0), PI / 2, V3(X0 - 2.05, 0, 0), -PI / 2, V3(-1, 0, 0), () => V3(X0 + .6, 0, rand(-.35, .35)));
+  for (const s of [1, -1])
+    floorText([{ t: 'INDUÇÃO', size: 96 }, { t: '8,00 m · 7 posições', size: 44, weight: 600, font: MONO }], X0 + INDUCT / 2, s * (hw + 4.1), 4.2, 1.6, s > 0 ? 0 : PI, { w: 512, h: 196, color: '#7a5d00' });
 }
 
 /* ------------------------------------------------------------------ */
@@ -843,33 +891,28 @@ const inductors = [];
 /* ------------------------------------------------------------------ */
 const keeper = { cages: [], count: 0 };
 {
-  const cx = X1 + 1.9;
+  const cx = X1 + 2.15;
   for (const s of [1, -1]) {
     const cg = new THREE.Group(); cg.position.set(cx, 0, s * 1.25); cg.rotation.y = s > 0 ? 0 : PI; scene.add(cg);
     withFrame(cg, cage);
-    const fillM = new THREE.Mesh(box(1.1, 1, .9).clone().translate(0, .5, 0), MAT.fill);
-    fillM.position.y = .17; fillM.receiveShadow = true; cg.add(fillM);
-    const hit = new THREE.Mesh(box(1.2, CAGE_H, 1.0), MAT.hit); hit.position.y = CAGE_H / 2; cg.add(hit);
-    const c = { grp: cg, fillM, fill: Math.floor(rand(5, 30)), cap: CAGE_CAP, name: s > 0 ? 'Gaiola A' : 'Gaiola B', swaps: 0 };
-    hit.userData = { kind: 'cage', ref: c }; hitTargets.push(hit);
-    keeper.cages.push(c);
+    keeper.cages.push(cageFill(cg, Math.floor(rand(5, 20)), s > 0 ? 'Gaiola A' : 'Gaiola B', 'cage'));
   }
-  const t = .07, x0 = X1 + .9, x1 = X1 + 2.75, z = 2.0;
+  const t = .07, x0 = X1 + 1.1, x1 = X1 + 2.95, z = 2.0;
   put('green', plane(x1 - x0, t), (x0 + x1) / 2, .006, z);
   put('green', plane(x1 - x0, t), (x0 + x1) / 2, .006, -z);
   put('green', plane(t, 2 * z), x1, .006, 0);
-  const w = makeWorker(0x2fae63, 4);
-  w.root.position.set(X1 + 1.32, .012, 0);
+  const w = makeWorker(0x2fae63, 4, 0x1f4d33);
+  w.home = V3(X1 + 1.55, 0, 0); w.root.position.copy(w.home);
   w.restYaw = -PI / 2; w.setYaw(w.restYaw);
   scene.add(w.root);
   keeper.worker = w; keeper.next = 0;
-  floorText([{ t: 'GOLEIRO', size: 96 }, { t: '2 gaiolas · 1,70 m', size: 44, weight: 600, font: MONO }], X1 + 4.0, 0, 3.6, 1.4, PI / 2, { w: 512, h: 196, color: '#1f6b41' });
+  floorText([{ t: 'GOLEIRO', size: 96 }, { t: '2 gaiolas · 1,70 m', size: 44, weight: 600, font: MONO }], X1 + 4.3, 0, 3.6, 1.4, PI / 2, { w: 512, h: 196, color: '#1f6b41' });
 }
 
 /* corredores de pedestres (linha verde contínua + faixa branca) */
 for (const s of [-1, 1]) {
-  put('green', plane(PL.x1 - PL.x0 - 2, .1), (PL.x0 + PL.x1) / 2, .006, s * 7.6);
-  for (let x = PL.x0 + 2; x < PL.x1 - 2; x += 2) put('white', plane(1.1, .08), x + .55, .006, s * 8.6);
+  put('green', plane(PL.x1 - PL.x0 - 2, .1), (PL.x0 + PL.x1) / 2, .006, s * 7.9);
+  for (let x = PL.x0 + 2; x < PL.x1 - 2; x += 2) put('white', plane(1.1, .08), x + .55, .006, s * 8.5);
 }
 
 /* ------------------------------------------------------------------ */
@@ -896,28 +939,32 @@ function dimVertical(x, z, y0, y1, label, faceY = 0) {
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: true }));
   sp.scale.set(1.2, .3, 1); sp.position.set(0, (y0 + y1) / 2, 0); g.add(sp);
 }
-dimLine(X0, -9.1, X1, -9.1, '42,00 m · esteira', { text: 1.4 });
-dimLine(X0, -8.3, XP, -8.3, '8,00 m · indução');
-dimLine(XP, -8.3, X1, -8.3, '34,00 m · ilhas de separação', { text: 1.3 });
-dimLine(X0 - 1.4, -.75, X0 - 1.4, .75, '1,50 m', { text: .5 });
+dimLine(X0, -10.2, X1, -10.2, '44,00 m · esteira', { text: 1.4 });
+dimLine(X0, -9.4, XP, -9.4, '8,00 m · indução');
+dimLine(XP, -9.4, X1, -9.4, '36,00 m · ilhas de separação', { text: 1.3 });
+dimLine(XP + .3, -BELT_W / 2, XP + .3, BELT_W / 2, '1,65 m', { text: .5 });
 {
-  const isl = islands[5];                   // ilha 06, lado sul
-  dimLine(isl.xc - 2.1, -6.6, isl.xc + 2.1, -6.6, '4,20 m · ilha', { text: .8 });
-  dimLine(isl.xc + 2.55, -(BELT_W / 2 + ISL_GAP), isl.xc + 2.55, -(BELT_W / 2 + ISL_GAP + RACK_L), '3,30 m', { text: .55 });
-  dimVertical(isl.xc - 2.35, -(BELT_W / 2 + ISL_GAP + 2.7), 0, PAL_H + BOX_H, '2,00 m + PBR');
+  const isl = islands[5], zb = -(BELT_W / 2 + ISL_GAP);   // ilha 06, lado sul
+  dimLine(isl.xc - ISL_HALF, -7.25, isl.xc + ISL_HALF, -7.25, '5,80 m · ilha', { text: .8 });
+  dimLine(isl.xc + ISL_HALF + .45, zb - RACK_Z0, isl.xc + ISL_HALF + .45, zb - RACK_Z0 - RACK_L, '3,30 m · flow rack', { text: .75 });
+  const za = zb - .85;
+  dimLine(isl.xc - GAY_X + .6, za, isl.xc - RACK_W / 2, za, '1,20 m', { text: .42 });
+  dimLine(isl.xc + RACK_W / 2, za, isl.xc + GAY_X - .6, za, '1,20 m', { text: .42 });
+  dimVertical(isl.xc - ISL_HALF - .25, zb - (RACK_Z0 + 1.6), 0, PAL_H + BOX_H, '2,00 m + PBR');
 }
-dimVertical(X1 + 2.75, -1.25, 0, CAGE_H, '1,70 m');
+dimVertical(X1 + 3.05, -1.25, 0, CAGE_H, '1,70 m');
 
 /* ------------------------------------------------------------------ */
 /* Pacotes                                                             */
 /* ------------------------------------------------------------------ */
 const PKG_TYPES = [
-  { geo: new THREE.BoxGeometry(.32, .22, .26), mat: MAT.pkg, h: .22 },
-  { geo: new THREE.BoxGeometry(.46, .3, .36), mat: MAT.pkg, h: .3 },
-  { geo: new THREE.BoxGeometry(.36, .1, .28), mat: MAT.pkg, h: .1 },
-  { geo: new THREE.SphereGeometry(1, 16, 8).scale(.2, .055, .15), mat: MAT.bagW, h: .1 },
-  { geo: new THREE.SphereGeometry(1, 16, 8).scale(.24, .065, .18), mat: MAT.bagG, h: .12 },
-  { geo: new THREE.SphereGeometry(1, 16, 8).scale(.16, .05, .12), mat: MAT.bagW, h: .09 },
+  { geo: new THREE.BoxGeometry(.55, .4, .45), mat: MAT.pkg, h: .4 },
+  { geo: new THREE.BoxGeometry(.7, .45, .5), mat: MAT.pkg, h: .45 },
+  { geo: new THREE.BoxGeometry(.45, .35, .4), mat: MAT.pkg, h: .35 },
+  { geo: new THREE.BoxGeometry(.6, .28, .42), mat: MAT.pkg, h: .28 },
+  { geo: new THREE.BoxGeometry(.5, .5, .5), mat: MAT.pkg, h: .5 },
+  { geo: new THREE.SphereGeometry(1, 18, 10).scale(.32, .11, .25), mat: MAT.bagW, h: .22 },
+  { geo: new THREE.SphereGeometry(1, 18, 10).scale(.36, .12, .28), mat: MAT.bagG, h: .24 },
 ];
 const pool = [], live = [], endQueue = [];
 function getPkg() {
@@ -957,144 +1004,162 @@ function dropInto(target) {
 function arc(a, b, t, hgt) { const p = a.clone().lerp(b, t); p.y += Math.sin(PI * t) * hgt; return p; }
 const tmp = V3();
 
+/* sequência de etapas: cada etapa roda até o fim (end é sempre chamado, mesmo com dt grande) */
+function sequence(steps) {
+  let total = 0;
+  for (const s of steps) { s.t0 = total; total += s.d; }
+  return {
+    t: 0, total,
+    step(t) {
+      for (const s of steps) {
+        if (s.done) continue;
+        if (t < s.t0) break;
+        const k = clamp01((t - s.t0) / s.d);
+        if (!s.started) { s.started = true; if (s.start) s.start(); }
+        s.fn(k);
+        if (k >= 1) { s.done = true; if (s.end) s.end(); } else break;
+      }
+      return t >= total;
+    },
+  };
+}
+function walkSteps(w, pts, carry) {
+  const steps = [];
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i], len = Math.hypot(b.x - a.x, b.z - a.z);
+    if (len < .03) continue;
+    const head = Math.atan2(b.x - a.x, b.z - a.z);
+    let y0 = 0;
+    steps.push({
+      d: len / WALK,
+      start() { y0 = w.yaw; },
+      fn(k) {
+        w.root.position.x = lerp(a.x, b.x, k); w.root.position.z = lerp(a.z, b.z, k);
+        w.setYaw(lerpAngle(y0, head, Math.min(1, k * len / .4)));
+        if (!carry) w.pose(0, 0);
+        w.walkPose(Math.sin(k * len * 4.6) * Math.min(1, k * len / .25, (1 - k) * len / .25), !!carry);
+        if (carry) carry();
+      },
+      end() { w.walkPose(0, !!carry); },
+    });
+  }
+  return steps;
+}
+
 function startPick(isl, p) {
-  const w = isl.worker, target = isl.boxes[p.box];
+  const w = isl.worker, g = isl.boxes[p.box], home = w.home;
   p.state = 'held';
   const p0 = p.mesh.position.clone();
   const beltYaw = w.yawTo(p0);
-  const entry = target.grp.localToWorld(V3(0, PAL_H + 1.25, .3));
-  const inner = target.grp.localToWorld(V3(0, PAL_H + .2 + 1.6 * target.fill / target.cap, 0));
-  const boxYaw = w.yawTo(entry);
-  const D = [.42, .5, .38, .45];  // alcançar, girar, arremessar, voltar
-  let flyFrom = null, dropped = false;
-  w.task = {
-    t: 0, total: D[0] + D[1] + D[2] + D[3],
-    step(t) {
-      if (t < D[0]) {
-        const k = ease(t / D[0]);
-        w.setYaw(lerpAngle(w.restYaw, beltYaw, k)); w.pose(k * .95, k);
-        w.handsWorld(tmp); p.mesh.position.lerpVectors(p0, tmp, k);
-      } else if (t < D[0] + D[1]) {
-        const k = ease((t - D[0]) / D[1]);
-        w.setYaw(lerpAngle(beltYaw, boxYaw, k)); w.pose(.95 - .35 * k, 1 - .7 * k);
-        w.handsWorld(tmp); p.mesh.position.copy(tmp); p.mesh.rotation.y += .02;
-      } else if (t < D[0] + D[1] + D[2]) {
-        const k = (t - D[0] - D[1]) / D[2];
-        w.pose(.6 + .4 * Math.sin(PI * Math.min(1, k * 1.4)), .3);
-        if (!flyFrom) { flyFrom = p.mesh.position.clone(); }
-        if (k < .7) p.mesh.position.copy(arc(flyFrom, entry, k / .7, .25));
+  const ax = g.bs * (RACK_W / 2 + AISLE / 2);
+  const route = [home, V3(ax, 0, home.z + .2), V3(ax, 0, g.z)];
+  const entry = g.grp.localToWorld(V3(0, PAL_H + 1.25, .3));
+  const inner = g.grp.localToWorld(V3(0, PAL_H + .25 + 1.55 * g.fill / g.cap, 0));
+  const hold = () => { w.pose(.55, .15); w.handsWorld(tmp); p.mesh.position.copy(tmp); };
+  let y0, yT, from;
+  w.task = sequence([
+    { d: .45, fn(k) { const e = ease(k); w.setYaw(lerpAngle(w.restYaw, beltYaw, e)); w.pose(e * .95, e); w.handsWorld(tmp); p.mesh.position.lerpVectors(p0, tmp, e); } },
+    { d: .25, fn(k) { const e = ease(k); w.pose(lerp(.95, .55, e), lerp(1, .15, e)); w.handsWorld(tmp); p.mesh.position.copy(tmp); } },
+    ...walkSteps(w, route, hold),
+    { d: .3, start() { y0 = w.yaw; yT = w.yawTo(entry); }, fn(k) { w.setYaw(lerpAngle(y0, yT, ease(k))); hold(); } },
+    { d: .42, start() { from = p.mesh.position.clone(); },
+      fn(k) {
+        w.pose(.55 + .45 * Math.sin(PI * Math.min(1, k * 1.4)), .3);
+        if (k < .7) p.mesh.position.copy(arc(from, entry, k / .7, .3));
         else p.mesh.position.lerpVectors(entry, inner, (k - .7) / .3);
-        p.mesh.rotation.x += .08;
-      } else {
-        if (!dropped) { dropped = true; freePkg(p); dropInto(target); isl.count++; sim.picked++; flashBar(isl.num); }
-        const k = ease((t - D[0] - D[1] - D[2]) / D[3]);
-        w.setYaw(lerpAngle(boxYaw, w.restYaw, k)); w.pose(.4 * (1 - k), .3 * (1 - k));
-      }
-      return t >= this.total;
-    },
-  };
+        p.mesh.rotation.x += .05;
+      },
+      end() { freePkg(p); dropInto(g); isl.count++; sim.picked++; flashBar(isl.num); } },
+    ...walkSteps(w, [route[2], route[1], route[0]]),
+    { d: .3, start() { y0 = w.yaw; }, fn(k) { w.setYaw(lerpAngle(y0, w.restYaw, ease(k))); w.pose(0, 0); } },
+  ]);
 }
 
 function startKeep(p) {
-  const w = keeper.worker, c = keeper.cages[keeper.next]; keeper.next = 1 - keeper.next;
+  const w = keeper.worker, c = keeper.cages[keeper.next], home = w.home;
+  keeper.next = 1 - keeper.next;
   p.state = 'held';
-  const p0 = p.mesh.position.clone();
-  const entry = c.grp.localToWorld(V3(0, 1.15, -.25));
-  const inner = c.grp.localToWorld(V3(rand(-.3, .3), .3 + 1.2 * c.fill / c.cap, rand(0, .2)));
-  const pickYaw = w.yawTo(p0), cageYaw = w.yawTo(entry);
-  const D = [.5, .45, .4, .45];
-  let flyFrom = null, dropped = false;
-  const home = w.root.position.clone();
-  w.task = {
-    t: 0, total: D[0] + D[1] + D[2] + D[3],
-    step(t) {
-      if (t < D[0]) {
-        const k = ease(t / D[0]);
-        w.root.position.x = home.x - .18 * k;
-        w.setYaw(lerpAngle(w.restYaw, pickYaw, k)); w.pose(k, k * 1.1);
-        w.handsWorld(tmp); p.mesh.position.lerpVectors(p0, tmp, k);
-      } else if (t < D[0] + D[1]) {
-        const k = ease((t - D[0]) / D[1]);
-        w.root.position.x = home.x - .18 * (1 - k);
-        w.setYaw(lerpAngle(pickYaw, cageYaw, k)); w.pose(1 - .4 * k, 1.1 - .8 * k);
-        w.handsWorld(tmp); p.mesh.position.copy(tmp);
-      } else if (t < D[0] + D[1] + D[2]) {
-        const k = (t - D[0] - D[1]) / D[2];
-        w.pose(.6 + .4 * Math.sin(PI * Math.min(1, k * 1.4)), .3);
-        if (!flyFrom) flyFrom = p.mesh.position.clone();
-        if (k < .65) p.mesh.position.copy(arc(flyFrom, entry, k / .65, .2));
+  const p0 = p.mesh.position.clone(), near = V3(home.x - .35, 0, home.z);
+  const entry = c.grp.localToWorld(V3(0, 1.1, -.2));
+  const inner = c.grp.localToWorld(V3(rand(-.3, .3), .35 + 1.1 * c.fill / c.cap, rand(0, .2)));
+  const hold = () => { w.handsWorld(tmp); p.mesh.position.copy(tmp); };
+  let py, cy, from;
+  w.task = sequence([
+    { d: .45, start() { py = w.yawTo(p0); }, fn(k) {
+        const e = ease(k); w.root.position.x = lerp(home.x, near.x, e); w.walkPose(Math.sin(PI * e) * .3, false);
+        w.setYaw(lerpAngle(w.restYaw, py, e)); w.pose(e, e * 1.1); w.handsWorld(tmp); p.mesh.position.lerpVectors(p0, tmp, e); } },
+    { d: .45, start() { cy = w.yawTo(entry); }, fn(k) {
+        const e = ease(k); w.root.position.x = lerp(near.x, home.x, e); w.walkPose(Math.sin(PI * e) * .3, true);
+        w.setYaw(lerpAngle(py, cy, e)); w.pose(1 - .45 * e, 1.1 - .9 * e); hold(); } },
+    { d: .4, start() { from = p.mesh.position.clone(); }, fn(k) {
+        w.pose(.55 + .45 * Math.sin(PI * Math.min(1, k * 1.4)), .3);
+        if (k < .65) p.mesh.position.copy(arc(from, entry, k / .65, .2));
         else p.mesh.position.lerpVectors(entry, inner, (k - .65) / .35);
-        p.mesh.rotation.z += .07;
-      } else {
-        if (!dropped) { dropped = true; freePkg(p); dropInto(c); keeper.count++; sim.kept++; }
-        const k = ease((t - D[0] - D[1] - D[2]) / D[3]);
-        w.setYaw(lerpAngle(cageYaw, w.restYaw, k)); w.pose(.4 * (1 - k), .3 * (1 - k));
-      }
-      return t >= this.total;
-    },
-  };
+        p.mesh.rotation.z += .05; },
+      end() { freePkg(p); dropInto(c); keeper.count++; sim.kept++; } },
+    { d: .45, start() { cy = w.yaw; }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(cy, w.restYaw, e)); w.pose(.4 * (1 - e), .3 * (1 - e)); } },
+  ]);
 }
 
+function newPkg() {
+  const p = getPkg();
+  p.dest = Math.random() < NO_ROUTE ? -1 : randInt(10); p.box = randInt(6);
+  p.miss = Math.random() < MISS;
+  return p;
+}
 function startInduct(w) {
-  const dur = Math.min(1.7, Math.max(.8, (4 * 60 / sim.rate) * .8));
-  const D = [.3 * dur, .15 * dur, .3 * dur, .25 * dur];
-  const palYaw = w.yawTo(w.pallet);
-  const spot = V3(w.root.position.x + rand(-.25, .25), 0, w.side * rand(.15, .45));
-  let p = null, placeFrom = null;
-  w.task = {
-    t: 0, total: D[0] + D[1] + D[2] + D[3],
-    step(t) {
-      if (t < D[0]) {
-        const k = ease(t / D[0]); w.setYaw(lerpAngle(w.restYaw, palYaw, k)); w.pose(.6 * k, .6 * k);
-      } else if (t < D[0] + D[1]) {
-        if (!p) {
-          p = getPkg();
-          p.dest = Math.random() < NO_ROUTE ? -1 : randInt(10); p.box = randInt(6);
-          p.miss = Math.random() < MISS;
-        }
-        w.handsWorld(tmp); p.mesh.position.copy(tmp);
-      } else if (t < D[0] + D[1] + D[2]) {
-        const k = ease((t - D[0] - D[1]) / D[2]);
-        w.setYaw(lerpAngle(palYaw, w.restYaw, k)); w.pose(.6 + .3 * k, .6 + .2 * k);
-        w.handsWorld(tmp); p.mesh.position.copy(tmp);
-      } else {
-        const k = ease((t - D[0] - D[1] - D[2]) / D[3]);
-        if (!placeFrom) placeFrom = p.mesh.position.clone();
-        spot.y = BELT_TOP + p.h / 2;
-        spot.x += sim.speed * (1 / 60) * .3;
-        p.mesh.position.lerpVectors(placeFrom, spot, k);
-        w.pose(.9 * (1 - k), .8 * (1 - k));
-        if (t >= this.total) {
-          p.state = 'belt'; p.x = p.mesh.position.x; p.z = p.mesh.position.z; sim.induced++;
-        }
-      }
-      return t >= this.total;
-    },
-  };
+  const per = 7 * 60 / sim.rate, D = Math.min(2.6, Math.max(1.1, per * .75));
+  const c = w.cage, home = w.home, near = home.clone().addScaledVector(w.toCage, .4);
+  const entry = c.grp.localToWorld(V3(rand(-.25, .25), .3 + .95 * c.fill / c.cap, -.15));
+  const spot = w.spot();
+  let p, cy, from;
+  const hold = () => { w.handsWorld(tmp); p.mesh.position.copy(tmp); };
+  w.task = sequence([
+    { d: .32 * D, start() { cy = w.yawTo(entry); }, fn(k) {
+        const e = ease(k);
+        w.setYaw(lerpAngle(w.restYaw, cy, Math.min(1, e * 1.4)));
+        w.root.position.x = lerp(home.x, near.x, e); w.root.position.z = lerp(home.z, near.z, e);
+        w.pose(.75 * e, 1.1 * e); w.walkPose(Math.sin(PI * e) * .35, true); } },
+    { d: .14 * D, start() {
+        p = newPkg(); p.mesh.position.copy(entry);
+        if (c.fill <= 3) { c.fill = c.cap; c.swaps++; } else c.fill--;
+        setFill(c);
+      }, fn(k) { w.handsWorld(tmp); p.mesh.position.lerpVectors(entry, tmp, ease(k)); } },
+    { d: .3 * D, fn(k) {
+        const e = ease(k);
+        w.setYaw(lerpAngle(cy, w.restYaw, e));
+        w.root.position.x = lerp(near.x, home.x, e); w.root.position.z = lerp(near.z, home.z, e);
+        w.walkPose(Math.sin(PI * e) * .35, true); w.pose(lerp(.75, .55, e), lerp(1.1, .2, e)); hold(); } },
+    { d: .24 * D, start() { from = p.mesh.position.clone(); spot.y = BELT_TOP + p.h / 2; },
+      fn(k) { w.pose(.55 + .4 * Math.sin(PI * k), .2 + .5 * Math.sin(PI * k)); p.mesh.position.lerpVectors(from, spot, ease(k)); },
+      end() { p.state = 'belt'; p.x = spot.x; p.z = spot.z; sim.induced++; } },
+    { d: .2, fn(k) { w.pose(.55 * (1 - k), .2 * (1 - k)); } },
+  ]);
 }
 
 function idle(w, dt) {
   w.phase += dt;
+  w.pose(0, Math.sin(w.phase * .8) * .05);
+  w.walkPose(0, true);
   w.upper.rotation.z = Math.sin(w.phase * 1.1) * .015;
   w.head.rotation.y = Math.sin(w.phase * .37) * .25;
-  w.pose(0, Math.sin(w.phase * .8) * .05);
   if (Math.abs(w.yaw - w.restYaw) > .001) w.setYaw(lerpAngle(w.yaw, w.restYaw, Math.min(1, dt * 4)));
 }
 function runWorker(w, dt) {
-  if (w.task) { w.task.t += dt; w.head.rotation.y *= .9; if (w.task.step(w.task.t)) w.task = null; }
+  if (w.task) { w.task.t += dt; w.head.rotation.y *= .9; w.upper.rotation.z *= .9; if (w.task.step(w.task.t)) w.task = null; }
   else idle(w, dt);
 }
 
 /* ------------------------------------------------------------------ */
 /* Loop                                                                */
 /* ------------------------------------------------------------------ */
-const END_STOP = X1 + .66, SLOT = .5;
+const END_STOP = X1 + .62, SLOT = .78;
 function update(dt) {
   sim.time += dt;
   texBelt.offset.x -= sim.speed * dt / (BELT_LEN / texBelt.repeat.x) ;
 
   // indução
-  const per = 4 * 60 / sim.rate;
+  const per = 7 * 60 / sim.rate;
   for (const w of inductors) {
     if (!w.task) { w.timer -= dt; if (w.timer <= 0) { startInduct(w); w.timer = per * rand(.85, 1.15); } }
   }
@@ -1130,12 +1195,12 @@ function update(dt) {
 /* Câmera: vistas                                                      */
 /* ------------------------------------------------------------------ */
 const VIEWS = {
-  persp:  { p: [-31, 17, 25], t: [3, .5, 0], fov: 40 },
-  axis:   { p: [-29.5, 4.2, 0], t: [12, .6, 0], fov: 46 },
-  plan:   { p: [1, 62, .01], t: [1, 0, 0], fov: 40 },
-  island: { p: [islands[1].xc + 2.2, 4.3, 10.2], t: [islands[1].xc, 1.0, 1.7], fov: 44 },
-  keeper: { p: [X1 + 7.5, 4.8, 6.5], t: [X1 + 1.2, .9, 0], fov: 44 },
-  induct: { p: [X0 + 9, 5, 8.5], t: [X0 + 3.5, .8, 0], fov: 44 },
+  persp:  { p: [-34, 20, 28], t: [3, .5, 0], fov: 40 },
+  axis:   { p: [X0 - 11, 13, 0], t: [X0 + 26, 0, 0], fov: 42 },
+  plan:   { p: [2, 70, .01], t: [2, 0, 0], fov: 40 },
+  island: { p: [islands[1].xc + 1.6, 6.4, 12.5], t: [islands[1].xc, .8, 2.9], fov: 44 },
+  keeper: { p: [X1 + 8.5, 5.4, 7.5], t: [X1 + 1.6, .9, 0], fov: 44 },
+  induct: { p: [X0 - 6.5, 7.5, 9.5], t: [X0 + 3.5, .8, 0], fov: 44 },
 };
 let camTween = null;
 function goView(name) {
@@ -1216,7 +1281,9 @@ function updateTip() {
   if (!hit) { tip.hidden = true; return; }
   const { kind, ref } = hit.object.userData;
   if (kind === 'box') {
-    tip.innerHTML = `<b>ILHA ${ref.isl.code} · ${ref.pos}</b><br><span class="m">Caixa 1,20 × 1,00 × 2,00 m sobre PBR</span><br>${ref.fill}/${ref.cap} pacotes · ${ref.swaps} troca(s)`;
+    tip.innerHTML = `<b>ILHA ${ref.isl.code} · ${ref.pos}</b><br><span class="m">Gaylord 1,20 × 1,00 × 2,00 m sobre PBR</span><br>${ref.fill}/${ref.cap} pacotes · ${ref.swaps} troca(s)`;
+  } else if (kind === 'icage') {
+    tip.innerHTML = `<b>${ref.name.toUpperCase()}</b><br><span class="m">Gaiola de abastecimento 1,20 × 1,00 × 1,70 m</span><br>${ref.fill}/${ref.cap} volumes · ${ref.swaps} reposição(ões)`;
   } else {
     tip.innerHTML = `<b>GOLEIRO · ${ref.name}</b><br><span class="m">Gaiola 1,20 × 1,00 × 1,70 m</span><br>${ref.fill}/${ref.cap} pacotes`;
   }
@@ -1237,7 +1304,7 @@ addEventListener('resize', resize);
 
 bake();
 resize();
-if (innerWidth < 760) { VIEWS.persp.p = [-40, 24, 32]; camera.position.set(...VIEWS.persp.p); }
+if (innerWidth < 760) { VIEWS.persp.p = [-46, 28, 37]; camera.position.set(...VIEWS.persp.p); }
 $('#loading').remove();
 
 // aquece a linha: simula alguns segundos para a maquete já abrir com pacotes na esteira
@@ -1256,7 +1323,7 @@ function frame() {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
-window.__maquete = { sim, islands, keeper, scene, camera, goView, renderer };
+window.__maquete = { sim, islands, keeper, scene, camera, controls, goView, renderer };
 };
 Promise.race([
   Promise.all([document.fonts.load('800 80px Archivo'), document.fonts.load('600 60px "IBM Plex Mono"')]),
