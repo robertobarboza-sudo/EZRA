@@ -207,6 +207,10 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
     </div>
     <div class="row">
       <button class="btn" id="export">Exportar 3D (.glb)</button>
+      <label class="sel" for="expMode" style="flex:1"><select id="expMode">
+        <option value="pessoas">Com as pessoas</option>
+        <option value="marcadores">Sem pessoas (marcadores)</option>
+      </select></label>
     </div>
     <p class="exp-note" id="expNote">Cena em metros, com pessoas e texturas, para Blender, Twinmotion e outros. No link publicado vem compactado em .zip; descompacte para ter o .glb.</p>
     <div class="row">
@@ -662,7 +666,7 @@ let roofGroup = null;
 function bake(parent) {
   const merged = mergeCollected(COLLECT); COLLECT = new Map();
   for (const key in merged) {
-    const mesh = new THREE.Mesh(merged[key], MAT[key]);
+    const mesh = new THREE.Mesh(merged[key], MAT[key]); mesh.name = 'fixo_' + key;
     if (ROOF_KEYS.has(key) && roofGroup) { mesh.castShadow = false; mesh.receiveShadow = false; mesh.matrixAutoUpdate = false; mesh.userData.disposeGeo = true; roofGroup.add(mesh); continue; }
     mesh.castShadow = !NO_CAST.has(key); mesh.receiveShadow = true;
     mesh.matrixAutoUpdate = false; mesh.userData.disposeGeo = true;
@@ -2281,26 +2285,39 @@ $('#export').addEventListener('click', e => {
   if (!world || !THREE.GLTFExporter) return;
   btn.textContent = 'Gerando arquivo…'; btn.disabled = true;
   setTimeout(() => {
-    const hidden = [];
+    const hidden = [], markers = [], slug = t => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
+    // nomes legíveis para trocar em lote no Unreal / Blender
+    S.islands.forEach(i => { i.grp.name = `ilha_${i.code}`; i.slots.forEach(sl => { if (sl.sc) sl.sc.grp.name = `scuttle_I${i.code}_${sl.name}`; }); });
+    hitTargets.forEach(h => { const r = h.userData.ref; if (!r || !r.grp) return; if (h.userData.kind === 'scuttle' && !r.grp.name) r.grp.name = 'scuttle_' + slug(r.code); if (h.userData.kind === 'cage') r.grp.name = 'gaiola_' + slug(r.name); });
+    [1, -1].forEach(s => [...S.jacks[s], ...S.loaders[s]].forEach((u, i) => { u.grp.name = `paleteira_lado${s > 0 ? 'A' : 'B'}_${i + 1}`; }));
+    S.workers.forEach(w => { w.root.name = `pessoa_${w.role}_${String(w.id).padStart(2, '0')}`; });
+    if ($('#expMode').value === 'marcadores') {
+      for (const w of S.workers) {
+        const m = new THREE.Object3D(); w.root.getWorldPosition(m.position); w.root.getWorldQuaternion(m.quaternion);
+        m.name = `marcador_${w.role}_${String(w.id).padStart(2, '0')}_${slug(w.where)}`; world.add(m); markers.push(m);
+        if (w.root.visible) { w.root.visible = false; hidden.push(w.root); }
+      }
+    }
     world.traverse(o => {
       const skip = o.userData.noExport || o.isSprite || o.isLine || (o.material && o.material === MAT.hit);
       if (skip && o.visible) { o.visible = false; hidden.push(o); }
     });
-    const done = (msg) => { hidden.forEach(o => { o.visible = true; }); btn.textContent = msg; btn.disabled = false; setTimeout(() => { btn.textContent = label; }, 2500); };
+    const done = (msg) => { hidden.forEach(o => { o.visible = true; }); markers.forEach(m => world.remove(m)); btn.textContent = msg; btn.disabled = false; setTimeout(() => { btn.textContent = label; }, 2500); };
     try {
       new THREE.GLTFExporter().parse(world, result => {
         const mb = b => (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
+        const fname = markers.length ? 'maquete-esteira-marcadores.glb' : 'maquete-esteira.glb';
         if (downloadsNS) {
-          const zip = zipStore('maquete-esteira.glb', new Uint8Array(result));
+          const zip = zipStore(fname, new Uint8Array(result));
           done('Confirme o download…');
-          downloadsNS.save({ filename: 'maquete-esteira-glb.zip', data: zip })
+          downloadsNS.save({ filename: fname.replace('.glb', '-glb.zip'), data: zip })
             .then(() => { btn.textContent = `Baixado (${mb(zip.size)}, .zip)`; setTimeout(() => { btn.textContent = label; }, 3000); })
             .catch(err => { btn.textContent = err && err.code === 'declined' ? 'Download cancelado' : 'Download indisponível aqui'; setTimeout(() => { btn.textContent = label; }, 3000); });
           return;
         }
         try {
           const blob = new Blob([result], { type: 'model/gltf-binary' });
-          const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'maquete-esteira.glb';
+          const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = fname;
           document.body.appendChild(a); a.click(); a.remove();
           setTimeout(() => URL.revokeObjectURL(a.href), 4000);
           done(`Arquivo gerado (${mb(blob.size)})`);
