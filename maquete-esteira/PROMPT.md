@@ -124,3 +124,11 @@ humano (ilha, indução, goleiro, recebimento, expedição) + seguir paleteira.
 esteira, ilhas, flow racks, corredores, unitizadores e capacidades, pessoas por atividade e ritmo;
 a maquete é remontada ao aplicar e mostra o resultado (comprimento, galpão, vazão, espaçamento e
 quadro de pessoas).
+
+### Revisão 3.1 — PHD por atividade
+- Premissas ganham **PHD (pacotes/hora/pessoa)** de indução (350, já com a margem do goleiro), pescador (600),
+  separador (300) e goleiro (350).
+- Indução: cada operador induz no ritmo do PHD, limitado pela vazão efetiva da esteira (o que for menor).
+- Pescador: o PHD é a capacidade (média por hora, com fôlego para rajadas); acima dela, o volume passa
+  e vai para o goleiro. Separador e goleiro: o ciclo de cada volume segue o PHD (o flow rack faz o pulmão).
+- A aba Premissas mostra a vazão simulada, o gargalo, a capacidade da indução e a ocupação de cada atividade.

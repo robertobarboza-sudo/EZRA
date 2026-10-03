@@ -105,7 +105,7 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 .field .inp { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); }
 .field input { width: 100%; min-width: 0; border: 0; background: transparent; color: var(--fg); font: 500 12px var(--font-data); padding: 5px 4px 5px 6px; text-align: right; font-variant-numeric: tabular-nums; }
 .field .u { font-family: var(--font-data); font-size: 10px; color: var(--muted); padding-right: 6px; white-space: nowrap; }
-.derived { display: grid; grid-template-columns: 1fr auto; gap: 3px 10px; font-size: 12px; padding: 9px 10px; background: var(--track); border-radius: 3px; }
+.derived { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; font-size: 12px; padding: 9px 10px; background: var(--track); border-radius: 3px; }
 .derived dt { color: var(--muted); }
 .derived dd { margin: 0; text-align: right; font-family: var(--font-data); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .derived .tot { font-weight: 700; color: var(--fg); }
@@ -265,6 +265,7 @@ const DEFAULTS = {
   inducaoPorLado: 4, inducaoPonta: 0, pescadoresPorIlha: 1, separadoresPorIlha: 1,
   paleteirosPorLado: 3, setupPorLado: 3, goleiros: 2, carregadoresPorLado: 1,
   velPessoa: 1.3, velPaleteira: 1.1,
+  phdInducao: 350, phdPescador: 600, phdSeparador: 300, phdGoleiro: 350,
 };
 const SCHEMA = [
   { group: 'Volume e performance', fields: [
@@ -272,6 +273,12 @@ const SCHEMA = [
     ['ineficiencia', 'Margem de ineficiência', '%', 0, 60, 1],
     ['goleiroPct', 'Volume que vai para o goleiro', '%', 0, 50, 1],
     ['velEsteira', 'Velocidade da esteira', 'm/s', .2, 2.5, .05],
+  ] },
+  { group: 'Produtividade por pessoa (PHD)', fields: [
+    ['phdInducao', 'PHD da indução', 'pct/h', 50, 2000, 10],
+    ['phdPescador', 'PHD do pescador', 'pct/h', 50, 3000, 10],
+    ['phdSeparador', 'PHD do separador', 'pct/h', 50, 2000, 10],
+    ['phdGoleiro', 'PHD do goleiro', 'pct/h', 50, 2000, 10],
   ] },
   { group: 'Esteira e ilhas', fields: [
     ['inducaoComp', 'Comprimento da indução', 'm', 3, 20, .5],
@@ -312,7 +319,7 @@ const SCHEMA = [
     ['velPaleteira', 'Velocidade com paleteira/gaiola', 'm/s', .5, 2, .05],
   ] },
 ];
-const STORE_KEY = 'maquete-esteira-premissas-v3';
+const STORE_KEY = 'maquete-esteira-premissas-v4';
 function loadParams() {
   try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (s && typeof s === 'object') return sanitize({ ...DEFAULTS, ...s }); } catch (e) {}
   return { ...DEFAULTS };
@@ -1616,14 +1623,14 @@ function startPick(isl, w, p) {
   let yB, yR, from;
   isl.reserved = (isl.reserved || 0) + 1;
   w.state = 'pescando';
-  w.task = sequence([
+  w.task = sequence(fitCycle(w, [
     { d: .42, start() { yB = w.yawTo(p0); }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(w.restYaw, yB, e)); w.pose(e * .95, e); holdPos(w, tmp); p.mesh.position.lerpVectors(p0, tmp, e); } },
     { d: .5, start() { yR = w.yawTo(headW); }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(yB, yR, e)); w.pose(lerp(.95, .6, e), lerp(1, .3, e)); w.walkPose(Math.sin(PI * k) * .2, false); holdPos(w, tmp); p.mesh.position.copy(tmp); } },
     { d: .35, start() { from = p.mesh.position.clone(); }, fn(k) { w.pose(.6 + .35 * Math.sin(PI * k), .5); p.mesh.position.lerpVectors(from, headW, ease(k)); },
       end() { p.state = 'rack'; isl.rack.push(p); isl.reserved--; S.picked++; } },
     { d: .4, fn(k) { const e = ease(k); w.setYaw(lerpAngle(yR, w.restYaw, e)); w.pose(.5 * (1 - e), .3 * (1 - e)); } },
     { d: 0, end() { w.state = 'livre'; } },
-  ]);
+  ], P.phdPescador, false));   // pescador: PHD é capacidade (fôlego), não tempo travado
 }
 
 /* ------------------------------------------------------------------ */
@@ -1639,7 +1646,7 @@ function startSep(isl, w, p) {
   let yP, from, entry, inner;
   const hold = () => { holdPos(w, tmp); p.mesh.position.copy(tmp); };
   w.state = `levando para ${slot.name}`;
-  w.task = sequence([
+  w.task = sequence(fitCycle(w, [
     { d: .45, start() { yP = w.yawTo(p0); }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(w.restYaw, yP, e)); w.pose(.95 * e, 1.1 * e); holdPos(w, tmp); p.mesh.position.lerpVectors(p0, tmp, e); } },
     { d: .25, fn(k) { const e = ease(k); w.pose(lerp(.95, .55, e), lerp(1.1, .15, e)); hold(); } },
     ...walkSteps(w, route, { mode: 'carry', carry: hold }),
@@ -1657,7 +1664,7 @@ function startSep(isl, w, p) {
     ...walkSteps(w, [route[2], route[1], route[0]]),
     turnStep(w, () => w.restYaw),
     { d: 0, end() { w.state = 'livre'; } },
-  ]);
+  ], P.phdSeparador));
 }
 
 /* ------------------------------------------------------------------ */
@@ -1671,7 +1678,7 @@ function startKeep(w, p, slot) {
   const p0 = p.mesh.position.clone();
   let yP, yC, from, entry, inner;
   w.state = `colocando em ${slot.name}`;
-  w.task = sequence([
+  w.task = sequence(fitCycle(w, [
     { d: .45, start() { yP = w.yawTo(p0); }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(w.restYaw, yP, e)); w.pose(e, e * 1.1); holdPos(w, tmp); p.mesh.position.lerpVectors(p0, tmp, e); } },
     { d: .5, start() { yC = w.yawTo(c.grp.localToWorld(V3(0, 1, 0))); }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(yP, yC, e)); w.pose(1 - .45 * e, 1.1 - .9 * e); w.walkPose(Math.sin(PI * k) * .25, false); holdPos(w, tmp); p.mesh.position.copy(tmp); } },
     { d: .4, start() {
@@ -1685,16 +1692,24 @@ function startKeep(w, p, slot) {
       } },
     { d: .45, start() { yC = w.yaw; }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(yC, w.restYaw, e)); w.pose(.4 * (1 - e), .3 * (1 - e)); } },
     { d: 0, end() { w.state = 'livre'; } },
-  ]);
+  ], P.phdGoleiro));
 }
 
 /* ------------------------------------------------------------------ */
 /* Indução: pega da gaiola de abastecimento e coloca na esteira          */
 /* ------------------------------------------------------------------ */
+/* ritmo de cada indutor: o mais lento entre o PHD da pessoa e a vazão efetiva da esteira dividida pela equipe */
 const inductInterval = () => {
   const n = Math.max(1, S.inductors.length);
-  return n * 3600 / Math.max(1, P.capacidade * (1 - P.ineficiencia / 100));
+  return Math.max(3600 / Math.max(1, P.phdInducao), n * 3600 / Math.max(1, P.capacidade * (1 - P.ineficiencia / 100)));
 };
+/* ajusta a sequência ao ciclo do PHD: acelera se o movimento não cabe, ou completa com tempo de processo (bipar, conferir) */
+function fitCycle(w, steps, phd, pad = true) {
+  const cycle = 3600 / Math.max(1, phd), base = steps.reduce((a, s) => a + (s.d || 0), 0);
+  if (base > cycle) { const f = cycle / base; steps.forEach(s => { if (s.d) s.d *= f; }); }
+  else if (pad) steps.splice(steps.length - 1, 0, { d: cycle - base, fn(k) { w.pose(.18 + .06 * Math.sin(k * 40), .06); } });
+  return steps;
+}
 function startInduct(w) {
   const slot = w.slot, c = slot.cage;
   const D = Math.min(2.4, Math.max(1.0, inductInterval() * .8));
@@ -1960,8 +1975,8 @@ function update(dt) {
       let taken = false;
       if (isl.rack.length + (isl.reserved || 0) < P.flowCap) {
         for (const w of isl.pickers) {
-          if (w.task) continue;
-          if (p.x > w.wx - 1.0 && p.x < w.wx + .7) { startPick(isl, w, p); taken = true; break; }
+          if (w.task || (w.tokens ?? 3) < 1) continue;
+          if (p.x > w.wx - 1.0 && p.x < w.wx + .7) { w.tokens = (w.tokens ?? 3) - 1; startPick(isl, w, p); taken = true; break; }
         }
       }
       if (taken) continue;
@@ -1980,6 +1995,7 @@ function update(dt) {
   });
   // flow racks das ilhas (volumes rolam até a fila)
   for (const isl of S.islands) {
+    for (const w of isl.pickers) w.tokens = Math.min(3, (w.tokens ?? 3) + dt * P.phdPescador / 3600);
     isl.rack.forEach((p, i) => {
       const tz = Math.max(L.rack0 + .35, L.rack1 - .42 - i * .62);
       p.rz = Math.min(tz, p.rz + .7 * dt);
@@ -2163,6 +2179,7 @@ function refreshSpec() {
   $('#spec').innerHTML = `
     <dt>Esteira</dt><dd>${fmtM(L.len)} × ${fmtM(L.bw)} m · ${fmtM(P.velEsteira)} m/s</dd>
     <dt>Volume</dt><dd>${fmt(P.capacidade)} pct/h · ineficiência ${P.ineficiencia}%</dd>
+    <dt>PHD</dt><dd>indução ${fmt(P.phdInducao)} · pesca ${fmt(P.phdPescador)} · sep. ${fmt(P.phdSeparador)}</dd>
     <dt>Ilhas</dt><dd>${2 * L.nIsl} · flow rack ${fmtM(L.rackW, 1)} × ${fmtM(L.rackL, 1)} m</dd>
     <dt>Scuttle</dt><dd>1,20 × 1,00 × ${fmtM(P.scuttleAlt)} m · ${2 * L.nIsl * 2 * P.scuttlesPorFila} un.</dd>
     <dt>Goleiro</dt><dd>${P.goleiros} pessoa(s) · ${P.gaiolasGoleiro} gaiolas · ${P.goleiroPct}%</dd>
@@ -2255,7 +2272,21 @@ function refreshDerived() {
   const nInd = 2 * p.inducaoPorLado + p.inducaoPonta;
   const spacing = p.velEsteira * 3600 / Math.max(1, eff);
   const hc = headcount(p), tot = hc.reduce((a, [, n]) => a + n, 0);
+  const nIsl = 2 * p.ilhasPorLado, indCap = nInd * p.phdInducao, flow = Math.min(eff, indCap);
+  const perIsl = flow * (1 - p.goleiroPct / 100) / nIsl, toGol = flow * p.goleiroPct / 100;
+  const util = (dem, cap) => cap > 0 ? Math.round(100 * dem / cap) : Infinity;
+  const acts = [
+    ['Indução', util(eff, indCap)],
+    ['Pescador', util(perIsl, p.pescadoresPorIlha * p.phdPescador)],
+    ['Separador', util(perIsl, p.separadoresPorIlha * p.phdSeparador)],
+    ['Goleiro', util(toGol, p.goleiros * p.phdGoleiro)],
+  ];
+  const gargalo = indCap < eff ? 'indução' : 'esteira';
   $('#derived').innerHTML = `
+    <dt class="tot">Vazão simulada</dt><dd class="tot">${fmt(flow)} pct/h</dd>
+    <dt>Gargalo</dt><dd>${gargalo}</dd>
+    <dt>Capacidade da indução</dt><dd>${fmt(indCap)} pct/h</dd>
+    ${acts.map(([n, u]) => `<dt>Ocupação · ${n.toLowerCase()}</dt><dd style="color:${u > 100 ? 'var(--warn)' : 'inherit'}">${isFinite(u) ? u + '%' : '–'}</dd>`).join('')}
     <dt>Comprimento da esteira</dt><dd>${fmtM(l.len)} m</dd>
     <dt>Largura de cada ilha</dt><dd>${fmtM(2 * l.half)} m</dd>
     <dt>Galpão</dt><dd>${fmtM(l.xEast - l.xWest, 0)} × ${fmtM(2 * l.zWall, 0)} m</dd>
@@ -2263,13 +2294,14 @@ function refreshDerived() {
     <dt>Por posição de indução</dt><dd>${nInd ? fmt(eff / nInd) : '–'} pct/h</dd>
     <dt>Por ilha</dt><dd>${fmt(eff * (1 - p.goleiroPct / 100) / (2 * p.ilhasPorLado))} pct/h</dd>
     <dt>Para o goleiro</dt><dd>${fmt(eff * p.goleiroPct / 100)} pct/h</dd>
-    <dt>Espaçamento médio na esteira</dt><dd>${fmtM(spacing)} m</dd>
+    <dt>Espaçamento na esteira</dt><dd>${fmtM(spacing)} m</dd>
     <dt>Scuttles nas ilhas</dt><dd>${2 * p.ilhasPorLado * 2 * p.scuttlesPorFila}</dd>
     ${hc.map(([n, v]) => `<dt>${n}</dt><dd>${v}</dd>`).join('')}
     <dt class="tot">Total de pessoas</dt><dd class="tot">${tot}</dd>`;
   const warn = $('#cfgWarn'), msgs = [];
   if (spacing < .9) msgs.push(`Espaçamento de ${fmtM(spacing)} m: volumes vão encostar na esteira. Aumente a velocidade ou reduza a capacidade.`);
   if (!nInd) msgs.push('Sem posições de indução: nenhum volume entra na esteira.');
+  for (const [n, u] of acts) if (u > 100 && isFinite(u)) msgs.push(`${n} acima de 100% de ocupação: o excedente vai para o goleiro ou atrasa a linha.`);
   warn.hidden = !msgs.length; warn.textContent = msgs.join(' ');
 }
 form.addEventListener('input', refreshDerived);
