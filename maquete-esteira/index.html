@@ -268,7 +268,7 @@ const DEFAULTS = {
   flowLarg: 2.5, flowComp: 3.3, flowAlt: 0.85, flowCap: 8,
   corredorFlow: 1.2, corredorPaleteira: 3.0, scuttlesPorFila: 3,
   golFlowComp: 1.8, gaiolasGoleiro: 4,
-  scuttleAlt: 2.0, scuttleCap: 35, scuttleTroca: 85, gaiolaAlt: 1.7, gaiolaCap: 45,
+  scuttleAlt: 2.0, scuttleCap: 46, ocupScuttle: 90, perdaEncaixe: 1.5, scuttleTroca: 85, gaiolaAlt: 1.7, gaiolaCap: 45,
   inducaoPorLado: 4, inducaoPonta: 0, pescadoresPorIlha: 1, separadoresPorIlha: 1,
   paleteirosPorLado: 3, setupPorLado: 3, goleiros: 2, carregadoresPorLado: 0,
   velPessoa: 1.3, velPaleteira: 1.1,
@@ -306,7 +306,9 @@ const SCHEMA = [
   ] },
   { group: 'Unitizadores', fields: [
     ['scuttleAlt', 'Altura da scuttle', 'm', 1, 2.5, .05],
-    ['scuttleCap', 'Capacidade da scuttle', 'volumes', 10, 150, 1],
+    ['scuttleCap', 'Capacidade média da scuttle', 'volumes', 10, 150, 1],
+    ['ocupScuttle', 'Ocupação útil da cubagem', '%', 40, 100, 1],
+    ['perdaEncaixe', 'Perda por encaixe do volume', '%', 0, 30, .1],
     ['scuttleTroca', 'Chamar troca da scuttle com', '% cheia', 50, 100, 1],
     ['gaiolaAlt', 'Altura da gaiola', 'm', 1.2, 2.2, .05],
     ['gaiolaCap', 'Capacidade da gaiola', 'volumes', 10, 150, 1],
@@ -325,7 +327,7 @@ const SCHEMA = [
     ['velPaleteira', 'Velocidade com paleteira/gaiola', 'm/s', .5, 2, .05],
   ] },
 ];
-const STORE_KEY = 'maquete-esteira-premissas-v6';
+const STORE_KEY = 'maquete-esteira-premissas-v9';
 function loadParams() {
   try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (s && typeof s === 'object') return sanitize({ ...DEFAULTS, ...s }); } catch (e) {}
   return { ...DEFAULTS };
@@ -341,6 +343,9 @@ function sanitize(p) {
   return out;
 }
 let P = loadParams();
+
+/* cubagem média de cada volume que fecha a capacidade da scuttle (1,20 × 1,00 × altura) */
+const pkgTargetM3 = p => 1.2 * 1.0 * p.scuttleAlt * (p.ocupScuttle / 100) / (p.scuttleCap * (1 + p.perdaEncaixe / 100));
 
 /* layout derivado das premissas */
 function computeLayout(p) {
@@ -1253,6 +1258,7 @@ function buildWorld() {
 
   buildBuilding();
   buildBelt();
+  buildPkgTypes();
 
   /* ilhas */
   for (const s of sides) for (let k = 0; k < L.nIsl; k++) {
@@ -1438,18 +1444,27 @@ function makeUnit(role, s, pos, yaw) {
 /* ------------------------------------------------------------------ */
 /* Pacotes                                                             */
 /* ------------------------------------------------------------------ */
-const PKG_TYPES = [
-  { geo: new THREE.BoxGeometry(.32, .22, .26), mat: 'pkgKraft', h: .22, w: 2 },
-  { geo: new THREE.BoxGeometry(.45, .32, .38), mat: 'pkgKraft', h: .32, w: 3 },
-  { geo: new THREE.BoxGeometry(.6, .42, .45), mat: 'pkgKraft2', h: .42, w: 2 },
-  { geo: new THREE.BoxGeometry(.5, .3, .4), mat: 'pkgWhite', h: .3, w: 2 },
-  { geo: new THREE.BoxGeometry(.4, .4, .4), mat: 'pkgKraft', h: .4, w: 1 },
-  { geo: new THREE.BoxGeometry(.7, .45, .5), mat: 'pkgKraft2', h: .45, w: 1 },
-  { geo: new THREE.SphereGeometry(1, 18, 10).scale(.3, .1, .24), mat: 'bag', h: .2, w: 2 },
-  { geo: new THREE.SphereGeometry(1, 18, 10).scale(.36, .12, .27), mat: 'bagDark', h: .24, w: 1 },
-  { geo: new THREE.BoxGeometry(.36, .04, .27), mat: 'bag', h: .04, w: 1 },
+/* mistura de volumes (medidas-base em m); a escala é ajustada para a cubagem média da premissa */
+const PKG_MIX = [
+  { d: [.40, .30, .28], mat: 'pkgKraft', w: 4 }, { d: [.45, .35, .30], mat: 'pkgKraft', w: 3 },
+  { d: [.35, .25, .25], mat: 'pkgKraft2', w: 3 }, { d: [.50, .40, .35], mat: 'pkgKraft2', w: 2 },
+  { d: [.30, .30, .30], mat: 'pkgKraft', w: 2 }, { d: [.60, .40, .30], mat: 'pkgKraft', w: 1 },
+  { d: [.42, .32, .25], mat: 'pkgWhite', w: 2 },
+  { d: [.46, .16, .36], mat: 'bag', w: 1, bag: true }, { d: [.50, .18, .38], mat: 'bagDark', w: 1, bag: true },
 ];
-const PKG_BAG = PKG_TYPES.flatMap(t => Array(t.w).fill(t));
+const mixVol = t => t.bag ? PI / 6 * t.d[0] * t.d[1] * t.d[2] : t.d[0] * t.d[1] * t.d[2];
+let PKG_BAG = [], PKG_SCALE = 1;
+function buildPkgTypes() {
+  if (PKG_BAG.length) new Set(PKG_BAG.map(t => t.geo)).forEach(g => g.dispose());
+  const total = PKG_MIX.reduce((a, t) => a + t.w, 0), mean = PKG_MIX.reduce((a, t) => a + t.w * mixVol(t), 0) / total;
+  PKG_SCALE = Math.cbrt(pkgTargetM3(P) / mean);
+  const types = PKG_MIX.map(t => {
+    const [a, b, c] = t.d.map(v => v * PKG_SCALE);
+    const geo = t.bag ? new THREE.SphereGeometry(1, 18, 10).scale(a / 2, b / 2, c / 2) : new THREE.BoxGeometry(a, b, c);
+    return { geo, mat: t.mat, h: b, w: t.w };
+  });
+  PKG_BAG = types.flatMap(t => Array(t.w).fill(t));
+}
 function getPkg() {
   const t = pick(PKG_BAG);
   let mesh = S.pool.pop();
@@ -2114,7 +2129,7 @@ function refreshSpec() {
     <dt>Volume</dt><dd>${fmt(P.capacidade)} pct/h · ineficiência ${P.ineficiencia}%</dd>
     <dt>PHD</dt><dd>indução ${fmt(P.phdInducao)} · pesca ${fmt(P.phdPescador)} · sep. ${fmt(P.phdSeparador)}</dd>
     <dt>Ilhas</dt><dd>${2 * L.nIsl} · flow rack ${fmtM(L.rackW, 1)} × ${fmtM(L.rackL, 1)} m</dd>
-    <dt>Scuttle</dt><dd>1,20 × 1,00 × ${fmtM(P.scuttleAlt)} m · ${2 * L.nIsl * 2 * P.scuttlesPorFila} un.</dd>
+    <dt>Scuttle</dt><dd>1,20 × 1,00 × ${fmtM(P.scuttleAlt)} m · ${P.scuttleCap} vol. · ${fmtM(pkgTargetM3(P) * 1000, 1)} L/vol.</dd>
     <dt>Goleiro</dt><dd>${P.goleiros} pessoa(s) · ${P.gaiolasGoleiro} gaiolas · ${P.goleiroPct}%</dd>
     <dt>Pessoas</dt><dd>${tot} na operação</dd>`;
   $('#kPeople').textContent = `${S.workers.length} pessoas`;
@@ -2228,6 +2243,7 @@ function refreshDerived() {
     <dt>Por ilha</dt><dd>${fmt(eff * (1 - p.goleiroPct / 100) / (2 * p.ilhasPorLado))} pct/h</dd>
     <dt>Para o goleiro</dt><dd>${fmt(eff * p.goleiroPct / 100)} pct/h</dd>
     <dt>Espaçamento na esteira</dt><dd>${fmtM(spacing)} m</dd>
+    <dt>Cubagem média por volume</dt><dd>${fmtM(pkgTargetM3(p) * 1000, 1)} L ≈ ${(() => { const s = Math.cbrt(pkgTargetM3(p) / .0336); return `${Math.round(40 * s)}×${Math.round(30 * s)}×${Math.round(28 * s)} cm`; })()}</dd>
     <dt>Scuttles nas ilhas</dt><dd>${2 * p.ilhasPorLado * 2 * p.scuttlesPorFila}</dd>
     ${hc.map(([n, v]) => `<dt>${n}</dt><dd>${v}</dd>`).join('')}
     <dt class="tot">Total de pessoas</dt><dd class="tot">${tot}</dd>`;

@@ -143,3 +143,9 @@ quadro de pessoas).
 - **Scuttles**: a cheia sai da ilha com a paleteira para o **buffer de saída depois do goleiro**; a vazia vem
   do **buffer de scuttles vazias atrás dos paleteiros** (lateral), que é reposto.
 - Render: relevo no papelão, variação de brilho no concreto, oclusão de ambiente mais marcada e vinheta.
+
+### Revisão 5 — cubagem dos volumes
+- Scuttle 1,20 × 1,00 × 2,00 m (2,40 m³), **ocupação útil 90%**, **perda por encaixe 1,5%**, **46 volumes** em média.
+- Cubagem média por volume = 2,40 × 0,90 ÷ (46 × 1,015) ≈ **46,3 L** (≈ 45 × 33 × 31 cm); a mistura de
+  caixas e sacos é escalada para essa média. Os três números são premissas editáveis.
+- Removido o painel elétrico que ficava no caminho da indução; grade do piso mais clara; exportação .glb.
