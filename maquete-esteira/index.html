@@ -243,6 +243,8 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
 <script>
 const main = () => {
 'use strict';
@@ -1083,7 +1085,14 @@ function makeWorker(roleKey) {
       if (Math.abs(w.yaw - w.restYaw) > .001) w.setYaw(lerpAngle(w.yaw, w.restYaw, Math.min(1, dt * 4)));
     },
     handsWorld(out) {
-      const a = V3(), b = V3(); handL.getWorldPosition(a); handR.getWorldPosition(b);
+      const a = V3(), b = V3();
+      if (w.mh && w.mh.hands.length === 4) {
+        mhSync(w); w.mh.obj.updateMatrixWorld(true);
+        const h = w.mh.hands, c = V3(), d = V3();
+        h[0].getWorldPosition(a); h[2].getWorldPosition(c); h[1].getWorldPosition(b); h[3].getWorldPosition(d);
+        return out.copy(a).add(b).add(c).add(d).multiplyScalar(.25);
+      }
+      handL.getWorldPosition(a); handR.getWorldPosition(b);
       return out.copy(a).add(b).multiplyScalar(.5);
     },
     setYaw(y) { w.yaw = y; root.rotation.y = y; },
@@ -1094,8 +1103,109 @@ function makeWorker(roleKey) {
   };
   hit.userData = { kind: 'worker', ref: w };
   w.pose(0); w.walkPose(0, false);
+  const mh = mhAttach(w, roleKey);
+  if (mh) { mesh.visible = false; w.mh = mh; MH_LIVE.push(w); }
   return w;
 }
+
+/* ------------------------------------------------------------------ */
+/* Pessoas MakeHuman (GLB com esqueleto) dirigidas pelo esqueleto acima */
+/* ------------------------------------------------------------------ */
+// O esqueleto simples continua calculando as poses (andar, alcançar, empurrar, puxar);
+// a cada quadro as rotações são transferidas para o esqueleto completo do MakeHuman.
+const MH = { list: [], byRole: {}, seq: {} };
+let MH_LIVE = [];
+const MH_MAP = [ // osso do boneco, osso MH (lado resolvido pelo sinal de x), corrige direção de repouso
+  ['pelvis', 'root', false], ['chest', 'spine03', false], ['head', 'head', false],
+  ['shX', 'upperarm01', true], ['elX', 'lowerarm01', true], ['hipX', 'upperleg01', true], ['kneeX', 'lowerleg01', true],
+];
+async function loadPeople(base = 'pessoas/') {
+  if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return false;
+  const idx = await fetch(base + 'pessoas.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  const loader = new THREE.GLTFLoader();
+  const tpls = await Promise.all(idx.map(e => new Promise((ok, bad) => loader.load(base + e.arquivo, g => ok({ e, g }), undefined, bad))));
+  for (const { e, g } of tpls) {
+    const t = mhPrepare(g.scene); t.roles = e.papeis;
+    MH.list.push(t); for (const r of e.papeis) (MH.byRole[r] = MH.byRole[r] || []).push(t);
+  }
+  return true;
+}
+function mhPrepare(sceneRoot) {
+  sceneRoot.updateMatrixWorld(true);
+  let skinned = null;
+  sceneRoot.traverse(o => {
+    if (o.isMesh) {
+      o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false;
+      const ms = Array.isArray(o.material) ? o.material : [o.material];
+      ms.forEach(m => { m.envMapIntensity = .5; if (m.name === 'refletivo') { m.emissive = C(0x30353a); } });
+      if (o.isSkinnedMesh && !skinned) skinned = o;
+    }
+  });
+  const bones = skinned.skeleton.bones, names = bones.map(b => b.name);
+  // ordem topológica (pais antes dos filhos) e repouso em espaço do personagem
+  const order = [], seen = new Set();
+  const visit = b => { if (seen.has(b)) return; if (b.parent && b.parent.isBone) visit(b.parent); seen.add(b); order.push(b); };
+  bones.forEach(visit);
+  const q = new THREE.Quaternion(), tmp = new THREE.Vector3(), sc = new THREE.Vector3();
+  const rest = order.map(b => { b.matrixWorld.decompose(tmp, q, sc); return q.clone(); });
+  const top = order[0].parent; top.matrixWorld.decompose(tmp, q, sc); const Q0 = q.clone();
+  const bi = n => order.findIndex(b => b.name === n);
+  const side = n => { const iL = bi(n + 'L'), p = V3(); order[iL].getWorldPosition(p); return p.x; };
+  const map = [];
+  for (const [pb, mb, sided] of MH_MAP) {
+    const pairs = sided ? (() => { const xL = side(mb); return [[pb.replace('X', xL < 0 ? 'L' : 'R'), mb + 'L'], [pb.replace('X', xL < 0 ? 'R' : 'L'), mb + 'R']]; })() : [[pb, mb]];
+    for (const [p, m] of pairs) {
+      const i = bi(m); if (i < 0) continue;
+      let C = new THREE.Quaternion();
+      if (sided) {  // gira a direção de repouso (pose em A) para a do boneco: braços e pernas para baixo
+        const dir = V3(0, 1, 0).applyQuaternion(rest[i]).normalize();
+        C.setFromUnitVectors(dir, V3(0, -1, 0));
+      }
+      map.push({ i, p, C });
+    }
+  }
+  const box3 = new THREE.Box3().setFromObject(sceneRoot);
+  return { scene: sceneRoot, orderNames: order.map(b => b.name), rest, Q0, map, rootY: order[0].position.y, floor: box3.min.y,
+    hands: ['wristL', 'wristR', 'finger3-1L', 'finger3-1R'] };
+}
+function mhAttach(w, roleKey) {
+  const pool = MH.byRole[roleKey] || MH.list; if (!pool || !pool.length) return null;
+  MH.seq[roleKey] = (MH.seq[roleKey] || 0) + 1;
+  const t = pool[(MH.seq[roleKey] + w.id) % pool.length];
+  const obj = THREE.SkeletonUtils.clone(t.scene);
+  obj.position.y = -t.floor;
+  w.root.add(obj);
+  const byName = {}; obj.traverse(o => { if (o.isBone) byName[o.name] = o; });
+  const order = t.orderNames.map(n => byName[n]);
+  const parentIdx = order.map(b => order.indexOf(b.parent));
+  const local = order.map(b => b.quaternion.clone());
+  const mapByI = new Map(t.map.map(m => [m.i, { B: w.B[m.p], C: m.C }]));
+  const hands = t.hands.map(n => byName[n]).filter(Boolean);
+  return { t, obj, order, parentIdx, local, mapByI, hands, W: order.map(() => new THREE.Quaternion()), rootPos: order[0].position.clone() };
+}
+const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qInv = new THREE.Quaternion();
+const _procW = new Map();
+function procWorldQ(B, bone) {     // rotação do osso do boneco em espaço do personagem
+  let q = _procW.get(bone); if (q) return q;
+  q = bone.quaternion.clone();
+  if (bone.parent && bone.parent.isBone) q.premultiply(procWorldQ(B, bone.parent));
+  _procW.set(bone, q); return q;
+}
+function mhSync(w) {
+  const m = w.mh, t = m.t; _procW.clear();
+  for (let k = 0; k < m.order.length; k++) {
+    const b = m.order[k], pi = m.parentIdx[k], PW = pi < 0 ? t.Q0 : m.W[pi];
+    const mp = m.mapByI.get(k);
+    if (mp) {
+      m.W[k].copy(procWorldQ(w.B, mp.B)).multiply(mp.C).multiply(t.rest[k]);
+      b.quaternion.copy(_qInv.copy(PW).invert().multiply(m.W[k]));
+    } else {
+      m.W[k].copy(PW).multiply(b.quaternion);
+    }
+  }
+  m.order[0].position.y = m.rootPos.y + (w.B.pelvis.position.y - .93);
+}
+function mhSyncAll() { for (const w of MH_LIVE) if (w.root.parent) mhSync(w); }
 
 /* ------------------------------------------------------------------ */
 /* Mundo: montado a partir das premissas (reconstruído ao aplicar)      */
@@ -2358,7 +2468,7 @@ function setLoad(f, msg) { $('#loadBar').style.width = (f * 100) + '%'; if (msg)
 async function rebuild(first = false) {
   const ld = $('#loading'); ld.hidden = false; setLoad(.15, first ? 'Montando o centro de distribuição…' : 'Remontando com as novas premissas…');
   await nextFrame();
-  buildWorld(); collectWorkerHits(); setLoad(.65, 'Simulando os primeiros minutos da operação…');
+  MH_LIVE = []; buildWorld(); collectWorkerHits(); setLoad(.65, 'Simulando os primeiros minutos da operação…');
   await nextFrame();
   afterBuild(); buildBars(); refreshSpec(); refreshHud();
   if (first) { setupRender(); goView('aerea', true); } else goView(document.querySelector('#views [aria-pressed=true]')?.dataset.view || 'aerea', true);
@@ -2377,11 +2487,14 @@ function frame() {
   if (bokeh && bokeh.enabled) bokeh.uniforms.focus.value = camera.position.distanceTo(controls.target);
   if ((tick++ & 3) === 0) updateTip();
   if (tick % 4 === 1 || !S) renderer.shadowMap.needsUpdate = true;
+  mhSyncAll();
   if (composer) composer.render(); else renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 buildForm();
-rebuild(true).then(() => { requestAnimationFrame(frame); });
+setLoad(.05, 'Carregando as pessoas…');
+loadPeople().catch(err => console.warn('pessoas MakeHuman indisponíveis, usando bonecos simples', err))
+  .then(() => rebuild(true)).then(() => { requestAnimationFrame(frame); });
 window.__maquete = { get S() { return S; }, get L() { return L; }, get P() { return P; }, camera, controls, goView, renderer, scene, setQuality: q => { quality = q; setupRender(); }, update };
 };
 Promise.race([
