@@ -135,14 +135,14 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 <div class="loading" id="loading"><span id="loadMsg">Montando o centro de distribuição…</span><span class="lb"><i id="loadBar"></i></span></div>
 
 <section class="sheet card" aria-label="Processo">
-  <div class="eyebrow"><span>Digital twin operacional</span><span>Linha 01</span></div>
+  <div class="eyebrow"><span>Planta da linha</span><span>Linha 01</span></div>
   <h1>Esteira 01 <span>·</span> triagem manual</h1>
   <ol class="flow" aria-label="Fluxo do processo">
-    <li><i style="--c:var(--c-rec)"></i>Recebimento</li>
     <li><i style="--c:var(--c-ind)"></i>Indução</li>
-    <li><i style="--c:var(--c-tri)"></i>Triagem</li>
-    <li><i style="--c:var(--c-con)"></i>Consolidação</li>
-    <li><i style="--c:var(--c-exp)"></i>Expedição</li>
+    <li><i style="--c:var(--c-tri)"></i>Pesca</li>
+    <li><i style="--c:var(--c-rec)"></i>Flow rack</li>
+    <li><i style="--c:var(--c-con)"></i>Scuttle</li>
+    <li><i style="--c:var(--c-exp)"></i>Goleiro</li>
   </ol>
   <dl class="spec" id="spec"></dl>
 </section>
@@ -165,7 +165,7 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
       <div class="kpi"><span>Pct/h real</span><b id="kHour">–</b></div>
       <div class="kpi"><span>Scuttles trocadas</span><b id="kSw">0</b></div>
       <div class="kpi"><span>Gaiolas trocadas</span><b id="kCg">0</b></div>
-      <div class="kpi"><span>Expedidas</span><b id="kExp">0</b></div>
+      <div class="kpi"><span>Scuttles retiradas</span><b id="kExp">0</b></div>
     </div>
     <div>
       <div class="sec-title"><span>Volumes nas scuttles por ilha</span><span id="kPeople">0 pessoas</span></div>
@@ -180,8 +180,8 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
         <button class="btn" data-view="ilha">Ilha</button>
         <button class="btn" data-view="inducao">Indução</button>
         <button class="btn" data-view="goleiro">Goleiro</button>
-        <button class="btn" data-view="recebimento">Recebimento</button>
-        <button class="btn" data-view="expedicao">Expedição</button>
+        <button class="btn" data-view="lateral">Buffer de saída</button>
+        <button class="btn" data-view="gaiolas">Buffer de gaiolas</button>
         <button class="btn" data-view="paleteira">Seguir paleteira</button>
       </div>
     </div>
@@ -228,6 +228,7 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/GammaCorrectionShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/FXAAShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/BokehShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/VignetteShader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
@@ -263,7 +264,7 @@ const DEFAULTS = {
   golFlowComp: 1.8, gaiolasGoleiro: 4,
   scuttleAlt: 2.0, scuttleCap: 35, scuttleTroca: 85, gaiolaAlt: 1.7, gaiolaCap: 45,
   inducaoPorLado: 4, inducaoPonta: 0, pescadoresPorIlha: 1, separadoresPorIlha: 1,
-  paleteirosPorLado: 3, setupPorLado: 3, goleiros: 2, carregadoresPorLado: 1,
+  paleteirosPorLado: 3, setupPorLado: 3, goleiros: 2, carregadoresPorLado: 0,
   velPessoa: 1.3, velPaleteira: 1.1,
   phdInducao: 350, phdPescador: 600, phdSeparador: 300, phdGoleiro: 350,
 };
@@ -312,14 +313,13 @@ const SCHEMA = [
     ['paleteirosPorLado', 'Paleteiros (troca de scuttle) por lado', 'pessoas', 0, 6, 1],
     ['setupPorLado', 'Setup de gaiolas por lado', 'pessoas', 0, 6, 1],
     ['goleiros', 'Goleiros', 'pessoas', 1, 2, 1],
-    ['carregadoresPorLado', 'Carregadores de expedição por lado', 'pessoas', 0, 3, 1],
   ] },
   { group: 'Ritmo das pessoas', fields: [
     ['velPessoa', 'Velocidade de caminhada', 'm/s', .6, 2, .05],
     ['velPaleteira', 'Velocidade com paleteira/gaiola', 'm/s', .5, 2, .05],
   ] },
 ];
-const STORE_KEY = 'maquete-esteira-premissas-v4';
+const STORE_KEY = 'maquete-esteira-premissas-v6';
 function loadParams() {
   try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (s && typeof s === 'object') return sanitize({ ...DEFAULTS, ...s }); } catch (e) {}
   return { ...DEFAULTS };
@@ -355,14 +355,16 @@ function computeLayout(p) {
   L.zEdge = L.zIsl + L.islDepth;                        // borda externa das ilhas
   L.zAisle = L.zEdge + 1.9;                             // eixo do corredor principal
   L.zCons = L.zEdge + 4.6;                              // fila de consolidação (centro da scuttle)
-  L.zApron = L.zCons + 2.4;                             // pátio interno das docas
-  L.zWall = L.zCons + 4.4;                              // parede lateral (docas de expedição)
+  L.zApron = L.zCons + 1.6;
+  L.zWall = Math.ceil(L.zCons + 2.6);                   // borda da maquete
   L.golL = p.golFlowComp;
   L.golX = L.X1 + .05 + L.golL / 2;                     // centro do flow rack do goleiro
-  L.xWest = L.X0 - 26;                                  // parede das docas de recebimento
-  L.xEast = Math.max(L.X1 + L.golL + 14, L.X1 + 16);
-  L.consX0 = L.XP + 1; L.consX1 = L.X1 - 7;             // trecho de consolidação
-  L.stockX0 = L.X1 - 6.2;                               // estoque de scuttles vazias
+  L.xWest = Math.floor(L.X0 - 8);                       // borda oeste (buffers de gaiolas)
+  L.xEast = Math.ceil(L.golX + 10);                     // borda leste (buffer de scuttles cheias)
+  L.xCor = L.X0 - 2.2;                                  // corredor oeste: cruza a linha antes da esteira
+  L.cageBufX = L.X0 - 5.0;                              // buffers de gaiolas (cheias ao sul, vazias ao norte)
+  L.midIsl = (L.XP + L.X1) / 2;                         // centro das ilhas (buffer de scuttles vazias)
+  L.eastBufX = L.golX + 6.2;                            // buffer de scuttles cheias, depois do goleiro
   return L;
 }
 
@@ -454,6 +456,14 @@ TEX.kraft = canvasTex(256, 512, (g, w, h) => {
   g.fillStyle = 'rgba(31,58,95,.75)'; g.font = 'bold 34px Arial'; g.textAlign = 'center';
   g.save(); g.translate(w / 2, h * .74); g.fillText('▲ ▲', 0, 0); g.font = 'bold 20px Arial'; g.fillText('ESTE LADO PARA CIMA', 0, 30); g.restore();
 });
+TEX.kraftN = canvasTex(256, 64, (g, w, h) => {      // relevo do papelão ondulado (mapa de normais)
+  for (let x = 0; x < w; x++) { const v = Math.round(128 + 70 * Math.sin(x / 4 * PI)); g.fillStyle = `rgb(${v},128,255)`; g.fillRect(x, 0, 1, h); }
+}, { srgb: false, repeat: [3, 1] });
+TEX.concreteR = canvasTex(512, 512, (g, w, h) => {  // variação de brilho do concreto polido
+  g.fillStyle = '#8a8a8a'; g.fillRect(0, 0, w, h);
+  blotches(g, w, h, 60, 'rgba(60,60,60,.25)', 'rgba(200,200,200,.25)', [30, 140]);
+  speckle(g, w, h, 8000, ['#555', '#bbb'], 1.4, .4);
+}, { srgb: false });
 TEX.wood = canvasTex(256, 64, (g, w, h) => {
   g.fillStyle = '#c6a06a'; g.fillRect(0, 0, w, h);
   for (let i = 0; i < 26; i++) {
@@ -508,6 +518,13 @@ TEX.fill = canvasTex(256, 256, (g, w, h) => {
     g.strokeStyle = 'rgba(0,0,0,.22)'; g.lineWidth = 1; g.strokeRect(x, y, pw, ph);
   }
 });
+TEX.grid = canvasTex(1000, 1000, (g, w, h) => {      // 5 m × 5 m: linha a cada 1 m, mais forte a cada 5 m
+  g.clearRect(0, 0, w, h);
+  g.fillStyle = 'rgba(70,80,92,.42)';
+  for (let i = 1; i < 5; i++) { g.fillRect(i * 200 - 1.5, 0, 3, h); g.fillRect(0, i * 200 - 1.5, w, 3); }
+  g.fillStyle = 'rgba(40,48,58,.75)';
+  g.fillRect(0, 0, 5, h); g.fillRect(w - 5, 0, 5, h); g.fillRect(0, 0, w, 5); g.fillRect(0, h - 5, w, 5);
+});
 TEX.hatch = canvasTex(128, 128, (g, w, h) => {
   g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(226,170,0,.6)'; g.lineWidth = 14;
   for (let i = -2; i < 4; i++) { g.beginPath(); g.moveTo(i * 64, h); g.lineTo(i * 64 + h, 0); g.stroke(); }
@@ -555,7 +572,7 @@ const MAT = {
   navy:      std({ color: 0x1f3a5f, roughness: .5, metalness: .3 }),
   orange:    std({ color: 0xe8641b, roughness: .45, metalness: .25 }),
   wood:      std({ color: 0xffffff, map: TEX.wood, roughness: .85, envMapIntensity: .3 }),
-  kraft:     std({ color: 0xffffff, map: TEX.kraft, roughness: .9, envMapIntensity: .3 }),
+  kraft:     std({ color: 0xffffff, map: TEX.kraft, normalMap: TEX.kraftN, normalScale: new THREE.Vector2(.45, .45), roughness: .9, envMapIntensity: .3 }),
   kraftIn:   std({ color: 0x9a7448, roughness: .95, envMapIntensity: .2 }),
   wire:      std({ color: 0xffffff, map: TEX.wire, roughness: .35, metalness: .75, alphaTest: .45, side: THREE.DoubleSide }),
   cageFrame: std({ color: 0xbfc5ca, roughness: .3, metalness: .85 }),
@@ -570,7 +587,7 @@ const MAT = {
   hatch:     std({ color: 0xffffff, map: TEX.hatch, transparent: true, depthWrite: false, roughness: .7, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
   estop:     std({ color: 0xf2c200, roughness: .5 }),
   red:       std({ color: 0xc8231c, roughness: .4 }),
-  floor:     std({ color: 0xffffff, map: TEX.concrete, roughness: .62, metalness: .0, envMapIntensity: .35 }),
+  floor:     std({ color: 0xffffff, map: TEX.concrete, roughnessMap: TEX.concreteR, roughness: .75, metalness: .0, envMapIntensity: .55 }),
   plinth:    std({ color: 0xeceeee, roughness: .9 }),
   table:     std({ color: 0xc9cdce, roughness: 1, envMapIntensity: .2 }),
   wallP:     std({ color: 0xffffff, map: TEX.wall, roughness: .7, metalness: .1 }),
@@ -1133,90 +1150,18 @@ function killCage(c) {
 function place(obj, parent, pos, yaw) { parent.add(obj.grp); obj.grp.position.set(pos.x, 0, pos.z); obj.grp.rotation.set(0, yaw, 0); }
 const fwdOf = yaw => V3(Math.sin(yaw), 0, Math.cos(yaw));
 
-/* ---------- prédio ---------- */
+/* ---------- base da maquete: piso com grade de 1 m e 5 m (profundidade e escala) ---------- */
 function buildBuilding() {
   const x0 = L.xWest, x1 = L.xEast, zW = L.zWall, W = x1 - x0, D = 2 * zW, cx = (x0 + x1) / 2;
-  TEX.concrete.repeat.set(W / 9, D / 9);
-  const slab = new THREE.Mesh(new THREE.BoxGeometry(W, 1.2, D), [SLAB_SIDE, SLAB_SIDE, MAT.floor, SLAB_SIDE, SLAB_SIDE, SLAB_SIDE]);
-  slab.position.set(cx, -.6, 0); slab.receiveShadow = true; slab.userData.disposeGeo = true; world.add(slab);
-  const yardW = W + 36, yardD = D + 46;
-  TEX.asphalt.repeat.set(yardW / 10, yardD / 10);
-  const yard = new THREE.Mesh(new THREE.BoxGeometry(yardW, .6, yardD), [MAT.plinth, MAT.plinth, MAT.asphalt, MAT.plinth, MAT.plinth, MAT.plinth]);
-  yard.position.set(cx - 8, -1.5, 0); yard.receiveShadow = true; yard.userData.disposeGeo = true; world.add(yard);
+  TEX.concrete.repeat.set(W / 9, D / 9); TEX.concreteR.repeat.set(W / 9, D / 9);
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(W, .6, D), [MAT.plinth, MAT.plinth, MAT.floor, MAT.plinth, MAT.plinth, MAT.plinth]);
+  slab.position.set(cx, -.3, 0); slab.receiveShadow = true; slab.castShadow = true; slab.userData.disposeGeo = true; world.add(slab);
   const tbl = new THREE.Mesh(new THREE.PlaneGeometry(900, 900).rotateX(-PI / 2), MAT.table);
-  tbl.position.y = -1.8; tbl.receiveShadow = true; tbl.userData.disposeGeo = true; world.add(tbl);
-
-  // docas de expedição (paredes ±z) e de recebimento (parede oeste)
-  const dockXs = [];
-  for (let x = L.consX0 + 2.5; x < L.consX1 - 1; x += 5.5) dockXs.push(x);
-  L.dockXs = dockXs;
-  const recvZs = [-9, -3, 3, 9].filter(z => Math.abs(z) < zW - 3);
-  const wallRun = (axis, fixed, a, b, doors, height, cut) => {
-    const pts = [a, ...doors.flatMap(d => [d - 1.6, d + 1.6]), b];
-    for (let i = 0; i < pts.length; i += 2) {
-      const s0 = pts[i], s1 = pts[i + 1], len = s1 - s0; if (len <= .05) continue;
-      const m = (s0 + s1) / 2;
-      if (axis === 'x') { put('wall', box(len, height, .25), m, height / 2, fixed); put('curb', box(len, .5, .3), m, .25, fixed); if (cut) put('cut', box(len, .04, .27), m, height + .02, fixed); }
-      else { put('wall', box(.25, height, len), fixed, height / 2, m); put('curb', box(.3, .5, len), fixed, .25, m); if (cut) put('cut', box(.27, .04, len), fixed, height + .02, m); }
-    }
-    for (const d of doors) {
-      if (!cut) {
-        if (axis === 'x') { put('wall', box(3.2, height - 3.5, .25), d, 3.5 + (height - 3.5) / 2, fixed); put('door', box(3.2, .7, .5), d, 3.75, fixed); }
-        else { put('wall', box(.25, height - 3.5, 3.2), fixed, 3.5 + (height - 3.5) / 2, d); put('door', box(.5, .7, 3.2), fixed, 3.75, d); }
-      }
-      const inward = axis === 'x' ? -Math.sign(fixed) : 1;
-      if (axis === 'x') {
-        put('steelDark', box(2.4, .05, 2.2), d, .02, fixed + inward * 1.1);
-        put('yellow', plane(3.0, .1), d, .006, fixed + inward * 2.4);
-        for (const s of [-1, 1]) put('rubber', box(.25, .35, .2), d + s * 1.1, -.2, fixed - inward * .2);
-        put('orange', box(.3, .3, .2), d + 1.9, 2.6, fixed + inward * .2);
-      } else {
-        put('steelDark', box(2.2, .05, 2.4), fixed + 1.1, .02, d);
-        put('yellow', plane(.1, 3.0), fixed + 2.4, .006, d);
-        for (const s of [-1, 1]) put('rubber', box(.2, .35, .25), fixed - .2, -.2, d + s * 1.1);
-      }
-    }
-  };
-  wallRun('x', -zW, x0, x1, dockXs, H_ROOF, false);     // fundo: parede inteira
-  wallRun('x', zW, x0, x1, dockXs, 1.1, true);          // frente: corte de maquete
-  wallRun('z', x0, -zW, zW, recvZs, 1.1, true);         // oeste: corte + docas de recebimento
-  wallRun('z', x1, -zW, zW, [], H_ROOF, false);         // leste: parede inteira
-
-  // pilares, tesouras e terças (estrutura metálica)
-  const colXs = []; for (let x = x0; x <= x1 + .01; x += (W / Math.round(W / 12))) colXs.push(x);
-  for (const x of colXs) {
-    for (const s of [-1, 1]) {
-      const z = s * (zW - .35), ch = s > 0 ? 1.1 : H_ROOF;   // lado da frente cortado na altura da maquete
-      put('column', box(.4, ch, .03), x, ch / 2, z - .18); put('column', box(.4, ch, .03), x, ch / 2, z + .18);
-      put('column', box(.03, ch, .36), x, ch / 2, z);
-      if (s > 0) put('cut', box(.42, .04, .4), x, ch + .02, z);
-      put('estop', cyl(.11, 1.1, 12), x + .45, .55, z - s * .5);
-    }
-    put('truss', box(.14, .14, D), x, H_ROOF + .4, 0);
-    put('truss', box(.1, .1, D - 1), x, H_ROOF - 1.0, 0);
-    for (let z = -zW + 1; z < zW - .5; z += 2.5) {
-      put('truss', box(.06, 1.4, .06), x, H_ROOF - .3, z);
-      put('truss', box(.05, 1.75, .05), x, H_ROOF - .35, z + 1.25, Math.atan2(2.5, 1.2), 0, 0);
-    }
-  }
-  for (let z = -zW + 2; z < zW - 1; z += 4) put('truss', box(W, .08, .08), cx, H_ROOF + .5, z);
-  // faixa de iluminação natural no alto das paredes de fundo
-  put('glassBand', box(W - 1, 1.2, .05), cx, 9.2, -zW + .14);
-  put('glassBand', box(.05, 1.2, D - 1), x1 - .14, 9.2, 0);
-  for (const s of [-1, 1]) for (let z = 0; z < zW - 1; z += 6) for (const x of colXs.slice(0, -1)) {
-    const xm = x + (W / Math.round(W / 12)) / 2;
-    put('steelDark', cyl(.01, 1.3, 4), xm, H_ROOF - 1.85, s * (z + 3));
-    put('lampBody', cyl(.32, .22, 18), xm, H_ROOF - 2.6, s * (z + 3));
-    put('lamp', cyl(.27, .02, 18), xm, H_ROOF - 2.72, s * (z + 3));
-  }
-  // west columns
-  for (let z = -zW + 8; z < zW - 4; z += 8) { put('column', box(.36, 1.1, .4), x0 + .3, .55, z); put('column', box(.36, H_ROOF, .4), x1 - .3, H_ROOF / 2, z); }
-
-  // caminhões nas docas
-  for (const s of [-1, 1]) dockXs.forEach((x, i) => { if (s > 0 ? i % 3 !== 1 : i % 4 === 3) return; frameAt(x, -1.2, s * (zW + .45), s > 0 ? PI : 0, truckGeo); });
-  recvZs.forEach((z, i) => { if (i === 2) return; frameAt(x0 - .45, -1.2, z, PI / 2, truckGeo); });
-  // faixas de pátio
-  for (const s of [-1, 1]) for (const x of dockXs) for (const o of [-1.7, 1.7]) put('white', plane(.12, 16), x + o, -1.194, s * (zW + 8.5));
+  tbl.position.y = -.6; tbl.receiveShadow = true; tbl.userData.disposeGeo = true; world.add(tbl);
+  TEX.grid.repeat.set(W / 5, D / 5);
+  TEX.grid.offset.set(((x0 % 5) + 5) % 5 / 5, ((-zW % 5) + 5) % 5 / 5);
+  const grid = new THREE.Mesh(new THREE.PlaneGeometry(W, D).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ map: TEX.grid, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
+  grid.position.set(cx, .002, 0); grid.userData.disposeGeo = true; AO_HIDE.push(grid); world.add(grid);
 }
 
 /* ---------- esteira ---------- */
@@ -1298,8 +1243,7 @@ function buildWorld() {
     live: [], pool: [], goalQ: [], islands: [], inductors: [], indSlots: [], goleiros: [], gSlots: { 1: [], '-1': [] },
     jacks: { 1: [], '-1': [] }, setups: { 1: [], '-1': [] }, loaders: { 1: [], '-1': [] }, workers: [],
     scJobs: { 1: [], '-1': [] }, cgJobs: { 1: [], '-1': [] },
-    cons: { 1: [], '-1': [] }, stock: { 1: [], '-1': [] }, recvFull: { 1: [], '-1': [] }, recvEmpty: { 1: [], '-1': [] },
-    golEmpty: { 1: [], '-1': [] }, repro: { 1: [], '-1': [] },
+    cageFull: [], cageEmpty: [], fullBuf: [], emptyBuf: { 1: [], '-1': [] },
   };
 
   buildBuilding();
@@ -1391,91 +1335,58 @@ function buildWorld() {
   }
   floorText(world, [{ t: 'GOLEIRO', size: 96 }, { t: `${P.gaiolasGoleiro} gaiolas · flow rack ${fmtM(L.golL, 1)} m`, size: 40, weight: 600, font: MONO }], L.golX + 2.6, 0, 3.8, 1.45, PI / 2, { w: 512, h: 196, color: '#1f6b41' });
 
-  /* recebimento: gaiolas cheias e vazias */
+  /* buffers de gaiolas antes da indução: cheias de um lado (sul), vazias do outro (norte) */
+  for (let i = 0; i < 6; i++) {
+    const z = 1.6 + i * 1.35;
+    const f = { pos: V3(L.cageBufX, 0, -z), psi: PI / 2, cage: null, regen: 0, t: 0 };
+    f.cage = newCage(P.gaiolaCap, 'Gaiola cheia'); place(f.cage, world, f.pos, f.psi); S.cageFull.push(f);
+    const e = { pos: V3(L.cageBufX, 0, z), psi: PI / 2, cage: null, t: 0 };
+    if (i < 3) { e.cage = newCage(0, 'Gaiola vazia'); place(e.cage, world, e.pos, e.psi); e.t = -10 + i; }
+    S.cageEmpty.push(e);
+  }
   for (const s of sides) {
-    for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) {
-      const slot = { pos: V3(L.X0 - 6 - i * 1.45, 0, s * (2.4 + j * 1.4)), psi: s > 0 ? 0 : PI, cage: null, regen: 0 };
-      slot.cage = newCage(P.gaiolaCap, 'Gaiola cheia'); place(slot.cage, world, slot.pos, slot.psi); S.recvFull[s].push(slot);
-    }
-    for (let i = 0; i < 2; i++) for (let j = 0; j < 3; j++) {
-      const slot = { pos: V3(L.X0 - 12.6 - i * 1.45, 0, s * (2.4 + j * 1.4)), psi: s > 0 ? 0 : PI, cage: null, t: 0 };
-      if (j === 0 && i === 0) { slot.cage = newCage(0, 'Gaiola vazia'); place(slot.cage, world, slot.pos, slot.psi); }
-      S.recvEmpty[s].push(slot);
-    }
-    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
-      const slot = { pos: V3(L.golX + 4.8 + i * 1.45, 0, s * (2.2 + j * 1.4)), psi: s > 0 ? 0 : PI, cage: null, regen: 0 };
-      slot.cage = newCage(0, 'Gaiola vazia (goleiro)'); place(slot.cage, world, slot.pos, slot.psi); S.golEmpty[s].push(slot);
-    }
-    for (let i = 0; i < 2; i++) for (let j = 0; j < 3; j++) {
-      const slot = { pos: V3(L.golX + 8.2 + i * 1.45, 0, s * (2.2 + j * 1.4)), psi: s > 0 ? 0 : PI, cage: null, t: 0 };
-      S.repro[s].push(slot);
-    }
-    floorText(world, [{ t: 'GAIOLAS CHEIAS', size: 70 }], L.X0 - 8.2, s * 5.0, 3.6, .7, s > 0 ? 0 : PI, { w: 640, h: 128, color: '#1f3a5f' });
-    floorText(world, [{ t: 'VAZIAS', size: 70 }], L.X0 - 13.3, s * 6.3, 1.9, .55, s > 0 ? 0 : PI, { w: 400, h: 128, color: '#1f3a5f' });
-    floorText(world, [{ t: 'VAZIAS', size: 70 }], L.golX + 5.5, s * 4.7, 1.9, .55, s > 0 ? 0 : PI, { w: 400, h: 128, color: '#1f6b41' });
-    floorText(world, [{ t: 'REPROCESSO', size: 70 }], L.golX + 8.9, s * 6.1, 2.6, .55, s > 0 ? 0 : PI, { w: 520, h: 128, color: '#1f6b41' });
-    // pallets recebidos aguardando na área das docas
-    for (let i = 0; i < 3; i++) frameAt(L.xWest + 4.2 + i * 1.6, 0, s * (6.2 + (i % 2) * .4), PI / 2 + rand(-.1, .1), () => {
-      pallet(); const hh = rand(.8, 1.4); put(pick(['pkgKraft', 'pkgWhite', 'pkgKraft2']), box(1.0, hh, 1.15), 0, PAL_H + hh / 2, 0);
-    });
+    const z0 = 1.0, z1 = 1.6 + 5 * 1.35 + .7, x0 = L.cageBufX - .65, x1 = L.cageBufX + .65;
+    put('navyP', plane(x1 - x0, .07), (x0 + x1) / 2, .006, s * z0); put('navyP', plane(x1 - x0, .07), (x0 + x1) / 2, .006, s * z1);
+    put('navyP', plane(.07, z1 - z0), x0, .006, s * (z0 + z1) / 2); put('navyP', plane(.07, z1 - z0), x1, .006, s * (z0 + z1) / 2);
+    floorText(world, [{ t: s < 0 ? 'GAIOLAS CHEIAS' : 'GAIOLAS VAZIAS', size: 74 }, { t: 'buffer da indução', size: 40, weight: 600, font: MONO }], L.cageBufX - 1.55, s * 5.2, 4.2, 1.1, PI / 2, { w: 640, h: 170, color: '#1f3a5f' });
   }
 
-  /* consolidação (scuttles cheias) e estoque de scuttles vazias */
+  /* buffer de scuttles cheias, depois do goleiro */
+  for (let i = 0; i < 12; i++) {
+    const slot = { T: V3(L.eastBufX, 0, (i - 5.5) * 1.35), psi: PI / 2, sc: null, t: 0, res: false };
+    if (i % 4 === 1) { const isl = pick(S.islands); slot.sc = newScuttle(`I${isl.code}·${pick(['E1', 'E2', 'D1', 'D3'])}`, P.scuttleCap); place(slot.sc, world, slot.T, slot.psi); slot.t = -rand(0, 30); }
+    S.fullBuf.push(slot);
+    put('white', plane(.04, 1.24), L.eastBufX + .62, .006, slot.T.z); put('white', plane(1.24, .04), L.eastBufX, .006, slot.T.z - .67);
+  }
+  floorText(world, [{ t: 'SCUTTLES CHEIAS', size: 80 }, { t: 'buffer de saída', size: 40, weight: 600, font: MONO }], L.eastBufX + 1.8, 0, 4.4, 1.15, PI / 2, { w: 640, h: 170, color: '#4b5869' });
+
+  /* buffer de scuttles vazias, atrás dos paleteiros */
   for (const s of sides) {
     const psi = s > 0 ? 0 : PI;
-    for (let x = L.consX0; x <= L.consX1 + .01; x += 1.35) {
-      const slot = { T: V3(x, 0, s * L.zCons), psi, sc: null, t: 0, res: false };
-      if (Math.random() < .3) {
-        const isl = pick(S.islands); slot.sc = newScuttle(`I${isl.code}·${pick(['E1', 'E2', 'D1', 'D3'])}`, P.scuttleCap);
-        place(slot.sc, world, slot.T, psi); slot.t = -rand(0, 600);
-      }
-      S.cons[s].push(slot);
-      put('white', plane(1.2, .04), x, .006, s * (L.zCons - .62)); put('white', plane(.04, 1.24), x - .62, .006, s * L.zCons);
+    for (let i = 0; i < 10; i++) {
+      const slot = { T: V3(L.midIsl + (i - 4.5) * 1.35, 0, s * L.zCons), psi, sc: newScuttle('VAZIA'), regen: 0, res: false };
+      place(slot.sc, world, slot.T, psi); S.emptyBuf[s].push(slot);
+      put('white', plane(1.2, .04), slot.T.x, .006, s * (L.zCons - .62)); put('white', plane(.04, 1.24), slot.T.x - .62, .006, s * L.zCons);
     }
-    for (let x = L.stockX0; x <= L.X1 - .5; x += 1.35) {
-      const slot = { T: V3(x, 0, s * L.zCons), psi, sc: newScuttle('VAZIA'), regen: 0, res: false };
-      place(slot.sc, world, slot.T, psi); S.stock[s].push(slot);
-    }
-    floorText(world, [{ t: 'CONSOLIDAÇÃO', size: 92 }], (L.consX0 + L.consX1) / 2, s * (L.zCons - 1.25), 5.4, .9, s > 0 ? 0 : PI, { w: 768, h: 128, color: '#4b5869' });
-    floorText(world, [{ t: 'SCUTTLES VAZIAS', size: 74 }], (L.stockX0 + L.X1) / 2, s * (L.zCons - 1.25), 3.6, .62, s > 0 ? 0 : PI, { w: 700, h: 128, color: '#4b5869' });
-    floorText(world, [{ t: 'EXPEDIÇÃO', size: 96 }], (L.consX0 + L.consX1) / 2, s * (L.zWall - 1.1), 4.4, .9, s > 0 ? 0 : PI, { w: 640, h: 128, color: '#1f6b41' });
-  }
-
-  /* armazenagem: porta-pallets nos cantos do recebimento */
-  for (const s of sides) for (const zr of [L.zWall - 1.0, L.zWall - 4.2]) {
-    for (let x = L.xWest + 9; x < L.X0 - 4; x += 2.78) frameAt(x, 0, s * zr, 0, () => rackBay(true));
+    floorText(world, [{ t: 'SCUTTLES VAZIAS', size: 80 }, { t: 'buffer dos paleteiros', size: 40, weight: 600, font: MONO }], L.midIsl, s * (L.zCons + 1.45), 4.6, 1.2, s > 0 ? 0 : PI, { w: 640, h: 170, color: '#4b5869' });
   }
 
   /* corredores, setas de fluxo, faixas */
   for (const s of sides) {
-    const xa = L.xWest + 7, xb = L.xEast - 2;
+    const xa = L.xWest + 1, xb = L.xEast - 1;
     put('yellow', plane(xb - xa, .1), (xa + xb) / 2, .006, s * (L.zEdge + .3));
     put('yellow', plane(xb - xa, .1), (xa + xb) / 2, .006, s * (L.zAisle + 1.6));
-    for (let x = L.X0 - 2; x < L.consX1; x += 10) arrow(x, s * L.zAisle, 0, 2.6);
-    put('green', plane(xb - xa, .1), (xa + xb) / 2, .006, s * (L.zWall - .45));
-  }
-  for (const z of [-4.5, 0, 4.5]) arrow(L.xWest + 6, z, 0, 2.2);
-
-  /* placas suspensas por área */
-  hangSign(world, 'RECEBIMENTO', 'docas · gaiolas cheias', L.xWest + 9, 0, PI / 2, 5.6);
-  hangSign(world, 'INDUÇÃO', `${nInd} posições`, L.X0 + L.ind / 2, 0, 0, 5.0, 4.4);
-  hangSign(world, 'TRIAGEM', `${2 * L.nIsl} ilhas · ${2 * L.nIsl * 2 * P.scuttlesPorFila} scuttles`, (L.XP + L.X1) / 2, 0, 0, 5.4);
-  hangSign(world, 'GOLEIRO', 'reprocesso', L.golX + 5.5, 0, PI / 2, 5.0, 4.0);
-  for (const s of sides) {
-    hangSign(world, 'CONSOLIDAÇÃO', 'scuttles cheias', (L.consX0 + L.consX1) / 2 - 6, s * L.zCons, 0, 5.4, 4.6);
-    hangSign(world, 'EXPEDIÇÃO', 'docas', (L.consX0 + L.consX1) / 2 + 8, s * (L.zWall - 2.2), 0, 5.6, 4.0);
-    hangSign(world, 'ARMAZENAGEM', 'porta-pallets', (L.xWest + L.X0) / 2, s * (L.zWall - 2.6), 0, 6.4, 4.6);
+    for (let x = L.X0 + 1; x < L.golX; x += 10) arrow(x, s * L.zAisle, 0, 2.6);
   }
 
   /* equipe móvel */
   for (const s of sides) {
     for (let i = 0; i < P.paleteirosPorLado; i++) {
-      const u = makeUnit('paleteiro', s, V3(L.XP + 2 + i * Math.max(3, (L.X1 - L.XP - 4) / Math.max(1, P.paleteirosPorLado)), 0, s * (L.zAisle + .9)), PI / 2);
+      const u = makeUnit('paleteiro', s, V3(L.midIsl - 4 + i * Math.min(4, 8 / Math.max(1, P.paleteirosPorLado - 1)), 0, s * (L.zAisle + .9)), PI / 2);
       S.jacks[s].push(u);
     }
-    for (let i = 0; i < P.carregadoresPorLado; i++) S.loaders[s].push(makeUnit('carregador', s, V3(L.consX0 + 3 + i * 9, 0, s * L.zApron), PI / 2));
     for (let i = 0; i < P.setupPorLado; i++) {
-      const w = makeWorker('setup'); w.home = V3(L.X0 - 3.2 - i * 1.3, 0, s * (L.zEdge + .9));
+      const w = makeWorker('setup'); w.home = V3(L.X0 + .4 + i * 1.3, 0, s * (L.zEdge + .4));
       w.root.position.copy(w.home); w.restYaw = s > 0 ? PI : 0; w.setYaw(w.restYaw); w.side = s; w.where = `Lado ${s > 0 ? 'A' : 'B'}`;
       world.add(w.root); S.setups[s].push(w); S.workers.push(w);
     }
@@ -1501,9 +1412,9 @@ function buildWorld() {
   bake(world);
 
   /* sol e sombras cobrindo o galpão */
-  const cx = (L.xWest + L.xEast) / 2, halfW = (L.xEast - L.xWest) / 2 + 12, halfD = L.zWall + 24;
+  const cx = (L.xWest + L.xEast) / 2, halfW = (L.xEast - L.xWest) / 2 + 8, halfD = L.zWall + 10;
   sun.target.position.set(cx, 0, 0);
-  sun.position.set(cx - 16, 80, 22);   // sol quase a pino: sombras curtas, como luz de galpão
+  sun.position.set(cx - 30, 62, 38);   // luz de estúdio inclinada: sombras de maquete
   Object.assign(sun.shadow.camera, { left: -halfW, right: halfW, top: halfD, bottom: -halfD, near: 10, far: 200 });
   sun.shadow.camera.updateProjectionMatrix();
 }
@@ -1688,7 +1599,7 @@ function startKeep(w, p, slot) {
       fn(k) { w.pose(.55 + .45 * Math.sin(PI * Math.min(1, k * 1.4)), .3); p.mesh.position.copy(k < .65 ? arc(from, entry, k / .65, .2) : entry.clone().lerp(inner, (k - .65) / .35)); p.mesh.rotation.z += .05; },
       end() {
         freePkg(p); c.fill++; setCageFill(c); S.kept++; slot.lock--;
-        if (c.fill >= c.cap * .95 && !slot.req) { slot.req = true; S.cgJobs[slot.s].push({ type: 'gol', slot }); }
+        if (c.fill >= c.cap * .7 && !slot.req) { slot.req = true; S.cgJobs[slot.s].push({ type: 'gol', slot }); }
       } },
     { d: .45, start() { yC = w.yaw; }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(yC, w.restYaw, e)); w.pose(.4 * (1 - e), .3 * (1 - e)); } },
     { d: 0, end() { w.state = 'livre'; } },
@@ -1743,13 +1654,24 @@ function startInduct(w) {
 /* ------------------------------------------------------------------ */
 /* Setup de gaiolas: troca gaiola vazia da indução e cheia do goleiro    */
 /* ------------------------------------------------------------------ */
+/* rota do setup: zona oeste (indução e buffers) pelo corredor antes da esteira; leste pelo corredor lateral */
+function routeSetup(from, to) {
+  const west = p => p.x < L.XP + .5, xc = L.xCor;
+  const laneOf = p => (p.z >= 0 ? 1 : -1) * L.zAisle, P0 = V3(from.x, 0, from.z);
+  if (!west(from) && !west(to)) return routeVia(from, to, laneOf(from));
+  const pts = [P0];
+  if (west(from)) pts.push(V3(xc, 0, from.z)); else pts.push(V3(from.x, 0, laneOf(from)), V3(xc, 0, laneOf(from)));
+  if (west(to)) pts.push(V3(xc, 0, to.z), V3(to.x, 0, to.z)); else pts.push(V3(xc, 0, laneOf(to)), V3(to.x, 0, laneOf(to)), V3(to.x, 0, to.z));
+  return pts.filter((p, i) => !i || p.distanceTo(pts[i - 1]) > .03);
+}
+const pathTo = (lane, from, to) => typeof lane === 'function' ? lane(from, to) : lane === null ? [from.clone(), to] : routeVia(from, to, lane);
 function grabCageSteps(w, getSlot, lane) {
   let slot, c, H;
   return [
     { gen() {
         slot = getSlot(); c = slot.cage; H = slot.pos.clone().add(fwdOf(slot.psi).multiplyScalar(1.05));
         return [
-          ...walkSteps(w, lane === null ? [w.root.position.clone(), H] : routeVia(w.root.position, H, lane)),
+          ...walkSteps(w, pathTo(lane, w.root.position, H)),
           turnStep(w, () => slot.psi + PI),
           { d: .45, start() {
               w.root.attach(c.grp); c._p0 = c.grp.position.clone(); c._y0 = c.grp.rotation.y;
@@ -1767,7 +1689,7 @@ function deliverCageSteps(w, getSlot, lane, onDone) {
         slot = getSlot();
         const H = slot.pos.clone().add(fwdOf(slot.psi).multiplyScalar(1.05)), pre = H.clone().add(fwdOf(slot.psi).multiplyScalar(1.4));
         return [
-          ...walkSteps(w, lane === null ? [w.root.position.clone(), pre] : routeVia(w.root.position, pre, lane), { mode: 'push', speed: P.velPaleteira }),
+          ...walkSteps(w, pathTo(lane, w.root.position, pre), { mode: 'push', speed: P.velPaleteira }),
           turnStep(w, () => slot.psi + PI, 'push'),
           ...walkSteps(w, [pre, H], { mode: 'push', speed: P.velPaleteira * .7 }),
           { d: .3, end() {
@@ -1786,26 +1708,20 @@ function freeOrOldest(list, name) {
   return s;
 }
 function startCageJob(w, job) {
-  const s = w.side, lane = s * L.zAisle, slot = job.slot;
-  w.state = job.type === 'ind' ? `trocando gaiola da ${slot.name}` : `trocando gaiola do ${slot.name}`;
-  let dumpSlot, srcSlot;
+  const slot = job.slot, R = routeSetup;
   if (job.type === 'ind') {
-    dumpSlot = freeOrOldest(S.recvEmpty[s]);
-    srcSlot = S.recvFull[s].find(x => x.cage && !x.res);
-  } else {
-    dumpSlot = freeOrOldest(S.repro[s]);
-    srcSlot = S.golEmpty[s].find(x => x.cage && !x.res);
-  }
-  if (!dumpSlot || !srcSlot) { if (dumpSlot) dumpSlot.res = false; return false; }
-  srcSlot.res = true;
-  if (job.type === 'ind') {
-    // gaiola cheia vem antes e fica ao lado; a troca acontece quando a atual esvazia
+    // pega uma cheia no buffer, deixa ao lado da posição; quando esvaziar, troca e leva a vazia ao buffer de vazias
+    const src = S.cageFull.filter(x => x.cage && !x.res).sort((a, b) => Math.abs(a.pos.z) - Math.abs(b.pos.z))[0];
+    if (!src) return false;
+    src.res = true;
     const off = Math.abs(Math.sin(slot.psi)) > .5 ? V3(0, 0, 1.4) : V3(1.4, 0, 0);
     const B = { pos: slot.pos.clone().add(off), psi: slot.psi, cage: null }, B2 = { pos: slot.pos.clone().sub(off), psi: slot.psi, cage: null };
+    let dump;
+    w.state = `buscando gaiola cheia para ${slot.name}`;
     w.task = sequence([
-      ...grabCageSteps(w, () => srcSlot, lane),
-      { d: 0, end() { srcSlot.res = false; srcSlot.regen = S.t + rand(25, 45); } },
-      ...deliverCageSteps(w, () => B, lane),
+      ...grabCageSteps(w, () => src, R),
+      { d: 0, end() { src.res = false; src.regen = S.t + rand(40, 80); w.state = `levando gaiola cheia para ${slot.name}`; } },
+      ...deliverCageSteps(w, () => B, R),
       { d: 0, end() { w.state = `aguardando ${slot.name} esvaziar`; } },
       { until: () => slot.cage && slot.cage.fill <= 0 && !slot.worker.task },
       { d: 0, end() { w.state = `trocando gaiola da ${slot.name}`; } },
@@ -1814,23 +1730,37 @@ function startCageJob(w, job) {
       ...grabCageSteps(w, () => B, null),
       ...deliverCageSteps(w, () => slot, null, (sl, c) => { c.name = sl.name; sl.req = false; S.cageSwaps++; }),
       ...grabCageSteps(w, () => B2, null),
-      ...deliverCageSteps(w, () => dumpSlot, lane, (sl, c) => { sl.res = false; sl.t = S.t; c.name = 'Gaiola vazia'; }),
-      { gen: () => [...walkSteps(w, routeVia(w.root.position, w.home, lane)), turnStep(w, () => w.restYaw)] },
+      { d: 0, end() { dump = freeOrOldest(S.cageEmpty); w.state = 'levando gaiola vazia ao buffer'; } },
+      ...deliverCageSteps(w, () => dump, R, (sl, c) => { sl.res = false; sl.t = S.t; c.name = 'Gaiola vazia'; c.fill = 0; setCageFill(c); }),
+      { gen: () => [...walkSteps(w, R(w.root.position, w.home)), turnStep(w, () => w.restYaw)] },
       { d: 0, end() { w.state = 'livre'; } },
     ]);
     return true;
   }
+  // goleiro: leva uma vazia do buffer, troca quando a gaiola enche e devolve a cheia ao buffer de cheias (volta para a indução)
+  const src = S.cageEmpty.filter(x => x.cage && !x.res).sort((a, b) => a.t - b.t)[0];
+  if (!src) return false;
+  src.res = true;
+  const s = slot.pos.z >= 0 ? 1 : -1;
+  const B = { pos: slot.pos.clone().add(V3(slot.pos.x < L.golX ? -1.5 : 1.5, 0, 0)), psi: slot.psi, cage: null };
+  const Pk = { pos: slot.pos.clone().add(V3(0, 0, s * 3.2)), psi: slot.psi, cage: null };
+  let dump;
+  w.state = `levando gaiola vazia para ${slot.name}`;
   w.task = sequence([
-    { until: () => !(slot.lock > 0) || (slot.worker && !slot.worker.task) },
-    ...grabCageSteps(w, () => slot, lane),
-    ...deliverCageSteps(w, () => dumpSlot, lane, (sl, c) => { sl.res = false; sl.t = S.t; c.name = job.type === 'ind' ? 'Gaiola vazia' : 'Reprocesso'; }),
-    ...grabCageSteps(w, () => srcSlot, lane),
-    { d: 0, end() { srcSlot.res = false; srcSlot.regen = S.t + rand(25, 45); } },
-    ...deliverCageSteps(w, () => slot, lane, (sl, c) => {
-      c.name = sl.name; if (job.type === 'gol') c.fill = 0; setCageFill(c);
-      sl.req = false; S.cageSwaps++;
-    }),
-    { gen: () => [...walkSteps(w, routeVia(w.root.position, w.home, lane)), turnStep(w, () => w.restYaw)] },
+    ...grabCageSteps(w, () => src, R),
+    { d: 0, end() { src.res = false; } },
+    ...deliverCageSteps(w, () => B, R),
+    { d: 0, end() { w.state = `aguardando ${slot.name} encher`; } },
+    { until: () => slot.cage && slot.cage.fill >= slot.cage.cap * .95 && !(slot.lock > 0) },
+    { d: 0, end() { w.state = `trocando gaiola do ${slot.name}`; } },
+    ...grabCageSteps(w, () => slot, null),
+    ...deliverCageSteps(w, () => Pk, null),
+    ...grabCageSteps(w, () => B, null),
+    ...deliverCageSteps(w, () => slot, null, (sl, c) => { c.name = sl.name; c.fill = 0; setCageFill(c); sl.req = false; S.cageSwaps++; }),
+    ...grabCageSteps(w, () => Pk, null),
+    { d: 0, end() { dump = freeOrOldest(S.cageFull); w.state = 'levando gaiola cheia ao buffer da indução'; } },
+    ...deliverCageSteps(w, () => dump, R, (sl, c) => { sl.res = false; sl.t = S.t; sl.regen = 0; c.name = 'Gaiola cheia (goleiro)'; }),
+    { gen: () => [...walkSteps(w, R(w.root.position, w.home)), turnStep(w, () => w.restYaw)] },
     { d: 0, end() { w.state = 'livre'; } },
   ]);
   return true;
@@ -1890,7 +1820,8 @@ function islandSlotWorld(slot) {
 }
 function startScuttleJob(u, slot) {
   const s = u.side, lane = s * L.zAisle;
-  const C = S.cons[s].find(x => !x.sc && !x.res), K = S.stock[s].find(x => x.sc && !x.res);
+  const C = S.fullBuf.filter(x => !x.sc && !x.res).sort((a, b) => Math.abs(a.T.z - s * 3) - Math.abs(b.T.z - s * 3))[0];
+  const K = S.emptyBuf[s].filter(x => x.sc && !x.res).sort((a, b) => Math.abs(a.T.x - slot.isl.xc) - Math.abs(b.T.x - slot.isl.xc))[0];
   if (!C || !K) return false;
   C.res = true; K.res = true; slot.state = 'em troca';
   const { T, psi } = islandSlotWorld(slot), gapD = .6 + L.gap / 2;
@@ -2025,17 +1956,14 @@ function update(dt) {
   // equipes móveis
   for (const s of [1, -1]) {
     for (const u of S.jacks[s]) if (!u.task && S.scJobs[s].length) { const slot = S.scJobs[s][0]; if (startScuttleJob(u, slot)) S.scJobs[s].shift(); }
-    for (const u of S.loaders[s]) if (!u.task) {
-      const C = S.cons[s].filter(c => c.sc && !c.res && S.t - c.t > 15).sort((a, b) => a.t - b.t)[0];
-      if (C) startLoadJob(u, C);
-    }
-    if (!S.loaders[s].length) for (const C of S.cons[s]) if (C.sc && !C.res && S.t - C.t > 240) { killScuttle(C.sc); C.sc = null; S.shipped++; }
     for (const w of S.setups[s]) if (!w.task && S.cgJobs[s].length) { const job = S.cgJobs[s][0]; if (startCageJob(w, job)) S.cgJobs[s].shift(); }
-    // reposição dos estoques
-    for (const K of S.stock[s]) if (!K.sc && !K.res && K.regen && S.t >= K.regen) { K.sc = newScuttle('VAZIA'); place(K.sc, world, K.T, K.psi); K.regen = 0; }
-    for (const F of S.recvFull[s]) if (!F.cage && !F.res && F.regen && S.t >= F.regen) { F.cage = newCage(P.gaiolaCap, 'Gaiola cheia'); place(F.cage, world, F.pos, F.psi); F.regen = 0; }
-    for (const E of S.golEmpty[s]) if (!E.cage && !E.res && E.regen && S.t >= E.regen) { E.cage = newCage(0, 'Gaiola vazia (goleiro)'); place(E.cage, world, E.pos, E.psi); E.regen = 0; }
+    // reposição: scuttles vazias chegam ao buffer dos paleteiros
+    for (const K of S.emptyBuf[s]) if (!K.sc && !K.res && K.regen && S.t >= K.regen) { K.sc = newScuttle('VAZIA'); place(K.sc, world, K.T, K.psi); K.regen = 0; }
   }
+  // gaiolas cheias chegam ao buffer da indução; scuttles cheias saem do buffer de saída
+  for (const F of S.cageFull) if (!F.cage && !F.res && F.regen && S.t >= F.regen) { F.cage = newCage(P.gaiolaCap, 'Gaiola cheia'); place(F.cage, world, F.pos, F.psi); F.regen = 0; }
+  const occ = S.fullBuf.filter(x => x.sc && !x.res);
+  if (occ.length > 7) { const o = occ.sort((a, b) => a.t - b.t)[0]; if (S.t - o.t > 40) { killScuttle(o.sc); o.sc = null; S.shipped++; } }
 
   for (const w of S.workers) { if (w.unit) continue; runWorker(w, dt); }
   for (const s of [1, -1]) for (const u of [...S.jacks[s], ...S.loaders[s]]) {
@@ -2069,7 +1997,7 @@ function setupRender() {
     const w = stage.clientWidth, h = stage.clientHeight;
     composer = new THREE.EffectComposer(renderer);
     ssao = new THREE.SSAOPass(scene, camera, w, h);
-    ssao.kernelRadius = quality === 'cinema' ? .55 : .45; ssao.minDistance = .00025; ssao.maxDistance = .012;
+    ssao.kernelRadius = quality === 'cinema' ? .8 : .65; ssao.minDistance = .0002; ssao.maxDistance = .02;
     ssao.normalMaterial.skinning = true;
     const orig = ssao.renderOverride.bind(ssao);
     ssao.renderOverride = (...a) => {
@@ -2082,6 +2010,7 @@ function setupRender() {
     bokeh = new THREE.BokehPass(scene, camera, { focus: 20, aperture: .00035, maxblur: .007, width: w, height: h });
     bokeh.materialDepth.skinning = true; bokeh.enabled = $('#dof').checked;
     composer.addPass(bokeh);
+    const vig = new THREE.ShaderPass(THREE.VignetteShader); vig.uniforms.offset.value = 1.05; vig.uniforms.darkness.value = .85; composer.addPass(vig);
     composer.addPass(new THREE.ShaderPass(THREE.GammaCorrectionShader));
     fxaa = new THREE.ShaderPass(THREE.FXAAShader); composer.addPass(fxaa);
   }
@@ -2104,20 +2033,19 @@ addEventListener('resize', resize);
 /* ------------------------------------------------------------------ */
 let camTween = null, follow = null;
 function viewDef(name) {
-  const cx = (L.xWest + L.xEast) / 2, k = (L.xEast - L.xWest) / 105, hw = L.bw / 2;
+  const cx = (L.xWest + L.xEast) / 2, k = (L.xEast - L.xWest) / 92, hw = L.bw / 2;
   const narrow = innerWidth < 760 ? 1.35 : 1;
   const isl = S.islands[Math.min(1, S.islands.length - 1)];
   const loc = (x, y, z) => isl.grp.localToWorld(V3(x, y, z));
-  const consMid = (L.consX0 + L.consX1) / 2;
   switch (name) {
-    case 'aerea': return { p: [cx - 34 * k * narrow, 66 * k * narrow, 58 * k * narrow], t: [cx + 4, 0, 3], fov: 38 };
+    case 'aerea': return { p: [cx - 42 * k * narrow, 58 * k * narrow, 56 * k * narrow], t: [cx - 6, 0, -2], fov: 38 };
     case 'eixo': return { p: [L.X0 - 12, 9.6, 0.01], t: [L.X0 + 30, 0, 0], fov: 46 };
-    case 'planta': return { p: [cx, 125 * k * narrow, .01], t: [cx, 0, 0], fov: 38 };
+    case 'planta': return { p: [cx, 95 * k * narrow, .01], t: [cx, 0, 0], fov: 38 };
     case 'ilha': { const p = loc(L.rackW / 2 + P.corredorFlow / 2, 1.62, L.rack1 + 1.6), t = loc(-.4, .95, L.rack0 * .5); return { p: p.toArray(), t: t.toArray(), fov: 50 }; }
     case 'inducao': return { p: [L.X0 + L.ind * .78, 1.72, hw + 3.6], t: [L.X0 + 1.2, .95, 0], fov: 52 };
     case 'goleiro': return { p: [L.golX + 4.2, 2.1, hw + 4.2], t: [L.golX - .2, .95, 0], fov: 48 };
-    case 'recebimento': return { p: [L.xWest + 2, 10, 15], t: [L.X0 - 9, 0, 0], fov: 44 };
-    case 'expedicao': return { p: [consMid + 10, 3.2, -(L.zAisle - .5)], t: [consMid - 6, 1.4, -(L.zWall + 2)], fov: 50 };
+    case 'lateral': return { p: [L.golX + 1.5, 4.8, 9.5], t: [L.eastBufX - .5, .9, 0], fov: 46 };
+    case 'gaiolas': return { p: [L.X0 + 4.5, 4.6, 8.5], t: [L.cageBufX + .5, .9, 0], fov: 50 };
   }
   return null;
 }
@@ -2171,7 +2099,7 @@ function headcount(p) {
   const nIsl = 2 * p.ilhasPorLado;
   return [
     ['Indução', 2 * p.inducaoPorLado + p.inducaoPonta], ['Pescadores', nIsl * p.pescadoresPorIlha], ['Separadores', nIsl * p.separadoresPorIlha],
-    ['Goleiros', p.goleiros], ['Paleteiros (scuttle)', 2 * p.paleteirosPorLado], ['Setup de gaiolas', 2 * p.setupPorLado], ['Carregadores', 2 * p.carregadoresPorLado],
+    ['Goleiros', p.goleiros], ['Paleteiros (scuttle)', 2 * p.paleteirosPorLado], ['Setup de gaiolas', 2 * p.setupPorLado],
   ];
 }
 function refreshSpec() {
@@ -2289,7 +2217,7 @@ function refreshDerived() {
     ${acts.map(([n, u]) => `<dt>Ocupação · ${n.toLowerCase()}</dt><dd style="color:${u > 100 ? 'var(--warn)' : 'inherit'}">${isFinite(u) ? u + '%' : '–'}</dd>`).join('')}
     <dt>Comprimento da esteira</dt><dd>${fmtM(l.len)} m</dd>
     <dt>Largura de cada ilha</dt><dd>${fmtM(2 * l.half)} m</dd>
-    <dt>Galpão</dt><dd>${fmtM(l.xEast - l.xWest, 0)} × ${fmtM(2 * l.zWall, 0)} m</dd>
+    <dt>Área da planta</dt><dd>${fmtM(l.xEast - l.xWest, 0)} × ${fmtM(2 * l.zWall, 0)} m</dd>
     <dt>Vazão efetiva</dt><dd>${fmt(eff)} pct/h</dd>
     <dt>Por posição de indução</dt><dd>${nInd ? fmt(eff / nInd) : '–'} pct/h</dd>
     <dt>Por ilha</dt><dd>${fmt(eff * (1 - p.goleiroPct / 100) / (2 * p.ilhasPorLado))} pct/h</dd>

@@ -132,3 +132,14 @@ quadro de pessoas).
 - Pescador: o PHD é a capacidade (média por hora, com fôlego para rajadas); acima dela, o volume passa
   e vai para o goleiro. Separador e goleiro: o ciclo de cada volume segue o PHD (o flow rack faz o pulmão).
 - A aba Premissas mostra a vazão simulada, o gargalo, a capacidade da indução e a ocupação de cada atividade.
+
+### Revisão 4 — só a planta da esteira, com logística fechada
+- **Sem recebimento, expedição, prédio ou caminhões**: só a planta da linha sobre o plinto, com
+  **piso em grade** (linha a cada 1 m, mais forte a cada 5 m) para dar profundidade e escala.
+- **Gaiolas**: antes da indução, **buffer de gaiolas cheias** (um lado da linha) e **de vazias** (outro lado),
+  ligados por um corredor que cruza antes da esteira. O setup leva a gaiola cheia antes, troca quando a da
+  indução esvazia e devolve a vazia ao buffer. O goleiro recebe gaiolas vazias desse buffer e a cheia volta
+  para o buffer de cheias (reindução).
+- **Scuttles**: a cheia sai da ilha com a paleteira para o **buffer de saída depois do goleiro**; a vazia vem
+  do **buffer de scuttles vazias atrás dos paleteiros** (lateral), que é reposto.
+- Render: relevo no papelão, variação de brilho no concreto, oclusão de ambiente mais marcada e vinheta.
