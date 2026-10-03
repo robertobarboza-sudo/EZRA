@@ -208,7 +208,7 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
     <div class="row">
       <button class="btn" id="export">Exportar 3D (.glb)</button>
     </div>
-    <p class="exp-note" id="expNote">Abre no Blender, Twinmotion e outros. Funciona com o arquivo aberto no computador; na página publicada o navegador bloqueia o download.</p>
+    <p class="exp-note" id="expNote">Cena em metros, com pessoas e texturas, para Blender, Twinmotion e outros. No link publicado vem compactado em .zip; descompacte para ter o .glb.</p>
     <div class="row">
       <label class="check" for="dims"><input id="dims" type="checkbox"> Cotas</label>
       <label class="check" for="ghost"><input id="ghost" type="checkbox"> Scuttles translúcidas</label>
@@ -2245,7 +2245,22 @@ form.addEventListener('submit', e => {
   rebuild();
 });
 
-/* exportação da cena em glTF binário (.glb), em metros, para Blender / Twinmotion */
+/* exportação da cena em glTF binário (.glb), em metros, para Blender / Twinmotion.
+   No link publicado o download passa pela permissão "downloads" (que aceita .zip, não .glb);
+   aberto direto no computador, baixa o .glb puro. */
+let downloadsNS = null;
+try { if (window.claude && window.claude.use) window.claude.use('downloads').then(d => { downloadsNS = d; }).catch(() => {}); } catch (e) {}
+const CRC_T = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function zipStore(name, bytes) {   // .zip sem compressão, um arquivo
+  let crc = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i++) crc = CRC_T[(crc ^ bytes[i]) & 255] ^ (crc >>> 8); crc = (crc ^ 0xFFFFFFFF) >>> 0;
+  const nm = new TextEncoder().encode(name), n = bytes.length;
+  const lh = new DataView(new ArrayBuffer(30)), cd = new DataView(new ArrayBuffer(46)), end = new DataView(new ArrayBuffer(22));
+  [[0, 0x04034b50, 4], [4, 20, 2], [14, crc, 4], [18, n, 4], [22, n, 4], [26, nm.length, 2]].forEach(([o, v, s]) => s === 4 ? lh.setUint32(o, v, true) : lh.setUint16(o, v, true));
+  [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [16, crc, 4], [20, n, 4], [24, n, 4], [28, nm.length, 2], [42, 0, 4]].forEach(([o, v, s]) => s === 4 ? cd.setUint32(o, v, true) : cd.setUint16(o, v, true));
+  const cdOff = 30 + nm.length + n, cdLen = 46 + nm.length;
+  [[0, 0x06054b50, 4], [8, 1, 2], [10, 1, 2], [12, cdLen, 4], [16, cdOff, 4]].forEach(([o, v, s]) => s === 4 ? end.setUint32(o, v, true) : end.setUint16(o, v, true));
+  return new Blob([lh.buffer, nm, bytes, cd.buffer, nm, end.buffer], { type: 'application/zip' });
+}
 $('#export').addEventListener('click', e => {
   const btn = e.currentTarget, label = btn.textContent;
   if (!world || !THREE.GLTFExporter) return;
@@ -2259,12 +2274,21 @@ $('#export').addEventListener('click', e => {
     const done = (msg) => { hidden.forEach(o => { o.visible = true; }); btn.textContent = msg; btn.disabled = false; setTimeout(() => { btn.textContent = label; }, 2500); };
     try {
       new THREE.GLTFExporter().parse(world, result => {
+        const mb = b => (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
+        if (downloadsNS) {
+          const zip = zipStore('maquete-esteira.glb', new Uint8Array(result));
+          done('Confirme o download…');
+          downloadsNS.save({ filename: 'maquete-esteira-glb.zip', data: zip })
+            .then(() => { btn.textContent = `Baixado (${mb(zip.size)}, .zip)`; setTimeout(() => { btn.textContent = label; }, 3000); })
+            .catch(err => { btn.textContent = err && err.code === 'declined' ? 'Download cancelado' : 'Download indisponível aqui'; setTimeout(() => { btn.textContent = label; }, 3000); });
+          return;
+        }
         try {
           const blob = new Blob([result], { type: 'model/gltf-binary' });
           const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'maquete-esteira.glb';
           document.body.appendChild(a); a.click(); a.remove();
           setTimeout(() => URL.revokeObjectURL(a.href), 4000);
-          done(`Arquivo gerado (${(blob.size / 1048576).toFixed(1).replace('.', ',')} MB)`);
+          done(`Arquivo gerado (${mb(blob.size)})`);
         } catch (err) { done('Download bloqueado aqui'); }
       }, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
     } catch (err) { done('Não foi possível exportar'); }
