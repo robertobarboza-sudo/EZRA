@@ -1,0 +1,1267 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maquete Esteira 01</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: cena 3D em tela cheia; prancha técnica (título + especificação) no canto superior esquerdo,
+   painel de operação à direita; no celular o painel vira gaveta inferior. */
+:root {
+  --bg: #dfe2de;
+  --panel: rgba(248, 249, 246, 0.88);
+  --fg: #1c2220;
+  --muted: #5b6561;
+  --line: rgba(28, 34, 32, 0.14);
+  --accent: #e2570f;       /* colete de segurança */
+  --induct: #d9a400;       /* zona de indução */
+  --keeper: #2f8f5b;       /* goleiro */
+  --track: rgba(28, 34, 32, 0.08);
+  --font-display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151a19; --panel: rgba(22, 27, 26, 0.86); --fg: #e7ebe8; --muted: #98a39e;
+    --line: rgba(231, 235, 232, 0.14); --accent: #ff7a33; --induct: #f0c23a; --keeper: #4cc285;
+    --track: rgba(231, 235, 232, 0.10); color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151a19; --panel: rgba(22, 27, 26, 0.86); --fg: #e7ebe8; --muted: #98a39e;
+  --line: rgba(231, 235, 232, 0.14); --accent: #ff7a33; --induct: #f0c23a; --keeper: #4cc285;
+  --track: rgba(231, 235, 232, 0.10); color-scheme: dark;
+}
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body);
+  font-size: 14px; overflow: hidden; -webkit-font-smoothing: antialiased;
+}
+#stage { position: fixed; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+.sheet {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 16px); left: 16px;
+  max-width: min(360px, calc(100vw - 32px)); padding: 14px 16px 12px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.sheet .eyebrow {
+  font-family: var(--font-data); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--muted); display: flex; justify-content: space-between; gap: 12px;
+}
+.sheet h1 {
+  margin: 4px 0 2px; font-family: var(--font-display); font-stretch: 68%; font-weight: 800;
+  font-size: 34px; line-height: .95; letter-spacing: -.01em; text-wrap: balance;
+}
+.sheet h1 span { color: var(--accent); }
+.sheet p { margin: 0 0 10px; color: var(--muted); font-size: 13px; line-height: 1.35; }
+.spec { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 12px; }
+.spec dt { font-family: var(--font-data); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: 1px; }
+.spec dd { margin: 0; font-variant-numeric: tabular-nums; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 12px; margin-top: 10px; padding-top: 9px; border-top: 1px solid var(--line); font-size: 11.5px; color: var(--muted); }
+.legend i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; vertical-align: -1px; }
+
+.panel {
+  position: fixed; top: calc(env(safe-area-inset-top, 0px) + 16px); right: 16px; width: 300px;
+  max-height: calc(100% - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px));
+  overflow: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 4px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.panel summary {
+  list-style: none; cursor: pointer; padding: 11px 14px; display: flex; justify-content: space-between;
+  align-items: center; font-family: var(--font-data); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted);
+}
+.panel summary::-webkit-details-marker { display: none; }
+.panel summary b { color: var(--fg); font-weight: 600; }
+.panel summary .chev { transition: transform .2s; }
+.panel details[open] summary .chev { transform: rotate(180deg); }
+.panel .body { padding: 0 14px 14px; display: grid; gap: 14px; }
+.kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.kpi { background: var(--panel); padding: 8px 10px; display: grid; gap: 2px; }
+.kpi span { font-family: var(--font-data); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.kpi b { font-family: var(--font-display); font-stretch: 75%; font-weight: 700; font-size: 24px; line-height: 1; font-variant-numeric: tabular-nums; }
+.kpi.keeper b { color: var(--keeper); }
+.kpi.cap b { color: var(--accent); }
+.sec-title { font-family: var(--font-data); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; }
+.bars { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+.bar { display: grid; grid-template-columns: 22px 1fr 30px; align-items: center; gap: 6px; font-family: var(--font-data); font-size: 11px; font-variant-numeric: tabular-nums; }
+.bar .t { height: 6px; background: var(--track); border-radius: 1px; overflow: hidden; }
+.bar .t i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.bar .n { text-align: right; color: var(--muted); }
+.bar.flash .t i { background: var(--fg); }
+.views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.btn {
+  appearance: none; border: 1px solid var(--line); background: transparent; color: var(--fg);
+  font: 500 12px var(--font-body); padding: 7px 6px; border-radius: 3px; cursor: pointer;
+}
+.btn:hover { background: var(--track); }
+.btn[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.ctrl { display: grid; gap: 4px; }
+.ctrl label { display: flex; justify-content: space-between; font-size: 12px; }
+.ctrl label output { font-family: var(--font-data); font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.ctrl input[type=range] { width: 100%; accent-color: var(--accent); }
+.row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.row .btn { flex: 1; }
+.check { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.check input { accent-color: var(--accent); }
+
+.tip {
+  position: fixed; pointer-events: none; z-index: 5; padding: 7px 9px; border-radius: 3px;
+  background: var(--panel); border: 1px solid var(--line); font-size: 12px; line-height: 1.35;
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); white-space: nowrap;
+}
+.tip b { font-family: var(--font-data); font-size: 11px; letter-spacing: .04em; }
+.tip .m { color: var(--muted); }
+.hint {
+  position: fixed; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px);
+  font-family: var(--font-data); font-size: 10.5px; color: var(--muted); letter-spacing: .04em;
+  background: var(--panel); padding: 5px 8px; border-radius: 3px; border: 1px solid var(--line);
+}
+.loading {
+  position: fixed; inset: 0; display: grid; place-items: center; font-family: var(--font-data);
+  font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); pointer-events: none;
+}
+
+@media (max-width: 760px) {
+  .sheet { padding: 10px 12px; max-width: calc(100vw - 32px); right: 16px; }
+  .sheet h1 { font-size: 26px; }
+  .sheet p, .legend { display: none; }
+  .spec { grid-template-columns: auto 1fr auto 1fr; font-size: 11px; }
+  .panel {
+    top: auto; right: 16px; left: 16px; width: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+    max-height: 55%;
+  }
+  .hint { display: none; }
+}
+</style>
+</head>
+<body>
+<div id="stage" aria-label="Maquete 3D interativa da esteira de separação manual"></div>
+<div class="loading" id="loading">Montando a maquete…</div>
+
+<section class="sheet" aria-label="Especificação">
+  <div class="eyebrow"><span>Layout operacional</span><span>Linha 01</span></div>
+  <h1>Esteira 01 <span>·</span> separação manual</h1>
+  <p>10 ilhas com flow rack, 60 posições de caixa e goleiro no fim da linha.</p>
+  <dl class="spec">
+    <dt>Esteira</dt><dd>42,00 × 1,50 m</dd>
+    <dt>Indução</dt><dd>8,00 m · 4 operadores</dd>
+    <dt>Ilhas</dt><dd>5 + 5 · passo 6,80 m</dd>
+    <dt>Caixa</dt><dd>1,20 × 1,00 × 2,00 m sobre PBR</dd>
+    <dt>Gaiola</dt><dd>1,20 × 1,00 × 1,70 m · 2 un.</dd>
+  </dl>
+  <div class="legend" aria-hidden="true">
+    <span><i style="background:var(--induct)"></i>Indução</span>
+    <span><i style="background:var(--accent)"></i>Separador</span>
+    <span><i style="background:var(--keeper)"></i>Goleiro</span>
+  </div>
+</section>
+
+<aside class="panel" aria-label="Operação">
+  <details id="panelDetails" open>
+    <summary><span><b>Operação</b> · simulação ao vivo</span><span class="chev" aria-hidden="true">▾</span></summary>
+    <div class="body">
+      <div class="kpis">
+        <div class="kpi"><span>Induzidos</span><b id="kIn">0</b></div>
+        <div class="kpi"><span>Pescados</span><b id="kPick">0</b></div>
+        <div class="kpi keeper"><span>Goleiro</span><b id="kKeep">0</b></div>
+        <div class="kpi cap"><span>Captura</span><b id="kRate">–</b></div>
+      </div>
+
+      <div>
+        <div class="sec-title"><span>Pacotes por ilha</span><span id="kHour">0 pct/h</span></div>
+        <div class="bars" id="bars"></div>
+      </div>
+
+      <div>
+        <div class="sec-title"><span>Vista</span></div>
+        <div class="views" id="views">
+          <button class="btn" data-view="persp" aria-pressed="true">Perspectiva</button>
+          <button class="btn" data-view="axis">Eixo</button>
+          <button class="btn" data-view="plan">Planta</button>
+          <button class="btn" data-view="island">Ilha</button>
+          <button class="btn" data-view="keeper">Goleiro</button>
+          <button class="btn" data-view="induct">Indução</button>
+        </div>
+      </div>
+
+      <div class="ctrl">
+        <label for="speed">Velocidade da esteira <output id="speedOut">0,50 m/s</output></label>
+        <input id="speed" type="range" min="0.2" max="1.6" step="0.05" value="0.5">
+      </div>
+      <div class="ctrl">
+        <label for="rate">Taxa de indução <output id="rateOut">45 pct/min</output></label>
+        <input id="rate" type="range" min="10" max="120" step="5" value="45">
+      </div>
+      <div class="row">
+        <button class="btn" id="play" aria-pressed="false">Pausar</button>
+        <label class="check" for="dims"><input id="dims" type="checkbox" checked> Cotas</label>
+        <label class="check" for="ghost"><input id="ghost" type="checkbox"> Caixas translúcidas</label>
+        <label class="check" for="orbit"><input id="orbit" type="checkbox"> Girar</label>
+      </div>
+    </div>
+  </details>
+</aside>
+
+<div class="hint">Arraste para orbitar · roda/pinça para zoom · botão direito para mover</div>
+<div class="tip" id="tip" hidden></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+<script>
+const main = () => {
+'use strict';
+const $ = s => document.querySelector(s);
+const PI = Math.PI, TAU = PI * 2;
+const V3 = (x = 0, y = 0, z = 0) => new THREE.Vector3(x, y, z);
+const rand = (a, b) => a + Math.random() * (b - a);
+const randInt = n => Math.floor(Math.random() * n);
+const clamp01 = t => Math.max(0, Math.min(1, t));
+const ease = t => { t = clamp01(t); return t < .5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; };
+const lerp = (a, b, t) => a + (b - a) * t;
+const lerpAngle = (a, b, t) => { let d = ((b - a + PI) % TAU + TAU) % TAU - PI; return a + d * t; };
+const fmt = n => n.toLocaleString('pt-BR');
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ------------------------------------------------------------------ */
+/* Medidas da operação (metros)                                        */
+/* ------------------------------------------------------------------ */
+const BELT_LEN = 42, INDUCT = 8, BELT_W = 1.5, BELT_TOP = 0.82;
+const X0 = -BELT_LEN / 2, X1 = BELT_LEN / 2, XP = X0 + INDUCT;
+const PITCH = (X1 - XP) / 5;                 // 6,8 m
+const PAL_H = 0.144, BOX_H = 2.0;            // pallet PBR + caixa 2 m
+const ISL_GAP = 0.45;                        // folga borda da esteira → ilha
+const RACK_L = 3.3;
+const CAGE_H = 1.7;
+const BOX_CAP = 60, CAGE_CAP = 90;
+
+/* ------------------------------------------------------------------ */
+/* Renderer, cena, câmera                                              */
+/* ------------------------------------------------------------------ */
+const stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.08;
+renderer.physicallyCorrectLights = false;
+stage.appendChild(renderer.domElement);
+const MAX_ANISO = renderer.capabilities.getMaxAnisotropy();
+
+const scene = new THREE.Scene();
+const BG = new THREE.Color(0xd9dcd8);
+scene.background = BG;
+scene.fog = new THREE.Fog(BG, 70, 170);
+
+const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 400);
+camera.position.set(-31, 17, 25);
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.set(3, 0.5, 0);
+controls.enableDamping = true;
+controls.dampingFactor = 0.08;
+controls.maxPolarAngle = PI * 0.495;
+controls.minDistance = 3;
+controls.maxDistance = 120;
+controls.autoRotateSpeed = 0.4;
+
+/* ------------------------------------------------------------------ */
+/* Luz: céu difuso + "sol" de estúdio com sombra suave                  */
+/* ------------------------------------------------------------------ */
+scene.add(new THREE.HemisphereLight(0xf4f6f8, 0x8a8478, 0.55));
+const sun = new THREE.DirectionalLight(0xfff4e6, 1.2);
+sun.position.set(-16, 30, 18);
+sun.target.position.set(2, 0, 0);
+sun.castShadow = true;
+sun.shadow.mapSize.set(4096, 4096);
+Object.assign(sun.shadow.camera, { left: -34, right: 34, top: 22, bottom: -22, near: 1, far: 90 });
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.025;
+sun.shadow.radius = 3;
+scene.add(sun, sun.target);
+const fill = new THREE.DirectionalLight(0xdde7f2, 0.28);
+fill.position.set(22, 14, -20);
+scene.add(fill);
+
+/* ------------------------------------------------------------------ */
+/* Texturas procedurais                                                */
+/* ------------------------------------------------------------------ */
+function canvasTex(w, h, draw, { repeat = [1, 1], srgb = true } = {}) {
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); draw(g, w, h);
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(repeat[0], repeat[1]);
+  if (srgb) t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = MAX_ANISO;
+  return t;
+}
+function speckle(g, w, h, n, colors, rMax = 1.4, aMax = .35) {
+  for (let i = 0; i < n; i++) {
+    g.globalAlpha = Math.random() * aMax;
+    g.fillStyle = colors[randInt(colors.length)];
+    const r = Math.random() * rMax;
+    g.fillRect(Math.random() * w, Math.random() * h, r + .4, r + .4);
+  }
+  g.globalAlpha = 1;
+}
+
+const texConcrete = canvasTex(1024, 1024, (g, w, h) => {
+  g.fillStyle = '#d3d4d0'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 70; i++) {               // manchas suaves
+    const x = Math.random() * w, y = Math.random() * h, r = rand(60, 220);
+    const gr = g.createRadialGradient(x, y, 0, x, y, r);
+    const dark = Math.random() < .5;
+    gr.addColorStop(0, dark ? 'rgba(150,150,145,.10)' : 'rgba(250,250,246,.12)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  speckle(g, w, h, 26000, ['#9a9b97', '#f2f2ee', '#b8b9b4'], 1.6, .35);
+  g.strokeStyle = 'rgba(120,120,115,.25)'; g.lineWidth = 1.2;  // juntas de dilatação
+  g.beginPath(); g.moveTo(0, h - .6); g.lineTo(w, h - .6); g.moveTo(w - .6, 0); g.lineTo(w - .6, h); g.stroke();
+}, { repeat: [10, 4] });
+
+const texKraft = canvasTex(256, 512, (g, w, h) => {
+  g.fillStyle = '#c39661'; g.fillRect(0, 0, w, h);
+  for (let x = 0; x < w; x += 4) {           // canelado do papelão ondulado
+    g.fillStyle = `rgba(90,60,25,${.04 + Math.random() * .04})`; g.fillRect(x, 0, 1.5, h);
+  }
+  speckle(g, w, h, 5000, ['#8c6a40', '#e3c08f', '#a77d4c'], 1.3, .4);
+  const gr = g.createLinearGradient(0, 0, w, 0);   // escurece as quinas
+  gr.addColorStop(0, 'rgba(80,50,20,.25)'); gr.addColorStop(.08, 'rgba(0,0,0,0)');
+  gr.addColorStop(.92, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(80,50,20,.25)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+  g.fillStyle = 'rgba(60,40,15,.18)'; g.fillRect(0, 0, w, 3); g.fillRect(0, h - 3, w, 3);
+});
+
+const texWood = canvasTex(256, 64, (g, w, h) => {
+  g.fillStyle = '#c7a26b'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 26; i++) {
+    g.strokeStyle = `rgba(110,75,35,${rand(.08, .22)})`; g.lineWidth = rand(.5, 1.6);
+    g.beginPath(); const y = Math.random() * h; g.moveTo(0, y);
+    for (let x = 0; x <= w; x += 16) g.lineTo(x, y + Math.sin(x * .05 + i) * 2);
+    g.stroke();
+  }
+  speckle(g, w, h, 800, ['#7f5a2a', '#e2c38d'], 1.2, .4);
+});
+
+const texBelt = canvasTex(256, 128, (g, w, h) => {
+  g.fillStyle = '#26292b'; g.fillRect(0, 0, w, h);
+  speckle(g, w, h, 6000, ['#3a3e41', '#181a1b', '#2f3335'], 1.2, .5);
+  for (let x = 0; x < w; x += 8) { g.fillStyle = 'rgba(255,255,255,.025)'; g.fillRect(x, 0, 1, h); }
+  g.fillStyle = 'rgba(0,0,0,.45)'; g.fillRect(w - 3, 0, 3, h);      // emenda da lona (mostra movimento)
+  g.fillStyle = 'rgba(255,255,255,.06)'; g.fillRect(w - 5, 0, 2, h);
+}, { repeat: [BELT_LEN / 1.2, 1] });
+
+const texWire = canvasTex(256, 256, (g, w, h) => {
+  g.clearRect(0, 0, w, h);
+  g.strokeStyle = '#c3c8cc'; g.lineWidth = 2.4;
+  for (let i = 0; i <= 16; i++) {
+    const p = i * w / 16; g.beginPath(); g.moveTo(p, 0); g.lineTo(p, h); g.moveTo(0, p); g.lineTo(w, p); g.stroke();
+  }
+  g.lineWidth = 7; g.strokeRect(2, 2, w - 4, h - 4);
+});
+
+const texPkg = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#c99a62'; g.fillRect(0, 0, w, h);
+  speckle(g, w, h, 1500, ['#8c6a40', '#e3c08f'], 1.2, .35);
+  g.fillStyle = 'rgba(214,190,140,.65)'; g.fillRect(w * .42, 0, w * .16, h);   // fita
+  g.fillStyle = 'rgba(255,255,255,.15)'; g.fillRect(w * .42, 0, 3, h);
+  g.fillStyle = '#f6f6f2'; g.fillRect(w * .1, h * .62, w * .28, h * .26);      // etiqueta
+  g.fillStyle = '#222';
+  for (let i = 0; i < 18; i++) g.fillRect(w * .12 + i * 3.4, h * .76, i % 3 ? 1.5 : 2.6, h * .09);
+  g.fillRect(w * .12, h * .65, w * .18, 3); g.fillRect(w * .12, h * .7, w * .12, 3);
+});
+
+const texFill = canvasTex(256, 256, (g, w, h) => {
+  g.fillStyle = '#9c7a52'; g.fillRect(0, 0, w, h);
+  const cols = ['#c99a62', '#d8b07a', '#eef0f1', '#c7ccd1', '#b78553', '#e7e9ea'];
+  for (let i = 0; i < 90; i++) {
+    g.fillStyle = cols[randInt(cols.length)];
+    const pw = rand(26, 70), ph = rand(16, 44);
+    g.fillRect(Math.random() * w - 10, Math.random() * h - 10, pw, ph);
+    g.strokeStyle = 'rgba(0,0,0,.18)'; g.lineWidth = 1;
+    g.strokeRect(Math.random() * w, Math.random() * h, pw * .6, ph * .6);
+  }
+}, { repeat: [1, 1] });
+
+const texHatch = canvasTex(128, 128, (g, w, h) => {
+  g.clearRect(0, 0, w, h);
+  g.strokeStyle = 'rgba(232,180,0,.55)'; g.lineWidth = 14;
+  for (let i = -2; i < 4; i++) { g.beginPath(); g.moveTo(i * 64, h); g.lineTo(i * 64 + h, 0); g.stroke(); }
+});
+
+/* ------------------------------------------------------------------ */
+/* Materiais                                                           */
+/* ------------------------------------------------------------------ */
+const std = (o) => new THREE.MeshStandardMaterial(o);
+const MAT = {
+  rackGray:  std({ color: 0x8b9195, roughness: .42, metalness: .55 }),
+  rackDark:  std({ color: 0x5f666b, roughness: .5, metalness: .5 }),
+  roller:    std({ color: 0xc6cbcf, roughness: .28, metalness: .85 }),
+  alu:       std({ color: 0xb8bdc1, roughness: .32, metalness: .75 }),
+  steelDark: std({ color: 0x4d5357, roughness: .55, metalness: .45 }),
+  wood:      std({ color: 0xffffff, map: texWood, roughness: .85 }),
+  kraft:     std({ color: 0xffffff, map: texKraft, roughness: .9 }),
+  kraftIn:   std({ color: 0x9e7748, roughness: .95 }),
+  wire:      std({ color: 0xffffff, map: texWire, roughness: .35, metalness: .7, alphaTest: .45, side: THREE.DoubleSide }),
+  cageFrame: std({ color: 0xbfc5ca, roughness: .3, metalness: .8 }),
+  cageBase:  std({ color: 0x3e5f86, roughness: .55, metalness: .3 }),
+  rubber:    std({ color: 0x1c1d1f, roughness: .9 }),
+  mat:       std({ color: 0x2c2f31, roughness: .95 }),
+  yellow:    std({ color: 0xe8b400, roughness: .6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
+  green:     std({ color: 0x2f9a5c, roughness: .6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
+  white:     std({ color: 0xf3f3ef, roughness: .6, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
+  hatch:     std({ color: 0xffffff, map: texHatch, transparent: true, depthWrite: false, roughness: .7, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
+  estop:     std({ color: 0xf2c200, roughness: .5 }),
+  red:       std({ color: 0xc8231c, roughness: .4 }),
+  plinthTop: std({ color: 0xffffff, map: texConcrete, roughness: .78 }),
+  plinthSide:std({ color: 0xeeeeea, roughness: .9 }),
+  table:     std({ color: 0xc8ccc8, roughness: 1 }),
+  dim:       std({ color: 0x2a2f2d, roughness: .8 }),
+  pkg:       std({ color: 0xffffff, map: texPkg, roughness: .85 }),
+  bagW:      std({ color: 0xeef0f2, roughness: .55 }),
+  bagG:      std({ color: 0xaab3bb, roughness: .55 }),
+  fill:      std({ color: 0xffffff, map: texFill, roughness: .9 }),
+  hit:       new THREE.MeshBasicMaterial({ visible: false }),
+};
+const castOff = new Set(['wire', 'yellow', 'green', 'white', 'hatch', 'plinthTop', 'mat']);
+
+/* ------------------------------------------------------------------ */
+/* Geometria estática agrupada por material (poucas draw calls)         */
+/* ------------------------------------------------------------------ */
+const statics = new Map();
+let FRAME = new THREE.Matrix4();
+const _q = new THREE.Quaternion(), _e = new THREE.Euler(), _m = new THREE.Matrix4();
+function put(key, geo, x, y, z, rx = 0, ry = 0, rz = 0, sx = 1, sy = 1, sz = 1) {
+  _e.set(rx, ry, rz); _q.setFromEuler(_e);
+  _m.compose(V3(x, y, z), _q, V3(sx, sy, sz));
+  const g = geo.clone().applyMatrix4(new THREE.Matrix4().multiplyMatrices(FRAME, _m));
+  if (!statics.has(key)) statics.set(key, []);
+  statics.get(key).push(g);
+}
+function withFrame(obj, fn) {
+  obj.updateMatrixWorld(true);
+  const prev = FRAME; FRAME = obj.matrixWorld.clone(); fn(); FRAME = prev;
+}
+const G = {};
+const box = (w, h, d) => { const k = `b${w}|${h}|${d}`; return G[k] || (G[k] = new THREE.BoxGeometry(w, h, d)); };
+const cyl = (r, h, s = 12) => { const k = `c${r}|${h}|${s}`; return G[k] || (G[k] = new THREE.CylinderGeometry(r, r, h, s)); };
+const plane = (w, d) => { const k = `p${w}|${d}`; return G[k] || (G[k] = new THREE.PlaneGeometry(w, d).rotateX(-PI / 2)); };
+function bake() {
+  for (const [key, geos] of statics) {
+    const merged = THREE.BufferGeometryUtils.mergeBufferGeometries(geos, false);
+    geos.forEach(g => g.dispose());
+    const mesh = new THREE.Mesh(merged, MAT[key]);
+    mesh.castShadow = !castOff.has(key);
+    mesh.receiveShadow = true;
+    mesh.matrixAutoUpdate = false;
+    scene.add(mesh);
+  }
+  statics.clear();
+}
+
+/* ------------------------------------------------------------------ */
+/* Textos (piso e etiquetas)                                           */
+/* ------------------------------------------------------------------ */
+const FONT = '"Archivo", "Arial Narrow", Arial, sans-serif';
+const MONO = '"IBM Plex Mono", ui-monospace, Menlo, monospace';
+function textTexture(lines, { w = 512, h = 128, color = '#2a2f2d', bg = null, font = FONT, weight = 800, size = 80, stretch = true, align = 'center' } = {}) {
+  return canvasTex(w, h, (g) => {
+    if (bg) { g.fillStyle = bg; g.fillRect(0, 0, w, h); }
+    g.fillStyle = color; g.textAlign = align; g.textBaseline = 'middle';
+    const arr = Array.isArray(lines) ? lines : [lines];
+    arr.forEach((ln, i) => {
+      const s = typeof ln === 'object' ? ln.size : size, t = typeof ln === 'object' ? ln.t : ln;
+      g.font = `${typeof ln === 'object' && ln.weight || weight} ${s}px ${typeof ln === 'object' && ln.font || font}`;
+      if (stretch) try { g.fontStretch = 'condensed'; } catch (e) {}
+      const y = h / 2 + (i - (arr.length - 1) / 2) * s * 1.05;
+      g.fillText(t, align === 'center' ? w / 2 : 12, y, w - 16);
+    });
+  });
+}
+function floorText(lines, x, z, w, h, rotY = 0, opts = {}, group = scene) {
+  const tex = textTexture(lines, opts);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshStandardMaterial({
+    map: tex, transparent: true, depthWrite: false, roughness: .8,
+    polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 }));
+  m.rotation.set(-PI / 2, 0, rotY); m.position.set(x, 0.008, z); m.receiveShadow = true;
+  group.add(m); return m;
+}
+
+/* ------------------------------------------------------------------ */
+/* Plinto (base da maquete) + grade                                    */
+/* ------------------------------------------------------------------ */
+const PL = { x0: -29, x1: 30, z0: -10, z1: 10 };
+{
+  const w = PL.x1 - PL.x0, d = PL.z1 - PL.z0, cx = (PL.x0 + PL.x1) / 2, cz = (PL.z0 + PL.z1) / 2;
+  const slab = new THREE.Mesh(new THREE.BoxGeometry(w, .6, d),
+    [MAT.plinthSide, MAT.plinthSide, MAT.plinthTop, MAT.plinthSide, MAT.plinthSide, MAT.plinthSide]);
+  slab.position.set(cx, -.3, cz); slab.receiveShadow = true; slab.castShadow = true; scene.add(slab);
+  texConcrete.repeat.set(w / 6, d / 6);
+  const tbl = new THREE.Mesh(new THREE.PlaneGeometry(400, 400).rotateX(-PI / 2), MAT.table);
+  tbl.position.y = -.6; tbl.receiveShadow = true; scene.add(tbl);
+
+  const minor = [], major = [];
+  for (let x = Math.ceil(PL.x0); x <= PL.x1; x++) (x % 5 ? minor : major).push(x, .004, PL.z0, x, .004, PL.z1);
+  for (let z = Math.ceil(PL.z0); z <= PL.z1; z++) (z % 5 ? minor : major).push(PL.x0, .004, z, PL.x1, .004, z);
+  const mk = (arr, color, opacity) => {
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+    const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color, transparent: true, opacity, depthWrite: false }));
+    scene.add(l);
+  };
+  mk(minor, 0x6f746f, .22);
+  mk(major, 0x4a4f4b, .45);
+}
+
+/* ------------------------------------------------------------------ */
+/* Esteira                                                             */
+/* ------------------------------------------------------------------ */
+let beltMesh;
+{
+  const hw = BELT_W / 2;
+  beltMesh = new THREE.Mesh(new THREE.BoxGeometry(BELT_LEN, .02, BELT_W - .04),
+    std({ color: 0xffffff, map: texBelt, roughness: .82, metalness: .05 }));
+  beltMesh.position.set(0, BELT_TOP - .01, 0); beltMesh.receiveShadow = true; beltMesh.castShadow = true;
+  scene.add(beltMesh);
+  put('rubber', box(BELT_LEN, .015, BELT_W - .1), 0, BELT_TOP - .2, 0);           // lona de retorno
+  for (const s of [-1, 1]) {
+    put('alu', box(BELT_LEN + .1, .17, .05), 0, BELT_TOP - .07, s * (hw + .01));   // longarina
+    put('alu', box(BELT_LEN + .1, .02, .09), 0, BELT_TOP + .02, s * (hw + .03));    // aba
+  }
+  for (const x of [X0, X1]) put('alu', cyl(.085, BELT_W - .02, 20), x, BELT_TOP - .09, 0, PI / 2, 0, 0);
+  const legs = Math.round(BELT_LEN / 2.1);
+  for (let i = 0; i <= legs; i++) {
+    const x = X0 + .15 + i * (BELT_LEN - .3) / legs;
+    for (const s of [-1, 1]) {
+      put('steelDark', box(.06, BELT_TOP - .15, .06), x, (BELT_TOP - .15) / 2, s * (hw - .06));
+      put('steelDark', box(.16, .012, .16), x, .006, s * (hw - .06));
+    }
+    put('steelDark', box(.04, .04, BELT_W - .12), x, .25, 0);
+    put('steelDark', box(.05, .05, BELT_W - .12), x, BELT_TOP - .16, 0);
+  }
+  // faixa amarela na longarina da zona de indução
+  for (const s of [-1, 1]) put('estop', box(INDUCT, .05, .012), X0 + INDUCT / 2, BELT_TOP - .07, s * (hw + .04));
+  // mesa de acúmulo do goleiro (roletes) + batente
+  const tx0 = X1 + .05, tl = .75;
+  for (const s of [-1, 1]) put('rackGray', box(tl, .1, .04), tx0 + tl / 2, BELT_TOP - .04, s * .52);
+  for (let x = tx0 + .05; x < tx0 + tl; x += .07) put('roller', cyl(.024, 1.0, 10), x, BELT_TOP - .02, 0, PI / 2, 0, 0);
+  for (const s of [-1, 1]) for (const xx of [tx0 + .08, tx0 + tl - .06]) put('rackGray', box(.04, BELT_TOP - .06, .04), xx, (BELT_TOP - .06) / 2, s * .5);
+  put('rackDark', box(.05, .18, 1.08), tx0 + tl + .02, BELT_TOP + .06, 0);
+  // botoeira de emergência no início da linha
+  put('steelDark', box(.06, 1.1, .06), X0 - .55, .55, BELT_W / 2 + .35);
+  put('estop', box(.22, .26, .14), X0 - .55, 1.18, BELT_W / 2 + .35);
+  put('red', cyl(.045, .05, 16), X0 - .55, 1.22, BELT_W / 2 + .44, PI / 2, 0, 0);
+}
+
+/* ------------------------------------------------------------------ */
+/* Pallet PBR + caixa 2 m (local: X = 1,00 frente, Z = 1,20 profundidade, frente em +Z) */
+/* ------------------------------------------------------------------ */
+function pallet() {
+  for (const x of [-.45, 0, .45]) {
+    put('wood', box(.1, .022, 1.2), x, .011, 0);
+    for (const z of [-.54, 0, .54]) put('wood', box(.1, .078, .12), x, .061, z);
+  }
+  for (const z of [-.54, 0, .54]) put('wood', box(1.0, .022, .12), 0, .111, z);
+  for (let i = 0; i < 7; i++) put('wood', box(.1, .022, 1.2), -.45 + i * .15, .133, 0);
+}
+function gaylord() {
+  const y0 = PAL_H, H = BOX_H, t = .012, W = .98, D = 1.18;
+  const yc = y0 + H / 2;
+  put('kraft', box(W, H, t), 0, yc, -D / 2 + t / 2);                       // fundo
+  put('kraft', box(t, H, D), -W / 2 + t / 2, yc, 0);                        // laterais
+  put('kraft', box(t, H, D), W / 2 - t / 2, yc, 0);
+  put('kraftIn', box(W - .02, .01, D - .02), 0, y0 + .006, 0);              // base
+  // frente com janela de carga (0,95 → 1,55 m)
+  const wy0 = .95, wy1 = 1.55, side = .14, zf = D / 2 - t / 2;
+  put('kraft', box(W, wy0, t), 0, y0 + wy0 / 2, zf);
+  put('kraft', box(W, H - wy1, t), 0, y0 + wy1 + (H - wy1) / 2, zf);
+  put('kraft', box(side, wy1 - wy0, t), -W / 2 + side / 2, y0 + (wy0 + wy1) / 2, zf);
+  put('kraft', box(side, wy1 - wy0, t), W / 2 - side / 2, y0 + (wy0 + wy1) / 2, zf);
+  // aba da janela rebatida para fora
+  const a = .22, fl = .5;
+  put('kraft', box(W - 2 * side - .02, fl, t), 0, y0 + wy0 - fl / 2 * Math.cos(a), zf + fl / 2 * Math.sin(a) + .008, -a, 0, 0);
+  // abas superiores abertas
+  const b = .5, fh = .38, top = y0 + H;
+  put('kraft', box(W, fh, t), 0, top + fh / 2 * Math.cos(b), D / 2 + fh / 2 * Math.sin(b), b, 0, 0);
+  put('kraft', box(W, fh, t), 0, top + fh / 2 * Math.cos(b), -D / 2 - fh / 2 * Math.sin(b), -b, 0, 0);
+  put('kraft', box(t, fh, D), W / 2 + fh / 2 * Math.sin(b), top + fh / 2 * Math.cos(b), 0, 0, 0, -b);
+  put('kraft', box(t, fh, D), -W / 2 - fh / 2 * Math.sin(b), top + fh / 2 * Math.cos(b), 0, 0, 0, b);
+}
+
+/* ------------------------------------------------------------------ */
+/* Flow rack cinza (local: corredor central em x=0, Z de 0 a RACK_L, saindo da esteira) */
+/* ------------------------------------------------------------------ */
+function flowRack() {
+  const lanes = [-.575, .575], laneW = .45;
+  const tiers = [[1.02, .86], [.42, .56]];      // [altura junto à esteira, altura no fundo]
+  for (const lx of lanes) {
+    for (const ux of [lx - laneW / 2 - .02, lx + laneW / 2 + .02]) {
+      for (const z of [.04, RACK_L / 2, RACK_L - .04]) {
+        put('rackGray', box(.045, 1.55, .045), ux, .775, z);
+        put('rackDark', box(.12, .01, .12), ux, .005, z);
+      }
+      put('rackGray', box(.04, .04, RACK_L), ux, 1.55, RACK_L / 2);       // longarina superior
+      put('rackGray', box(.035, .035, RACK_L), ux, .12, RACK_L / 2);      // longarina inferior
+    }
+    for (const z of [.04, RACK_L - .04]) {
+      put('rackGray', box(laneW + .08, .04, .04), lx, 1.55, z);
+      put('rackGray', box(laneW + .08, .035, .035), lx, .12, z);
+    }
+    for (const [yN, yF] of tiers) {
+      const ang = Math.atan2(yF - yN, RACK_L);
+      for (const ux of [lx - laneW / 2, lx + laneW / 2]) {
+        put('rackGray', box(.03, .07, RACK_L), ux, (yN + yF) / 2 - .02, RACK_L / 2, -ang, 0, 0);
+      }
+      for (let z = .08; z < RACK_L - .04; z += .1) {
+        put('roller', cyl(.024, laneW - .02, 10), lx, lerp(yN, yF, z / RACK_L) + .012, z, 0, 0, PI / 2);
+      }
+      put('rackGray', box(laneW, .05, .02), lx, yN + .05, .02);          // batente da pista
+    }
+  }
+  // travessa superior ligando os dois módulos (pórtico) + placa de identificação
+  put('rackGray', box(1.66, .05, .05), 0, 1.6, RACK_L - .04);
+  put('rackGray', box(1.66, .05, .05), 0, 1.6, .04);
+  // tapete antifadiga no corredor
+  put('mat', box(.62, .012, 1.4), 0, .006, .95);
+}
+
+/* ------------------------------------------------------------------ */
+/* Gaiola 1,20 × 1,00 × 1,70 (local: porta em −Z, voltada para o meio) */
+/* ------------------------------------------------------------------ */
+function cage() {
+  const W = 1.2, D = 1.0, y0 = .16, H = CAGE_H, ph = H - y0;
+  put('cageBase', box(W, .06, D), 0, y0 - .03, 0);
+  for (const [x, z] of [[-.5, -.4], [.5, -.4], [-.5, .4], [.5, .4]]) {
+    put('steelDark', cyl(.04, .03, 12), x, .055, z, PI / 2, 0, 0);
+    put('steelDark', box(.05, .06, .05), x, .1, z);
+  }
+  for (const [x, z] of [[-W / 2, -D / 2], [W / 2, -D / 2], [-W / 2, D / 2], [W / 2, D / 2]])
+    put('cageFrame', cyl(.018, ph, 10), x, y0 + ph / 2, z);
+  for (const z of [-D / 2, D / 2]) put('cageFrame', cyl(.014, W, 8), 0, H, z, 0, 0, PI / 2);
+  for (const x of [-W / 2, W / 2]) put('cageFrame', cyl(.014, D, 8), x, H, 0, PI / 2, 0, 0);
+  put('wire', box(W, ph, .004), 0, y0 + ph / 2, D / 2);
+  put('wire', box(.004, ph, D), -W / 2, y0 + ph / 2, 0);
+  put('wire', box(.004, ph, D), W / 2, y0 + ph / 2, 0);
+  // duas meias-portas abertas para o meio
+  const a = PI * .74, dw = W / 2;
+  const door = (hx, rot) => {
+    const o = new THREE.Object3D(); o.position.set(hx, 0, -D / 2); o.rotation.y = rot;
+    o.updateMatrix();
+    const prev = FRAME; FRAME = prev.clone().multiply(o.matrix);
+    put('wire', box(dw, ph - .06, .004), dw / 2, y0 + ph / 2, 0);
+    put('cageFrame', cyl(.012, dw, 8), dw / 2, H - .03, 0, 0, 0, PI / 2);
+    put('cageFrame', cyl(.012, dw, 8), dw / 2, y0 + .05, 0, 0, 0, PI / 2);
+    put('cageFrame', cyl(.012, ph - .06, 8), dw, y0 + ph / 2, 0);
+    FRAME = prev;
+  };
+  door(-W / 2, a);
+  door(W / 2, PI - a);
+}
+
+/* ------------------------------------------------------------------ */
+/* Colaborador                                                         */
+/* ------------------------------------------------------------------ */
+const workerMats = {};
+function wm(key, color, rough = .8, metal = 0, extra = {}) {
+  return workerMats[key] || (workerMats[key] = std({ color, roughness: rough, metalness: metal, ...extra }));
+}
+const SKIN = [0xc68a62, 0x8d5a3b, 0xe2b48f, 0xa86f4a, 0x6e432a];
+const HAIR = [0x1e1712, 0x3b2a1c, 0x101010, 0x5a4330];
+function makeWorker(vest, idx = 0) {
+  const root = new THREE.Group();
+  const add = (parent, geo, mat, x, y, z, sx = 1, sy = 1, sz = 1) => {
+    const m = new THREE.Mesh(geo, mat); m.position.set(x, y, z); m.scale.set(sx, sy, sz);
+    m.castShadow = true; m.receiveShadow = true; parent.add(m); return m;
+  };
+  const skin = wm('skin' + idx % 5, SKIN[idx % 5], .6);
+  const hair = wm('hair' + idx % 4, HAIR[idx % 4], .85);
+  const pants = wm('pants', 0x2a3140, .85), shoe = wm('shoe', 0x1a1c1f, .55);
+  const shirt = wm('shirt', 0x3a3f46, .9), refl = wm('refl', 0xe3e6e8, .25, .35, { emissive: 0x2a2a2a });
+  const vestM = wm('vest' + vest, vest, .55), glove = wm('glove', 0x2d3136, .8);
+  for (const s of [-1, 1]) {
+    add(root, box(.11, .07, .27), shoe, s * .1, .035, .03);
+    add(root, cyl(.072, .8, 12), pants, s * .1, .47, 0);
+  }
+  const upper = new THREE.Group(); upper.position.y = .88; root.add(upper);
+  add(upper, box(.36, .16, .22), pants, 0, .02, 0);
+  add(upper, new THREE.CylinderGeometry(.2, .17, .55, 16), shirt, 0, .32, 0, 1, 1, .66);
+  add(upper, new THREE.CylinderGeometry(.212, .184, .46, 16, 1, true), vestM, 0, .33, 0, 1, 1, .7);
+  add(upper, new THREE.CylinderGeometry(.215, .2, .035, 16, 1, true), refl, 0, .22, 0, 1, 1, .71);
+  add(upper, new THREE.CylinderGeometry(.215, .205, .035, 16, 1, true), refl, 0, .4, 0, 1, 1, .71);
+  add(upper, cyl(.052, .09, 10), skin, 0, .63, 0);
+  const head = new THREE.Group(); head.position.y = .75; upper.add(head);
+  add(head, new THREE.SphereGeometry(.105, 18, 14), skin, 0, 0, .005, .92, 1.08, 1);
+  add(head, new THREE.SphereGeometry(.112, 18, 10, 0, TAU, 0, PI * .55), hair, 0, .012, -.008, .95, 1.05, 1.02);
+  add(head, box(.05, .02, .03), skin, 0, -.01, .1);
+  const arm = s => {
+    const sh = new THREE.Group(); sh.position.set(s * .235, .54, 0); upper.add(sh);
+    add(sh, new THREE.SphereGeometry(.058, 10, 8), vestM, 0, 0, 0);
+    add(sh, cyl(.05, .3, 10), shirt, 0, -.15, 0);
+    const el = new THREE.Group(); el.position.y = -.3; sh.add(el);
+    add(el, cyl(.043, .27, 10), shirt, 0, -.135, 0);
+    add(el, new THREE.SphereGeometry(.048, 10, 8), glove, 0, -.29, 0, 1, 1.2, .8);
+    const hand = new THREE.Object3D(); hand.position.y = -.3; el.add(hand);
+    return { sh, el, hand };
+  };
+  const L = arm(-1), R = arm(1);
+  const w = {
+    root, upper, head, L, R, task: null, yaw: 0, restYaw: 0, phase: Math.random() * 10,
+    pose(reach, lean = reach) {
+      for (const [a, s] of [[L, -1], [R, 1]]) {
+        a.sh.rotation.x = -1.25 * reach - .05;
+        a.sh.rotation.z = s * (.1 - .16 * reach);
+        a.el.rotation.x = -.15 - .55 * reach * (1 - reach * .4);
+      }
+      upper.rotation.x = .2 * lean;
+    },
+    handsWorld(out) {
+      const a = V3(), b = V3();
+      L.hand.getWorldPosition(a); R.hand.getWorldPosition(b);
+      return out.copy(a).add(b).multiplyScalar(.5);
+    },
+    setYaw(y) { w.yaw = y; root.rotation.y = y; },
+    yawTo(world) {           // ângulo para encarar um ponto do mundo (no referencial do pai)
+      const p = root.parent.worldToLocal(world.clone());
+      return Math.atan2(p.x - root.position.x, p.z - root.position.z);
+    },
+  };
+  w.pose(0);
+  return w;
+}
+
+/* ------------------------------------------------------------------ */
+/* Ilhas                                                               */
+/* ------------------------------------------------------------------ */
+const islands = [];
+const hitTargets = [];
+for (let side = 0; side < 2; side++) {
+  const s = side === 0 ? 1 : -1;
+  for (let k = 0; k < 5; k++) {
+    const num = side * 5 + k + 1;
+    const xc = XP + PITCH * (k + .5);
+    const grp = new THREE.Group();
+    grp.position.set(xc, 0, s * (BELT_W / 2 + ISL_GAP));
+    grp.rotation.y = s > 0 ? 0 : PI;
+    scene.add(grp);
+    withFrame(grp, flowRack);
+    // contorno amarelo da ilha
+    withFrame(grp, () => {
+      const x0 = -2.25, x1 = 2.25, z0 = -.15, z1 = RACK_L + .25, t = .06;
+      put('yellow', plane(x1 - x0, t), 0, .006, z0);
+      put('yellow', plane(x1 - x0, t), 0, .006, z1);
+      put('yellow', plane(t, z1 - z0), x0, .006, (z0 + z1) / 2);
+      put('yellow', plane(t, z1 - z0), x1, .006, (z0 + z1) / 2);
+    });
+    const code = String(num).padStart(2, '0');
+    floorText([{ t: `ILHA ${code}`, size: 92 }], 0, RACK_L + .95, 3.2, .8, 0, { w: 512, h: 128, color: '#2a2f2d' }, grp);
+    const isl = { num, code, side: s, xc, grp, boxes: [], count: 0, worker: null };
+    const posNames = [['E1', 'E2', 'E3'], ['D1', 'D2', 'D3']];
+    [-1, 1].forEach((bs, bi) => {
+      for (let r = 0; r < 3; r++) {
+        const bg = new THREE.Group();
+        bg.position.set(bs * 1.5, 0, .5 + r * 1.1);
+        bg.rotation.y = bs > 0 ? -PI / 2 : PI / 2;      // janela voltada para o corredor
+        grp.add(bg);
+        withFrame(bg, () => { pallet(); gaylord(); });
+        const fillM = new THREE.Mesh(box(.92, 1, 1.12), MAT.fill);
+        fillM.geometry = fillM.geometry.clone().translate(0, .5, 0);
+        fillM.position.y = PAL_H + .015; fillM.castShadow = false; fillM.receiveShadow = true;
+        bg.add(fillM);
+        const pos = posNames[bi][r];
+        const label = new THREE.Mesh(new THREE.PlaneGeometry(.5, .25),
+          new THREE.MeshStandardMaterial({ map: textTexture([{ t: `I${code}·${pos}`, size: 74, font: MONO, weight: 600 }], { w: 256, h: 128, bg: '#f7f7f3', color: '#1d211f' }), roughness: .7 }));
+        label.position.set(0, PAL_H + 1.8, .597); bg.add(label);
+        const hit = new THREE.Mesh(box(1.0, BOX_H + PAL_H, 1.2), MAT.hit);
+        hit.position.y = (BOX_H + PAL_H) / 2; bg.add(hit);
+        const b = { grp: bg, fillM, fill: Math.floor(rand(0, BOX_CAP * .55)), cap: BOX_CAP, pos, isl, swaps: 0 };
+        hit.userData = { kind: 'box', ref: b };
+        hitTargets.push(hit);
+        isl.boxes.push(b);
+      }
+    });
+    const w = makeWorker(0xff6a13, num);
+    w.root.position.set(0, .012, .55);
+    w.restYaw = PI; w.setYaw(PI);
+    grp.add(w.root);
+    isl.worker = w;
+    islands.push(isl);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Zona de indução                                                     */
+/* ------------------------------------------------------------------ */
+const inductors = [];
+{
+  for (const s of [-1, 1]) {
+    const hz = s * (BELT_W / 2 + 1.6);
+    const hatch = new THREE.Mesh(new THREE.PlaneGeometry(INDUCT, 3.0).rotateX(-PI / 2), MAT.hatch);
+    texHatch.repeat.set(INDUCT / 1.2, 3.0 / 1.2);
+    hatch.position.set(X0 + INDUCT / 2, .005, hz); hatch.receiveShadow = true; scene.add(hatch);
+    put('yellow', plane(INDUCT, .08), X0 + INDUCT / 2, .006, s * (BELT_W / 2 + .1));
+    put('yellow', plane(INDUCT, .08), X0 + INDUCT / 2, .006, s * (BELT_W / 2 + 3.1));
+    put('yellow', plane(.08, 3.0), X0, .006, hz);
+    put('yellow', plane(.08, 3.0), XP, .006, hz);
+    for (const ix of [X0 + 2.2, X0 + 5.8]) {
+      // pallet de entrada com volumes empilhados
+      const pg = new THREE.Group(); pg.position.set(ix + .9, 0, s * (BELT_W / 2 + 2.1)); pg.rotation.y = PI / 2; scene.add(pg);
+      withFrame(pg, () => {
+        pallet();
+        const sizes = [[.4, .3, .35], [.3, .25, .3], [.45, .3, .4]];
+        for (let layer = 0; layer < 3; layer++) {
+          for (let i = 0; i < 6; i++) {
+            if (layer === 2 && i > 3) continue;
+            const [a, b, c] = sizes[(i + layer) % 3];
+            put('pkg', box(a, b, c), -.27 + (i % 2) * .5 + rand(-.03, .03), PAL_H + b / 2 + layer * .34, -.4 + Math.floor(i / 2) * .42, 0, rand(-.1, .1), 0);
+          }
+        }
+      });
+      const w = makeWorker(0xf2c200, inductors.length + 7);
+      w.root.position.set(ix, .012, s * (BELT_W / 2 + .55));
+      w.restYaw = s > 0 ? PI : 0; w.setYaw(w.restYaw);
+      scene.add(w.root);
+      w.side = s; w.pallet = V3(ix + .9, PAL_H + 1.0, s * (BELT_W / 2 + 2.1));
+      w.timer = rand(.2, 2);
+      inductors.push(w);
+    }
+  }
+  floorText([{ t: 'INDUÇÃO', size: 96 }, { t: '8,00 m', size: 48, weight: 600, font: MONO }], X0 + INDUCT / 2, BELT_W / 2 + 3.9, 4.2, 1.6, 0, { w: 512, h: 196, color: '#7a5d00' });
+  floorText([{ t: 'INDUÇÃO', size: 96 }, { t: '8,00 m', size: 48, weight: 600, font: MONO }], X0 + INDUCT / 2, -(BELT_W / 2 + 3.9), 4.2, 1.6, PI, { w: 512, h: 196, color: '#7a5d00' });
+}
+
+/* ------------------------------------------------------------------ */
+/* Goleiro                                                             */
+/* ------------------------------------------------------------------ */
+const keeper = { cages: [], count: 0 };
+{
+  const cx = X1 + 1.9;
+  for (const s of [1, -1]) {
+    const cg = new THREE.Group(); cg.position.set(cx, 0, s * 1.25); cg.rotation.y = s > 0 ? 0 : PI; scene.add(cg);
+    withFrame(cg, cage);
+    const fillM = new THREE.Mesh(box(1.1, 1, .9).clone().translate(0, .5, 0), MAT.fill);
+    fillM.position.y = .17; fillM.receiveShadow = true; cg.add(fillM);
+    const hit = new THREE.Mesh(box(1.2, CAGE_H, 1.0), MAT.hit); hit.position.y = CAGE_H / 2; cg.add(hit);
+    const c = { grp: cg, fillM, fill: Math.floor(rand(5, 30)), cap: CAGE_CAP, name: s > 0 ? 'Gaiola A' : 'Gaiola B', swaps: 0 };
+    hit.userData = { kind: 'cage', ref: c }; hitTargets.push(hit);
+    keeper.cages.push(c);
+  }
+  const t = .07, x0 = X1 + .9, x1 = X1 + 2.75, z = 2.0;
+  put('green', plane(x1 - x0, t), (x0 + x1) / 2, .006, z);
+  put('green', plane(x1 - x0, t), (x0 + x1) / 2, .006, -z);
+  put('green', plane(t, 2 * z), x1, .006, 0);
+  const w = makeWorker(0x2fae63, 4);
+  w.root.position.set(X1 + 1.32, .012, 0);
+  w.restYaw = -PI / 2; w.setYaw(w.restYaw);
+  scene.add(w.root);
+  keeper.worker = w; keeper.next = 0;
+  floorText([{ t: 'GOLEIRO', size: 96 }, { t: '2 gaiolas · 1,70 m', size: 44, weight: 600, font: MONO }], X1 + 4.0, 0, 3.6, 1.4, PI / 2, { w: 512, h: 196, color: '#1f6b41' });
+}
+
+/* corredores de pedestres (linha verde contínua + faixa branca) */
+for (const s of [-1, 1]) {
+  put('green', plane(PL.x1 - PL.x0 - 2, .1), (PL.x0 + PL.x1) / 2, .006, s * 7.6);
+  for (let x = PL.x0 + 2; x < PL.x1 - 2; x += 2) put('white', plane(1.1, .08), x + .55, .006, s * 8.6);
+}
+
+/* ------------------------------------------------------------------ */
+/* Cotas                                                               */
+/* ------------------------------------------------------------------ */
+const dimGroup = new THREE.Group(); scene.add(dimGroup);
+const dimMat = MAT.dim;
+function dimLine(ax, az, bx, bz, label, { text = 1.0, flip = false } = {}) {
+  const dx = bx - ax, dz = bz - az, L = Math.hypot(dx, dz), ang = Math.atan2(-dz, dx);
+  const g = new THREE.Group(); g.position.set((ax + bx) / 2, .012, (az + bz) / 2); g.rotation.y = ang; dimGroup.add(g);
+  const add = (w, d, x, z, ry = 0) => { const m = new THREE.Mesh(box(w, .004, d), dimMat); m.position.set(x, 0, z); m.rotation.y = ry; m.receiveShadow = true; g.add(m); };
+  add(L, .035, 0, 0);
+  for (const e of [-L / 2, L / 2]) { add(.03, .7, e, 0); add(.36, .05, e, 0, PI / 4); }
+  const tex = textTexture([{ t: label, size: 64, font: MONO, weight: 600 }], { w: 768, h: 112, color: '#202523' });
+  const lw = Math.min(L * .8, text * 6.5), lh = lw * 112 / 768;
+  const t = new THREE.Mesh(new THREE.PlaneGeometry(lw, lh), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false }));
+  t.rotation.set(-PI / 2, 0, flip ? PI : 0); t.position.set(0, .002, flip ? lh * .75 : -lh * .75); g.add(t);
+}
+function dimVertical(x, z, y0, y1, label, faceY = 0) {
+  const g = new THREE.Group(); g.position.set(x, 0, z); g.rotation.y = faceY; dimGroup.add(g);
+  const m = new THREE.Mesh(box(.025, y1 - y0, .025), dimMat); m.position.y = (y0 + y1) / 2; g.add(m);
+  for (const y of [y0, y1]) { const tk = new THREE.Mesh(box(.3, .025, .025), dimMat); tk.position.y = y; g.add(tk); const d = new THREE.Mesh(box(.25, .025, .025), dimMat); d.position.y = y; d.rotation.z = PI / 4; g.add(d); }
+  const tex = textTexture([{ t: label, size: 60, font: MONO, weight: 600 }], { w: 384, h: 96, bg: 'rgba(250,250,246,.92)', color: '#202523' });
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: true }));
+  sp.scale.set(1.2, .3, 1); sp.position.set(0, (y0 + y1) / 2, 0); g.add(sp);
+}
+dimLine(X0, -9.1, X1, -9.1, '42,00 m · esteira', { text: 1.4 });
+dimLine(X0, -8.3, XP, -8.3, '8,00 m · indução');
+dimLine(XP, -8.3, X1, -8.3, '34,00 m · ilhas de separação', { text: 1.3 });
+dimLine(X0 - 1.4, -.75, X0 - 1.4, .75, '1,50 m', { text: .5 });
+{
+  const isl = islands[5];                   // ilha 06, lado sul
+  dimLine(isl.xc - 2.1, -6.6, isl.xc + 2.1, -6.6, '4,20 m · ilha', { text: .8 });
+  dimLine(isl.xc + 2.55, -(BELT_W / 2 + ISL_GAP), isl.xc + 2.55, -(BELT_W / 2 + ISL_GAP + RACK_L), '3,30 m', { text: .55 });
+  dimVertical(isl.xc - 2.35, -(BELT_W / 2 + ISL_GAP + 2.7), 0, PAL_H + BOX_H, '2,00 m + PBR');
+}
+dimVertical(X1 + 2.75, -1.25, 0, CAGE_H, '1,70 m');
+
+/* ------------------------------------------------------------------ */
+/* Pacotes                                                             */
+/* ------------------------------------------------------------------ */
+const PKG_TYPES = [
+  { geo: new THREE.BoxGeometry(.32, .22, .26), mat: MAT.pkg, h: .22 },
+  { geo: new THREE.BoxGeometry(.46, .3, .36), mat: MAT.pkg, h: .3 },
+  { geo: new THREE.BoxGeometry(.36, .1, .28), mat: MAT.pkg, h: .1 },
+  { geo: new THREE.SphereGeometry(1, 16, 8).scale(.2, .055, .15), mat: MAT.bagW, h: .1 },
+  { geo: new THREE.SphereGeometry(1, 16, 8).scale(.24, .065, .18), mat: MAT.bagG, h: .12 },
+  { geo: new THREE.SphereGeometry(1, 16, 8).scale(.16, .05, .12), mat: MAT.bagW, h: .09 },
+];
+const pool = [], live = [], endQueue = [];
+function getPkg() {
+  const t = PKG_TYPES[randInt(PKG_TYPES.length)];
+  let mesh = pool.pop();
+  if (!mesh) { mesh = new THREE.Mesh(); mesh.castShadow = true; mesh.receiveShadow = true; scene.add(mesh); }
+  mesh.geometry = t.geo; mesh.material = t.mat; mesh.visible = true; mesh.rotation.set(0, rand(-.25, .25), 0);
+  const p = { mesh, h: t.h, x: 0, z: 0, state: 'held', dest: -1, box: 0 };
+  live.push(p); return p;
+}
+function freePkg(p) {
+  p.mesh.visible = false; pool.push(p.mesh);
+  const i = live.indexOf(p); if (i >= 0) live.splice(i, 1);
+}
+
+/* ------------------------------------------------------------------ */
+/* Estado da simulação                                                 */
+/* ------------------------------------------------------------------ */
+const sim = { speed: .5, rate: 45, running: true, time: 0, induced: 0, picked: 0, kept: 0 };
+const NO_ROUTE = .07, MISS = .035;
+
+function setFill(target) {
+  const h = .03 + 1.78 * Math.min(1, target.fill / target.cap) * (target.fillMax || 1);
+  target.fillM.scale.y = Math.max(.02, h);
+  target.fillM.visible = target.fill > 0;
+}
+islands.forEach(i => i.boxes.forEach(b => setFill(b)));
+keeper.cages.forEach(c => { c.fillMax = .85; setFill(c); });
+
+function dropInto(target) {
+  target.fill++;
+  if (target.fill >= target.cap) { target.fill = 0; target.swaps++; }
+  setFill(target);
+}
+
+/* tarefas animadas -------------------------------------------------- */
+function arc(a, b, t, hgt) { const p = a.clone().lerp(b, t); p.y += Math.sin(PI * t) * hgt; return p; }
+const tmp = V3();
+
+function startPick(isl, p) {
+  const w = isl.worker, target = isl.boxes[p.box];
+  p.state = 'held';
+  const p0 = p.mesh.position.clone();
+  const beltYaw = w.yawTo(p0);
+  const entry = target.grp.localToWorld(V3(0, PAL_H + 1.25, .3));
+  const inner = target.grp.localToWorld(V3(0, PAL_H + .2 + 1.6 * target.fill / target.cap, 0));
+  const boxYaw = w.yawTo(entry);
+  const D = [.42, .5, .38, .45];  // alcançar, girar, arremessar, voltar
+  let flyFrom = null, dropped = false;
+  w.task = {
+    t: 0, total: D[0] + D[1] + D[2] + D[3],
+    step(t) {
+      if (t < D[0]) {
+        const k = ease(t / D[0]);
+        w.setYaw(lerpAngle(w.restYaw, beltYaw, k)); w.pose(k * .95, k);
+        w.handsWorld(tmp); p.mesh.position.lerpVectors(p0, tmp, k);
+      } else if (t < D[0] + D[1]) {
+        const k = ease((t - D[0]) / D[1]);
+        w.setYaw(lerpAngle(beltYaw, boxYaw, k)); w.pose(.95 - .35 * k, 1 - .7 * k);
+        w.handsWorld(tmp); p.mesh.position.copy(tmp); p.mesh.rotation.y += .02;
+      } else if (t < D[0] + D[1] + D[2]) {
+        const k = (t - D[0] - D[1]) / D[2];
+        w.pose(.6 + .4 * Math.sin(PI * Math.min(1, k * 1.4)), .3);
+        if (!flyFrom) { flyFrom = p.mesh.position.clone(); }
+        if (k < .7) p.mesh.position.copy(arc(flyFrom, entry, k / .7, .25));
+        else p.mesh.position.lerpVectors(entry, inner, (k - .7) / .3);
+        p.mesh.rotation.x += .08;
+      } else {
+        if (!dropped) { dropped = true; freePkg(p); dropInto(target); isl.count++; sim.picked++; flashBar(isl.num); }
+        const k = ease((t - D[0] - D[1] - D[2]) / D[3]);
+        w.setYaw(lerpAngle(boxYaw, w.restYaw, k)); w.pose(.4 * (1 - k), .3 * (1 - k));
+      }
+      return t >= this.total;
+    },
+  };
+}
+
+function startKeep(p) {
+  const w = keeper.worker, c = keeper.cages[keeper.next]; keeper.next = 1 - keeper.next;
+  p.state = 'held';
+  const p0 = p.mesh.position.clone();
+  const entry = c.grp.localToWorld(V3(0, 1.15, -.25));
+  const inner = c.grp.localToWorld(V3(rand(-.3, .3), .3 + 1.2 * c.fill / c.cap, rand(0, .2)));
+  const pickYaw = w.yawTo(p0), cageYaw = w.yawTo(entry);
+  const D = [.5, .45, .4, .45];
+  let flyFrom = null, dropped = false;
+  const home = w.root.position.clone();
+  w.task = {
+    t: 0, total: D[0] + D[1] + D[2] + D[3],
+    step(t) {
+      if (t < D[0]) {
+        const k = ease(t / D[0]);
+        w.root.position.x = home.x - .18 * k;
+        w.setYaw(lerpAngle(w.restYaw, pickYaw, k)); w.pose(k, k * 1.1);
+        w.handsWorld(tmp); p.mesh.position.lerpVectors(p0, tmp, k);
+      } else if (t < D[0] + D[1]) {
+        const k = ease((t - D[0]) / D[1]);
+        w.root.position.x = home.x - .18 * (1 - k);
+        w.setYaw(lerpAngle(pickYaw, cageYaw, k)); w.pose(1 - .4 * k, 1.1 - .8 * k);
+        w.handsWorld(tmp); p.mesh.position.copy(tmp);
+      } else if (t < D[0] + D[1] + D[2]) {
+        const k = (t - D[0] - D[1]) / D[2];
+        w.pose(.6 + .4 * Math.sin(PI * Math.min(1, k * 1.4)), .3);
+        if (!flyFrom) flyFrom = p.mesh.position.clone();
+        if (k < .65) p.mesh.position.copy(arc(flyFrom, entry, k / .65, .2));
+        else p.mesh.position.lerpVectors(entry, inner, (k - .65) / .35);
+        p.mesh.rotation.z += .07;
+      } else {
+        if (!dropped) { dropped = true; freePkg(p); dropInto(c); keeper.count++; sim.kept++; }
+        const k = ease((t - D[0] - D[1] - D[2]) / D[3]);
+        w.setYaw(lerpAngle(cageYaw, w.restYaw, k)); w.pose(.4 * (1 - k), .3 * (1 - k));
+      }
+      return t >= this.total;
+    },
+  };
+}
+
+function startInduct(w) {
+  const dur = Math.min(1.7, Math.max(.8, (4 * 60 / sim.rate) * .8));
+  const D = [.3 * dur, .15 * dur, .3 * dur, .25 * dur];
+  const palYaw = w.yawTo(w.pallet);
+  const spot = V3(w.root.position.x + rand(-.25, .25), 0, w.side * rand(.15, .45));
+  let p = null, placeFrom = null;
+  w.task = {
+    t: 0, total: D[0] + D[1] + D[2] + D[3],
+    step(t) {
+      if (t < D[0]) {
+        const k = ease(t / D[0]); w.setYaw(lerpAngle(w.restYaw, palYaw, k)); w.pose(.6 * k, .6 * k);
+      } else if (t < D[0] + D[1]) {
+        if (!p) {
+          p = getPkg();
+          p.dest = Math.random() < NO_ROUTE ? -1 : randInt(10); p.box = randInt(6);
+          p.miss = Math.random() < MISS;
+        }
+        w.handsWorld(tmp); p.mesh.position.copy(tmp);
+      } else if (t < D[0] + D[1] + D[2]) {
+        const k = ease((t - D[0] - D[1]) / D[2]);
+        w.setYaw(lerpAngle(palYaw, w.restYaw, k)); w.pose(.6 + .3 * k, .6 + .2 * k);
+        w.handsWorld(tmp); p.mesh.position.copy(tmp);
+      } else {
+        const k = ease((t - D[0] - D[1] - D[2]) / D[3]);
+        if (!placeFrom) placeFrom = p.mesh.position.clone();
+        spot.y = BELT_TOP + p.h / 2;
+        spot.x += sim.speed * (1 / 60) * .3;
+        p.mesh.position.lerpVectors(placeFrom, spot, k);
+        w.pose(.9 * (1 - k), .8 * (1 - k));
+        if (t >= this.total) {
+          p.state = 'belt'; p.x = p.mesh.position.x; p.z = p.mesh.position.z; sim.induced++;
+        }
+      }
+      return t >= this.total;
+    },
+  };
+}
+
+function idle(w, dt) {
+  w.phase += dt;
+  w.upper.rotation.z = Math.sin(w.phase * 1.1) * .015;
+  w.head.rotation.y = Math.sin(w.phase * .37) * .25;
+  w.pose(0, Math.sin(w.phase * .8) * .05);
+  if (Math.abs(w.yaw - w.restYaw) > .001) w.setYaw(lerpAngle(w.yaw, w.restYaw, Math.min(1, dt * 4)));
+}
+function runWorker(w, dt) {
+  if (w.task) { w.task.t += dt; w.head.rotation.y *= .9; if (w.task.step(w.task.t)) w.task = null; }
+  else idle(w, dt);
+}
+
+/* ------------------------------------------------------------------ */
+/* Loop                                                                */
+/* ------------------------------------------------------------------ */
+const END_STOP = X1 + .66, SLOT = .5;
+function update(dt) {
+  sim.time += dt;
+  texBelt.offset.x -= sim.speed * dt / (BELT_LEN / texBelt.repeat.x) ;
+
+  // indução
+  const per = 4 * 60 / sim.rate;
+  for (const w of inductors) {
+    if (!w.task) { w.timer -= dt; if (w.timer <= 0) { startInduct(w); w.timer = per * rand(.85, 1.15); } }
+  }
+
+  // pacotes na esteira
+  for (let i = live.length - 1; i >= 0; i--) {
+    const p = live[i];
+    if (p.state === 'belt') {
+      const limit = END_STOP - endQueue.length * SLOT;
+      p.x += sim.speed * dt;
+      if (p.dest >= 0) {
+        const isl = islands[p.dest];
+        if (p.x > isl.xc - .55 && p.x < isl.xc + .7 && !isl.worker.task && !p.miss) { startPick(isl, p); continue; }
+        if (p.x >= isl.xc + .7) p.dest = -1;              // passou da ilha → vai para o goleiro
+      }
+      if (p.x >= limit) { p.x = limit; p.state = 'end'; endQueue.push(p); }
+      p.mesh.position.set(p.x, BELT_TOP + p.h / 2, p.z);
+    } else if (p.state === 'end') {
+      const idx = endQueue.indexOf(p), target = END_STOP - idx * SLOT;
+      p.x = Math.min(target, p.x + sim.speed * dt);
+      p.z += (0 - p.z) * Math.min(1, dt * 2) * (p.x > X1 ? 1 : 0);
+      p.mesh.position.set(p.x, BELT_TOP + p.h / 2, p.z);
+    }
+  }
+  if (endQueue.length && !keeper.worker.task && endQueue[0].x >= END_STOP - .05) startKeep(endQueue.shift());
+
+  for (const isl of islands) runWorker(isl.worker, dt);
+  for (const w of inductors) runWorker(w, dt);
+  runWorker(keeper.worker, dt);
+}
+
+/* ------------------------------------------------------------------ */
+/* Câmera: vistas                                                      */
+/* ------------------------------------------------------------------ */
+const VIEWS = {
+  persp:  { p: [-31, 17, 25], t: [3, .5, 0], fov: 40 },
+  axis:   { p: [-29.5, 4.2, 0], t: [12, .6, 0], fov: 46 },
+  plan:   { p: [1, 62, .01], t: [1, 0, 0], fov: 40 },
+  island: { p: [islands[1].xc + 2.2, 4.3, 10.2], t: [islands[1].xc, 1.0, 1.7], fov: 44 },
+  keeper: { p: [X1 + 7.5, 4.8, 6.5], t: [X1 + 1.2, .9, 0], fov: 44 },
+  induct: { p: [X0 + 9, 5, 8.5], t: [X0 + 3.5, .8, 0], fov: 44 },
+};
+let camTween = null;
+function goView(name) {
+  const v = VIEWS[name];
+  document.querySelectorAll('#views .btn').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === name)));
+  const from = { p: camera.position.clone(), t: controls.target.clone(), fov: camera.fov };
+  const to = { p: V3(...v.p), t: V3(...v.t), fov: v.fov };
+  if (reduceMotion) { camera.position.copy(to.p); controls.target.copy(to.t); camera.fov = to.fov; camera.updateProjectionMatrix(); return; }
+  camTween = { from, to, t: 0, dur: 1.4 };
+}
+function tweenCam(dt) {
+  if (!camTween) return;
+  camTween.t += dt; const k = ease(camTween.t / camTween.dur);
+  camera.position.lerpVectors(camTween.from.p, camTween.to.p, k);
+  controls.target.lerpVectors(camTween.from.t, camTween.to.t, k);
+  camera.fov = lerp(camTween.from.fov, camTween.to.fov, k); camera.updateProjectionMatrix();
+  if (camTween.t >= camTween.dur) camTween = null;
+}
+controls.addEventListener('start', () => { camTween = null; });
+
+/* ------------------------------------------------------------------ */
+/* Interface                                                           */
+/* ------------------------------------------------------------------ */
+const bars = $('#bars');
+const barEls = [];
+for (let i = 1; i <= 10; i++) {
+  // coluna esquerda = lado A (01–05), direita = lado B (06–10)
+  const row = document.createElement('div'); row.className = 'bar';
+  row.innerHTML = `<span>${String(i).padStart(2, '0')}</span><span class="t"><i></i></span><span class="n">0</span>`;
+  barEls[i] = row;
+}
+for (let r = 1; r <= 5; r++) { bars.appendChild(barEls[r]); bars.appendChild(barEls[r + 5]); }
+function flashBar(n) { const el = barEls[n]; el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 250); }
+function refreshHud() {
+  $('#kIn').textContent = fmt(sim.induced);
+  $('#kPick').textContent = fmt(sim.picked);
+  $('#kKeep').textContent = fmt(sim.kept);
+  const done = sim.picked + sim.kept;
+  $('#kRate').textContent = done ? (100 * sim.picked / done).toFixed(1).replace('.', ',') + '%' : '–';
+  $('#kHour').textContent = fmt(Math.round(sim.rate * 60)) + ' pct/h';
+  const max = Math.max(1, ...islands.map(i => i.count));
+  islands.forEach(i => {
+    const el = barEls[i.num];
+    el.querySelector('i').style.width = (100 * i.count / max) + '%';
+    el.querySelector('.n').textContent = i.count;
+  });
+}
+setInterval(refreshHud, 300);
+
+$('#views').addEventListener('click', e => { const b = e.target.closest('[data-view]'); if (b) goView(b.dataset.view); });
+const speed = $('#speed'), rate = $('#rate');
+speed.addEventListener('input', () => { sim.speed = +speed.value; $('#speedOut').textContent = sim.speed.toFixed(2).replace('.', ',') + ' m/s'; });
+rate.addEventListener('input', () => { sim.rate = +rate.value; $('#rateOut').textContent = sim.rate + ' pct/min'; });
+$('#play').addEventListener('click', e => {
+  sim.running = !sim.running;
+  e.currentTarget.textContent = sim.running ? 'Pausar' : 'Continuar';
+  e.currentTarget.setAttribute('aria-pressed', String(!sim.running));
+});
+$('#dims').addEventListener('change', e => { dimGroup.visible = e.target.checked; });
+$('#ghost').addEventListener('change', e => {
+  const on = e.target.checked;
+  for (const m of [MAT.kraft, MAT.kraftIn]) { m.transparent = on; m.opacity = on ? .32 : 1; m.depthWrite = !on; m.needsUpdate = true; }
+});
+$('#orbit').addEventListener('change', e => { controls.autoRotate = e.target.checked; });
+if (matchMedia('(max-width: 760px)').matches) $('#panelDetails').open = false;
+
+/* tooltip */
+const ray = new THREE.Raycaster(), mouse = new THREE.Vector2(), tip = $('#tip');
+let pointer = null;
+renderer.domElement.addEventListener('pointermove', e => { if (e.pointerType === 'mouse') pointer = { x: e.clientX, y: e.clientY }; });
+renderer.domElement.addEventListener('pointerleave', () => { pointer = null; tip.hidden = true; });
+function updateTip() {
+  if (!pointer) return;
+  const r = renderer.domElement.getBoundingClientRect();
+  mouse.set((pointer.x - r.left) / r.width * 2 - 1, -(pointer.y - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(mouse, camera);
+  const hit = ray.intersectObjects(hitTargets, false)[0];
+  if (!hit) { tip.hidden = true; return; }
+  const { kind, ref } = hit.object.userData;
+  if (kind === 'box') {
+    tip.innerHTML = `<b>ILHA ${ref.isl.code} · ${ref.pos}</b><br><span class="m">Caixa 1,20 × 1,00 × 2,00 m sobre PBR</span><br>${ref.fill}/${ref.cap} pacotes · ${ref.swaps} troca(s)`;
+  } else {
+    tip.innerHTML = `<b>GOLEIRO · ${ref.name}</b><br><span class="m">Gaiola 1,20 × 1,00 × 1,70 m</span><br>${ref.fill}/${ref.cap} pacotes`;
+  }
+  tip.hidden = false;
+  const tw = tip.offsetWidth, th = tip.offsetHeight;
+  tip.style.left = Math.min(innerWidth - tw - 8, pointer.x + 14) + 'px';
+  tip.style.top = Math.min(innerHeight - th - 8, pointer.y + 14) + 'px';
+}
+
+/* resize + loop */
+function resize() {
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+addEventListener('resize', resize);
+
+bake();
+resize();
+if (innerWidth < 760) { VIEWS.persp.p = [-40, 24, 32]; camera.position.set(...VIEWS.persp.p); }
+$('#loading').remove();
+
+// aquece a linha: simula alguns segundos para a maquete já abrir com pacotes na esteira
+for (let i = 0; i < 60 * 95; i++) update(1 / 60);
+refreshHud();
+
+const clock = new THREE.Clock();
+let tipTick = 0;
+function frame() {
+  const dt = Math.min(.05, clock.getDelta());
+  if (sim.running && !document.hidden) update(dt);
+  tweenCam(dt);
+  controls.update();
+  if ((tipTick = (tipTick + 1) % 4) === 0) updateTip();
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.__maquete = { sim, islands, keeper, scene, camera, goView, renderer };
+};
+Promise.race([
+  Promise.all([document.fonts.load('800 80px Archivo'), document.fonts.load('600 60px "IBM Plex Mono"')]),
+  new Promise(r => setTimeout(r, 2500)),
+]).catch(() => {}).then(main);
+</script>
+</body>
+</html>
