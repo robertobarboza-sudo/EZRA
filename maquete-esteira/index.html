@@ -110,6 +110,7 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 .derived dd { margin: 0; text-align: right; font-family: var(--font-data); font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .derived .tot { font-weight: 700; color: var(--fg); }
 .warn { font-size: 12px; color: var(--warn); }
+.exp-note { margin: -8px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.35; }
 .cfg-actions { position: sticky; bottom: -14px; background: var(--solid); padding: 10px 0 2px; display: flex; gap: 6px; border-top: 1px solid var(--line); }
 .cfg-actions .btn { flex: 1; }
 
@@ -205,6 +206,10 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
       </label>
     </div>
     <div class="row">
+      <button class="btn" id="export">Exportar 3D (.glb)</button>
+    </div>
+    <p class="exp-note" id="expNote">Abre no Blender, Twinmotion e outros. Funciona com o arquivo aberto no computador; na página publicada o navegador bloqueia o download.</p>
+    <div class="row">
       <label class="check" for="dims"><input id="dims" type="checkbox"> Cotas</label>
       <label class="check" for="ghost"><input id="ghost" type="checkbox"> Scuttles translúcidas</label>
       <label class="check" for="dof"><input id="dof" type="checkbox"> Profundidade de campo</label>
@@ -233,6 +238,7 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/SSAOPass.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/BokehPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
 <script>
 const main = () => {
 'use strict';
@@ -520,10 +526,10 @@ TEX.fill = canvasTex(256, 256, (g, w, h) => {
 });
 TEX.grid = canvasTex(1000, 1000, (g, w, h) => {      // 5 m × 5 m: linha a cada 1 m, mais forte a cada 5 m
   g.clearRect(0, 0, w, h);
-  g.fillStyle = 'rgba(70,80,92,.42)';
+  g.fillStyle = 'rgba(120,130,140,.16)';
   for (let i = 1; i < 5; i++) { g.fillRect(i * 200 - 1.5, 0, 3, h); g.fillRect(0, i * 200 - 1.5, w, 3); }
-  g.fillStyle = 'rgba(40,48,58,.75)';
-  g.fillRect(0, 0, 5, h); g.fillRect(w - 5, 0, 5, h); g.fillRect(0, 0, w, 5); g.fillRect(0, h - 5, w, 5);
+  g.fillStyle = 'rgba(110,120,132,.3)';
+  g.fillRect(0, 0, 3, h); g.fillRect(w - 3, 0, 3, h); g.fillRect(0, 0, w, 3); g.fillRect(0, h - 3, w, 3);
 });
 TEX.hatch = canvasTex(128, 128, (g, w, h) => {
   g.clearRect(0, 0, w, h); g.strokeStyle = 'rgba(226,170,0,.6)'; g.lineWidth = 14;
@@ -1157,7 +1163,7 @@ function buildBuilding() {
   const slab = new THREE.Mesh(new THREE.BoxGeometry(W, .6, D), [MAT.plinth, MAT.plinth, MAT.floor, MAT.plinth, MAT.plinth, MAT.plinth]);
   slab.position.set(cx, -.3, 0); slab.receiveShadow = true; slab.castShadow = true; slab.userData.disposeGeo = true; world.add(slab);
   const tbl = new THREE.Mesh(new THREE.PlaneGeometry(900, 900).rotateX(-PI / 2), MAT.table);
-  tbl.position.y = -.6; tbl.receiveShadow = true; tbl.userData.disposeGeo = true; world.add(tbl);
+  tbl.position.y = -.6; tbl.receiveShadow = true; tbl.userData.disposeGeo = true; tbl.userData.noExport = true; world.add(tbl);
   TEX.grid.repeat.set(W / 5, D / 5);
   TEX.grid.offset.set(((x0 % 5) + 5) % 5 / 5, ((-zW % 5) + 5) % 5 / 5);
   const grid = new THREE.Mesh(new THREE.PlaneGeometry(W, D).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ map: TEX.grid, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
@@ -2237,6 +2243,32 @@ form.addEventListener('submit', e => {
   e.preventDefault();
   P = readForm(); saveParams(P);
   rebuild();
+});
+
+/* exportação da cena em glTF binário (.glb), em metros, para Blender / Twinmotion */
+$('#export').addEventListener('click', e => {
+  const btn = e.currentTarget, label = btn.textContent;
+  if (!world || !THREE.GLTFExporter) return;
+  btn.textContent = 'Gerando arquivo…'; btn.disabled = true;
+  setTimeout(() => {
+    const hidden = [];
+    world.traverse(o => {
+      const skip = o.userData.noExport || o.isSprite || o.isLine || (o.material && o.material === MAT.hit);
+      if (skip && o.visible) { o.visible = false; hidden.push(o); }
+    });
+    const done = (msg) => { hidden.forEach(o => { o.visible = true; }); btn.textContent = msg; btn.disabled = false; setTimeout(() => { btn.textContent = label; }, 2500); };
+    try {
+      new THREE.GLTFExporter().parse(world, result => {
+        try {
+          const blob = new Blob([result], { type: 'model/gltf-binary' });
+          const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'maquete-esteira.glb';
+          document.body.appendChild(a); a.click(); a.remove();
+          setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+          done(`Arquivo gerado (${(blob.size / 1048576).toFixed(1).replace('.', ',')} MB)`);
+        } catch (err) { done('Download bloqueado aqui'); }
+      }, { binary: true, onlyVisible: true, maxTextureSize: 2048 });
+    } catch (err) { done('Não foi possível exportar'); }
+  }, 30);
 });
 
 /* tooltip */
