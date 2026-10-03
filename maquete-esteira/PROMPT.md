@@ -83,3 +83,44 @@ tone mapping cinematográfico e perspectiva forte (ponto de fuga) para dar profu
 - **Vista de ponto de fuga mais alta** (câmera elevada no eixo da esteira).
 - **Colaboradores mais detalhados**: tronco e colete moldados, braços e pernas com cotovelo e joelho,
   rosto, boné ou cabelo, botas com solado, faixas e alças refletivas, cores em espaço sRGB correto.
+
+---
+
+## Revisão 3 — digital twin do CD (prompt do usuário + ajustes)
+Objetivo: maquete digital **operacional e fotorrealista** de um centro de distribuição em funcionamento,
+com fluxo **Recebimento → Indução → Triagem → Consolidação → Expedição** legível só de olhar.
+
+**Ambiente**: galpão com pé-direito de 11 m, pilares e tesouras metálicas (azul institucional/cinza),
+luminárias high-bay, faixa de iluminação natural, piso industrial de concreto polido, paredes da frente
+cortadas na altura da maquete, docas com niveladoras, para-choques e caminhões (recebimento a oeste,
+expedição nas laterais), porta-pallets (armazenagem), placas suspensas por área, faixas de corredor,
+setas de fluxo em laranja. Identidade: branco, cinza claro, cinza industrial, laranja de destaque e azul escuro.
+
+**Triagem (ajustes)**:
+- Ilha mais perto da esteira; **pescador** só pesca da esteira e coloca no **flow rack** da ilha.
+- Flow rack da ilha **preto e ~2,5× mais largo** (2,50 × 3,30 m); um **separador** pega do flow rack e coloca na
+  **scuttle** (caixa maior, 1,20 × 1,00 × 2,00 m sobre PBR), 3 de cada lado, corredor de 1,20 m.
+- **Corredor de 3,0 m entre ilhas** para a paleteira; a esteira cresce conforme as premissas.
+- **Laterais**: 3 **paleteiros por lado** retiram a scuttle cheia (chamada a 85%), levam para a
+  **consolidação** e trazem uma vazia do estoque; **carregadores** levam as cheias para os caminhões.
+- **Goleiro**: flow rack na direção da esteira, mesma largura e **1,80 m**; **2 goleiros** (1 de cada lado) e
+  **4 gaiolas** sem porta. Só **10%** do induzido vai para o goleiro.
+- **Indução**: **8 operadores, 4 de cada lado** (sem posição na ponta), cada um com gaiola de abastecimento.
+- **Setup de gaiolas**: 3 por lado; trazem a gaiola cheia antes, trocam quando a da indução esvazia e
+  trocam as gaiolas cheias do goleiro (que vão para o reprocesso).
+- **Volume**: 3.000 pct/h nominais com 15% de ineficiência (≈ 2.550 pct/h efetivos).
+
+**Pessoas**: corpo esculpido com esqueleto (uma malha por pessoa), uniforme azul-marinho, colete
+refletivo por função, variação de altura, porte, tom de pele, cabelo, boné e barba, animações de
+pegar, girar, arremessar, caminhar, empurrar gaiola e puxar paleteira.
+
+**Render**: tone mapping ACES, iluminação de ambiente (reflexos), sombras suaves, oclusão de
+ambiente (SSAO), antisserrilhado (FXAA), profundidade de campo opcional; qualidade Cinema/Alto/Leve.
+
+**Câmeras**: aérea isométrica (~40°), eixo da esteira (ponto de fuga), planta, e vistas em nível
+humano (ilha, indução, goleiro, recebimento, expedição) + seguir paleteira.
+
+**Premissas editáveis** (aba "Premissas"): volume, ineficiência, % goleiro, velocidade, medidas de
+esteira, ilhas, flow racks, corredores, unitizadores e capacidades, pessoas por atividade e ritmo;
+a maquete é remontada ao aplicar e mostra o resultado (comprimento, galpão, vazão, espaçamento e
+quadro de pessoas).
