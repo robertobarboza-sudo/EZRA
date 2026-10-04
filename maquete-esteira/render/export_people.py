@@ -47,6 +47,36 @@ def flat_material(mat, color=None, rough=None, metal=0.0):
     p.inputs['Metallic'].default_value = metal
     nt.links.new(p.outputs[0], out.inputs['Surface'])
 
+def baked_mat(name, img, rough, sheen=0.0, sheen_tint=(1, 1, 1), sheen_rough=.6, spec=.5):
+    """Principled com a cor assada do Cycles (textura) e brilho de tecido/pele (sheen, exportado como KHR_materials_sheen)."""
+    m = bpy.data.materials.new(name); m.use_nodes = True; nt = m.node_tree
+    for n in list(nt.nodes):
+        if n.type != 'OUTPUT_MATERIAL':
+            nt.nodes.remove(n)
+    out = next(n for n in nt.nodes if n.type == 'OUTPUT_MATERIAL')
+    p = nt.nodes.new('ShaderNodeBsdfPrincipled'); t = nt.nodes.new('ShaderNodeTexImage'); t.image = img
+    nt.links.new(t.outputs['Color'], p.inputs['Base Color'])
+    p.inputs['Roughness'].default_value = rough
+    p.inputs['Sheen Weight'].default_value = sheen; p.inputs['Sheen Tint'].default_value = (*sheen_tint, 1); p.inputs['Sheen Roughness'].default_value = sheen_rough
+    if 'Specular IOR Level' in p.inputs: p.inputs['Specular IOR Level'].default_value = spec
+    nt.links.new(p.outputs[0], out.inputs['Surface'])
+    return m
+
+def bake_color(o, res):
+    """UV automática + cor base assada do material do Cycles (variação de tom, sobrancelhas, lábios, tecido)."""
+    bpy.ops.object.select_all(action='DESELECT'); o.select_set(True); bpy.context.view_layer.objects.active = o
+    bpy.ops.object.mode_set(mode='EDIT'); bpy.ops.mesh.select_all(action='SELECT')
+    bpy.ops.uv.smart_project(angle_limit=math.radians(66), island_margin=.006)
+    bpy.ops.object.mode_set(mode='OBJECT')
+    img = bpy.data.images.new(f'{o.name}_cor', res, res)
+    tmp = []
+    for m in o.data.materials:
+        n = m.node_tree.nodes.new('ShaderNodeTexImage'); n.image = img; m.node_tree.nodes.active = n; tmp.append((m, n))
+    bpy.ops.object.bake(type='DIFFUSE', pass_filter={'COLOR'}, use_clear=True, margin=8)
+    for m, n in tmp: m.node_tree.nodes.remove(n)   # o material original (ex.: coque) não fica com a imagem do bake
+    img.pack()
+    return img
+
 def simple_mat(name, color, rough, metal=0.0):
     m = bpy.data.materials.new(name); m.use_nodes = True; flat_material(m, color, rough, metal); return m
 
@@ -75,8 +105,6 @@ for i, (roles, g, race, vest, hair, cap) in enumerate(VARIANTS):
             for p in me.polygons:
                 y = p.center.y
                 p.material_index = 2 if y < -.93 else 1 if y < -.72 else 0
-        for a in list(me.color_attributes):
-            me.color_attributes.remove(a)
         if o.name.startswith(('bota', 'colete')):   # bota sem dedos marcados; colete com recorte limpo
             bm = bmesh.new(); bm.from_mesh(me)
             boot = o.name.startswith('bota')
@@ -90,13 +118,34 @@ for i, (roles, g, race, vest, hair, cap) in enumerate(VARIANTS):
                     for v in vs:
                         v.co.x = cx + (v.co.x - cx) * 1.12; v.co.y = cy + (v.co.y - cy) * 1.04
             bm.normal_update(); bm.to_mesh(me); bm.free()
-        if o.name.startswith('corpo'):         # malha mais leve para tempo real
-            bpy.context.view_layer.objects.active = o
-            d = o.modifiers.new('leve', 'DECIMATE'); d.ratio = .5
-            bpy.ops.object.modifier_move_to_index(modifier='leve', index=0)
-            bpy.ops.object.modifier_apply(modifier='leve')
+    # pé do corpo fica dentro da bota: remove as faces de bota do corpo (os dedos não atravessam a casca)
+    for o in objs:
+        if o.name.startswith('corpo') and any(o2.name.startswith('bota') for o2 in objs):
+            bi = next((k for k, m in enumerate(o.data.materials) if m.name.startswith('bota')), None)
+            if bi is not None:
+                bm = bmesh.new(); bm.from_mesh(o.data)
+                bmesh.ops.delete(bm, geom=[f for f in bm.faces if f.material_index == bi], context='FACES')
+                bm.to_mesh(o.data); bm.free()
+    # cor do Cycles assada em textura: corpo (pele, camisa, calça, bota, luva) e cabelo; malha completa (sem decimar)
+    bpy.context.scene.render.engine = 'CYCLES'; bpy.context.scene.cycles.samples = 1; bpy.context.scene.cycles.device = 'CPU'
+    for o in objs:
+        if o.name.startswith('corpo'):
+            img = bake_color(o, 1024)
+            new = []
+            for nm in [m.name for m in o.data.materials]:
+                if nm.startswith('pele'): new.append(baked_mat(nm, img, .52, .35, (.95, .55, .42), .45, .45))       # pele: brilho suave avermelhado (simula subsuperfície)
+                elif nm.startswith('bota'): new.append(baked_mat(nm, img, .45, 0, spec=.5))
+                elif nm.startswith('luva'): new.append(baked_mat(nm, img, .7, .4, (.8, .8, .8), .5))
+                else: new.append(baked_mat(nm, img, .85, .7, (.75, .8, .9), .4))                                   # tecido: sheen
+            for k, m in enumerate(new): o.data.materials[k] = m
+        elif o.name.startswith('cabelo'):
+            img = bake_color(o, 512)
+            o.data.materials[0] = baked_mat(o.data.materials[0].name, img, .55, .5, (.6, .5, .4), .35)
+    for o in objs:
+        for a in list(o.data.color_attributes):
+            o.data.color_attributes.remove(a)
     for m in bpy.data.materials:
-        if m.use_nodes and m.name not in ('refletivo', 'iris', 'pupila', 'esclera') and not m.name.startswith(('esclera', 'iris', 'pupila', 'refletivo')):
+        if m.use_nodes and not any(n.type == 'TEX_IMAGE' and n.image for n in m.node_tree.nodes) and m.name not in ('refletivo', 'iris', 'pupila', 'esclera') and not m.name.startswith(('esclera', 'iris', 'pupila', 'refletivo')):
             flat_material(m)
     bpy.ops.object.select_all(action='DESELECT')
     for o in [rig] + list(rig.children_recursive):
@@ -104,7 +153,8 @@ for i, (roles, g, race, vest, hair, cap) in enumerate(VARIANTS):
     fn = f'pessoa_{i:02d}.glb'
     bpy.ops.export_scene.gltf(filepath=os.path.join(OUT, fn), export_format='GLB', use_selection=True,
                               export_skins=True, export_animations=False, export_apply=False, export_yup=True,
-                              export_texcoords=False, export_normals=True, export_vertex_color='NONE')
+                              export_texcoords=True, export_normals=True, export_vertex_color='NONE',
+                              export_image_format='JPEG', export_jpeg_quality=86)
     index.append({'arquivo': fn, 'papeis': roles, 'feminino': g == 0})
     print('exportado', fn, os.path.getsize(os.path.join(OUT, fn)) // 1024, 'KB', flush=True)
 json.dump(index, open(os.path.join(OUT, 'pessoas.json'), 'w'), ensure_ascii=False, indent=1)

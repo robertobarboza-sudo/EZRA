@@ -99,6 +99,23 @@ raw.githubusercontent) e a decisão.
 2. Texturas PBR da Poly Haven no piso, no papelão e no aço.
 3. IK de mãos com `CCDIKSolver`.
 
+## 5. Rodada 3: personagens no "modelo ideal" e mapa
+
+O que separava as fotos do Cycles da maquete ao vivo:
+- os materiais do Cycles eram achatados em cor lisa na exportação, o que perdia a variação de tom da pele, as sobrancelhas, os lábios e o brilho do tecido;
+- o corpo era decimado em 50%.
+
+**Feito:**
+- **Cor assada do Cycles (`bpy`):** a cor base dos materiais do Cycles agora é assada em textura no Blender, com UV automática.
+  Entram pele com variação, sobrancelhas, lábios, tom do tecido e cabelo. A malha vai completa.
+- **Brilho de tecido e pele:** o Principled exporta `KHR_materials_sheen` e o three.js lê como `MeshPhysicalMaterial`.
+  O tecido tem halo suave na cor do pano; a pele, luz quente nas bordas (aproximação da subsuperfície).
+- **Detalhe fino gerado no navegador:** mapas de normais para a trama do tecido e a textura da pele, repetidos sobre a UV.
+- **Compressão:** `@gltf-transform/cli` + meshopt, 8,7 MB para as 12 pessoas.
+- **Piso:** concreto cinza claro, com manchas suavizadas.
+
+**Ainda depende de acesso:** peles fotográficas, cabelo por cartões e roupas do MPFB2 (pacotes de ativos bloqueados neste ambiente).
+
 ## Créditos
 
 - Captura de movimento: CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu), criada com

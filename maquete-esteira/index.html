@@ -184,10 +184,13 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
         <button class="btn" data-view="lateral">Buffer de saída</button>
         <button class="btn" data-view="gaiolas">Buffer de gaiolas</button>
         <button class="btn" data-view="recebimento">Recebimento</button>
-        <button class="btn" data-view="stretch">Stretch</button>
+        <button class="btn" data-view="stretch">Montagem / stretch</button>
         <button class="btn" data-view="caminho">Caminho seguro</button>
+        <button class="btn" data-view="avarias">Avarias</button>
         <button class="btn" data-view="paleteira">Seguir paleteira</button>
       </div>
+      <div class="sec-title" style="margin-top:8px"><span>Esteira da vista</span><span class="m">eixo, ilha, indução, goleiro, buffers</span></div>
+      <div class="seg" id="lineSel"></div>
     </div>
     <div>
       <div class="sec-title"><span>Simulação</span></div>
@@ -296,7 +299,8 @@ const DEFAULTS = {
   capacidade: 3000, ineficiencia: 15, goleiroPct: 10, velEsteira: 0.9,
   inducaoComp: 8, larguraEsteira: 1.65, alturaEsteira: 0.82, ilhasPorLado: 3,
   linhas: 3, corredorLinhas: 2.5, caminhoSeguro: 1.4,
-  recebimento: 4, abastGaiolas: 4, abastScuttles: 8, carregadoresSaida: 6, robosStretch: 6, tempoStretch: 60, conferentes: 3, lideres: 2,
+  recebimento: 4, abastGaiolas: 4, abastScuttles: 12, carregadoresSaida: 6, robosStretch: 1, tempoStretch: 30, conferentes: 0, lideres: 2,
+  stretchManual: 2, operadorRobo: 1, tempoMontagem: 20, tempoStretchManual: 80, avariaPct: 5, tratativa: 2, tempoAvaria: 25,
   folgaIlha: 0.1, distEsteiraFlow: 0.9,
   flowLarg: 2.5, flowComp: 3.3, flowAlt: 0.85, flowCap: 8,
   corredorFlow: 1.2, corredorPaleteira: 3.0, scuttlesPorFila: 3,
@@ -365,19 +369,26 @@ const SCHEMA = [
     ['abastGaiolas', 'Abastecimento de gaiolas nas linhas', 'pessoas', 0, 12, 1],
     ['abastScuttles', 'Abastecimento de scuttles vazias (paleteira)', 'pessoas', 0, 16, 1],
     ['carregadoresSaida', 'Saída: scuttle cheia → stretch → doca', 'pessoas', 0, 16, 1],
-    ['conferentes', 'Conferência', 'pessoas', 0, 6, 1],
+    ['stretchManual', 'Montagem e stretch manual de scuttles', 'pessoas', 0, 4, 1],
+    ['operadorRobo', 'Operador do robô de stretch (monta a caixa)', 'pessoas', 0, 2, 1],
+    ['tratativa', 'Tratativa de avarias', 'pessoas', 0, 6, 1],
     ['lideres', 'Liderança', 'pessoas', 0, 4, 1],
   ] },
-  { group: 'Stretch (robô)', fields: [
-    ['robosStretch', 'Robôs de stretch', 'un', 1, 10, 1],
-    ['tempoStretch', 'Tempo de stretch por scuttle', 's', 20, 300, 5],
+  { group: 'Montagem de scuttles (stretch)', fields: [
+    ['tempoStretch', 'Robô: tempo de stretch por scuttle', 's', 10, 300, 5],
+    ['tempoMontagem', 'Montagem da caixa no pallet', 's', 5, 120, 5],
+    ['tempoStretchManual', 'Stretch manual por scuttle', 's', 20, 300, 5],
+  ] },
+  { group: 'Avarias', fields: [
+    ['avariaPct', 'Avarias no volume do goleiro', '%', 0, 60, 1],
+    ['tempoAvaria', 'Tratativa por volume avariado', 's', 5, 180, 5],
   ] },
   { group: 'Ritmo das pessoas', fields: [
     ['velPessoa', 'Velocidade de caminhada', 'm/s', .6, 2, .05],
     ['velPaleteira', 'Velocidade com paleteira/gaiola', 'm/s', .5, 2, .05],
   ] },
 ];
-const STORE_KEY = 'maquete-esteira-premissas-v10';
+const STORE_KEY = 'maquete-esteira-premissas-v11';
 function loadParams() {
   try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (s && typeof s === 'object') return sanitize({ ...DEFAULTS, ...s }); } catch (e) {}
   return { ...DEFAULTS };
@@ -514,7 +525,7 @@ function blotches(g, w, h, n, dark, light, rr = [60, 220]) {
 const TEX = {};
 TEX.concrete = canvasTex(1024, 1024, (g, w, h) => {
   g.fillStyle = '#c9cbca'; g.fillRect(0, 0, w, h);
-  blotches(g, w, h, 90, 'rgba(140,140,136,.12)', 'rgba(250,250,247,.14)');
+  blotches(g, w, h, 90, 'rgba(140,140,136,.05)', 'rgba(250,250,247,.06)');
   speckle(g, w, h, 30000, ['#9a9b97', '#eeeeea', '#b4b5b1'], 1.5, .3);
   for (let i = 0; i < 14; i++) {      // marcas de rodas e uso
     g.strokeStyle = `rgba(90,90,88,${rand(.03, .07)})`; g.lineWidth = rand(6, 18);
@@ -665,7 +676,7 @@ const MAT = {
   hatch:     std({ color: 0xffffff, map: TEX.hatch, transparent: true, depthWrite: false, roughness: .7, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }),
   estop:     std({ color: 0xf2c200, roughness: .5 }),
   red:       std({ color: 0xc8231c, roughness: .4 }),
-  floor:     std({ color: 0xffffff, map: TEX.concrete, roughnessMap: TEX.concreteR, roughness: .75, metalness: .0, envMapIntensity: .55 }),
+  floor:     std({ color: 0xc9cdd0, map: TEX.concrete, roughnessMap: TEX.concreteR, roughness: .75, metalness: .0, envMapIntensity: .55 }),
   plinth:    std({ color: 0xeceeee, roughness: .9 }),
   table:     std({ color: 0xc9cdce, roughness: 1, envMapIntensity: .2 }),
   wallP:     std({ color: 0xffffff, map: TEX.wall, roughness: .7, metalness: .1 }),
@@ -989,6 +1000,9 @@ const ROLE = {
   saida: { vest: 0xc9d64a, label: 'Saída (stretch e doca)', cap: [0x1f3a5f], mh: 'carregador' },
   conferente: { vest: 0x2e9a5c, label: 'Conferência', cap: [null], mh: 'goleiro' },
   lider: { vest: 0x2e9a5c, label: 'Liderança', cap: [null], mh: 'goleiro' },
+  stretchManual: { vest: 0xf2c230, label: 'Montagem e stretch manual de scuttles', cap: [null, 0x1f3a5f], mh: 'setup' },
+  operadorRobo: { vest: 0xf2c230, label: 'Operador do robô de stretch', cap: [0x1f3a5f], mh: 'setup' },
+  tratativa: { vest: 0xf07a1f, label: 'Tratativa de avarias', cap: [null], mh: 'separador' },
 };
 const BONES = [ // nome, pai, posição relativa ao pai (altura de referência 1,75 m)
   ['root', -1, [0, 0, 0]], ['pelvis', 0, [0, .93, 0]], ['chest', 1, [0, .11, 0]], ['head', 2, [0, .48, 0]],
@@ -1222,6 +1236,34 @@ async function loadPeople(base = 'pessoas/') {
   }
   return true;
 }
+const DETAIL = {};
+function detailTex(kind) {   // mapa de normais gerado no navegador a partir de um relevo (trama de tecido ou poros)
+  if (DETAIL[kind]) return DETAIL[kind];
+  const N = 256, h = new Float32Array(N * N);
+  if (kind === 'trama') {
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      const u = x / 8, v = y / 8, over = (Math.floor(u) + Math.floor(v)) % 2;
+      const a = Math.sin(PI * (u % 1)), b = Math.sin(PI * (v % 1));
+      h[y * N + x] = over ? a * .8 + b * .2 : b * .8 + a * .2;
+    }
+  } else {
+    for (let i = 0; i < N * N; i++) h[i] = Math.random();
+    for (let pass = 0; pass < 2; pass++) for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+      let s = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) s += h[((y + dy + N) % N) * N + ((x + dx + N) % N)];
+      h[y * N + x] = s / 9;
+    }
+  }
+  const c = document.createElement('canvas'); c.width = c.height = N; const g = c.getContext('2d'), img = g.createImageData(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const dx = h[y * N + (x + 1) % N] - h[y * N + (x - 1 + N) % N], dy = h[((y + 1) % N) * N + x] - h[((y - 1 + N) % N) * N + x];
+    const n = V3(-dx * 2, -dy * 2, 1).normalize(), i = (y * N + x) * 4;
+    img.data[i] = (n.x * .5 + .5) * 255; img.data[i + 1] = (n.y * .5 + .5) * 255; img.data[i + 2] = (n.z * .5 + .5) * 255; img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  const t = new THREE.CanvasTexture(c); t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.NoColorSpace;
+  t.repeat.set(kind === 'trama' ? 70 : 40, kind === 'trama' ? 70 : 40); t.anisotropy = MAX_ANISO;
+  return (DETAIL[kind] = t);
+}
 function mhPrepare(sceneRoot) {
   sceneRoot.updateMatrixWorld(true);
   let skinned = null;
@@ -1234,8 +1276,17 @@ function mhPrepare(sceneRoot) {
         if (m.name === 'refletivo') { m.emissive = C(0x30353a); return; }
         if (/esclera|iris|pupila/.test(m.name)) return;
         // tecido, cabelo, pele e couro: superfícies foscas (sem brilho de plástico)
-        m.roughness = Math.max(m.roughness ?? .7, /pele/.test(m.name) ? .55 : /bota|cinto|luva/.test(m.name) ? .5 : .8);
+        m.roughness = Math.max(m.roughness ?? .7, /pele/.test(m.name) ? .5 : /bota|cinto|luva/.test(m.name) ? .45 : .8);
         m.metalness = 0;
+        // detalhe fino sobre a cor assada do Cycles: trama do tecido e textura da pele
+        if (m.map && /camisa|calca|luva/.test(m.name)) {
+          m.normalMap = detailTex('trama'); m.normalScale = new THREE.Vector2(.45, .45);
+          if (m.isMeshPhysicalMaterial) { m.sheen = 1; m.sheenColor = C(0x1d2533); m.sheenRoughness = .85; }   // halo suave de tecido, na cor do pano
+        } else if (m.map && /pele/.test(m.name)) {
+          m.normalMap = detailTex('pele'); m.normalScale = new THREE.Vector2(.18, .18);
+          if (m.isMeshPhysicalMaterial) { m.sheen = 1; m.sheenColor = C(0x3a1d14); m.sheenRoughness = .55; }    // luz quente nas bordas (pele)
+        } else if (/cabelo/.test(m.name) && m.isMeshPhysicalMaterial) { m.sheen = 1; m.sheenColor = C(0x241a12); m.sheenRoughness = .4; }
+        m.needsUpdate = true;
       });
       if (o.isSkinnedMesh && !skinned) skinned = o;
     }
@@ -1690,7 +1741,15 @@ function buildLine(li) {
     w.restYaw = s > 0 ? PI : 0; w.setYaw(w.restYaw); w.side = s; w.where = `Goleiro · ${S.short}`; world.add(w.root);
     S.goleiros.push(w); S.workers.push(w);
   }
-  floorText(world, [{ t: 'GOLEIRO', size: 96 }, { t: `${P.gaiolasGoleiro} gaiolas · flow rack ${fmtM(L.golL, 1)} m`, size: 40, weight: 600, font: MONO }], L.golX + 2.6, 0, 3.8, 1.45, PI / 2, { w: 512, h: 196, color: '#1f6b41' });
+  floorText(world, [{ t: 'GOLEIRO', size: 96 }, { t: `${P.gaiolasGoleiro} gaiolas · flow rack ${fmtM(L.golL, 1)} m`, size: 40, weight: 600, font: MONO }], L.golX + 3.9, 0, 3.8, 1.45, PI / 2, { w: 512, h: 196, color: '#1f6b41' });
+
+  /* gaiola de avarias no fim da linha: o goleiro separa os volumes avariados (a tratativa busca) */
+  {
+    const pos = V3(L.golX + L.golL / 2 + .85, 0, 0);
+    S.avSlot = { pos, psi: PI / 2, cage: newCage(Math.floor(rand(0, P.gaiolaCap * .35)), `Avarias · ${S.short}`), res: false, lock: 0, name: `Avarias · ${S.short}` };
+    place(S.avSlot.cage, world, pos, PI / 2);
+    zoneBox(pos.x - .65, -.75, pos.x + .65, .75, 'red', .06);
+  }
 
   /* buffers de gaiolas antes da indução: cheias de um lado (sul), vazias do outro (norte) */
   for (let i = 0; i < 6; i++) {
@@ -2003,6 +2062,31 @@ function startKeep(w, p, slot) {
   ], P.phdGoleiro));
 }
 
+/* goleiro: volume avariado vai para a gaiola de avarias, logo depois do flow rack */
+function startKeepAv(w, p, slot) {
+  const c = slot.cage, s = w.side || 1; p.state = 'held';
+  S.goalQ.splice(S.goalQ.indexOf(p), 1);
+  slot.lock = (slot.lock || 0) + 1;
+  const p0 = p.mesh.position.clone(), home = w.home, spot = V3(L.golX + L.golL / 2 + .1, 0, s * .55);
+  const hold = () => { holdPos(w, tmp); p.mesh.position.copy(tmp); };
+  let yP, from, entry, inner;
+  w.state = `separando avaria · ${slot.name}`;
+  w.task = sequence(fitCycle(w, [
+    { d: .45, start() { yP = w.yawTo(p0); }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(w.restYaw, yP, e)); w.pose(e, e * 1.1); holdPos(w, tmp); p.mesh.position.lerpVectors(p0, tmp, e); } },
+    ...walkSteps(w, [home, V3(spot.x, 0, home.z), spot], { mode: 'carry', carry: hold }),
+    turnStep(w, () => w.yawTo(lw(c.grp, V3(0, 1, 0))), 'carry', hold),
+    { d: .4, start() {
+        from = p.mesh.position.clone(); entry = lw(c.grp, V3(0, Math.min(1.2, P.gaiolaAlt * .7), -.2));
+        inner = lw(c.grp, V3(rand(-.3, .3), .35 + (P.gaiolaAlt - .5) * c.fill / c.cap, rand(-.1, .2)));
+      },
+      fn(k) { w.pose(.55 + .45 * Math.sin(PI * Math.min(1, k * 1.4)), .3); p.mesh.position.copy(k < .65 ? arc(from, entry, k / .65, .2) : entry.clone().lerp(inner, (k - .65) / .35)); },
+      end() { freePkg(p); c.fill++; setCageFill(c); S.kept++; S.avarias = (S.avarias || 0) + 1; slot.lock--; } },
+    ...walkSteps(w, [spot, V3(spot.x, 0, home.z), home]),
+    turnStep(w, () => w.restYaw),
+    { d: 0, end() { w.state = 'livre'; } },
+  ], P.phdGoleiro));
+}
+
 /* ------------------------------------------------------------------ */
 /* Indução: pega da gaiola de abastecimento e coloca na esteira          */
 /* ------------------------------------------------------------------ */
@@ -2125,7 +2209,7 @@ function startCageJob(w, job) {
       { until: () => slot.cage && slot.cage.fill <= 0 && !slot.worker.task },
       { d: 0, end() { w.state = `tirando gaiola vazia da ${slot.name}`; } },
       ...grabCageSteps(w, () => slot, R),
-      { d: 0, end() { dump = freeOrOldest(S.cageEmpty); w.state = 'levando gaiola vazia ao buffer'; } },
+      { until: () => !!(dump = dump || freeOrOldest(S.cageEmpty)), end() { w.state = 'levando gaiola vazia ao buffer'; } },
       ...deliverCageSteps(w, () => dump, R, (sl, c) => { sl.res = false; sl.t = S.t; c.name = 'Gaiola vazia'; c.fill = 0; setCageFill(c); }),
       { d: 0, end() { w.state = `colocando gaiola cheia na ${slot.name}`; } },
       ...grabCageSteps(w, () => F, R),
@@ -2156,7 +2240,7 @@ function startCageJob(w, job) {
     ...grabCageSteps(w, () => B, null),
     ...deliverCageSteps(w, () => slot, null, (sl, c) => { c.name = sl.name; c.fill = 0; setCageFill(c); sl.req = false; S.cageSwaps++; }),
     ...grabCageSteps(w, () => Pk, null),
-    { d: 0, end() { dump = freeOrOldest(S.cageFull); w.state = 'levando gaiola cheia ao buffer da indução'; } },
+    { until: () => !!(dump = dump || freeOrOldest(S.cageFull)), end() { w.state = 'levando gaiola cheia ao buffer da indução'; } },
     ...deliverCageSteps(w, () => dump, R, (sl, c) => { sl.res = false; sl.t = S.t; sl.regen = 0; c.name = 'Gaiola cheia (goleiro)'; }),
     { gen: () => [...walkSteps(w, R(w.root.position, w.home)), turnStep(w, () => w.restYaw)] },
     { d: 0, end() { w.state = 'livre'; } },
@@ -2309,7 +2393,7 @@ function updateLine(dt) {
       if (taken) continue;
       if (p.x > Math.max(...isl.pickers.map(w => w.wx)) + .8) { p.dest = -1; p.missed = true; }
     }
-    if (p.x >= L.X1 - .25) { p.state = 'goal'; S.goalQ.push(p); }
+    if (p.x >= L.X1 - .25) { p.state = 'goal'; p.av = Math.random() * 100 < P.avariaPct; S.goalQ.push(p); }
     p.mesh.position.set(p.x, L.bt + p.h / 2, p.z);
   }
   // flow rack do goleiro
@@ -2344,6 +2428,8 @@ function updateLine(dt) {
     if (w.task) continue;
     const p = S.goalQ.find((q, i) => q.state === 'goal' && q.x >= goalSlotX(i) - .05);
     if (!p) continue;
+    const av = S.avSlot;
+    if (p.av && av && av.cage && !av.res && av.cage.fill + (av.lock || 0) < av.cage.cap) { startKeepAv(w, p, av); continue; }
     const slots = (S.goleiros.length === 2 ? S.gSlots[w.side] : [...S.gSlots[1], ...S.gSlots[-1]]).filter(sl => sl.cage && sl.cage.fill < sl.cage.cap);
     if (!slots.length) { w.state = 'aguardando gaiola'; continue; }
     slots.sort((a, b) => a.cage.fill - b.cage.fill);
@@ -2378,22 +2464,25 @@ function afterBuild() {
 /* ------------------------------------------------------------------ */
 /* Planta: zonas, buffers da planta e equipes que ligam as linhas       */
 /* ------------------------------------------------------------------ */
-// Fluxo: docas de entrada → recebimento → buffer de gaiolas cheias → abastecimento das linhas;
-// gaiolas vazias das linhas → buffer de gaiolas vazias → devolução pelas docas de entrada;
-// scuttle cheia (buffer de saída de cada linha) → robô de stretch → doca de saída;
-// área de pallets de scuttles (sudeste) → buffers laterais de scuttles vazias das linhas.
+// Posições conforme a planta RJ2:
+// - oeste: entrada (docas), buffer de scuttles e gaiolas, buffer de gaiolas (vazias), banheiros ao norte;
+// - sudoeste: stretch com robô (1) e montagem/stretch manual de scuttles (2 pessoas);
+// - centro: abastecimento e as 3 esteiras; leste: saída/descarga de scuttles e gaiolas (docas);
+// - sul: circulação de pedestres com barreira, mesa da liderança, tratativa de avarias e passagem de scuttles.
+// Fluxos: scuttle vazia é montada (caixa no pallet + filme stretch) → buffer de scuttles → buffers laterais
+// das linhas; scuttle cheia → buffer de saída da linha → saída/descarga → doca; avarias do goleiro → tratativa.
 function newPlantState() {
   return {
     t: 0, induced: 0, picked: 0, sep: 0, kept: 0, swaps: 0, cageSwaps: 0, shipped: 0,
-    received: 0, returned: 0, wrapped: 0, scSupplied: 0, cgSupplied: 0,
-    live: [], pool: [], workers: [], rec: [], cgW: [], scU: [], outU: [],
-    doorsIn: [], doorsOut: [], pFull: [], pEmpty: [], stock: [], st: [],
+    received: 0, returned: 0, assembled: 0, scSupplied: 0, cgSupplied: 0, avFetched: 0, avTreated: 0,
+    live: [], pool: [], workers: [], rec: [], cgW: [], scU: [], outU: [], smW: [], avW: [], roW: [],
+    doorsIn: [], doorsOut: [], pFull: [], pEmpty: [], stock: [], st: [], outS: [], avArea: [], robotSt: null,
   };
 }
 function makeAgg() {
   const A = { hist: [] };
   Object.defineProperty(A, 't', { get: () => PLANT.t });
-  for (const k of ['induced', 'picked', 'sep', 'kept', 'swaps', 'cageSwaps']) Object.defineProperty(A, k, { get: () => LINES.reduce((a, l) => a + l.S[k], 0) });
+  for (const k of ['induced', 'picked', 'sep', 'kept', 'swaps', 'cageSwaps', 'avarias']) Object.defineProperty(A, k, { get: () => LINES.reduce((a, l) => a + (l.S[k] || 0), 0) });
   Object.defineProperty(A, 'shipped', { get: () => LINES.reduce((a, l) => a + l.S.shipped, 0) + PLANT.shipped });
   Object.defineProperty(A, 'islands', { get: () => LINES.flatMap(l => l.S.islands) });
   Object.defineProperty(A, 'workers', { get: () => [...LINES.flatMap(l => l.S.workers), ...PLANT.workers] });
@@ -2402,8 +2491,11 @@ function makeAgg() {
   return A;
 }
 const toRoot = (ln, v) => V3(v.x, 0, v.z + ln.z);
+function addFilm(sc, k = .01) {   // filme stretch em volta da scuttle (cresce de baixo para cima)
+  const f = new THREE.Mesh(ASSET.film, MAT.film); f.position.y = PAL_H; f.scale.y = Math.max(.01, (P.scuttleAlt - .05) * k);
+  sc.grp.add(f); sc.film = f; return f;
+}
 
-/* ---------- montagem ---------- */
 function zoneBox(x0, z0, x1, z1, key, t = .08) {
   put(key, plane(x1 - x0, t), (x0 + x1) / 2, .006, z0); put(key, plane(x1 - x0, t), (x0 + x1) / 2, .006, z1);
   put(key, plane(t, z1 - z0), x0, .006, (z0 + z1) / 2); put(key, plane(t, z1 - z0), x1, .006, (z0 + z1) / 2);
@@ -2444,13 +2536,14 @@ function buildPlant() {
   ASSET.robotArm = new THREE.BoxGeometry(.14, .04, .04);
   ASSET.robotLed = new THREE.SphereGeometry(.035, 10, 8);
   ASSET.film = new THREE.BoxGeometry(1.06, 1, 1.26).translate(0, .5, 0);
+  const zMidW = (L.zN + L.zS) / 2;
 
-  /* paredes e docas */
+  /* paredes e docas: entrada a oeste; saída/descarga a leste (entre os pallets de saída); passagem de scuttles no sudeste */
   const doorW = 3.0;
   const zIn = []; for (let z = Math.ceil((L.zN + 4) / 7) * 7; z < L.zS - 3; z += 7) zIn.push(z);
-  const nSt = P.robosStretch, zSt = Array.from({ length: nSt }, (_, i) => (i - (nSt - 1) / 2) * 5.2);
-  const zOut = nSt > 1 ? zSt.slice(1).map((z, i) => (z + zSt[i]) / 2) : [zSt[0] + 2.6];
-  const zPass = L.zRoom0 + 1.2;   // passagem de scuttles (sudeste)
+  const nOut = 8, zO = Array.from({ length: nOut }, (_, i) => (i - (nOut - 1) / 2) * 4.2);
+  const zOut = zO.slice(1).map((z, i) => (z + zO[i]) / 2);
+  const zPass = (L.zS + L.bz1) / 2 + 1;
   wallRun('z', L.bx0, L.bz0, L.bz1, zIn.map(z => [z - doorW / 2, z + doorW / 2]));
   wallRun('z', L.bx1, L.bz0, L.bz1, [...zOut, zPass].map(z => [z - doorW / 2, z + doorW / 2]));
   wallRun('x', L.bz0, L.bx0, L.bx1, []);
@@ -2467,71 +2560,96 @@ function buildPlant() {
     floorText(world, [{ t: nome, size: 64 }], (x0 + x1) / 2, (bN0 + bN1) / 2 + 1.2, 4.6, .6, 0, { w: 640, h: 96, color: '#4b5869' });
   }
 
-  /* entrada (docas a oeste) */
+  /* entrada (docas a oeste) e rotas seguras de pedestres nos cantos */
   zoneBox(L.bx0 + .4, L.zN + 1, L.xR + 1.2, L.zS - 1, 'green');
-  floorText(world, [{ t: 'ENTRADA', size: 90 }, { t: 'scuttles e gaiolas', size: 40, weight: 600, font: MONO }], L.bx0 + 2.4, (L.zN + L.zS) / 2 + 9, 4.0, 1.4, -PI / 2, { w: 512, h: 180, color: '#1f6b41' });
+  floorText(world, [{ t: 'ENTRADA', size: 90 }, { t: 'scuttles e gaiolas', size: 40, weight: 600, font: MONO }], L.bx0 + 2.4, zMidW, 4.0, 1.4, -PI / 2, { w: 512, h: 180, color: '#1f6b41' });
   for (const z of zIn) {
-    const d = { pos: V3(L.bx0 + 1.3, 0, z), psi: PI / 2, cage: null, res: false, kill: 0 };
-    P0.doorsIn.push(d);
-    arrow(L.bx0 + 1.0, z + 1.9, PI / 2, 1.6); arrow(L.bx0 + 2.6, z - 1.9, -PI / 2, 1.6);
+    P0.doorsIn.push({ pos: V3(L.bx0 + 1.3, 0, z), psi: PI / 2, cage: null, res: false, kill: 0 });
+    arrow(L.bx0 + 1.0, z + 1.9, 0, 1.6); arrow(L.bx0 + 2.6, z - 1.9, PI, 1.6);
+  }
+  for (const zr of [L.bz0 + 3.2, L.bz1 - 3.2]) {
+    zoneBox(L.bx0 + .5, zr - 2.2, L.bx0 + 4.2, zr + 2.2, 'green', .1);
+    floorText(world, [{ t: 'ROTA SEGURA', size: 70 }, { t: 'pedestres', size: 40, weight: 600, font: MONO }], L.bx0 + 2.35, zr, 3.2, 1.1, -PI / 2, { w: 600, h: 180, color: '#1f6b41' });
   }
 
-  /* buffers de gaiolas da planta: cheias (norte) e vazias (sul), em fileiras de frente para corredores */
-  const laneRows = (zl, list, name, fillFn) => {
-    for (const [dz, psi] of [[-1.6, 0], [1.6, PI]]) for (let i = 0; i < 8; i++) {
-      const pos = V3(L.pbx0 + .7 + i * 1.45, 0, zl + dz), slot = { pos, psi, cage: null, res: false, t: -rand(0, 60) };
-      const f = fillFn(); if (f !== null) { slot.cage = newCage(f, name); place(slot.cage, world, pos, psi); }
-      list.push(slot);
-      put('white', plane(1.3, .04), pos.x, .006, zl + dz + (dz < 0 ? -.55 : .55)); put('white', plane(.04, 1.1), pos.x - .68, .006, zl + dz);
-    }
-  };
-  const zMidW = (L.zN + L.zS) / 2;
-  const fullLanes = [zMidW - 12.5, zMidW - 7.5, zMidW - 2.5], emptyLanes = [zMidW + 6.5];
-  fullLanes.forEach(zl => laneRows(zl, P0.pFull, 'Gaiola cheia (entrada)', () => Math.random() < .8 ? P.gaiolaCap : null));
-  emptyLanes.forEach(zl => laneRows(zl, P0.pEmpty, 'Gaiola vazia', () => Math.random() < .35 ? 0 : null));
-  zoneBox(L.pbx0 - .3, fullLanes[0] - 2.4, L.pbx1 + .3, fullLanes[fullLanes.length - 1] + 2.4, 'yellow');
-  zoneBox(L.pbx0 - .3, emptyLanes[0] - 2.4, L.pbx1 + .3, emptyLanes[0] + 2.4, 'red');
-  floorText(world, [{ t: 'BUFFER DE GAIOLAS CHEIAS', size: 70 }, { t: 'scuttles e gaiolas da entrada', size: 38, weight: 600, font: MONO }], (L.pbx0 + L.pbx1) / 2, fullLanes[0] - 3.4, 9, 1.3, 0, { w: 900, h: 170, color: '#7a5d00' });
-  floorText(world, [{ t: 'BUFFER DE GAIOLAS VAZIAS', size: 70 }, { t: 'retorno pela entrada', size: 38, weight: 600, font: MONO }], (L.pbx0 + L.pbx1) / 2, emptyLanes[0] + 3.4, 9, 1.3, 0, { w: 900, h: 170, color: '#a3271b' });
-  hangSign(world, 'RECEBIMENTO', 'entrada · buffers de gaiolas', (L.pbx0 + L.pbx1) / 2, zMidW - 16.5, 0, 4.6, 6);
+  /* buffers do oeste, em fileiras de frente para corredores que saem no corredor de abastecimento */
+  const laneRows = (zl, make) => { for (const [dz, psi] of [[-1.6, PI], [1.6, 0]]) for (let i = 0; i < 8; i++) {
+    const pos = V3(L.pbx0 + .7 + i * 1.45, 0, zl + dz); make(pos, psi, dz);
+    put('white', plane(1.3, .04), pos.x, .006, zl + dz + (dz < 0 ? -.6 : .6)); put('white', plane(.04, 1.2), pos.x - .7, .006, zl + dz);
+  } };
+  const zs = k => L.zN + 4.2 + k * 5;
+  const stockLanes = [zs(0), zs(1)], fullLanes = [zs(2), zs(3), zs(4)], emptyLanes = [zs(6), zs(7)];
+  // buffer de scuttles (montadas e enroladas) + gaiolas cheias da entrada: área amarela
+  stockLanes.forEach(zl => laneRows(zl, (pos, psi) => {
+    const k = { T: pos, psi, sc: null, res: false };
+    if (Math.random() < .75) { k.sc = newScuttle('VAZIA'); place(k.sc, world, pos, psi); addFilm(k.sc, 1); }
+    P0.stock.push(k);
+  }));
+  fullLanes.forEach(zl => laneRows(zl, (pos, psi) => {
+    const slot = { pos, psi: psi === PI ? 0 : PI, cage: null, res: false, t: -rand(0, 60) };
+    if (Math.random() < .8) { slot.cage = newCage(P.gaiolaCap, 'Gaiola cheia (entrada)'); place(slot.cage, world, pos, slot.psi); }
+    P0.pFull.push(slot);
+  }));
+  emptyLanes.forEach(zl => laneRows(zl, (pos, psi) => {
+    const slot = { pos, psi: psi === PI ? 0 : PI, cage: null, res: false, t: -rand(0, 60) };
+    if (Math.random() < .35) { slot.cage = newCage(0, 'Gaiola vazia'); place(slot.cage, world, pos, slot.psi); }
+    P0.pEmpty.push(slot);
+  }));
+  zoneBox(L.pbx0 - .3, stockLanes[0] - 2.5, L.pbx1 + .3, fullLanes[2] + 2.5, 'yellow');
+  zoneBox(L.pbx0 - .3, emptyLanes[0] - 2.5, L.pbx1 + .3, emptyLanes[1] + 2.5, 'red');
+  floorText(world, [{ t: 'BUFFER DE SCUTTLES E GAIOLAS', size: 66 }, { t: 'scuttles montadas · gaiolas cheias da entrada', size: 34, weight: 600, font: MONO }], (L.pbx0 + L.pbx1) / 2, fullLanes[2] + 3.4, 10, 1.3, 0, { w: 1000, h: 170, color: '#7a5d00' });
+  floorText(world, [{ t: 'BUFFER DE GAIOLAS', size: 70 }, { t: 'gaiolas vazias · retorno pela entrada', size: 34, weight: 600, font: MONO }], (L.pbx0 + L.pbx1) / 2, emptyLanes[1] + 3.4, 9, 1.3, 0, { w: 900, h: 170, color: '#a3271b' });
+  hangSign(world, 'BUFFER', 'scuttles e gaiolas', (L.pbx0 + L.pbx1) / 2, stockLanes[0] - 3.6, 0, 4.6, 5.2);
 
   /* abastecimento das linhas (corredor oeste) */
   floorText(world, [{ t: 'ABASTECIMENTO DE SCUTTLES E GAIOLAS', size: 64 }], L.xW, zMidW + 14, 12, .9, -PI / 2, { w: 1100, h: 90, color: '#7a5d00' });
-  for (const z of L.zLines) { arrow(L.xW - 1.2, z + L.zAisle + 1.5, 0, 1.4); }
+  for (const z of L.zLines) arrow(L.xW - 1.2, z + L.zAisle + 1.5, 0, 1.4);
 
-  /* saída: estações de stretch e docas a leste */
-  zoneBox(L.xE + .8, zSt[0] - 3.6, L.bx1 - .4, zSt[zSt.length - 1] + 3.6, 'red');
-  floorText(world, [{ t: 'STRETCH (ROBÔ)', size: 80 }, { t: 'saída / carga de scuttles', size: 38, weight: 600, font: MONO }], L.xE + 1.6, 0, 7, 1.4, -PI / 2, { w: 800, h: 180, color: '#a3271b' });
-  hangSign(world, 'SAÍDA', 'stretch · docas de carga', L.stX, zSt[0] - 5.2, 0, 4.6, 5.2);
-  zSt.forEach((z, i) => {
-    const T = V3(L.stX, 0, z);
-    put('white', cyl(1.42, .012, 48), T.x, .004, T.z); put('mat', cyl(1.34, .014, 48), T.x, .005, T.z);   // pista circular do robô
-    const r = stationRobot(); r.grp.position.set(T.x + 1.38, 0, T.z); r.grp.rotation.y = 0; world.add(r.grp);
-    P0.st.push({ i, T, psi: PI / 2, sc: null, res: false, state: 'livre', robot: r, ang: PI / 2, t0: 0, film: null, name: `Stretch ${i + 1}` });
+  /* sudoeste: stretch com robô (1) e montagem com stretch manual (2 pessoas) */
+  L.zLaneSW = L.zS - 14;
+  const rx = L.xR + 4.1, rz = L.zLaneSW + 5;
+  zoneBox(L.xR + .9, L.zLaneSW + 1.2, L.xR + 7.2, L.zS - .6, 'yellow');
+  floorText(world, [{ t: 'STRETCH COM ROBÔ', size: 70 }, { t: 'montagem automática', size: 36, weight: 600, font: MONO }], rx, L.zS - 2, 5.6, 1.2, 0, { w: 700, h: 160, color: '#7a5d00' });
+  put('white', cyl(1.42, .012, 48), rx, .004, rz); put('mat', cyl(1.34, .014, 48), rx, .005, rz);   // pista circular do robô
+  { const r = stationRobot(); world.add(r.grp);
+    P0.robotSt = { kind: 'robo', T: V3(rx, 0, rz), psi: 0, dist: 5, sc: null, res: false, state: 'livre', robot: r, ang: PI / 2, t0: 0, film: null, name: 'Stretch com robô' };
+    P0.st.push(P0.robotSt);
+    for (let k = 0; k < P.operadorRobo; k++) {   // operador: monta a caixa no pallet e libera o robô
+      const w = makeWorker('operadorRobo'); w.home = V3(rx - 2.2 + k * 1.2, 0, L.zLaneSW + 2.2); w.root.position.copy(w.home);
+      w.restYaw = 0; w.setYaw(0); w.where = 'Stretch com robô'; world.add(w.root); P0.roW.push(w); P0.workers.push(w);
+    } }
+  const mx = L.xW - 4.8, mzs = [L.zLaneSW + 4.2, L.zLaneSW + 10];
+  zoneBox(L.xR + 7.5, L.zLaneSW + 1.2, L.xW - .7, L.zS - .6, 'navyP');
+  floorText(world, [{ t: 'MONTAGEM DE SCUTTLES', size: 64 }, { t: 'stretch manual · 2 posições', size: 34, weight: 600, font: MONO }], mx - 2.6, L.zLaneSW + 7.1, 5.6, 1.1, -PI / 2, { w: 760, h: 160, color: '#1f3a5f' });
+  for (let k = 0; k < 4; k++) put('wood', box(1.0, .14, 1.2), L.xW - 2.2, .07 + k * .15, L.zS - 1.6);      // pallets e caixas desmontadas
+  for (let k = 0; k < 6; k++) put('kraft', box(1.15, .03, 1.3), L.xW - 2.2, .64 + k * .035, L.zS - 1.6);
+  mzs.forEach((z, i) => {
+    put('white', cyl(1.2, .01, 40), mx, .004, z);
+    const st = { kind: 'manual', T: V3(mx, 0, z), psi: -PI / 2, dist: 3.1, sc: null, res: false, state: 'livre', film: null, name: `Stretch manual ${i + 1}` };
+    P0.st.push(st);
+    if (i < P.stretchManual) {
+      const w = makeWorker('stretchManual'); w.home = V3(mx - 1.55, 0, z); w.root.position.copy(w.home);
+      w.restYaw = PI / 2; w.setYaw(w.restYaw); w.where = 'Montagem de scuttles'; w.st = st; world.add(w.root); P0.smW.push(w); P0.workers.push(w);
+    }
   });
-  for (const z of zOut) { P0.doorsOut.push({ z }); arrow(L.bx1 - 2.6, z, PI / 2, 1.6); }
 
-  /* faixa sul: caminho seguro, conferência, liderança e área de pallets de scuttles */
-  const cs0 = L.zCS - L.cs / 2, cs1 = L.zCS + L.cs / 2;
-  zoneBox(L.bx0 + .5, cs0, L.bx1 - .5, cs1, 'green', .1);
-  for (let x = L.bx0 + 6; x < L.bx1 - 6; x += 14) arrow(x, L.zCS, x < (L.bx0 + L.bx1) / 2 ? 0 : PI, 1.2);
-  floorText(world, [{ t: 'CAMINHO SEGURO', size: 72 }, { t: `pedestres · ${fmtM(L.cs)} m`, size: 38, weight: 600, font: MONO }], (L.xW + L.xE) / 2, L.zCS, Math.min(8, 6), Math.min(L.cs * .9, 1.2), 0, { w: 800, h: 170, color: '#1f6b41' });
-  for (let x = L.xW; x <= L.xE; x += 2) put('red', box(.06, 1.0, .06), x, .5, cs0 - .15);   // barreira / controle de acesso
-  put('red', box(L.xE - L.xW, .07, .07), (L.xW + L.xE) / 2, 1.0, cs0 - .15); put('white', box(L.xE - L.xW, .06, .05), (L.xW + L.xE) / 2, .55, cs0 - .15);
+  /* leste: saída / descarga de scuttles e gaiolas (pallets aguardando a doca) */
+  const ox = L.xE + 3.6;
+  zoneBox(L.xE + 1.2, zO[0] - 2.4, L.bx1 - .5, zO[nOut - 1] + 2.4, 'red');
+  floorText(world, [{ t: 'SAÍDA / DESCARGA', size: 76 }, { t: 'scuttles e gaiolas', size: 38, weight: 600, font: MONO }], L.xE + 7.4, zMidW, 7, 1.4, -PI / 2, { w: 800, h: 180, color: '#a3271b' });
+  hangSign(world, 'SAÍDA', 'descarga de scuttles e gaiolas', ox, zO[0] - 4.2, 0, 4.6, 5.2);
+  zO.forEach(z => { P0.outS.push({ T: V3(ox, 0, z), psi: PI / 2, sc: null, res: false, t: 0 }); put('white', plane(1.24, .04), ox, .006, z - .66); put('white', plane(1.24, .04), ox, .006, z + .66); });
+  for (const z of zOut) { P0.doorsOut.push({ z }); arrow(L.bx1 - 2.6, z, 0, 1.6); }
 
-  const r0 = L.zRoom0, r1 = L.bz1 - .4;
-  // conferência de scuttles, gaiolas e santinhas (sudoeste)
-  const cx0 = L.bx0 + 1, cx1 = L.bx0 + 17;
-  zoneBox(cx0, r0, cx1, r1, 'navyP');
-  for (let k = 0; k < 3; k++) { put('steelDark', box(2.0, .9, .8), cx0 + 3 + k * 4.5, .45, r0 + 2.2); put('white', box(2.0, .03, .8), cx0 + 3 + k * 4.5, .915, r0 + 2.2); }
-  for (let k = 0; k < 4; k++) { const c = newCage(Math.floor(rand(5, P.gaiolaCap)), 'Gaiola em conferência'); place(c, world, V3(cx0 + 2 + k * 3.6, 0, r1 - 1.6), 0); }
-  floorText(world, [{ t: 'CONFERÊNCIA', size: 80 }, { t: 'scuttles, gaiolas e santinhas', size: 38, weight: 600, font: MONO }], (cx0 + cx1) / 2, r0 + 4.4, 7, 1.3, 0, { w: 800, h: 170, color: '#1f3a5f' });
-  for (let k = 0; k < P.conferentes; k++) {
-    const w = makeWorker('conferente'); w.home = V3(cx0 + 3 + k * 4.5, 0, r0 + 3.0); w.root.position.copy(w.home);
-    w.restYaw = PI; w.setYaw(PI); w.where = 'Conferência'; w.state = 'conferindo'; world.add(w.root); P0.workers.push(w);
-  }
+  /* sul: circulação de pedestres com barreira, mesa da liderança, tratativa de avarias e passagem de scuttles */
+  const cs0 = L.zCS - L.cs / 2, cs1 = L.zCS + L.cs / 2, csEnd = L.bx1 - 3.2;
+  zoneBox(L.xW - .4, cs0, csEnd, cs1, 'green', .1);
+  for (let x = L.xW + 4; x < csEnd - 4; x += 14) arrow(x, L.zCS, 0, 1.2);
+  floorText(world, [{ t: 'CIRCULAÇÃO DE PEDESTRES', size: 66 }, { t: `caminho seguro · ${fmtM(L.cs)} m`, size: 36, weight: 600, font: MONO }], (L.xW + L.xE) / 2 - 10, L.zCS, 7, Math.min(L.cs * .9, 1.2), 0, { w: 900, h: 170, color: '#1f6b41' });
+  const r0 = L.zRoom0, r1 = L.bz1 - .4, lx = L.xE - 22, bEnd = lx - 6;
+  for (let x = L.xW; x <= bEnd; x += 2) put('red', box(.06, 1.0, .06), x, .5, cs0 - .15);   // barreira / controle de acesso
+  put('red', box(bEnd - L.xW, .07, .07), (L.xW + bEnd) / 2, 1.0, cs0 - .15); put('white', box(bEnd - L.xW, .06, .05), (L.xW + bEnd) / 2, .55, cs0 - .15);
   // mesa da liderança
-  const lx = (L.xW + L.xE) / 2 + 6;
   zoneBox(lx - 5, r0, lx + 5, r1, 'navyP');
   put('wood', box(3.2, .06, 1.4), lx, .76, r0 + 3.6); put('steelDark', box(3.0, .72, 1.2), lx, .37, r0 + 3.6);
   put('navy', box(.6, .4, .05), lx - .6, 1.0, r0 + 3.3); put('navy', box(.6, .4, .05), lx + .6, 1.0, r0 + 3.3);
@@ -2540,15 +2658,25 @@ function buildPlant() {
     const w = makeWorker('lider'); w.home = V3(lx - .8 + k * 1.6, 0, r0 + 2.5); w.root.position.copy(w.home);
     w.restYaw = 0; w.setYaw(0); w.where = 'Mesa da liderança'; w.state = 'acompanhando a operação'; world.add(w.root); P0.workers.push(w);
   }
-  // área de pallets de scuttles (vazias) e passagem
-  const sx0 = L.xE + 1.6, sz = r0 + 2.6;
-  zoneBox(sx0 - .9, r0 + .8, L.bx1 - .5, r1, 'navyP');
-  for (let i = 0; i < 8; i++) {
-    const T = V3(sx0 + i * 1.4, 0, sz), k = { T, psi: 0, sc: null, res: false, regen: 0 };
-    k.sc = newScuttle('VAZIA'); place(k.sc, world, T, 0); P0.stock.push(k);
+  // tratativa de avarias (sudeste): gaiolas de avarias vindas dos goleiros e mesa de tratativa
+  const ax0 = L.xE - 14, ax1 = L.bx1 - 3.6, az = r0 + 2.1;
+  zoneBox(ax0, r0 + .3, ax1, r1, 'orangeP');
+  for (let i = 0; i < 4; i++) {
+    const pos = V3(ax0 + 2 + i * 1.6, 0, az), sl = { pos, psi: PI, cage: null, res: false, name: `Tratativa ${i + 1}` };
+    if (i < 2) { sl.cage = newCage(0, 'Gaiola de avarias (reserva)'); place(sl.cage, world, pos, PI); }
+    P0.avArea.push(sl);
   }
-  floorText(world, [{ t: 'PALLETS DE SCUTTLES', size: 70 }, { t: 'scuttles vazias · passagem', size: 38, weight: 600, font: MONO }], sx0 + 5, sz + 2.6, 7, 1.3, 0, { w: 800, h: 170, color: '#4b5869' });
-  arrow(L.bx1 - 1.4, zPass, -PI / 2, 1.6);
+  const tx = ax0 + 4.4, tz = r1 - 1.6;
+  put('steelDark', box(2.6, .88, .9), tx, .44, tz); put('white', box(2.6, .03, .9), tx, .9, tz);
+  floorText(world, [{ t: 'TRATATIVA DE AVARIAS', size: 66 }], ax0 + 9.4, r1 - 1.5, 6.4, .8, 0, { w: 900, h: 110, color: '#9a4a00' });
+  for (let k = 0; k < P.tratativa; k++) {
+    const w = makeWorker('tratativa'); w.home = V3(tx - .7 + k * 1.4, 0, tz - .95); w.root.position.copy(w.home);
+    w.restYaw = 0; w.setYaw(0); w.where = 'Tratativa de avarias'; world.add(w.root); P0.avW.push(w); P0.workers.push(w);
+  }
+  // passagem de scuttles (faixa junto à parede leste, saída ao sul)
+  zoneBox(L.bx1 - 2.8, zO[nOut - 1] + 3.2, L.bx1 - .5, r1, 'green', .1);
+  for (let z = zO[nOut - 1] + 5; z < r1 - 1; z += 4) arrow(L.bx1 - 1.65, z, -PI / 2, 1.3);
+  floorText(world, [{ t: 'PASSAGEM DE SCUTTLES', size: 56 }], L.bx1 - 1.65, (zO[nOut - 1] + r1) / 2 + 2, 5.6, .7, -PI / 2, { w: 760, h: 90, color: '#1f6b41' });
 
   /* equipes da planta */
   for (let i = 0; i < P.recebimento; i++) {
@@ -2559,13 +2687,15 @@ function buildPlant() {
     const w = makeWorker('abastecedor'); w.home = V3(L.xW - .4, 0, zMidW + 9 + i * 1.5); w.root.position.copy(w.home);
     w.restYaw = PI / 2; w.setYaw(w.restYaw); w.where = 'Abastecimento das linhas'; world.add(w.root); P0.cgW.push(w); P0.workers.push(w);
   }
-  for (let i = 0; i < P.abastScuttles; i++) {
-    const u = makeUnit('abastScuttle', 1, V3(L.stX + 3.4, 0, L.zS - 1 - i * 1.7), PI); u.op.where = 'Scuttles vazias → linhas'; P0.scU.push(u);
+  for (let i = 0; i < P.abastScuttles; i++) {   // metade recolhe da montagem (estaciona no sudoeste), metade abastece do buffer
+    const mont = i % 2 === 0, j = Math.floor(i / 2);
+    const home = mont ? V3(L.pbx0 + 2.5 + (j % 3) * 3.6, 0, L.zLaneSW - 2.4 - Math.floor(j / 3) * 2.2) : V3(L.pbx0 + 2.5 + (j % 3) * 3.6, 0, emptyLanes[1] + 4.8 + Math.floor(j / 3) * 2.2);
+    const u = makeUnit('abastScuttle', 1, home, PI / 2); u.dedic = mont ? 'montagem' : 'linhas';
+    u.op.where = mont ? 'Scuttles: montagem → linhas / buffer' : 'Scuttles: buffer → linhas'; P0.scU.push(u);
   }
   for (let i = 0; i < P.carregadoresSaida; i++) {
-    const u = makeUnit('saida', 1, V3(L.stX + 3.4, 0, L.zN + 1 + i * 1.7), 0); u.op.where = 'Saída (stretch e doca)'; P0.outU.push(u);
+    const u = makeUnit('saida', 1, V3(L.stX + 3.4, 0, L.zN + 1 + i * 1.7), 0); u.op.where = 'Saída / descarga'; P0.outU.push(u);
   }
-  P0.workers.push(...[]);   // unidades já entram em S.workers pelo makeUnit
 
   /* cotas da planta */
   dimLine(L.bx0, L.bz1 + 1.6, L.bx1, L.bz1 + 1.6, `${fmtM(L.bx1 - L.bx0, 1)} m · galpão`, { text: 2.2 });
@@ -2579,16 +2709,17 @@ const dedupe = pts => pts.filter((p, i) => !i || Math.hypot(p.x - pts[i - 1].x, 
 const routeX = x => (a, b) => dedupe([V3(a.x, 0, a.z), V3(x, 0, a.z), V3(x, 0, b.z), V3(b.x, 0, b.z)]);
 const cageRouteW = (a, b) => routeX(L.xW)(a, b);   // abastecimento: pelo corredor oeste
 const cageRouteR = (a, b) => routeX(L.xR)(a, b);   // recebimento: pelo corredor da entrada
-function accPts(p) {   // do ponto até o corredor leste
+const swRoute = (a, b) => dedupe([V3(a.x, 0, a.z), V3(a.x, 0, L.zLaneSW), V3(b.x, 0, L.zLaneSW), V3(b.x, 0, b.z)]);   // dentro do sudoeste
+function accPts(p, ax) {   // do ponto até o corredor (oeste ou leste)
   const P1 = V3(p.x, 0, p.z);
   if (p.x > L.xWest - .5 && p.x < L.xEast - .3 && p.z > L.zN && p.z < L.zS) {
     let zl = L.zLines[0]; for (const z of L.zLines) if (Math.abs(p.z - z) < Math.abs(p.z - zl)) zl = z;
     const lane = zl + Math.sign(p.z - zl || 1) * L.zAisle;
-    return [P1, V3(p.x, 0, lane), V3(L.xE, 0, lane)];
+    return [P1, V3(p.x, 0, lane), V3(ax, 0, lane)];
   }
-  return [P1, V3(L.xE, 0, p.z)];
+  return [P1, V3(ax, 0, p.z)];
 }
-const plantRoute = (a, b) => dedupe([...accPts(a), ...accPts(b).reverse()]);
+const plantRoute = (a, b) => { const ax = (a.x < L.xWest - .5 || b.x < L.xWest - .5) ? L.xW : L.xE; return dedupe([...accPts(a, ax), ...accPts(b, ax).reverse()]); };
 function pdock(u, T, psi, dist, onDock, wallSide = false) {
   const yawD = wallSide ? psi : psi - PI, f = fwdOf(yawD), D = T.clone().addScaledVector(f, FORK_C), A = T.clone().addScaledVector(f, Math.max(dist, FORK_C + 1));
   return [
@@ -2600,9 +2731,10 @@ function pdock(u, T, psi, dist, onDock, wallSide = false) {
   ];
 }
 // volta ao estacionamento só se não houver próxima tarefa (senão encadeia direto, sem viagem perdida)
-const goHomeUnit = (u, hasWork) => [{ gen: () => hasWork && hasWork() ? [] : [...unitMove(u, plantRoute(unitPos(u), u.home)), unitTurn(u, () => u.homeYaw)] }, { d: 0, end() { u.op.state = 'livre'; } }];
-const outWork = () => PLANT.st.some(st => st.state === 'pronta' && !st.res) || (PLANT.st.some(x => x.state === 'livre' && !x.res && !x.sc) && LINES.some(ln => ln.S.fullBuf.some(C => C.sc && !C.res)));
-const scWork = () => PLANT.stock.some(k => k.sc && !k.res) && LINES.some(ln => [1, -1].some(s => ln.S.emptyBuf[s].some(K => !K.sc && !K.res)));
+const goHomeUnit = (u, hasWork) => [{ gen: () => hasWork && hasWork(u) ? [] : [...unitMove(u, plantRoute(unitPos(u), u.home)), unitTurn(u, () => u.homeYaw)] }, { d: 0, end() { u.op.state = 'livre'; } }];
+const lineNeedsSc = () => LINES.some(ln => [1, -1].some(s => ln.S.emptyBuf[s].some(K => !K.sc && !K.res)));
+const scWork = u => (u.dedic !== 'montagem' && PLANT.stock.some(k => k.sc && !k.res) && lineNeedsSc()) || (u.dedic !== 'linhas' && PLANT.st.some(st => st.state === 'pronta' && !st.res) && (lineNeedsSc() || PLANT.stock.some(k => !k.sc && !k.res)));
+const outWork = () => PLANT.outS.some(x => x.sc && !x.res) || (PLANT.outS.some(x => !x.sc && !x.res) && LINES.some(ln => ln.S.fullBuf.some(C => C.sc && !C.res)));
 const goHomeWalk = (w, R) => [{ gen: () => [...walkSteps(w, R(w.root.position, w.home)), turnStep(w, () => w.restYaw)] }, { d: 0, end() { w.state = 'livre'; } }];
 
 /* ---------- recebimento: doca → buffer de cheias; buffer de vazias → doca ---------- */
@@ -2679,30 +2811,49 @@ function startSupplyCageJob(w) {
   w.task = sequence([...steps, ...goHomeWalk(w, R)]);
 }
 
-/* ---------- scuttles vazias: área de pallets → buffers laterais das linhas ---------- */
+/* ---------- scuttles: linhas primeiro (buffer → buffers laterais); depois recolhe as montadas para o buffer ---------- */
 function startSupplyScuttleJob(u) {
   let tgt = null;
   for (const ln of LINES) for (const s of [1, -1]) for (const K of ln.S.emptyBuf[s]) if (!K.sc && !K.res && (!tgt || (K.since ?? 0) < (tgt.K.since ?? 0))) tgt = { ln, K };
-  const src = PLANT.stock.filter(k => k.sc && !k.res)[0];
+  const toLine = (ln, K) => pdockFn => [...pdock(u, toRoot(ln, K.T), K.psi, 2.3, () => { K.sc = dropLoad(u, ln.grp, K.T, K.psi); K.res = false; K.regen = 0; PLANT.scSupplied++; })];
+  // 1) montada pronta: libera a posição de montagem (direto para a linha que precisa ou para o buffer)
+  const st = PLANT.st.filter(x => x.state === 'pronta' && !x.res)[0], dst = PLANT.stock.filter(k => !k.sc && !k.res)[0];
+  if (u.dedic !== 'linhas' && st && (tgt || dst)) {
+    st.res = true;
+    const pick = pdock(u, st.T, st.psi, st.dist, () => { attachLoad(u, st.sc); st.sc = null; st.film = null; st.res = false; st.state = 'livre'; PLANT.assembled++; });
+    if (tgt) {
+      tgt.K.res = true; u.op.state = `levando scuttle montada · ${tgt.ln.S.short}`;
+      u.task = sequence([...pick, ...toLine(tgt.ln, tgt.K)(), ...goHomeUnit(u, scWork)]);
+    } else {
+      dst.res = true; u.op.state = `levando scuttle montada ao buffer · ${st.name}`;
+      u.task = sequence([...pick, ...pdock(u, dst.T, dst.psi, 2.2, () => { dst.sc = dropLoad(u, world, dst.T, dst.psi); dst.res = false; }), ...goHomeUnit(u, scWork)]);
+    }
+    return;
+  }
+  // 2) linha precisa: tira do buffer de scuttles
+  if (u.dedic === 'montagem') return;
+  const src = PLANT.stock.filter(k => k.sc && !k.res).sort((a, b) => Math.abs(a.T.z - (tgt ? tgt.ln.z : 0)) - Math.abs(b.T.z - (tgt ? tgt.ln.z : 0)))[0];
   if (!tgt || !src) return;
   const { ln, K } = tgt; K.res = true; src.res = true;
   u.op.state = `levando scuttle vazia · ${ln.S.short}`;
   u.task = sequence([
-    ...pdock(u, src.T, src.psi, 2.3, () => { attachLoad(u, src.sc); src.sc = null; src.res = false; src.regen = PLANT.t + rand(15, 30); }),
-    ...pdock(u, toRoot(ln, K.T), K.psi, 2.3, () => { K.sc = dropLoad(u, ln.grp, K.T, K.psi); K.res = false; K.regen = 0; PLANT.scSupplied++; }),
+    ...pdock(u, src.T, src.psi, 2.2, () => { attachLoad(u, src.sc); src.sc = null; src.res = false; }),
+    ...toLine(ln, K)(),
     ...goHomeUnit(u, scWork),
   ]);
 }
 
-/* ---------- saída: buffer de cheias da linha → stretch → doca ---------- */
+/* ---------- saída: buffer de cheias da linha → saída/descarga → doca ---------- */
 function startOutJob(u) {
-  const ready = PLANT.st.filter(st => st.state === 'pronta' && !st.res)[0];
-  if (ready) {
-    ready.res = true;
-    const door = PLANT.doorsOut.reduce((b, d) => Math.abs(d.z - ready.T.z) < Math.abs(b.z - ready.T.z) ? d : b, PLANT.doorsOut[0]);
-    u.op.state = `levando scuttle enrolada à doca`;
+  const staged = PLANT.outS.filter(x => x.sc && !x.res).sort((a, b) => a.t - b.t), free = PLANT.outS.filter(x => !x.sc && !x.res);
+  let pick = null;
+  for (const ln of LINES) for (const C of ln.S.fullBuf) if (C.sc && !C.res && (!pick || C.t < pick.C.t)) pick = { ln, C };
+  if (staged.length && (staged.length >= 3 || !pick || !free.length)) {
+    const sl = staged[0]; sl.res = true;
+    const door = PLANT.doorsOut.reduce((b, d) => Math.abs(d.z - sl.T.z) < Math.abs(b.z - sl.T.z) ? d : b, PLANT.doorsOut[0]);
+    u.op.state = 'levando scuttle cheia à doca';
     u.task = sequence([
-      ...pdock(u, ready.T, ready.psi, 2.3, () => { attachLoad(u, ready.sc); ready.sc = null; ready.res = false; ready.state = 'livre'; }),
+      ...pdock(u, sl.T, sl.psi, 2.3, () => { attachLoad(u, sl.sc); sl.sc = null; sl.res = false; }),
       { gen: () => {
           const Ap = V3(L.bx1 - 3.4, 0, door.z), D = V3(L.bx1 - .2 - FORK_C, 0, door.z);
           return [
@@ -2716,33 +2867,67 @@ function startOutJob(u) {
     ]);
     return;
   }
-  const st = PLANT.st.filter(x => x.state === 'livre' && !x.res && !x.sc)[0];
-  if (!st) return;
-  let pick = null;
-  for (const ln of LINES) for (const C of ln.S.fullBuf) if (C.sc && !C.res && (!pick || C.t < pick.C.t)) pick = { ln, C };
-  if (!pick) return;
-  const { ln, C } = pick; C.res = true; st.res = true;
-  u.op.state = `levando scuttle cheia ao stretch · ${ln.S.short}`;
+  if (!pick || !free.length) return;
+  const { ln, C } = pick, sl = free.sort((a, b) => Math.abs(a.T.z - (ln.z + C.T.z)) - Math.abs(b.T.z - (ln.z + C.T.z)))[0];
+  C.res = true; sl.res = true;
+  u.op.state = `levando scuttle cheia à saída · ${ln.S.short}`;
   u.task = sequence([
     ...pdock(u, toRoot(ln, C.T), C.psi, 2.2, () => { attachLoad(u, C.sc); C.sc = null; C.res = false; }, true),
-    ...pdock(u, st.T, st.psi, 2.3, () => { st.sc = dropLoad(u, world, st.T, st.psi); st.res = false; st.state = 'enrolando'; st.t0 = PLANT.t; }),
+    ...pdock(u, sl.T, sl.psi, 2.3, () => { sl.sc = dropLoad(u, world, sl.T, sl.psi); sl.res = false; sl.t = PLANT.t; }),
     ...goHomeUnit(u, outWork),
   ]);
 }
 
-/* ---------- robô de stretch: volta em círculo fixo, subindo e descendo o rolo ---------- */
-function updateStation(st, dt) {
+/* ---------- montagem de scuttles: robô (1) e stretch manual (2 pessoas) ---------- */
+function newAssembly(st) {   // caixa montada no pallet da posição
+  const sc = newScuttle('VAZIA'); place(sc, world, st.T, st.psi === -PI / 2 ? PI / 2 : 0); st.sc = sc; return sc;
+}
+function startRobotSetup(w, R) {   // a pessoa monta a caixa no pallet do robô e o robô enrola
+  R.res = true; R.state = 'montando';
+  const spot = R.T.clone().add(V3(0, 0, -1.45));
+  w.state = 'montando caixa para o robô';
+  w.task = sequence([
+    { gen: () => walkSteps(w, swRoute(w.root.position, spot)) },
+    turnStep(w, () => w.yawTo(R.T)),
+    { d: P.tempoMontagem * .5, start() { newAssembly(R); }, fn(k) { w.pose(.55 + .3 * Math.sin(k * 18), .5 + .3 * Math.sin(k * 9)); } },
+    { d: 0, end() { R.res = false; R.state = 'enrolando'; R.t0 = PLANT.t; } },
+    ...goHomeWalk(w, swRoute),
+  ]);
+}
+function startManualAssembly(w, st) {   // monta a caixa e passa o filme andando em volta da scuttle
+  st.res = true; st.state = 'montando';
+  const T = st.T, Rr = 1.15, laps = 4, a0 = -PI / 2;
+  w.state = `montando scuttle · ${st.name}`;
+  let y0 = 0;
+  w.task = sequence([
+    { gen: () => walkSteps(w, [w.root.position.clone(), V3(T.x + Rr * Math.sin(a0), 0, T.z + Rr * Math.cos(a0))]) },
+    turnStep(w, () => w.yawTo(T)),
+    { d: P.tempoMontagem, start() { newAssembly(st); }, fn(k) { w.pose(.6 + .3 * Math.sin(k * 22), .55 + .35 * Math.sin(k * 11)); } },
+    { d: 0, end() { st.state = 'enrolando'; addFilm(st.sc); w.state = `passando filme stretch · ${st.name}`; } },
+    { d: P.tempoStretchManual, start() { y0 = w.yaw; },
+      fn(k) {
+        const a = a0 + k * laps * 2 * PI;
+        w.root.position.set(T.x + Rr * Math.sin(a), 0, T.z + Rr * Math.cos(a));
+        w.setYaw(a + PI / 2 + .35);                         // de lado, rolo voltado para a caixa
+        w.pose(.5, .1 + .25 * Math.sin(k * laps * 2 * PI * 1.5));
+        const H = P.scuttleAlt - .05, up = 1 - Math.abs(((k * 2) % 2) - 1);
+        if (st.sc && st.sc.film) st.sc.film.scale.y = Math.max(.01, Math.min(H, H * Math.min(1, k * 1.25) * (.6 + .4 * up)));
+      } },
+    { d: 0, end() { if (st.sc && st.sc.film) st.sc.film.scale.y = P.scuttleAlt - .05; st.state = 'pronta'; st.res = false; } },
+    ...goHomeWalk(w, (a, b) => dedupe([V3(a.x, 0, a.z), V3(b.x, 0, a.z), V3(b.x, 0, b.z)])),
+  ]);
+}
+function updateRobot(st, dt) {   // volta em círculo fixo subindo e descendo o rolo
   const r = st.robot, R = 1.38;
-  if (st.state === 'enrolando') {
+  if (st.state === 'enrolando' && st.sc) {
     const k = clamp01((PLANT.t - st.t0) / P.tempoStretch);
-    if (!st.film && st.sc) { st.film = new THREE.Mesh(ASSET.film, MAT.film); st.film.position.y = PAL_H; st.film.scale.y = .01; st.sc.grp.add(st.film); }
-    st.ang += dt * (2 * PI * 6 / P.tempoStretch);
-    const H = P.scuttleAlt + PAL_H;
-    const tri = 1 - Math.abs(((k * 3) % 2) - 1);               // sobe, desce e sobe de novo
+    if (!st.sc.film) addFilm(st.sc);
+    st.ang += dt * (2 * PI * 5 / P.tempoStretch);
+    const H = P.scuttleAlt + PAL_H, tri = 1 - Math.abs(((k * 3) % 2) - 1);
     r.car.position.y = .3 + tri * Math.min(.85, H - .3);
-    if (st.film) st.film.scale.y = Math.max(.01, Math.min(H - PAL_H, (H - PAL_H) * Math.min(1, k * 1.6)));
+    st.sc.film.scale.y = Math.max(.01, (P.scuttleAlt - .05) * Math.min(1, k * 1.6));
     r.led.material = MAT.robotLedOn;
-    if (k >= 1) { st.state = 'pronta'; PLANT.wrapped++; st.film = null; }
+    if (k >= 1) st.state = 'pronta';
   } else {
     const park = PI / 2, d = Math.atan2(Math.sin(park - st.ang), Math.cos(park - st.ang));
     st.ang += clamp(d, -dt * 1.2, dt * 1.2);
@@ -2750,7 +2935,67 @@ function updateStation(st, dt) {
     r.led.material = st.state === 'pronta' ? MAT.robotLedDone : MAT.robotLed;
   }
   r.grp.position.set(st.T.x + R * Math.sin(st.ang), 0, st.T.z + R * Math.cos(st.ang));
-  r.grp.rotation.y = st.ang + PI / 2;    // anda tangente ao círculo, com o rolo voltado para a scuttle
+  r.grp.rotation.y = st.ang + PI / 2;
+}
+
+/* ---------- tratativa de avarias: busca a gaiola de avarias do goleiro, devolve uma reserva e trata ---------- */
+function avProxy(ln) { const av = ln.S.avSlot; return { pos: toRoot(ln, av.pos), psi: av.psi, cage: av.cage }; }
+function bringSpareSteps(w, ln, spare) {
+  const av = ln.S.avSlot, px = { pos: toRoot(ln, av.pos), psi: av.psi, cage: null };
+  return [
+    ...grabCageSteps(w, () => spare, plantRoute),
+    { d: 0, end() { spare.res = false; w.state = `levando gaiola de avarias vazia · ${ln.S.short}`; } },
+    ...deliverCageSteps(w, () => px, plantRoute, (_, c) => {
+      ln.grp.attach(c.grp); c.grp.position.set(av.pos.x, 0, av.pos.z); c.grp.rotation.set(0, av.psi, 0);
+      av.cage = c; av.res = false; c.name = av.name;
+    }),
+  ];
+}
+const avUrgent = () => LINES.some(ln => { const av = ln.S.avSlot; return av && !av.res && ((!av.cage && PLANT.avArea.some(s => s.cage && s.cage.fill === 0 && !s.res)) || (av.cage && av.cage.fill >= av.cage.cap * .8)); });
+function startAvJob(w) {
+  const area = PLANT.avArea;
+  for (const ln of LINES) {   // linha sem gaiola de avarias: leva uma reserva vazia
+    const av = ln.S.avSlot, spare = area.find(s => s.cage && s.cage.fill === 0 && !s.res);
+    if (av && !av.cage && !av.res && spare) {
+      av.res = true; spare.res = true; w.state = `levando gaiola de avarias · ${ln.S.short}`;
+      w.task = sequence([...bringSpareSteps(w, ln, spare), ...goHomeWalk(w, plantRoute)]);
+      return;
+    }
+  }
+  const cand = LINES.filter(ln => { const av = ln.S.avSlot; return av && av.cage && !av.res && av.cage.fill >= av.cage.cap * .6; }).sort((a, b) => b.S.avSlot.cage.fill - a.S.avSlot.cage.fill)[0];
+  const free = area.find(s => !s.cage && !s.res);
+  if (cand && free) {   // busca a gaiola cheia de avarias e, se houver, deixa uma reserva no lugar
+    const ln = cand, av = ln.S.avSlot, px = avProxy(ln); av.res = true; free.res = true;
+    const spare = area.find(s => s !== free && s.cage && s.cage.fill === 0 && !s.res); if (spare) spare.res = true;
+    w.state = `buscando avarias · ${ln.S.short}`;
+    w.task = sequence([
+      { until: () => !(av.lock > 0) },
+      ...grabCageSteps(w, () => px, plantRoute),
+      { d: 0, end() { av.cage = null; w.state = 'levando avarias à tratativa'; } },
+      ...deliverCageSteps(w, () => free, plantRoute, (sl, c) => { sl.res = false; c.name = 'Gaiola de avarias (a tratar)'; PLANT.avFetched++; if (!spare) av.res = false; }),
+      ...(spare ? bringSpareSteps(w, ln, spare) : []),
+      ...goHomeWalk(w, plantRoute),
+    ]);
+    return;
+  }
+  const t = area.find(s => s.cage && s.cage.fill > 0 && !s.res);
+  if (!t) return;
+  t.res = true;
+  const spot = t.pos.clone().add(V3(0, 0, 1.25));
+  let acc = 0;
+  w.state = 'tratando avarias';
+  w.task = sequence([
+    ...walkSteps(w, [w.root.position.clone(), V3(spot.x, 0, w.root.position.z), spot]),
+    turnStep(w, () => w.yawTo(t.pos)),
+    { until: () => !t.cage || t.cage.fill <= 0 || avUrgent(),
+      fn(_, dt) {
+        acc += dt; const k = acc / P.tempoAvaria;
+        w.pose(.6 + .3 * Math.sin(k * PI * 2), .5 + .3 * Math.sin(k * PI * 2));
+        if (acc >= P.tempoAvaria) { acc = 0; t.cage.fill--; setCageFill(t.cage); PLANT.avTreated++; if (t.cage.fill <= 0) t.cage.name = 'Gaiola de avarias (reserva)'; }
+      } },
+    { d: 0, end() { t.res = false; } },
+    ...goHomeWalk(w, (a, b) => dedupe([V3(a.x, 0, a.z), V3(a.x, 0, b.z), V3(b.x, 0, b.z)])),
+  ]);
 }
 
 function updatePlant(dt) {
@@ -2759,10 +3004,18 @@ function updatePlant(dt) {
   for (const w of PLANT.cgW) if (!w.task) startSupplyCageJob(w);
   for (const u of PLANT.scU) if (!u.task) startSupplyScuttleJob(u);
   for (const u of PLANT.outU) if (!u.task) startOutJob(u);
-  for (const k of PLANT.stock) if (!k.sc && !k.res && k.regen && PLANT.t >= k.regen) { k.sc = newScuttle('VAZIA'); place(k.sc, world, k.T, k.psi); k.regen = 0; }
+  for (const w of PLANT.avW) if (!w.task) startAvJob(w);
+  const R = PLANT.robotSt;
+  for (const w of PLANT.roW) if (!w.task && R && R.state === 'livre' && !R.sc && !R.res) startRobotSetup(w, R);
+  for (const w of PLANT.smW) {
+    if (w.task) continue;
+    if (!PLANT.roW.length && R && R.state === 'livre' && !R.sc && !R.res) startRobotSetup(w, R);
+    else if (w.st.state === 'livre' && !w.st.sc && !w.st.res) startManualAssembly(w, w.st);
+    else w.state = w.st.state === 'pronta' ? 'aguardando retirada da scuttle' : 'livre';
+  }
   for (const d of PLANT.doorsIn) if (d.cage && d.kill && PLANT.t >= d.kill) { killCage(d.cage); d.cage = null; d.kill = 0; PLANT.returned++; }
   for (const ln of LINES) for (const s of [1, -1]) for (const K of ln.S.emptyBuf[s]) { if (K.sc) K.since = null; else if (K.since == null) K.since = PLANT.t; }
-  for (const st of PLANT.st) updateStation(st, dt);
+  if (R) updateRobot(R, dt);
   for (const w of PLANT.workers) { if (w.unit) continue; runWorker(w, dt); }
   for (const u of [...PLANT.scU, ...PLANT.outU]) {
     if (u.task) { if (u.task.step(dt)) u.task = null; }
@@ -2819,14 +3072,28 @@ addEventListener('resize', resize);
 /* ------------------------------------------------------------------ */
 /* Câmeras                                                             */
 /* ------------------------------------------------------------------ */
-let camTween = null, follow = null;
+let camTween = null, follow = null, viewLine = 0;
+function buildLineSel() {   // escolhe a esteira das vistas de linha (eixo, ilha, indução, goleiro, buffers)
+  const el = $('#lineSel'); if (!el) return;
+  el.innerHTML = '';
+  viewLine = Math.min(viewLine, LINES.length - 1);
+  LINES.forEach((ln, i) => {
+    const b = document.createElement('button'); b.className = 'btn'; b.textContent = ln.S.short; b.setAttribute('aria-pressed', String(i === viewLine));
+    b.addEventListener('click', () => {
+      viewLine = i; el.querySelectorAll('.btn').forEach((o, j) => o.setAttribute('aria-pressed', String(j === i)));
+      const cur = document.querySelector('#views [aria-pressed=true]')?.dataset.view;
+      goView(['aerea', 'planta', 'recebimento', 'stretch', 'caminho', 'avarias'].includes(cur) ? 'eixo' : (cur || 'eixo'));
+    });
+    el.appendChild(b);
+  });
+}
 function viewDef(name) {
   const W = L.bx1 - L.bx0, D = L.bz1 - L.bz0, cx = (L.bx0 + L.bx1) / 2, cz = (L.bz0 + L.bz1) / 2, k = Math.max(W, D) / 92, hw = L.bw / 2;
   const narrow = innerWidth < 760 ? 1.35 : 1;
-  const mid = LINES[Math.floor(LINES.length / 2)], zm = mid.z;
+  const mid = LINES[Math.min(viewLine, LINES.length - 1)], zm = mid.z;
   const isl = mid.S.islands[Math.min(1, mid.S.islands.length - 1)];
   const loc = (x, y, z) => isl.grp.localToWorld(V3(x, y, z));
-  const zSt = PLANT.st.length ? PLANT.st[0].T.z : 0;
+  const av = PLANT.avArea.length ? PLANT.avArea[0].pos : V3(L.xE, 0, L.zS);
   switch (name) {
     case 'aerea': return { p: [cx - 52 * k * narrow, 78 * k * narrow, cz + 74 * k * narrow], t: [cx + 2, 0, cz + 4], fov: 38 };
     case 'eixo': return { p: [L.X0 - 12, 9.6, zm + .01], t: [L.X0 + 30, 0, zm], fov: 46 };
@@ -2837,7 +3104,8 @@ function viewDef(name) {
     case 'lateral': return { p: [L.golX + 1.5, 4.8, zm + 9.5], t: [L.eastBufX - .5, .9, zm], fov: 46 };
     case 'gaiolas': return { p: [L.X0 + 4.5, 4.6, zm + 8.5], t: [L.cageBufX + .5, .9, zm], fov: 50 };
     case 'recebimento': return { p: [L.xW + 3, 9, cz + 14], t: [(L.pbx0 + L.pbx1) / 2, 0, cz - 4], fov: 50 };
-    case 'stretch': return { p: [L.stX - 7, 4.2, zSt - 4], t: [L.stX + 1, .8, zSt + 5], fov: 50 };
+    case 'stretch': return { p: [L.xW + 3, 6.2, L.zLaneSW - 5], t: [L.xR + 7.5, .6, L.zLaneSW + 7], fov: 50 };
+    case 'avarias': return { p: [av.x + 2, 4.6, av.z - 8], t: [av.x + 3, .8, av.z + 2], fov: 50 };
     case 'caminho': return { p: [L.xE - 2, 3.2, L.zCS - 5], t: [L.xE - 18, .6, L.zCS + 1.5], fov: 50 };
   }
   return null;
@@ -2846,7 +3114,8 @@ function goView(name, instant = false) {
   document.querySelectorAll('#views .btn').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.view === name)));
   follow = null;
   if (name === 'paleteira') {
-    const u = [...S.jacks[1], ...S.jacks[-1]].find(x => x.task) || S.jacks[1][0] || S.jacks[-1][0];
+    const LS = (LINES[viewLine] || LINES[0]).S;
+    const u = [...LS.jacks[1], ...LS.jacks[-1]].find(x => x.task) || [...S.jacks[1], ...S.jacks[-1]].find(x => x.task) || S.jacks[1][0] || S.jacks[-1][0];
     if (!u) return;
     follow = { u }; camTween = null; return;
   }
@@ -2893,7 +3162,7 @@ function headcount(p) {
     ['Indução', n * (2 * p.inducaoPorLado + p.inducaoPonta)], ['Pescadores', n * nIsl * p.pescadoresPorIlha], ['Separadores', n * nIsl * p.separadoresPorIlha],
     ['Goleiros', n * p.goleiros], ['Paleteiros (scuttle)', n * 2 * p.paleteirosPorLado], ['Setup de gaiolas', n * 2 * p.setupPorLado],
     ['Recebimento', p.recebimento], ['Abastecimento de gaiolas', p.abastGaiolas], ['Abastecimento de scuttles', p.abastScuttles],
-    ['Saída (stretch e doca)', p.carregadoresSaida], ['Conferência', p.conferentes], ['Liderança', p.lideres],
+    ['Montagem / stretch manual', p.stretchManual], ['Operador do robô', p.operadorRobo], ['Saída / descarga', p.carregadoresSaida], ['Tratativa de avarias', p.tratativa], ['Liderança', p.lideres],
   ];
 }
 function refreshSpec() {
@@ -2906,7 +3175,8 @@ function refreshSpec() {
     <dt>Ilhas</dt><dd>${2 * L.nIsl * L.nLines} (${2 * L.nIsl} por esteira) · flow rack ${fmtM(L.rackW, 1)} × ${fmtM(L.rackL, 1)} m</dd>
     <dt>Scuttle</dt><dd>1,20 × 1,00 × ${fmtM(P.scuttleAlt)} m · ${P.scuttleCap} vol. · ${fmtM(pkgTargetM3(P) * 1000, 1)} L/vol.</dd>
     <dt>Goleiro</dt><dd>${P.goleiros} por esteira · ${P.gaiolasGoleiro} gaiolas · ${P.goleiroPct}%</dd>
-    <dt>Stretch</dt><dd>${P.robosStretch} robôs · ${P.tempoStretch} s por scuttle</dd>
+    <dt>Montagem</dt><dd>1 robô (${P.tempoStretch} s) · ${P.stretchManual} manual (${P.tempoMontagem} + ${P.tempoStretchManual} s)</dd>
+    <dt>Avarias</dt><dd>${P.avariaPct}% do goleiro · ${P.tratativa} pessoa(s) · ${P.tempoAvaria} s/volume</dd>
     <dt>Pessoas</dt><dd>${tot} na operação</dd>`;
   $('#kPeople').textContent = `${S.workers.length} pessoas`;
 }
@@ -3132,7 +3402,7 @@ async function rebuild(first = false) {
   await nextFrame();
   MH_LIVE = []; buildWorld(); collectWorkerHits(); setLoad(.65, 'Simulando os primeiros minutos da operação…');
   await nextFrame();
-  afterBuild(); buildBars(); refreshSpec(); refreshHud();
+  afterBuild(); buildBars(); buildLineSel(); refreshSpec(); refreshHud();
   if (first) { setupRender(); goView('aerea', true); } else goView(document.querySelector('#views [aria-pressed=true]')?.dataset.view || 'aerea', true);
   setLoad(1); await nextFrame(); ld.hidden = true;
 }

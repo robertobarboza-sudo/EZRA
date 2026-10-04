@@ -181,3 +181,23 @@ Base: planta baixa "Layout operacional – Centro de distribuição" (R12).
 - largura do caminho seguro;
 - equipes da planta: recebimento, abastecimento de gaiolas, abastecimento de scuttles, saída, conferência e liderança;
 - robôs de stretch e tempo de stretch.
+
+## Revisão 7: posições fiéis à planta RJ2
+
+**Posições:**
+- **Oeste:** entrada (docas) e rotas seguras nos cantos.
+- **Noroeste:** buffer de scuttles e gaiolas (scuttles montadas e gaiolas cheias), banheiros ao norte.
+- **Abaixo do buffer:** buffer de gaiolas (vazias).
+- **Sudoeste:**
+  - stretch com robô (1 robô e 1 operador que monta a caixa);
+  - montagem com stretch manual (2 pessoas, 2 scuttles).
+- **Centro:** abastecimento e as 3 esteiras (Termoplástica, Lona 01, Lona 02).
+- **Leste:** saída/descarga de scuttles e gaiolas, com docas.
+- **Sul:** circulação de pedestres com barreira, mesa da liderança, tratativa de avarias (sudeste) e passagem de scuttles.
+
+**Fluxos:**
+- **Scuttle vazia:** montada (caixa no pallet + filme stretch) → linha que precisa, ou buffer → buffers laterais das linhas.
+- **Scuttle cheia:** buffer da linha → saída/descarga → doca.
+- **Avarias:** % do volume do goleiro → gaiola de avarias no fim da linha → tratativa.
+
+**Painel:** seletor de esteira para as vistas de linha (eixo, ilha, indução, goleiro, buffers).
