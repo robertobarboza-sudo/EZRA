@@ -240,6 +240,8 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 <script type="importmap">
 { "imports": {
   "three": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js",
+  "three/webgpu": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.webgpu.js",
+  "three/tsl": "https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.tsl.js",
   "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
   "three/examples/jsm/": "https://cdn.jsdelivr.net/npm/three@0.186.1/examples/jsm/",
   "three-mesh-bvh": "https://cdn.jsdelivr.net/npm/three-mesh-bvh@0.9.15/build/index.module.js",
@@ -247,28 +249,27 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 } }
 </script>
 <script type="module">
-import * as T from 'three';
+import * as T from 'three/webgpu';
+import * as TSL from 'three/tsl';
+import { WebGLRenderer } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import * as BGU from 'three/addons/utils/BufferGeometryUtils.js';
 import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
-import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
-import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
-import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
-import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
-import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
-import { SMAAPass } from 'three/addons/postprocessing/SMAAPass.js';
-import { VignetteShader } from 'three/addons/shaders/VignetteShader.js';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
 import { EXRLoader } from 'three/addons/loaders/EXRLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
-// cores como no r128 (hex tratado como linear): mantém a aparência calibrada da maquete
+// pós-processamento estilo Unreal (TSL / WebGPU): iluminação global em tela, antisserrilhado temporal, motion blur, bloom e profundidade de campo
+import { ssgi } from 'three/addons/tsl/display/SSGINode.js';
+import { traa } from 'three/addons/tsl/display/TRAANode.js';
+import { motionBlur } from 'three/addons/tsl/display/MotionBlur.js';
+import { bloom } from 'three/addons/tsl/display/BloomNode.js';
+import { dof } from 'three/addons/tsl/display/DepthOfFieldNode.js';
+// cores como na calibração original (hex tratado como linear)
 T.ColorManagement.enabled = false;
 const THREE = {
-  ...T, OrbitControls, SkeletonUtils, RoomEnvironment, EffectComposer, RenderPass, ShaderPass, GTAOPass, BokehPass, OutputPass, SMAAPass,
-  VignetteShader, GLTFLoader, GLTFExporter, EXRLoader,
+  ...T, WebGLRenderer, OrbitControls, SkeletonUtils, RoomEnvironment, GLTFLoader, GLTFExporter, EXRLoader,
   BufferGeometryUtils: { ...BGU, mergeBufferGeometries: BGU.mergeGeometries },
 };
 window.THREE = THREE; window.MeshoptDecoder = MeshoptDecoder;
@@ -461,26 +462,21 @@ function computeLayout(p) {
 /* Renderer, cena, câmera, controles                                   */
 /* ------------------------------------------------------------------ */
 const stage = $('#stage');
-const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+// WebGPU (com retorno automático para WebGL2): habilita o pós-processamento em nós (SSGI, TRAA, motion blur)
+const renderer = new THREE.WebGPURenderer({ antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFShadowMap;
-renderer.shadowMap.autoUpdate = false;   // sombras recalculadas a ~15 Hz (cena majoritariamente estática)
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 0.95;
 stage.appendChild(renderer.domElement);
-const MAX_ANISO = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+const MAX_ANISO = 8;
 
 const scene = new THREE.Scene();
 const BG = C(0xdfe2e3);
 scene.background = BG;
 scene.fog = new THREE.Fog(BG, 170, 420);
-{
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
-  pmrem.dispose();
-}
 const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 700);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
@@ -489,7 +485,7 @@ controls.maxPolarAngle = PI * 0.495; controls.minDistance = 1.5; controls.maxDis
 const hemi = new THREE.HemisphereLight(C(0xf2f5f8), C(0x8d8a84), 0.45 * PI);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(C(0xfff1de), 1.75 * PI);
-sun.castShadow = true;
+sun.castShadow = true; sun.shadow.autoUpdate = false;   // sombras recalculadas a ~15 Hz (cena majoritariamente estática)
 sun.shadow.bias = -0.0003; sun.shadow.normalBias = 0.03; sun.shadow.radius = 2.5; sun.shadow.blurSamples = 12;
 scene.add(sun, sun.target);
 const fillL = new THREE.DirectionalLight(C(0xdde7f4), 0.25 * PI);
@@ -700,6 +696,7 @@ const MAT = {
   bagDark:   std({ color: 0x5d6670, roughness: .45, envMapIntensity: .5 }),
   fill:      std({ color: 0xffffff, map: TEX.fill, roughness: .9, envMapIntensity: .25 }),
   hit:       new THREE.MeshBasicMaterial({ visible: false }),
+  greenDark: std({ color: 0x0b4d22, roughness: .7 }),
   film:      new THREE.MeshStandardMaterial({ color: 0xe6eef2, transparent: true, opacity: .42, roughness: .12, metalness: 0, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.2 }),
   filmRoll:  new THREE.MeshStandardMaterial({ color: 0xdfe9ee, transparent: true, opacity: .8, roughness: .2, envMapIntensity: 1 }),
   robotLed:  new THREE.MeshStandardMaterial({ color: 0x1d6fd8, emissive: 0x1d6fd8, emissiveIntensity: .8 }),
@@ -709,7 +706,7 @@ const MAT = {
   column:    std({ color: 0x1f3a5f, roughness: .5, metalness: .3 }),
   glassBand: std({ color: 0x9fb3c6, roughness: .15, metalness: .5, transparent: true, opacity: .55 }),
 };
-const NO_CAST = new Set(['wire', 'yellow', 'green', 'white', 'orangeP', 'navyP', 'hatch', 'floor', 'mat', 'lamp', 'lampBody', 'truss', 'asphalt', 'glassBand']);
+const NO_CAST = new Set(['wire', 'yellow', 'green', 'greenDark', 'white', 'orangeP', 'navyP', 'hatch', 'floor', 'mat', 'lamp', 'lampBody', 'truss', 'asphalt', 'glassBand']);
 const ROOF_KEYS = new Set(['truss', 'lamp', 'lampBody']);   // cobertura: some quando a câmera passa do telhado
 
 /* ------------------------------------------------------------------ */
@@ -1216,10 +1213,7 @@ async function loadEnvironment(base = 'pessoas/') {
   const j = await fetch(base + 'ambiente.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
   const tex = await new Promise((ok, bad) => new THREE.EXRLoader().setDataType(THREE.FloatType).load('data:application/octet-stream;base64,' + j.exr, ok, undefined, bad));
   tex.mapping = THREE.EquirectangularReflectionMapping;
-  const pmrem = new THREE.PMREMGenerator(renderer);
-  const env = pmrem.fromEquirectangular(tex).texture;
-  pmrem.dispose(); ENV_EQUI = tex;
-  if (scene.environment) scene.environment.dispose();
+  const env = tex; ENV_EQUI = tex;   // o renderizador WebGPU pré-filtra o HDRI sozinho
   scene.environment = env;
 }
 async function loadPeople(base = 'pessoas/') {
@@ -2468,7 +2462,7 @@ function afterBuild() {
 // - oeste: entrada (docas), buffer de scuttles e gaiolas, buffer de gaiolas (vazias), banheiros ao norte;
 // - sudoeste: stretch com robô (1) e montagem/stretch manual de scuttles (2 pessoas);
 // - centro: abastecimento e as 3 esteiras; leste: saída/descarga de scuttles e gaiolas (docas);
-// - sul: circulação de pedestres com barreira, mesa da liderança, tratativa de avarias e passagem de scuttles.
+// - sul: circulação de pedestres (caminho seguro), mesa da liderança, tratativa de avarias e passagem de scuttles.
 // Fluxos: scuttle vazia é montada (caixa no pallet + filme stretch) → buffer de scuttles → buffers laterais
 // das linhas; scuttle cheia → buffer de saída da linha → saída/descarga → doca; avarias do goleiro → tratativa.
 function newPlantState() {
@@ -2641,14 +2635,12 @@ function buildPlant() {
   zO.forEach(z => { P0.outS.push({ T: V3(ox, 0, z), psi: PI / 2, sc: null, res: false, t: 0 }); put('white', plane(1.24, .04), ox, .006, z - .66); put('white', plane(1.24, .04), ox, .006, z + .66); });
   for (const z of zOut) { P0.doorsOut.push({ z }); arrow(L.bx1 - 2.6, z, 0, 1.6); }
 
-  /* sul: circulação de pedestres com barreira, mesa da liderança, tratativa de avarias e passagem de scuttles */
+  /* sul: circulação de pedestres (caminho seguro), mesa da liderança, tratativa de avarias e passagem de scuttles */
   const cs0 = L.zCS - L.cs / 2, cs1 = L.zCS + L.cs / 2, csEnd = L.bx1 - 3.2;
-  zoneBox(L.xW - .4, cs0, csEnd, cs1, 'green', .1);
+  zoneBox(L.xW - .4, cs0, csEnd, cs1, 'greenDark', .14);   // demarcação do caminho seguro: verde escuro, sem grade
   for (let x = L.xW + 4; x < csEnd - 4; x += 14) arrow(x, L.zCS, 0, 1.2);
-  floorText(world, [{ t: 'CIRCULAÇÃO DE PEDESTRES', size: 66 }, { t: `caminho seguro · ${fmtM(L.cs)} m`, size: 36, weight: 600, font: MONO }], (L.xW + L.xE) / 2 - 10, L.zCS, 7, Math.min(L.cs * .9, 1.2), 0, { w: 900, h: 170, color: '#1f6b41' });
+  floorText(world, [{ t: 'CIRCULAÇÃO DE PEDESTRES', size: 66 }, { t: `caminho seguro · ${fmtM(L.cs)} m`, size: 36, weight: 600, font: MONO }], (L.xW + L.xE) / 2 - 10, L.zCS, 7, Math.min(L.cs * .9, 1.2), 0, { w: 900, h: 170, color: '#0d4a22' });
   const r0 = L.zRoom0, r1 = L.bz1 - .4, lx = L.xE - 22, bEnd = lx - 6;
-  for (let x = L.xW; x <= bEnd; x += 2) put('red', box(.06, 1.0, .06), x, .5, cs0 - .15);   // barreira / controle de acesso
-  put('red', box(bEnd - L.xW, .07, .07), (L.xW + bEnd) / 2, 1.0, cs0 - .15); put('white', box(bEnd - L.xW, .06, .05), (L.xW + bEnd) / 2, .55, cs0 - .15);
   // mesa da liderança
   zoneBox(lx - 5, r0, lx + 5, r1, 'navyP');
   put('wood', box(3.2, .06, 1.4), lx, .76, r0 + 3.6); put('steelDark', box(3.0, .72, 1.2), lx, .37, r0 + 3.6);
@@ -3026,38 +3018,39 @@ function updatePlant(dt) {
 /* ------------------------------------------------------------------ */
 /* Render: oclusão de ambiente, profundidade de campo e antisserrilhado  */
 /* ------------------------------------------------------------------ */
-let composer = null, ssao = null, bokeh = null, smaa = null;
+let pipeline = null, dofFocus = null, gi = null;
 let quality = (() => { try { return localStorage.getItem('maquete-qualidade') || null; } catch (e) { return null; } })() || (innerWidth < 760 ? 'leve' : 'alta');
+/* pipeline estilo Unreal em nós TSL:
+   cena (cor, cor difusa, normal, velocidade) → SSGI (luz indireta + oclusão) → bloom → profundidade de campo
+   → motion blur por objeto → TRAA (antisserrilhado temporal) → vinheta → tom fílmico */
 function setupRender() {
   const dpr = window.devicePixelRatio || 1;
   renderer.setPixelRatio(quality === 'cinema' ? Math.min(dpr, 2) : quality === 'alta' ? Math.min(dpr, 1.5) : Math.min(dpr, 1.25));
   const ms = quality === 'leve' ? 2048 : 4096;
   if (sun.shadow.mapSize.x !== ms) { sun.shadow.mapSize.set(ms, ms); if (sun.shadow.map) { sun.shadow.map.dispose(); sun.shadow.map = null; } }
-  if (composer) { composer.passes.forEach(p => p.dispose && p.dispose()); composer.dispose && composer.dispose(); composer = null; }
-  ssao = bokeh = smaa = null;
+  if (pipeline && pipeline.dispose) pipeline.dispose();
+  pipeline = null; dofFocus = null; gi = null;
   if (quality !== 'leve') {
-    const w = stage.clientWidth, h = stage.clientHeight;
-    composer = new THREE.EffectComposer(renderer);
-    composer.addPass(new THREE.RenderPass(scene, camera));
-    // oclusão de ambiente GTAO (r186): contato realista nos pés, caixas e estruturas
-    ssao = new THREE.GTAOPass(scene, camera, w, h);
-    ssao.updateGtaoMaterial({ radius: quality === 'cinema' ? .55 : .45, distanceExponent: 1.4, thickness: 1, scale: 1.1, samples: quality === 'cinema' ? 24 : 16 });
-    ssao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
-    ssao.blendIntensity = .9;
-    const orig = ssao.render.bind(ssao);
-    ssao.render = (...a) => {   // textos de piso e cotas não geram sombra de contato
-      const vis = AO_HIDE.map(m => m.visible); AO_HIDE.forEach(m => { m.visible = false; });
-      const dv = dimGroup ? dimGroup.visible : false; if (dimGroup) dimGroup.visible = false;
-      orig(...a);
-      AO_HIDE.forEach((m, i) => { m.visible = vis[i]; }); if (dimGroup) dimGroup.visible = dv;
-    };
-    composer.addPass(ssao);
-    bokeh = new THREE.BokehPass(scene, camera, { focus: 20, aperture: .00035, maxblur: .007 });
-    bokeh.enabled = $('#dof').checked;
-    composer.addPass(bokeh);
-    const vig = new THREE.ShaderPass(THREE.VignetteShader); vig.uniforms.offset.value = 1.05; vig.uniforms.darkness.value = .85; composer.addPass(vig);
-    composer.addPass(new THREE.OutputPass());
-    smaa = new THREE.SMAAPass(); composer.addPass(smaa);
+    const T = TSL, cine = quality === 'cinema';
+    const scenePass = T.pass(scene, camera);
+    scenePass.setMRT(T.mrt({ output: T.output, diffuseColor: T.diffuseColor, normal: T.packNormalToRGB(T.normalView), velocity: T.velocity }));
+    const color = scenePass.getTextureNode('output'), diffuse = scenePass.getTextureNode('diffuseColor');
+    const depth = scenePass.getTextureNode('depth'), normalT = scenePass.getTextureNode('normal'), vel = scenePass.getTextureNode('velocity');
+    scenePass.getTexture('diffuseColor').type = THREE.UnsignedByteType; scenePass.getTexture('normal').type = THREE.UnsignedByteType;
+    const sceneNormal = T.sample(uv => T.unpackRGBToNormal(normalT.sample(uv)));
+    gi = ssgi(color, depth, sceneNormal, camera);
+    gi.sliceCount.value = cine ? 2 : 1; gi.stepCount.value = cine ? 10 : 8;
+    gi.radius.value = 6; gi.giIntensity.value = cine ? 2.2 : 1.8; gi.aoIntensity.value = 1.1; gi.thickness.value = .6;
+    let out = (window.__rp || {}).gi === false ? color : T.vec4(T.add(color.rgb.mul(gi.a), diffuse.rgb.mul(gi.rgb)), color.a);
+    if (cine) out = out.add(bloom(out, .08, .3, .95));
+    if ($('#dof').checked) { dofFocus = T.uniform(20); out = dof(T.convertToTexture(out), scenePass.getViewZNode(), dofFocus, T.uniform(8), T.uniform(1.2)); }
+    const dbg = window.__rp || {};
+    // motion blur só no modo cinema, com vetor limitado (nunca vira rastro): pessoas, paleteiras e volumes na esteira
+    if (cine && dbg.mb !== false) out = motionBlur(T.convertToTexture(out), T.clamp(vel.xy.mul(T.uniform(.35)), T.vec2(-.006, -.006), T.vec2(.006, .006)), T.int(10));
+    if (dbg.traa !== false) out = traa(out, depth, vel, camera);
+    const vig = T.float(1).sub(T.smoothstep(T.float(.42), T.float(.95), T.screenUV.distance(T.vec2(.5, .5))).mul(.3));
+    pipeline = new THREE.RenderPipeline(renderer);
+    pipeline.outputNode = T.vec4(out.rgb.mul(vig), out.a);
   }
   resize();
 }
@@ -3065,7 +3058,7 @@ function resize() {
   const w = stage.clientWidth, h = stage.clientHeight;
   renderer.setSize(w, h, false);
   camera.aspect = w / h; camera.updateProjectionMatrix();
-  if (composer) { composer.setPixelRatio(renderer.getPixelRatio()); composer.setSize(w, h); }
+  if (photo && photo.glr) { photo.glr.setSize(w, h, false); if (photo.ready) photo.pt.updateCamera(); }
 }
 addEventListener('resize', resize);
 
@@ -3225,7 +3218,7 @@ $('#play').addEventListener('click', e => {
 $('#quality').value = quality;
 $('#quality').addEventListener('change', e => { quality = e.target.value; try { localStorage.setItem('maquete-qualidade', quality); } catch (er) {} setupRender(); });
 $('#dims').addEventListener('change', e => { if (dimGroup) dimGroup.visible = e.target.checked; });
-$('#dof').addEventListener('change', e => { if (bokeh) bokeh.enabled = e.target.checked; });
+$('#dof').addEventListener('change', () => setupRender());
 $('#ghost').addEventListener('change', e => {
   const on = e.target.checked;
   for (const m of [MAT.kraft, MAT.kraftIn]) { m.transparent = on; m.opacity = on ? .3 : 1; m.depthWrite = !on; m.needsUpdate = true; }
@@ -3484,18 +3477,23 @@ async function startPhoto(filter = null) {
     const { ps, tris, mats } = buildPhotoScene(filter);
     for (const w of near) { w.mh.obj.visible = false; w.proc.visible = true; }
     window.__ptMats = mats;
-    renderer.setRenderTarget(null); renderer.resetState();   // limpa texturas presas do pós-processamento (GTAO)
-    const pt = new WebGLPathTracer(renderer);
+    // o traçado de caminho roda num renderizador WebGL próprio, numa tela por cima do palco
+    const glr = new THREE.WebGLRenderer({ antialias: false });
+    glr.setPixelRatio(renderer.getPixelRatio()); glr.setSize(stage.clientWidth, stage.clientHeight, false);
+    glr.toneMapping = renderer.toneMapping; glr.toneMappingExposure = renderer.toneMappingExposure; glr.outputColorSpace = THREE.SRGBColorSpace;
+    Object.assign(glr.domElement.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', pointerEvents: 'none' });
+    stage.appendChild(glr.domElement);
+    const pt = new WebGLPathTracer(glr);
     Object.assign(pt, { renderDelay: 0, minSamples: 1, fadeDuration: 400, bounces: 5, filterGlossyFactor: .5, renderScale: Math.min(1, 1.5 / (renderer.getPixelRatio() || 1)) });
     pt.tiles.set(2, 2); pt.textureSize.set(1024, 1024);
     if (window.__ptOpts) { const o = window.__ptOpts; if (o.tiles) pt.tiles.set(o.tiles, o.tiles); if (o.tex) pt.textureSize.set(o.tex, o.tex); for (const k of ['rasterizeScene', 'renderScale', 'bounces']) if (k in o) pt[k] = o[k]; }
-    photo = { pt, ps, wasRunning, ready: false };
+    photo = { pt, ps, glr, wasRunning, ready: false };
     pt.setScene(ps, camera);
     photo.ready = true;
     photoInfo.textContent = `${Math.round(tris / 1000)} mil triângulos`;
     photoBtn.textContent = 'Sair da foto'; photoBtn.setAttribute('aria-pressed', 'true');
   } catch (err) {
-    console.error(err); if (photo) { photo.pt.dispose(); running = photo.wasRunning; } photo = null;
+    console.error(err); if (photo) { photo.pt.dispose(); photo.glr.dispose(); photo.glr.domElement.remove(); running = photo.wasRunning; } photo = null;
     photoBtn.textContent = 'Foto indisponível'; setTimeout(() => { photoBtn.textContent = 'Foto realista'; }, 2500);
   }
   photoBtn.disabled = false;
@@ -3504,6 +3502,7 @@ function stopPhoto() {
   if (!photo) return;
   const p = photo; photo = null;
   p.pt.dispose(); p.ps.traverse(o => { if (o.geometry) o.geometry.dispose(); });
+  p.glr.dispose(); p.glr.domElement.remove();
   running = p.wasRunning; photoInfo.textContent = '';
   photoBtn.textContent = 'Foto realista'; photoBtn.setAttribute('aria-pressed', 'false');
 }
@@ -3517,7 +3516,6 @@ function frame() {
   if (photo) {
     tweenCam(real); controls.update();
     if (photo.ready) { photo.pt.renderSample(); photoInfo.textContent = `${Math.floor(photo.pt.samples)} amostras`; }
-    else renderer.render(scene, camera);
     requestAnimationFrame(frame); return;
   }
   if (S && running && !document.hidden && $('#loading').hidden) {
@@ -3526,21 +3524,22 @@ function frame() {
   }
   tweenCam(real); controls.update();
   if (roofGroup) roofGroup.visible = camera.position.y < H_ROOF - .3;
-  if (bokeh && bokeh.enabled) bokeh.uniforms.focus.value = camera.position.distanceTo(controls.target);
+  if (dofFocus) dofFocus.value = camera.position.distanceTo(controls.target);
   if ((tick++ & 3) === 0) updateTip();
-  if (tick % 4 === 1 || !S) renderer.shadowMap.needsUpdate = true;
+  if (tick % 4 === 1 || !S) sun.shadow.needsUpdate = true;
   mhSyncAll();
-  if (composer) composer.render(); else renderer.render(scene, camera);
+  if (pipeline) pipeline.render(); else renderer.render(scene, camera);
   requestAnimationFrame(frame);
 }
 buildForm();
 setLoad(.05, 'Carregando as pessoas…');
 Promise.all([
+  renderer.init(),
   loadPeople().catch(err => console.warn('pessoas MakeHuman indisponíveis, usando bonecos simples', err)),
   loadEnvironment().catch(err => console.warn('HDRI indisponível', err)),
 ])
   .then(() => rebuild(true)).then(() => { requestAnimationFrame(frame); });
-window.__maquete = { mhSync, startPhoto, stopPhoto, get photo() { return photo; }, get PLANT() { return PLANT; }, get LINES() { return LINES; }, get S() { return S; }, get L() { return L; }, get P() { return P; }, camera, controls, goView, renderer, scene, setQuality: q => { quality = q; setupRender(); }, update };
+window.__maquete = { get gi() { return gi; }, get pipeline() { return pipeline; }, mhSync, startPhoto, stopPhoto, get photo() { return photo; }, get PLANT() { return PLANT; }, get LINES() { return LINES; }, get S() { return S; }, get L() { return L; }, get P() { return P; }, camera, controls, goView, renderer, scene, setQuality: q => { quality = q; setupRender(); }, update };
 };
 Promise.race([
   Promise.all([document.fonts.load('800 80px Archivo'), document.fonts.load('600 60px "IBM Plex Mono"')]),

@@ -116,6 +116,32 @@ O que separava as fotos do Cycles da maquete ao vivo:
 
 **Ainda depende de acesso:** peles fotográficas, cabelo por cartões e roupas do MPFB2 (pacotes de ativos bloqueados neste ambiente).
 
+## 6. Rodada 4: renderização estilo Unreal Engine no navegador
+
+**Avaliado:**
+
+| Opção | Estilo Unreal | Decisão |
+|---|---|---|
+| **three.js WebGPURenderer + TSL** (r186, `three/webgpu`, `three/tsl`) | SSGI (luz indireta e oclusão, como o Lumen em tela), TRAA (antisserrilhado temporal, como o TAA/TSR), motion blur por velocidade, bloom, profundidade de campo, SSR, sombras de contato (SSS), material de subsuperfície | **Em uso.** Volta para WebGL2 sozinho quando não há WebGPU |
+| pmndrs `postprocessing` + N8AO / realism-effects | AO e SSGI em WebGL | Descartado: depende de `three/webgpu` ou está desatualizado para o r186 |
+| Babylon.js / PlayCanvas | Pipelines completos (SSR, TAA, motion blur) | Descartado: exigiria reescrever a maquete inteira |
+| Unreal Engine / Pixel Streaming | O próprio Unreal | Fora do navegador; exige servidor com GPU |
+| `three-gpu-pathtracer` | Traçado de caminho (como o Path Tracer do Unreal) | **Em uso** no modo Foto realista, num renderizador WebGL próprio |
+
+**Pipeline atual, em nós TSL:**
+
+1. Passe da cena com MRT: cor, cor difusa, normal e velocidade.
+2. SSGI: luz indireta e oclusão de ambiente.
+3. Bloom (cinema) e profundidade de campo (opcional).
+4. Motion blur por objeto (cinema), com vetor limitado.
+5. TRAA: antisserrilhado temporal.
+6. Vinheta e tom fílmico.
+
+Qualidades:
+- **Leve:** sem pós-processamento.
+- **Alto:** SSGI e TRAA.
+- **Cinema:** tudo, com mais amostras.
+
 ## Créditos
 
 - Captura de movimento: CMU Graphics Lab Motion Capture Database (mocap.cs.cmu.edu), criada com
