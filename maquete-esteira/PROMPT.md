@@ -149,3 +149,35 @@ quadro de pessoas).
 - Cubagem média por volume = 2,40 × 0,90 ÷ (46 × 1,015) ≈ **46,3 L** (≈ 45 × 33 × 31 cm); a mistura de
   caixas e sacos é escalada para essa média. Os três números são premissas editáveis.
 - Removido o painel elétrico que ficava no caminho da indução; grade do piso mais clara; exportação .glb.
+
+## Revisão 6: planta com três esteiras e modelo operacional completo
+
+Base: planta baixa "Layout operacional – Centro de distribuição" (R12).
+
+**Ajustes de medida.** As esteiras ficam com 42 m e o galpão cresce para caber tudo:
+- **Galpão:** cerca de 96 × 97 m (no desenho, o galpão de 56 × 22 m não comporta três esteiras de 42 m com as ilhas).
+- **Ilhas:** 3 por lado, o que dá exatamente 42 m de esteira.
+- **Linhas:** 2,5 m entre as áreas de cada linha.
+
+**Fluxo operacional:**
+1. **Entrada (docas a oeste):** o recebimento leva as gaiolas cheias ao buffer de gaiolas cheias e devolve as vazias pelas docas.
+2. **Abastecimento:** pelo corredor oeste, leva gaiola cheia ao buffer da indução de cada linha e traz a vazia ao buffer de vazias.
+3. **Indução:** tira a gaiola vazia, leva ao buffer e coloca a cheia, que fica pré-posicionada na fileira de trás.
+4. **Ilhas:** tira a scuttle cheia, leva ao buffer de saída da linha e coloca a vazia.
+5. **Scuttles vazias:** paleteiras levam da área de pallets de scuttles (sudeste, com passagem) aos buffers laterais das linhas.
+6. **Saída:** a scuttle cheia vai do buffer de saída da linha ao robô de stretch e depois à doca de carga (leste).
+7. **Robô de stretch:** base redonda (tipo aspirador), 1,1 m de altura, percurso circular fixo em volta da scuttle.
+   Na planta, a "área de conferência com robô" é na verdade a área de stretch. Ela foi posta ao lado da
+   saída para a scuttle cheia não atravessar o galpão.
+
+**Apoio:**
+- caminho seguro de pedestres com até 1,4 m de largura, com barreira;
+- conferência de scuttles, gaiolas e santinhas;
+- mesa da liderança;
+- banheiros.
+
+**Premissas novas:**
+- número de linhas e corredor entre linhas;
+- largura do caminho seguro;
+- equipes da planta: recebimento, abastecimento de gaiolas, abastecimento de scuttles, saída, conferência e liderança;
+- robôs de stretch e tempo de stretch.

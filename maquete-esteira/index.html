@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Maquete Esteira 01</title>
+<title>Maquete Centro de Distribuição</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -137,7 +137,7 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 
 <section class="sheet card" aria-label="Processo">
   <div class="eyebrow"><span>Planta da linha</span><span>Linha 01</span></div>
-  <h1>Esteira 01 <span>·</span> triagem manual</h1>
+  <h1>Centro de distribuição <span>·</span> 3 esteiras</h1>
   <ol class="flow" aria-label="Fluxo do processo">
     <li><i style="--c:var(--c-ind)"></i>Indução</li>
     <li><i style="--c:var(--c-tri)"></i>Pesca</li>
@@ -183,6 +183,9 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
         <button class="btn" data-view="goleiro">Goleiro</button>
         <button class="btn" data-view="lateral">Buffer de saída</button>
         <button class="btn" data-view="gaiolas">Buffer de gaiolas</button>
+        <button class="btn" data-view="recebimento">Recebimento</button>
+        <button class="btn" data-view="stretch">Stretch</button>
+        <button class="btn" data-view="caminho">Caminho seguro</button>
         <button class="btn" data-view="paleteira">Seguir paleteira</button>
       </div>
     </div>
@@ -272,7 +275,9 @@ const C = hex => new THREE.Color(hex).convertSRGBToLinear();   // cores sRGB →
 /* ------------------------------------------------------------------ */
 const DEFAULTS = {
   capacidade: 3000, ineficiencia: 15, goleiroPct: 10, velEsteira: 0.9,
-  inducaoComp: 8, larguraEsteira: 1.65, alturaEsteira: 0.82, ilhasPorLado: 5,
+  inducaoComp: 8, larguraEsteira: 1.65, alturaEsteira: 0.82, ilhasPorLado: 3,
+  linhas: 3, corredorLinhas: 2.5, caminhoSeguro: 1.4,
+  recebimento: 4, abastGaiolas: 4, abastScuttles: 8, carregadoresSaida: 6, robosStretch: 6, tempoStretch: 60, conferentes: 3, lideres: 2,
   folgaIlha: 0.1, distEsteiraFlow: 0.9,
   flowLarg: 2.5, flowComp: 3.3, flowAlt: 0.85, flowCap: 8,
   corredorFlow: 1.2, corredorPaleteira: 3.0, scuttlesPorFila: 3,
@@ -284,8 +289,13 @@ const DEFAULTS = {
   phdInducao: 350, phdPescador: 600, phdSeparador: 300, phdGoleiro: 350,
 };
 const SCHEMA = [
+  { group: 'Planta', fields: [
+    ['linhas', 'Esteiras (linhas)', 'un', 1, 3, 1],
+    ['corredorLinhas', 'Corredor entre linhas', 'm', 1, 8, .1],
+    ['caminhoSeguro', 'Largura do caminho seguro (pedestres)', 'm', .8, 1.4, .05],
+  ] },
   { group: 'Volume e performance', fields: [
-    ['capacidade', 'Capacidade nominal da esteira', 'pct/h', 300, 9000, 100],
+    ['capacidade', 'Capacidade nominal por esteira', 'pct/h', 300, 9000, 100],
     ['ineficiencia', 'Margem de ineficiência', '%', 0, 60, 1],
     ['goleiroPct', 'Volume que vai para o goleiro', '%', 0, 50, 1],
     ['velEsteira', 'Velocidade da esteira', 'm/s', .2, 2.5, .05],
@@ -331,12 +341,24 @@ const SCHEMA = [
     ['setupPorLado', 'Setup de gaiolas por lado', 'pessoas', 0, 6, 1],
     ['goleiros', 'Goleiros', 'pessoas', 1, 2, 1],
   ] },
+  { group: 'Equipe da planta (todas as linhas)', fields: [
+    ['recebimento', 'Recebimento (entrada de gaiolas)', 'pessoas', 0, 10, 1],
+    ['abastGaiolas', 'Abastecimento de gaiolas nas linhas', 'pessoas', 0, 12, 1],
+    ['abastScuttles', 'Abastecimento de scuttles vazias (paleteira)', 'pessoas', 0, 16, 1],
+    ['carregadoresSaida', 'Saída: scuttle cheia → stretch → doca', 'pessoas', 0, 16, 1],
+    ['conferentes', 'Conferência', 'pessoas', 0, 6, 1],
+    ['lideres', 'Liderança', 'pessoas', 0, 4, 1],
+  ] },
+  { group: 'Stretch (robô)', fields: [
+    ['robosStretch', 'Robôs de stretch', 'un', 1, 10, 1],
+    ['tempoStretch', 'Tempo de stretch por scuttle', 's', 20, 300, 5],
+  ] },
   { group: 'Ritmo das pessoas', fields: [
     ['velPessoa', 'Velocidade de caminhada', 'm/s', .6, 2, .05],
     ['velPaleteira', 'Velocidade com paleteira/gaiola', 'm/s', .5, 2, .05],
   ] },
 ];
-const STORE_KEY = 'maquete-esteira-premissas-v9';
+const STORE_KEY = 'maquete-esteira-premissas-v10';
 function loadParams() {
   try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (s && typeof s === 'object') return sanitize({ ...DEFAULTS, ...s }); } catch (e) {}
   return { ...DEFAULTS };
@@ -385,6 +407,23 @@ function computeLayout(p) {
   L.cageBufX = L.X0 - 5.0;                              // buffers de gaiolas (cheias ao sul, vazias ao norte)
   L.midIsl = (L.XP + L.X1) / 2;                         // centro das ilhas (buffer de scuttles vazias)
   L.eastBufX = L.golX + 6.2;                            // buffer de scuttles cheias, depois do goleiro
+  /* planta: linhas lado a lado (eixo z), zonas de entrada a oeste e de saída a leste */
+  L.nLines = p.linhas;
+  L.LP = 2 * L.zApron + p.corredorLinhas;               // passo entre eixos das linhas
+  L.zLines = Array.from({ length: L.nLines }, (_, i) => (i - (L.nLines - 1) / 2) * L.LP);
+  L.zN = L.zLines[0] - L.zApron; L.zS = L.zLines[L.nLines - 1] + L.zApron;
+  L.xW = L.xWest - 1.8;                                 // corredor oeste (abastecimento das linhas)
+  L.pbx1 = L.xW - 1.6; L.pbx0 = L.pbx1 - 11.6;          // buffers de gaiolas da planta (8 por fileira)
+  L.xR = L.pbx0 - 1.8;                                  // corredor da entrada (recebimento)
+  L.bx0 = L.xR - 4.2;                                   // parede oeste (docas de entrada)
+  L.xE = L.xEast + 1.6;                                 // corredor leste (saída)
+  L.stX = L.xE + 5.0;                                   // estações de stretch
+  L.bx1 = L.stX + 7.5;                                  // parede leste (docas de saída)
+  L.cs = p.caminhoSeguro;                               // caminho seguro de pedestres
+  L.zCS = L.zS + .4 + L.cs / 2;                         // eixo do caminho seguro
+  L.zRoom0 = L.zS + .4 + L.cs + .5;                     // faixa sul: conferência, liderança, pallets de scuttles
+  L.bz1 = L.zRoom0 + 8.5;
+  L.bz0 = L.zN - 7.5;                                   // faixa norte: banheiros
   return L;
 }
 
@@ -412,10 +451,10 @@ scene.fog = new THREE.Fog(BG, 170, 420);
   scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
   pmrem.dispose();
 }
-const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 500);
+const camera = new THREE.PerspectiveCamera(38, 1, 0.1, 700);
 const controls = new THREE.OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.08;
-controls.maxPolarAngle = PI * 0.495; controls.minDistance = 1.5; controls.maxDistance = 190;
+controls.maxPolarAngle = PI * 0.495; controls.minDistance = 1.5; controls.maxDistance = 260;
 
 const hemi = new THREE.HemisphereLight(C(0xf2f5f8), C(0x8d8a84), 0.45);
 scene.add(hemi);
@@ -631,6 +670,11 @@ const MAT = {
   bagDark:   std({ color: 0x5d6670, roughness: .45, envMapIntensity: .5 }),
   fill:      std({ color: 0xffffff, map: TEX.fill, roughness: .9, envMapIntensity: .25 }),
   hit:       new THREE.MeshBasicMaterial({ visible: false }),
+  film:      new THREE.MeshStandardMaterial({ color: 0xe6eef2, transparent: true, opacity: .42, roughness: .12, metalness: 0, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.2 }),
+  filmRoll:  new THREE.MeshStandardMaterial({ color: 0xdfe9ee, transparent: true, opacity: .8, roughness: .2, envMapIntensity: 1 }),
+  robotLed:  new THREE.MeshStandardMaterial({ color: 0x1d6fd8, emissive: 0x1d6fd8, emissiveIntensity: .8 }),
+  robotLedOn: new THREE.MeshStandardMaterial({ color: 0xf2c230, emissive: 0xf2c230, emissiveIntensity: 1.2 }),
+  robotLedDone: new THREE.MeshStandardMaterial({ color: 0x2e9a5c, emissive: 0x2e9a5c, emissiveIntensity: 1.1 }),
   truss:     std({ color: 0xa9afb4, roughness: .45, metalness: .6 }),
   column:    std({ color: 0x1f3a5f, roughness: .5, metalness: .3 }),
   glassBand: std({ color: 0x9fb3c6, roughness: .15, metalness: .5, transparent: true, opacity: .55 }),
@@ -920,6 +964,12 @@ const ROLE = {
   paleteiro:  { vest: 0xc9d64a, label: 'Paleteiro (troca de scuttle)', cap: [null, 0x1f3a5f] },
   setup:      { vest: 0xf2c230, label: 'Setup de gaiolas', cap: [0xe8641b, null] },
   carregador: { vest: 0xc9d64a, label: 'Carregador de expedição', cap: [0x1f3a5f] },
+  recebimento: { vest: 0xf2c230, label: 'Recebimento (entrada de gaiolas)', cap: [0x1f3a5f], mh: 'setup' },
+  abastecedor: { vest: 0xf2c230, label: 'Abastecimento de gaiolas', cap: [0xe8641b, null], mh: 'inducao' },
+  abastScuttle: { vest: 0xc9d64a, label: 'Abastecimento de scuttles vazias', cap: [null, 0x1f3a5f], mh: 'paleteiro' },
+  saida: { vest: 0xc9d64a, label: 'Saída (stretch e doca)', cap: [0x1f3a5f], mh: 'carregador' },
+  conferente: { vest: 0x2e9a5c, label: 'Conferência', cap: [null], mh: 'goleiro' },
+  lider: { vest: 0x2e9a5c, label: 'Liderança', cap: [null], mh: 'goleiro' },
 };
 const BONES = [ // nome, pai, posição relativa ao pai (altura de referência 1,75 m)
   ['root', -1, [0, 0, 0]], ['pelvis', 0, [0, .93, 0]], ['chest', 1, [0, .11, 0]], ['head', 2, [0, .48, 0]],
@@ -1102,8 +1152,8 @@ function makeWorker(roleKey) {
       return out.copy(a).add(b).multiplyScalar(.5);
     },
     setYaw(y) { w.yaw = y; root.rotation.y = y; },
-    yawTo(world) {
-      const p = root.parent.worldToLocal(world.clone());
+    yawTo(pt) {      // pt em coordenadas da linha atual (world)
+      const p = root.parent.worldToLocal(world.localToWorld(pt.clone()));
       return Math.atan2(p.x - root.position.x, p.z - root.position.z);
     },
   };
@@ -1337,6 +1387,8 @@ function mhSyncAll() {
 /* Mundo: montado a partir das premissas (reconstruído ao aplicar)      */
 /* ------------------------------------------------------------------ */
 let L = null, world = null, S = null, ASSET = {}, dimGroup = null;
+let ROOT = null, LINES = [], PLANT = null, AGG = null, IND_SEQ = 0;
+const LINE_NAMES = [['ESTEIRA TERMOPLÁSTICA', 'Termoplástica'], ['ESTEIRA LONA 01', 'Lona 01'], ['ESTEIRA LONA 02', 'Lona 02']];
 let hitTargets = [];
 const H_ROOF = 11;
 const LABEL_GEO = new THREE.PlaneGeometry(.5, .25);
@@ -1346,13 +1398,13 @@ const CURB = std({ color: 0x8e9396, roughness: .9 });
 MAT.wall = WALL; MAT.curb = CURB; MAT.slabSide = SLAB_SIDE;
 
 function disposeWorld() {
-  if (!world) return;
-  world.traverse(o => {
+  if (!ROOT) return;
+  ROOT.traverse(o => {
     if (o.userData.disposeGeo && o.geometry) o.geometry.dispose();
     if (o.userData.disposeAll) { if (o.geometry) o.geometry.dispose(); if (o.material) { if (o.material.map) o.material.map.dispose(); o.material.dispose(); } }
   });
   for (const k in ASSET) { const v = ASSET[k]; if (v.isBufferGeometry) v.dispose(); else for (const key in v) v[key].dispose(); }
-  scene.remove(world); world = null;
+  scene.remove(ROOT); ROOT = null; world = null; LINES = []; PLANT = null;
 }
 
 /* ---------- unitizadores móveis ---------- */
@@ -1403,16 +1455,16 @@ const fwdOf = yaw => V3(Math.sin(yaw), 0, Math.cos(yaw));
 
 /* ---------- base da maquete: piso com grade de 1 m e 5 m (profundidade e escala) ---------- */
 function buildBuilding() {
-  const x0 = L.xWest, x1 = L.xEast, zW = L.zWall, W = x1 - x0, D = 2 * zW, cx = (x0 + x1) / 2;
+  const x0 = L.bx0 - 1.5, x1 = L.bx1 + 1.5, z0 = L.bz0 - 1.5, z1 = L.bz1 + 1.5, W = x1 - x0, D = z1 - z0, cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
   TEX.concrete.repeat.set(W / 9, D / 9); TEX.concreteR.repeat.set(W / 9, D / 9);
   const slab = new THREE.Mesh(new THREE.BoxGeometry(W, .6, D), [MAT.plinth, MAT.plinth, MAT.floor, MAT.plinth, MAT.plinth, MAT.plinth]);
-  slab.position.set(cx, -.3, 0); slab.receiveShadow = true; slab.castShadow = true; slab.userData.disposeGeo = true; world.add(slab);
-  const tbl = new THREE.Mesh(new THREE.PlaneGeometry(900, 900).rotateX(-PI / 2), MAT.table);
+  slab.position.set(cx, -.3, cz); slab.receiveShadow = true; slab.castShadow = true; slab.userData.disposeGeo = true; world.add(slab);
+  const tbl = new THREE.Mesh(new THREE.PlaneGeometry(1200, 1200).rotateX(-PI / 2), MAT.table);
   tbl.position.y = -.6; tbl.receiveShadow = true; tbl.userData.disposeGeo = true; tbl.userData.noExport = true; world.add(tbl);
   TEX.grid.repeat.set(W / 5, D / 5);
-  TEX.grid.offset.set(((x0 % 5) + 5) % 5 / 5, ((-zW % 5) + 5) % 5 / 5);
+  TEX.grid.offset.set(((x0 % 5) + 5) % 5 / 5, ((-z1 % 5) + 5) % 5 / 5);
   const grid = new THREE.Mesh(new THREE.PlaneGeometry(W, D).rotateX(-PI / 2), new THREE.MeshBasicMaterial({ map: TEX.grid, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1 }));
-  grid.position.set(cx, .002, 0); grid.userData.disposeGeo = true; AO_HIDE.push(grid); world.add(grid);
+  grid.position.set(cx, .002, cz); grid.userData.disposeGeo = true; AO_HIDE.push(grid); world.add(grid);
 }
 
 /* ---------- esteira ---------- */
@@ -1472,12 +1524,21 @@ function dimVertical(x, z, y0, y1, label) {
   sp.scale.set(1.3, .32, 1); sp.position.set(0, (y0 + y1) / 2, 0); sp.userData.disposeAll = true; AO_HIDE.push(sp); g.add(sp);
 }
 
-/* ---------- montagem completa ---------- */
+/* ---------- montagem completa: planta com N linhas ---------- */
+function newLineState() {
+  return {
+    t: 0, induced: 0, picked: 0, sep: 0, kept: 0, swaps: 0, cageSwaps: 0, shipped: 0, hist: [],
+    live: [], pool: [], goalQ: [], islands: [], inductors: [], indSlots: [], goleiros: [], gSlots: { 1: [], '-1': [] },
+    jacks: { 1: [], '-1': [] }, setups: { 1: [], '-1': [] }, loaders: { 1: [], '-1': [] }, workers: [],
+    scJobs: { 1: [], '-1': [] }, cgJobs: { 1: [], '-1': [] },
+    cageFull: [], cageEmpty: [], fullBuf: [], emptyBuf: { 1: [], '-1': [] },
+  };
+}
 function buildWorld() {
   disposeWorld();
   L = computeLayout(P);
-  world = new THREE.Group(); scene.add(world);
-  AO_HIDE.length = 0; hitTargets = []; WORKER_SEQ = 0;
+  ROOT = new THREE.Group(); scene.add(ROOT); world = ROOT;
+  AO_HIDE.length = 0; hitTargets = []; WORKER_SEQ = 0; IND_SEQ = 0; LINES = [];
   ASSET = {
     scuttle: buildAsset(() => { pallet(); scuttleShell(P.scuttleAlt); }),
     cage: buildAsset(() => cageGeo(P.gaiolaAlt)),
@@ -1485,24 +1546,42 @@ function buildWorld() {
     scFill: new THREE.BoxGeometry(.92, 1, 1.12).translate(0, .5, 0),
     cgFill: new THREE.BoxGeometry(1.1, 1, .9).translate(0, .5, 0),
   };
-  dimGroup = new THREE.Group(); dimGroup.visible = $('#dims').checked; world.add(dimGroup);
-  roofGroup = new THREE.Group(); world.add(roofGroup);
-  const hw = L.bw / 2, sides = [1, -1];
-  S = {
-    t: 0, induced: 0, picked: 0, sep: 0, kept: 0, swaps: 0, cageSwaps: 0, shipped: 0, hist: [],
-    live: [], pool: [], goalQ: [], islands: [], inductors: [], indSlots: [], goleiros: [], gSlots: { 1: [], '-1': [] },
-    jacks: { 1: [], '-1': [] }, setups: { 1: [], '-1': [] }, loaders: { 1: [], '-1': [] }, workers: [],
-    scJobs: { 1: [], '-1': [] }, cgJobs: { 1: [], '-1': [] },
-    cageFull: [], cageEmpty: [], fullBuf: [], emptyBuf: { 1: [], '-1': [] },
-  };
-
-  buildBuilding();
-  buildBelt();
+  dimGroup = new THREE.Group(); dimGroup.visible = $('#dims').checked; ROOT.add(dimGroup);
+  roofGroup = new THREE.Group(); ROOT.add(roofGroup);
   buildPkgTypes();
+  buildBuilding();
+  const dimRoot = dimGroup;
+  for (let li = 0; li < L.nLines; li++) {
+    const zL = L.zLines[li], g = new THREE.Group(); g.name = 'linha_' + (li + 1);
+    g.position.z = zL; ROOT.add(g); g.updateMatrixWorld(true);
+    world = g; S = newLineState(); S.li = li; [S.name, S.short] = LINE_NAMES[li] || [`ESTEIRA ${li + 1}`, `Linha ${li + 1}`];
+    dimGroup = new THREE.Group(); dimGroup.position.z = zL; if (li === 0) dimRoot.add(dimGroup);
+    FRAME = new THREE.Matrix4().makeTranslation(0, 0, zL);
+    buildLine(li);
+    FRAME = new THREE.Matrix4();
+    LINES.push({ grp: g, S, z: zL, li });
+  }
+  dimGroup = dimRoot;
+  world = ROOT; S = PLANT = newPlantState();
+  buildPlant();
+  bake(ROOT);
+  S = AGG = makeAgg();
+
+  /* sol e sombras cobrindo o galpão */
+  const cx = (L.bx0 + L.bx1) / 2, cz = (L.bz0 + L.bz1) / 2, halfW = (L.bx1 - L.bx0) / 2 + 6, halfD = (L.bz1 - L.bz0) / 2 + 6;
+  sun.target.position.set(cx, 0, cz);
+  sun.position.set(cx - 40, 80, cz + 50);
+  Object.assign(sun.shadow.camera, { left: -halfW, right: halfW, top: halfD, bottom: -halfD, near: 10, far: 260 });
+  sun.shadow.camera.updateProjectionMatrix();
+}
+function buildLine(li) {
+  const hw = L.bw / 2, sides = [1, -1], base = li * 2 * L.nIsl;
+  buildBelt();
+  hangSign(world, S.name, `${fmtM(L.len)} m · ${fmt(P.capacidade)} pct/h`, L.X0 + 6, 0, 0, 4.2, 6.2);
 
   /* ilhas */
   for (const s of sides) for (let k = 0; k < L.nIsl; k++) {
-    const idx = (s > 0 ? 0 : L.nIsl) + k, num = idx + 1, code = String(num).padStart(2, '0');
+    const idx = (s > 0 ? 0 : L.nIsl) + k, num = base + idx + 1, code = String(num).padStart(2, '0');
     const xc = L.xc(k);
     const grp = new THREE.Group(); grp.position.set(xc, 0, s * L.zIsl); grp.rotation.y = s > 0 ? 0 : PI; world.add(grp);
     let rk;
@@ -1514,7 +1593,7 @@ function buildWorld() {
       put('white', plane(L.rackW, .05), 0, .006, L.rack0 - .08);
     });
     floorText(grp, [{ t: `ILHA ${code}`, size: 92 }], 0, L.islDepth + .75, 2.8, .7, 0, { w: 512, h: 128 });
-    const isl = { idx, num, code, s, xc, grp, rk, slots: [], rack: [], pickers: [], seps: [], count: 0 };
+    const isl = { idx, gidx: base + idx, num, code, s, xc, grp, rk, slots: [], rack: [], pickers: [], seps: [], count: 0 };
     for (const bs of [-1, 1]) for (let r = 0; r < P.scuttlesPorFila; r++) {
       const name = `${bs < 0 ? 'E' : 'D'}${r + 1}`;
       const pos = V3(bs * L.scX, 0, L.rack0 + .5 + r * 1.1), yaw = bs > 0 ? -PI / 2 : PI / 2;
@@ -1526,13 +1605,13 @@ function buildWorld() {
     const pxs = P.pescadoresPorIlha === 2 ? [-.7, .7] : [0];
     for (const px of pxs) {
       const w = makeWorker('pescador'); w.home = V3(px, 0, L.rack0 * .5); w.root.position.copy(w.home);
-      w.restYaw = PI; w.setYaw(PI); grp.add(w.root); w.where = `Ilha ${code}`; isl.pickers.push(w); S.workers.push(w);
+      w.restYaw = PI; w.setYaw(PI); grp.add(w.root); w.where = `Ilha ${code} · ${S.short}`; isl.pickers.push(w); S.workers.push(w);
     }
     const sxs = P.separadoresPorIlha === 2 ? [-.9, .9] : [0];
     for (const sx of sxs) {
       const w = makeWorker('separador'); w.home = V3(sx, 0, L.rack1 + .55); w.root.position.copy(w.home);
       w.restYaw = PI; w.setYaw(PI); w.sideOnly = sxs.length === 2 ? Math.sign(sx) : 0;
-      grp.add(w.root); w.where = `Ilha ${code}`; isl.seps.push(w); S.workers.push(w);
+      grp.add(w.root); w.where = `Ilha ${code} · ${S.short}`; isl.seps.push(w); S.workers.push(w);
     }
     S.islands.push(isl);
   }
@@ -1554,14 +1633,14 @@ function buildWorld() {
     for (let i = 0; i < P.inducaoPorLado; i++) {
       const x = L.X0 + L.ind * (i + .5) / P.inducaoPorLado;
       addInd(s, V3(x, 0, s * (hw + .5)), s > 0 ? PI : 0, V3(x, 0, s * (hw + 1.95)), s > 0 ? 0 : PI,
-        () => V3(x + rand(-.3, .3), 0, s * rand(.12, Math.max(.15, hw - .45))), `Indução ${String(++nInd).padStart(2, '0')}`);
+        () => V3(x + rand(-.3, .3), 0, s * rand(.12, Math.max(.15, hw - .45))), `Indução ${String(++IND_SEQ).padStart(2, '0')}`); nInd++;
     }
   }
   TEX.hatch.repeat.set(L.ind / 1.2, 2.9 / 1.2);
   if (P.inducaoPonta) {
     put('yellow', plane(3.0, .08), L.X0 - 1.6, .006, 1.3); put('yellow', plane(3.0, .08), L.X0 - 1.6, .006, -1.3);
     put('yellow', plane(.08, 2.6), L.X0 - 3.1, .006, 0);
-    addInd(1, V3(L.X0 - .6, 0, 0), PI / 2, V3(L.X0 - 2.05, 0, 0), -PI / 2, () => V3(L.X0 + .6, 0, rand(-.35, .35)), `Indução ${String(++nInd).padStart(2, '0')} (ponta)`);
+    addInd(1, V3(L.X0 - .6, 0, 0), PI / 2, V3(L.X0 - 2.05, 0, 0), -PI / 2, () => V3(L.X0 + .6, 0, rand(-.35, .35)), `Indução ${String(++IND_SEQ).padStart(2, '0')} (ponta)`); nInd++;
   }
   for (const s of sides) floorText(world, [{ t: 'INDUÇÃO', size: 96 }, { t: `${fmtM(L.ind, 2)} m · ${nInd} posições`, size: 42, weight: 600, font: MONO }], L.X0 + L.ind / 2, s * (hw + 3.75), 4.2, 1.6, s > 0 ? 0 : PI, { w: 512, h: 196, color: '#7a5d00' });
 
@@ -1571,7 +1650,7 @@ function buildWorld() {
     const n = Math.max(1, Math.round(P.gaiolasGoleiro / 2));
     for (let i = 0; i < n; i++) {
       const pos = V3(L.golX + (i - (n - 1) / 2) * 1.3, 0, s * (hw + 1.65)), psi = s > 0 ? 0 : PI;
-      const slot = { kind: 'gol', s, pos, psi, name: `Goleiro ${s > 0 ? 'A' : 'B'}${i + 1}`, req: false };
+      const slot = { kind: 'gol', s, pos, psi, name: `Goleiro ${S.short} ${s > 0 ? 'A' : 'B'}${i + 1}`, req: false };
       slot.cage = newCage(Math.floor(rand(0, P.gaiolaCap * .6)), slot.name); place(slot.cage, world, pos, psi);
       S.gSlots[s].push(slot);
     }
@@ -1581,7 +1660,7 @@ function buildWorld() {
   }
   for (const s of (P.goleiros === 2 ? sides : [1])) {
     const w = makeWorker('goleiro'); w.home = V3(L.golX, 0, s * (hw + .45)); w.root.position.copy(w.home);
-    w.restYaw = s > 0 ? PI : 0; w.setYaw(w.restYaw); w.side = s; w.where = 'Goleiro'; world.add(w.root);
+    w.restYaw = s > 0 ? PI : 0; w.setYaw(w.restYaw); w.side = s; w.where = `Goleiro · ${S.short}`; world.add(w.root);
     S.goleiros.push(w); S.workers.push(w);
   }
   floorText(world, [{ t: 'GOLEIRO', size: 96 }, { t: `${P.gaiolasGoleiro} gaiolas · flow rack ${fmtM(L.golL, 1)} m`, size: 40, weight: 600, font: MONO }], L.golX + 2.6, 0, 3.8, 1.45, PI / 2, { w: 512, h: 196, color: '#1f6b41' });
@@ -1638,7 +1717,7 @@ function buildWorld() {
     }
     for (let i = 0; i < P.setupPorLado; i++) {
       const w = makeWorker('setup'); w.home = V3(L.X0 + .4 + i * 1.3, 0, s * (L.zEdge + .9));
-      w.root.position.copy(w.home); w.restYaw = s > 0 ? PI : 0; w.setYaw(w.restYaw); w.side = s; w.where = `Lado ${s > 0 ? 'A' : 'B'}`;
+      w.root.position.copy(w.home); w.restYaw = s > 0 ? PI : 0; w.setYaw(w.restYaw); w.side = s; w.where = `${S.short} · lado ${s > 0 ? 'A' : 'B'}`;
       world.add(w.root); S.setups[s].push(w); S.workers.push(w);
     }
   }
@@ -1660,14 +1739,6 @@ function buildWorld() {
   dimVertical(L.golX + 2, -(hw + 2.6), 0, P.gaiolaAlt, `${fmtM(P.gaiolaAlt)} m`);
   dimLine(L.X1 + .05, -hw - .5, L.X1 + .05 + L.golL, -hw - .5, `${fmtM(L.golL, 1)} m`, { text: .45 });
 
-  bake(world);
-
-  /* sol e sombras cobrindo o galpão */
-  const cx = (L.xWest + L.xEast) / 2, halfW = (L.xEast - L.xWest) / 2 + 8, halfD = L.zWall + 10;
-  sun.target.position.set(cx, 0, 0);
-  sun.position.set(cx - 30, 62, 38);   // luz de estúdio inclinada: sombras de maquete
-  Object.assign(sun.shadow.camera, { left: -halfW, right: halfW, top: halfD, bottom: -halfD, near: 10, far: 200 });
-  sun.shadow.camera.updateProjectionMatrix();
 }
 
 /* paleteira + operador formam uma unidade (operador no timão, garfos para trás) */
@@ -1675,7 +1746,7 @@ function makeUnit(role, s, pos, yaw) {
   const grp = new THREE.Group(); grp.position.copy(pos); grp.rotation.y = yaw; world.add(grp);
   grp.add(instance(ASSET.jack));
   const op = makeWorker(role); op.root.position.set(0, 0, .82); op.setYaw(0); op.restYaw = 0; grp.add(op.root);
-  op.where = `Lado ${s > 0 ? 'A' : 'B'}`;
+  op.where = S.short ? `${S.short} · lado ${s > 0 ? 'A' : 'B'}` : 'Planta';
   const u = { grp, op, side: s, home: pos.clone(), homeYaw: yaw, task: null, load: null };
   op.unit = u; S.workers.push(op);
   return u;
@@ -1743,11 +1814,12 @@ function sequence(steps) {
   };
 }
 const tmp = V3(), tmp2 = V3();
+const lw = (o, v) => world.worldToLocal(o.localToWorld(v));   // ponto local de o → coordenadas da linha atual
 function arc(a, b, t, hgt) { const p = a.clone().lerp(b, t); p.y += Math.sin(PI * t) * hgt; return p; }
 function holdPos(w, out) {   // ponto à frente das mãos (volume carregado não atravessa o corpo)
   w.handsWorld(out);
   w.root.getWorldQuaternion(_q); tmp2.set(0, 0, .12).applyQuaternion(_q);
-  return out.add(tmp2);
+  return world.worldToLocal(out.add(tmp2));
 }
 /* trajetória suave: cantos arredondados e perfil de velocidade com aceleração e frenagem */
 function smoothPath(pts, r = .7) {
@@ -1828,7 +1900,7 @@ function startPick(isl, w, p) {
   p.state = 'held'; p.claimed = true;
   const p0 = p.mesh.position.clone();
   p.rx = rand(-L.rackW / 2 + .4, L.rackW / 2 - .4); p.rz = L.rack0 + .35;
-  const headW = isl.grp.localToWorld(rackHeadLocal(isl, p));
+  const headW = lw(isl.grp, rackHeadLocal(isl, p));
   let yB, yR, from;
   isl.reserved = (isl.reserved || 0) + 1;
   w.state = 'pescando';
@@ -1859,11 +1931,11 @@ function startSep(isl, w, p) {
     { d: .45, start() { yP = w.yawTo(p0); }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(w.restYaw, yP, e)); w.pose(.95 * e, 1.1 * e); holdPos(w, tmp); p.mesh.position.lerpVectors(p0, tmp, e); } },
     { d: .25, fn(k) { const e = ease(k); w.pose(lerp(.95, .55, e), lerp(1.1, .15, e)); hold(); } },
     ...walkSteps(w, route, { mode: 'carry', carry: hold }),
-    turnStep(w, () => w.yawTo(sc.grp.localToWorld(V3(0, 1.2, 0))), 'carry', hold),
+    turnStep(w, () => w.yawTo(lw(sc.grp, V3(0, 1.2, 0))), 'carry', hold),
     { d: .42, start() {
         from = p.mesh.position.clone();
-        entry = sc.grp.localToWorld(V3(0, PAL_H + Math.min(1.25, P.scuttleAlt * .55), .35));
-        inner = sc.grp.localToWorld(V3(rand(-.2, .2), PAL_H + .2 + (P.scuttleAlt - .4) * sc.fill / sc.cap, rand(-.2, .2)));
+        entry = lw(sc.grp, V3(0, PAL_H + Math.min(1.25, P.scuttleAlt * .55), .35));
+        inner = lw(sc.grp, V3(rand(-.2, .2), PAL_H + .2 + (P.scuttleAlt - .4) * sc.fill / sc.cap, rand(-.2, .2)));
       },
       fn(k) { w.pose(.55 + .45 * Math.sin(PI * Math.min(1, k * 1.4)), .3); p.mesh.position.copy(k < .7 ? arc(from, entry, k / .7, .3) : entry.clone().lerp(inner, (k - .7) / .3)); p.mesh.rotation.x += .05; },
       end() {
@@ -1889,10 +1961,10 @@ function startKeep(w, p, slot) {
   w.state = `colocando em ${slot.name}`;
   w.task = sequence(fitCycle(w, [
     { d: .45, start() { yP = w.yawTo(p0); }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(w.restYaw, yP, e)); w.pose(e, e * 1.1); holdPos(w, tmp); p.mesh.position.lerpVectors(p0, tmp, e); } },
-    { d: .5, start() { yC = w.yawTo(c.grp.localToWorld(V3(0, 1, 0))); }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(yP, yC, e)); w.pose(1 - .45 * e, 1.1 - .9 * e); w.walkPose(Math.sin(PI * k) * .25, false); holdPos(w, tmp); p.mesh.position.copy(tmp); } },
+    { d: .5, start() { yC = w.yawTo(lw(c.grp, V3(0, 1, 0))); }, fn(k) { const e = ease(k); w.setYaw(lerpAngle(yP, yC, e)); w.pose(1 - .45 * e, 1.1 - .9 * e); w.walkPose(Math.sin(PI * k) * .25, false); holdPos(w, tmp); p.mesh.position.copy(tmp); } },
     { d: .4, start() {
-        from = p.mesh.position.clone(); entry = c.grp.localToWorld(V3(0, Math.min(1.2, P.gaiolaAlt * .7), -.3));
-        inner = c.grp.localToWorld(V3(rand(-.3, .3), .35 + (P.gaiolaAlt - .5) * c.fill / c.cap, rand(0, .2)));
+        from = p.mesh.position.clone(); entry = lw(c.grp, V3(0, Math.min(1.2, P.gaiolaAlt * .7), -.3));
+        inner = lw(c.grp, V3(rand(-.3, .3), .35 + (P.gaiolaAlt - .5) * c.fill / c.cap, rand(0, .2)));
       },
       fn(k) { w.pose(.55 + .45 * Math.sin(PI * Math.min(1, k * 1.4)), .3); p.mesh.position.copy(k < .65 ? arc(from, entry, k / .65, .2) : entry.clone().lerp(inner, (k - .65) / .35)); p.mesh.rotation.z += .05; },
       end() {
@@ -1923,7 +1995,7 @@ function startInduct(w) {
   const slot = w.slot, c = slot.cage;
   const D = Math.min(2.4, Math.max(1.0, inductInterval() * .8));
   const home = w.home, near = home.clone().addScaledVector(fwdOf(slot.psi + PI), -.4);
-  const entry = c.grp.localToWorld(V3(rand(-.25, .25), .3 + (P.gaiolaAlt - .6) * c.fill / c.cap, -.15));
+  const entry = lw(c.grp, V3(rand(-.25, .25), .3 + (P.gaiolaAlt - .6) * c.fill / c.cap, -.15));
   const spot = w.spot();
   let p, cy, from;
   w.state = 'induzindo';
@@ -2105,7 +2177,7 @@ function dropLoad(u, parent, pos, yaw) {
   const o = u.load; parent.attach(o.grp); o.grp.position.set(pos.x, 0, pos.z); o.grp.rotation.set(0, yaw, 0); u.load = null; return o;
 }
 function islandSlotWorld(slot) {
-  const T = slot.isl.grp.localToWorld(slot.pos.clone()); T.y = 0;
+  const T = lw(slot.isl.grp, slot.pos.clone()); T.y = 0;
   return { T, psi: slot.isl.grp.rotation.y + slot.yaw };
 }
 function startScuttleJob(u, slot) {
@@ -2170,8 +2242,15 @@ function runWorker(w, dt) {
   else w.idle(dt);
 }
 function update(dt) {
-  S.t += dt; SIM_T += dt;
+  SIM_T += dt;
   TEX.belt.offset.x -= P.velEsteira * dt / 1.2;
+  for (const ln of LINES) { S = ln.S; world = ln.grp; updateLine(dt); }
+  S = PLANT; world = ROOT; updatePlant(dt);
+  S = AGG;
+  if (!AGG.hist.length || AGG.t - AGG.hist[AGG.hist.length - 1][0] >= 2) { AGG.hist.push([AGG.t, AGG.induced]); if (AGG.hist.length > 400) AGG.hist.shift(); }
+}
+function updateLine(dt) {
+  S.t += dt;
   const v = P.velEsteira;
 
   // indução
@@ -2220,7 +2299,7 @@ function update(dt) {
     isl.rack.forEach((p, i) => {
       const tz = Math.max(L.rack0 + .35, L.rack1 - .42 - i * .62);
       p.rz = Math.min(tz, p.rz + .7 * dt);
-      p.mesh.position.copy(isl.grp.localToWorld(V3(p.rx, isl.rk.deck(p.rz) + p.h / 2, p.rz)));
+      p.mesh.position.copy(lw(isl.grp, V3(p.rx, isl.rk.deck(p.rz) + p.h / 2, p.rz)));
     });
     for (const w of isl.seps) {
       if (w.task) continue;
@@ -2247,28 +2326,421 @@ function update(dt) {
   for (const s of [1, -1]) {
     for (const u of S.jacks[s]) if (!u.task && S.scJobs[s].length) { const slot = S.scJobs[s][0]; if (startScuttleJob(u, slot)) S.scJobs[s].shift(); }
     for (const w of S.setups[s]) if (!w.task && S.cgJobs[s].length) { const job = S.cgJobs[s][0]; if (startCageJob(w, job)) S.cgJobs[s].shift(); }
-    // reposição: scuttles vazias chegam ao buffer dos paleteiros
-    for (const K of S.emptyBuf[s]) if (!K.sc && !K.res && K.regen && S.t >= K.regen) { K.sc = newScuttle('VAZIA'); place(K.sc, world, K.T, K.psi); K.regen = 0; }
+    // reposição automática só quando não há equipe de abastecimento de scuttles na planta
+    if (!P.abastScuttles) for (const K of S.emptyBuf[s]) if (!K.sc && !K.res && K.regen && S.t >= K.regen) { K.sc = newScuttle('VAZIA'); place(K.sc, world, K.T, K.psi); K.regen = 0; }
   }
   // gaiolas cheias chegam ao buffer da indução; scuttles cheias saem do buffer de saída
-  for (const F of S.cageFull) if (!F.cage && !F.res && F.regen && S.t >= F.regen) { F.cage = newCage(P.gaiolaCap, 'Gaiola cheia'); place(F.cage, world, F.pos, F.psi); F.regen = 0; }
+  if (!P.abastGaiolas) for (const F of S.cageFull) if (!F.cage && !F.res && F.regen && S.t >= F.regen) { F.cage = newCage(P.gaiolaCap, 'Gaiola cheia'); place(F.cage, world, F.pos, F.psi); F.regen = 0; }
   const occ = S.fullBuf.filter(x => x.sc && !x.res);
-  if (occ.length > 7) { const o = occ.sort((a, b) => a.t - b.t)[0]; if (S.t - o.t > 40) { killScuttle(o.sc); o.sc = null; S.shipped++; } }
+  if (!P.carregadoresSaida && occ.length > 7) { const o = occ.sort((a, b) => a.t - b.t)[0]; if (S.t - o.t > 40) { killScuttle(o.sc); o.sc = null; S.shipped++; } }
 
   for (const w of S.workers) { if (w.unit) continue; runWorker(w, dt); }
   for (const s of [1, -1]) for (const u of [...S.jacks[s], ...S.loaders[s]]) {
     if (u.task) { if (u.task.step(dt)) u.task = null; }
     else { u.op.idle(dt); u.op.root.position.z = .82; }
   }
-  if (!S.hist.length || S.t - S.hist[S.hist.length - 1][0] >= 2) { S.hist.push([S.t, S.induced]); if (S.hist.length > 400) S.hist.shift(); }
 }
 
 /* depois de montar: posições de referência e aquecimento da operação */
 function afterBuild() {
-  for (const isl of S.islands) for (const w of isl.pickers) w.wx = isl.grp.localToWorld(w.home.clone()).x;
+  for (const ln of LINES) for (const isl of ln.S.islands) for (const w of isl.pickers) w.wx = ln.grp.worldToLocal(isl.grp.localToWorld(w.home.clone())).x;
   const warm = 150, h = 1 / 20;
   for (let t = 0; t < warm; t += h) update(h);
   S.t0 = S.t; S.induced0 = S.induced; S.hist = [[S.t, S.induced]];
+}
+/* ------------------------------------------------------------------ */
+/* Planta: zonas, buffers da planta e equipes que ligam as linhas       */
+/* ------------------------------------------------------------------ */
+// Fluxo: docas de entrada → recebimento → buffer de gaiolas cheias → abastecimento das linhas;
+// gaiolas vazias das linhas → buffer de gaiolas vazias → devolução pelas docas de entrada;
+// scuttle cheia (buffer de saída de cada linha) → robô de stretch → doca de saída;
+// área de pallets de scuttles (sudeste) → buffers laterais de scuttles vazias das linhas.
+function newPlantState() {
+  return {
+    t: 0, induced: 0, picked: 0, sep: 0, kept: 0, swaps: 0, cageSwaps: 0, shipped: 0,
+    received: 0, returned: 0, wrapped: 0, scSupplied: 0, cgSupplied: 0,
+    live: [], pool: [], workers: [], rec: [], cgW: [], scU: [], outU: [],
+    doorsIn: [], doorsOut: [], pFull: [], pEmpty: [], stock: [], st: [],
+  };
+}
+function makeAgg() {
+  const A = { hist: [] };
+  Object.defineProperty(A, 't', { get: () => PLANT.t });
+  for (const k of ['induced', 'picked', 'sep', 'kept', 'swaps', 'cageSwaps']) Object.defineProperty(A, k, { get: () => LINES.reduce((a, l) => a + l.S[k], 0) });
+  Object.defineProperty(A, 'shipped', { get: () => LINES.reduce((a, l) => a + l.S.shipped, 0) + PLANT.shipped });
+  Object.defineProperty(A, 'islands', { get: () => LINES.flatMap(l => l.S.islands) });
+  Object.defineProperty(A, 'workers', { get: () => [...LINES.flatMap(l => l.S.workers), ...PLANT.workers] });
+  const bySide = (k, extra) => ({ get 1() { return [...LINES.flatMap(l => l.S[k][1]), ...(extra ? extra() : [])]; }, get '-1'() { return LINES.flatMap(l => l.S[k][-1]); } });
+  A.jacks = bySide('jacks', () => [...PLANT.scU, ...PLANT.outU]); A.loaders = bySide('loaders'); A.setups = bySide('setups');
+  return A;
+}
+const toRoot = (ln, v) => V3(v.x, 0, v.z + ln.z);
+
+/* ---------- montagem ---------- */
+function zoneBox(x0, z0, x1, z1, key, t = .08) {
+  put(key, plane(x1 - x0, t), (x0 + x1) / 2, .006, z0); put(key, plane(x1 - x0, t), (x0 + x1) / 2, .006, z1);
+  put(key, plane(t, z1 - z0), x0, .006, (z0 + z1) / 2); put(key, plane(t, z1 - z0), x1, .006, (z0 + z1) / 2);
+}
+function wallRun(axis, fixed, a, b, gaps, H = 3.0, T = .25) {   // parede ao longo de x ou z com vãos de porta
+  const cuts = gaps.filter(g => g[1] > a && g[0] < b).sort((p, q) => p[0] - q[0]);
+  let cur = a;
+  const seg = (u, v) => {
+    if (v - u < .05) return;
+    if (axis === 'x') put('wallP', box(v - u, H, T), (u + v) / 2, H / 2, fixed); else put('wallP', box(T, H, v - u), fixed, H / 2, (u + v) / 2);
+  };
+  for (const [g0, g1] of cuts) {
+    seg(cur, g0);
+    const m = (g0 + g1) / 2, w = g1 - g0;    // verga, porta enrolada no alto e nivelador de doca
+    if (axis === 'x') { put('wallP', box(w, .4, T), m, H - .2, fixed); put('doorDark', box(w - .1, .45, T * .6), m, H - .62, fixed); }
+    else { put('wallP', box(T, .4, w), fixed, H - .2, m); put('doorDark', box(T * .6, .45, w - .1), fixed, H - .62, m); put('steelDark', box(1.4, .04, w - .3), fixed + (fixed < 0 ? .7 : -.7), .02, m); }
+    cur = g1;
+  }
+  seg(cur, b);
+}
+function stationRobot() {   // robô de stretch: base redonda (tipo aspirador), mastro de 1,1 m e carro com o rolo de filme
+  const grp = new THREE.Group();
+  grp.add(instance(ASSET.robot));
+  const car = new THREE.Group(); car.position.y = .45; grp.add(car);
+  const roll = new THREE.Mesh(ASSET.robotRoll, MAT.filmRoll); roll.position.set(-.16, 0, 0); roll.castShadow = true; car.add(roll);
+  const arm = new THREE.Mesh(ASSET.robotArm, MAT.steelDark); arm.position.set(-.08, 0, 0); car.add(arm);
+  const led = new THREE.Mesh(ASSET.robotLed, MAT.robotLed); led.position.set(0, .66, 0); grp.add(led);
+  return { grp, car, led };
+}
+function buildPlant() {
+  const P0 = PLANT;
+  ASSET.robot = buildAsset(() => {
+    put('navy', cyl(.34, .22, 28), 0, .14, 0); put('rubber', cyl(.35, .05, 28), 0, .03, 0);
+    put('white', cyl(.3, .02, 28), 0, .26, 0);
+    put('steelDark', box(.07, .9, .07), 0, .7, 0); put('orange', box(.18, .08, .12), 0, 1.12, 0);
+  });
+  ASSET.robotRoll = new THREE.CylinderGeometry(.075, .075, .42, 16);
+  ASSET.robotArm = new THREE.BoxGeometry(.14, .04, .04);
+  ASSET.robotLed = new THREE.SphereGeometry(.035, 10, 8);
+  ASSET.film = new THREE.BoxGeometry(1.06, 1, 1.26).translate(0, .5, 0);
+
+  /* paredes e docas */
+  const doorW = 3.0;
+  const zIn = []; for (let z = Math.ceil((L.zN + 4) / 7) * 7; z < L.zS - 3; z += 7) zIn.push(z);
+  const nSt = P.robosStretch, zSt = Array.from({ length: nSt }, (_, i) => (i - (nSt - 1) / 2) * 5.2);
+  const zOut = nSt > 1 ? zSt.slice(1).map((z, i) => (z + zSt[i]) / 2) : [zSt[0] + 2.6];
+  const zPass = L.zRoom0 + 1.2;   // passagem de scuttles (sudeste)
+  wallRun('z', L.bx0, L.bz0, L.bz1, zIn.map(z => [z - doorW / 2, z + doorW / 2]));
+  wallRun('z', L.bx1, L.bz0, L.bz1, [...zOut, zPass].map(z => [z - doorW / 2, z + doorW / 2]));
+  wallRun('x', L.bz0, L.bx0, L.bx1, []);
+  wallRun('x', L.bz1, L.bx0, L.bx1, []);
+
+  /* faixa norte: banheiros */
+  const bN0 = L.bz0 + .2, bN1 = L.zN - 1.6, bx = L.pbx0;
+  for (const [i, nome] of [[0, 'BANHEIRO MASCULINO'], [1, 'BANHEIRO FEMININO']]) {
+    const x0 = bx + i * 7.5, x1 = x0 + 7;
+    put('wallP', box(x1 - x0, 2.4, .12), (x0 + x1) / 2, 1.2, bN1);
+    put('wallP', box(.12, 2.4, bN1 - bN0), x0, 1.2, (bN0 + bN1) / 2); put('wallP', box(.12, 2.4, bN1 - bN0), x1, 1.2, (bN0 + bN1) / 2);
+    put('doorDark', box(1.0, 2.1, .06), x0 + 1.4, 1.05, bN1 + .04);
+    for (let k = 0; k < 3; k++) { put('white', box(.45, .42, .6), x0 + 2.8 + k * 1.3, .21, bN0 + .5); put('wallP', box(.05, 1.8, 1.4), x0 + 2.2 + k * 1.3, .9, bN0 + .75); }
+    floorText(world, [{ t: nome, size: 64 }], (x0 + x1) / 2, (bN0 + bN1) / 2 + 1.2, 4.6, .6, 0, { w: 640, h: 96, color: '#4b5869' });
+  }
+
+  /* entrada (docas a oeste) */
+  zoneBox(L.bx0 + .4, L.zN + 1, L.xR + 1.2, L.zS - 1, 'green');
+  floorText(world, [{ t: 'ENTRADA', size: 90 }, { t: 'scuttles e gaiolas', size: 40, weight: 600, font: MONO }], L.bx0 + 2.4, (L.zN + L.zS) / 2 + 9, 4.0, 1.4, -PI / 2, { w: 512, h: 180, color: '#1f6b41' });
+  for (const z of zIn) {
+    const d = { pos: V3(L.bx0 + 1.3, 0, z), psi: PI / 2, cage: null, res: false, kill: 0 };
+    P0.doorsIn.push(d);
+    arrow(L.bx0 + 1.0, z + 1.9, PI / 2, 1.6); arrow(L.bx0 + 2.6, z - 1.9, -PI / 2, 1.6);
+  }
+
+  /* buffers de gaiolas da planta: cheias (norte) e vazias (sul), em fileiras de frente para corredores */
+  const laneRows = (zl, list, name, fillFn) => {
+    for (const [dz, psi] of [[-1.6, 0], [1.6, PI]]) for (let i = 0; i < 8; i++) {
+      const pos = V3(L.pbx0 + .7 + i * 1.45, 0, zl + dz), slot = { pos, psi, cage: null, res: false, t: -rand(0, 60) };
+      const f = fillFn(); if (f !== null) { slot.cage = newCage(f, name); place(slot.cage, world, pos, psi); }
+      list.push(slot);
+      put('white', plane(1.3, .04), pos.x, .006, zl + dz + (dz < 0 ? -.55 : .55)); put('white', plane(.04, 1.1), pos.x - .68, .006, zl + dz);
+    }
+  };
+  const zMidW = (L.zN + L.zS) / 2;
+  const fullLanes = [zMidW - 12.5, zMidW - 7.5, zMidW - 2.5], emptyLanes = [zMidW + 6.5];
+  fullLanes.forEach(zl => laneRows(zl, P0.pFull, 'Gaiola cheia (entrada)', () => Math.random() < .8 ? P.gaiolaCap : null));
+  emptyLanes.forEach(zl => laneRows(zl, P0.pEmpty, 'Gaiola vazia', () => Math.random() < .35 ? 0 : null));
+  zoneBox(L.pbx0 - .3, fullLanes[0] - 2.4, L.pbx1 + .3, fullLanes[fullLanes.length - 1] + 2.4, 'yellow');
+  zoneBox(L.pbx0 - .3, emptyLanes[0] - 2.4, L.pbx1 + .3, emptyLanes[0] + 2.4, 'red');
+  floorText(world, [{ t: 'BUFFER DE GAIOLAS CHEIAS', size: 70 }, { t: 'scuttles e gaiolas da entrada', size: 38, weight: 600, font: MONO }], (L.pbx0 + L.pbx1) / 2, fullLanes[0] - 3.4, 9, 1.3, 0, { w: 900, h: 170, color: '#7a5d00' });
+  floorText(world, [{ t: 'BUFFER DE GAIOLAS VAZIAS', size: 70 }, { t: 'retorno pela entrada', size: 38, weight: 600, font: MONO }], (L.pbx0 + L.pbx1) / 2, emptyLanes[0] + 3.4, 9, 1.3, 0, { w: 900, h: 170, color: '#a3271b' });
+  hangSign(world, 'RECEBIMENTO', 'entrada · buffers de gaiolas', (L.pbx0 + L.pbx1) / 2, zMidW - 16.5, 0, 4.6, 6);
+
+  /* abastecimento das linhas (corredor oeste) */
+  floorText(world, [{ t: 'ABASTECIMENTO DE SCUTTLES E GAIOLAS', size: 64 }], L.xW, zMidW + 14, 12, .9, -PI / 2, { w: 1100, h: 90, color: '#7a5d00' });
+  for (const z of L.zLines) { arrow(L.xW - 1.2, z + L.zAisle + 1.5, 0, 1.4); }
+
+  /* saída: estações de stretch e docas a leste */
+  zoneBox(L.xE + .8, zSt[0] - 3.6, L.bx1 - .4, zSt[zSt.length - 1] + 3.6, 'red');
+  floorText(world, [{ t: 'STRETCH (ROBÔ)', size: 80 }, { t: 'saída / carga de scuttles', size: 38, weight: 600, font: MONO }], L.xE + 1.6, 0, 7, 1.4, -PI / 2, { w: 800, h: 180, color: '#a3271b' });
+  hangSign(world, 'SAÍDA', 'stretch · docas de carga', L.stX, zSt[0] - 5.2, 0, 4.6, 5.2);
+  zSt.forEach((z, i) => {
+    const T = V3(L.stX, 0, z);
+    put('white', cyl(1.42, .012, 48), T.x, .004, T.z); put('mat', cyl(1.34, .014, 48), T.x, .005, T.z);   // pista circular do robô
+    const r = stationRobot(); r.grp.position.set(T.x + 1.38, 0, T.z); r.grp.rotation.y = 0; world.add(r.grp);
+    P0.st.push({ i, T, psi: PI / 2, sc: null, res: false, state: 'livre', robot: r, ang: PI / 2, t0: 0, film: null, name: `Stretch ${i + 1}` });
+  });
+  for (const z of zOut) { P0.doorsOut.push({ z }); arrow(L.bx1 - 2.6, z, PI / 2, 1.6); }
+
+  /* faixa sul: caminho seguro, conferência, liderança e área de pallets de scuttles */
+  const cs0 = L.zCS - L.cs / 2, cs1 = L.zCS + L.cs / 2;
+  zoneBox(L.bx0 + .5, cs0, L.bx1 - .5, cs1, 'green', .1);
+  for (let x = L.bx0 + 6; x < L.bx1 - 6; x += 14) arrow(x, L.zCS, x < (L.bx0 + L.bx1) / 2 ? 0 : PI, 1.2);
+  floorText(world, [{ t: 'CAMINHO SEGURO', size: 72 }, { t: `pedestres · ${fmtM(L.cs)} m`, size: 38, weight: 600, font: MONO }], (L.xW + L.xE) / 2, L.zCS, Math.min(8, 6), Math.min(L.cs * .9, 1.2), 0, { w: 800, h: 170, color: '#1f6b41' });
+  for (let x = L.xW; x <= L.xE; x += 2) put('red', box(.06, 1.0, .06), x, .5, cs0 - .15);   // barreira / controle de acesso
+  put('red', box(L.xE - L.xW, .07, .07), (L.xW + L.xE) / 2, 1.0, cs0 - .15); put('white', box(L.xE - L.xW, .06, .05), (L.xW + L.xE) / 2, .55, cs0 - .15);
+
+  const r0 = L.zRoom0, r1 = L.bz1 - .4;
+  // conferência de scuttles, gaiolas e santinhas (sudoeste)
+  const cx0 = L.bx0 + 1, cx1 = L.bx0 + 17;
+  zoneBox(cx0, r0, cx1, r1, 'navyP');
+  for (let k = 0; k < 3; k++) { put('steelDark', box(2.0, .9, .8), cx0 + 3 + k * 4.5, .45, r0 + 2.2); put('white', box(2.0, .03, .8), cx0 + 3 + k * 4.5, .915, r0 + 2.2); }
+  for (let k = 0; k < 4; k++) { const c = newCage(Math.floor(rand(5, P.gaiolaCap)), 'Gaiola em conferência'); place(c, world, V3(cx0 + 2 + k * 3.6, 0, r1 - 1.6), 0); }
+  floorText(world, [{ t: 'CONFERÊNCIA', size: 80 }, { t: 'scuttles, gaiolas e santinhas', size: 38, weight: 600, font: MONO }], (cx0 + cx1) / 2, r0 + 4.4, 7, 1.3, 0, { w: 800, h: 170, color: '#1f3a5f' });
+  for (let k = 0; k < P.conferentes; k++) {
+    const w = makeWorker('conferente'); w.home = V3(cx0 + 3 + k * 4.5, 0, r0 + 3.0); w.root.position.copy(w.home);
+    w.restYaw = PI; w.setYaw(PI); w.where = 'Conferência'; w.state = 'conferindo'; world.add(w.root); P0.workers.push(w);
+  }
+  // mesa da liderança
+  const lx = (L.xW + L.xE) / 2 + 6;
+  zoneBox(lx - 5, r0, lx + 5, r1, 'navyP');
+  put('wood', box(3.2, .06, 1.4), lx, .76, r0 + 3.6); put('steelDark', box(3.0, .72, 1.2), lx, .37, r0 + 3.6);
+  put('navy', box(.6, .4, .05), lx - .6, 1.0, r0 + 3.3); put('navy', box(.6, .4, .05), lx + .6, 1.0, r0 + 3.3);
+  floorText(world, [{ t: 'MESA DA LIDERANÇA', size: 70 }], lx, r0 + 6.4, 6, .8, 0, { w: 800, h: 100, color: '#1f3a5f' });
+  for (let k = 0; k < P.lideres; k++) {
+    const w = makeWorker('lider'); w.home = V3(lx - .8 + k * 1.6, 0, r0 + 2.5); w.root.position.copy(w.home);
+    w.restYaw = 0; w.setYaw(0); w.where = 'Mesa da liderança'; w.state = 'acompanhando a operação'; world.add(w.root); P0.workers.push(w);
+  }
+  // área de pallets de scuttles (vazias) e passagem
+  const sx0 = L.xE + 1.6, sz = r0 + 2.6;
+  zoneBox(sx0 - .9, r0 + .8, L.bx1 - .5, r1, 'navyP');
+  for (let i = 0; i < 8; i++) {
+    const T = V3(sx0 + i * 1.4, 0, sz), k = { T, psi: 0, sc: null, res: false, regen: 0 };
+    k.sc = newScuttle('VAZIA'); place(k.sc, world, T, 0); P0.stock.push(k);
+  }
+  floorText(world, [{ t: 'PALLETS DE SCUTTLES', size: 70 }, { t: 'scuttles vazias · passagem', size: 38, weight: 600, font: MONO }], sx0 + 5, sz + 2.6, 7, 1.3, 0, { w: 800, h: 170, color: '#4b5869' });
+  arrow(L.bx1 - 1.4, zPass, -PI / 2, 1.6);
+
+  /* equipes da planta */
+  for (let i = 0; i < P.recebimento; i++) {
+    const w = makeWorker('recebimento'); w.home = V3(L.xR, 0, zMidW - 3 + i * 1.6); w.root.position.copy(w.home);
+    w.restYaw = -PI / 2; w.setYaw(w.restYaw); w.where = 'Recebimento'; world.add(w.root); P0.rec.push(w); P0.workers.push(w);
+  }
+  for (let i = 0; i < P.abastGaiolas; i++) {
+    const w = makeWorker('abastecedor'); w.home = V3(L.xW - .4, 0, zMidW + 9 + i * 1.5); w.root.position.copy(w.home);
+    w.restYaw = PI / 2; w.setYaw(w.restYaw); w.where = 'Abastecimento das linhas'; world.add(w.root); P0.cgW.push(w); P0.workers.push(w);
+  }
+  for (let i = 0; i < P.abastScuttles; i++) {
+    const u = makeUnit('abastScuttle', 1, V3(L.stX + 3.4, 0, L.zS - 1 - i * 1.7), PI); u.op.where = 'Scuttles vazias → linhas'; P0.scU.push(u);
+  }
+  for (let i = 0; i < P.carregadoresSaida; i++) {
+    const u = makeUnit('saida', 1, V3(L.stX + 3.4, 0, L.zN + 1 + i * 1.7), 0); u.op.where = 'Saída (stretch e doca)'; P0.outU.push(u);
+  }
+  P0.workers.push(...[]);   // unidades já entram em S.workers pelo makeUnit
+
+  /* cotas da planta */
+  dimLine(L.bx0, L.bz1 + 1.6, L.bx1, L.bz1 + 1.6, `${fmtM(L.bx1 - L.bx0, 1)} m · galpão`, { text: 2.2 });
+  dimLine(L.bx1 + 1.6, L.bz0, L.bx1 + 1.6, L.bz1, `${fmtM(L.bz1 - L.bz0, 1)} m`, { text: 2 });
+  if (L.nLines > 1) dimLine(L.X0 + 10, L.zLines[0] + L.zApron, L.X0 + 10, L.zLines[1] - L.zApron, `${fmtM(P.corredorLinhas)} m`, { text: .6 });
+  dimLine(L.X0 + 20, cs0, L.X0 + 20, cs1, `${fmtM(L.cs)} m`, { text: .5 });
+}
+
+/* ---------- rotas ---------- */
+const dedupe = pts => pts.filter((p, i) => !i || Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z) > .03);
+const routeX = x => (a, b) => dedupe([V3(a.x, 0, a.z), V3(x, 0, a.z), V3(x, 0, b.z), V3(b.x, 0, b.z)]);
+const cageRouteW = (a, b) => routeX(L.xW)(a, b);   // abastecimento: pelo corredor oeste
+const cageRouteR = (a, b) => routeX(L.xR)(a, b);   // recebimento: pelo corredor da entrada
+function accPts(p) {   // do ponto até o corredor leste
+  const P1 = V3(p.x, 0, p.z);
+  if (p.x > L.xWest - .5 && p.x < L.xEast - .3 && p.z > L.zN && p.z < L.zS) {
+    let zl = L.zLines[0]; for (const z of L.zLines) if (Math.abs(p.z - z) < Math.abs(p.z - zl)) zl = z;
+    const lane = zl + Math.sign(p.z - zl || 1) * L.zAisle;
+    return [P1, V3(p.x, 0, lane), V3(L.xE, 0, lane)];
+  }
+  return [P1, V3(L.xE, 0, p.z)];
+}
+const plantRoute = (a, b) => dedupe([...accPts(a), ...accPts(b).reverse()]);
+function pdock(u, T, psi, dist, onDock, wallSide = false) {
+  const yawD = wallSide ? psi : psi - PI, f = fwdOf(yawD), D = T.clone().addScaledVector(f, FORK_C), A = T.clone().addScaledVector(f, Math.max(dist, FORK_C + 1));
+  return [
+    { gen: () => unitMove(u, plantRoute(unitPos(u), A)) },
+    unitTurn(u, () => yawD),
+    ...unitMove(u, [A, D], { backward: true, speed: P.velPaleteira * .6 }),
+    { d: .5, end: onDock },
+    ...unitMove(u, [D, A], { speed: P.velPaleteira * .7 }),
+  ];
+}
+// volta ao estacionamento só se não houver próxima tarefa (senão encadeia direto, sem viagem perdida)
+const goHomeUnit = (u, hasWork) => [{ gen: () => hasWork && hasWork() ? [] : [...unitMove(u, plantRoute(unitPos(u), u.home)), unitTurn(u, () => u.homeYaw)] }, { d: 0, end() { u.op.state = 'livre'; } }];
+const outWork = () => PLANT.st.some(st => st.state === 'pronta' && !st.res) || (PLANT.st.some(x => x.state === 'livre' && !x.res && !x.sc) && LINES.some(ln => ln.S.fullBuf.some(C => C.sc && !C.res)));
+const scWork = () => PLANT.stock.some(k => k.sc && !k.res) && LINES.some(ln => [1, -1].some(s => ln.S.emptyBuf[s].some(K => !K.sc && !K.res)));
+const goHomeWalk = (w, R) => [{ gen: () => [...walkSteps(w, R(w.root.position, w.home)), turnStep(w, () => w.restYaw)] }, { d: 0, end() { w.state = 'livre'; } }];
+
+/* ---------- recebimento: doca → buffer de cheias; buffer de vazias → doca ---------- */
+function startRecJob(w) {
+  const empties = PLANT.pEmpty.filter(x => x.cage && !x.res), freeFull = PLANT.pFull.filter(x => !x.cage && !x.res);
+  const door = PLANT.doorsIn.filter(d => !d.cage && !d.res).sort((a, b) => Math.abs(a.pos.z - w.root.position.z) - Math.abs(b.pos.z - w.root.position.z))[0];
+  if (!door) return;
+  const R = cageRouteR;
+  if (empties.length >= 6 || (empties.length && !freeFull.length)) {          // devolve gaiola vazia
+    const src = empties.sort((a, b) => a.t - b.t)[0]; src.res = true; door.res = true;
+    w.state = 'devolvendo gaiola vazia pela doca';
+    w.task = sequence([
+      ...grabCageSteps(w, () => src, R),
+      { d: 0, end() { src.res = false; } },
+      ...deliverCageSteps(w, () => door, R, (d) => { d.res = false; d.kill = PLANT.t + 4; }),
+      ...goHomeWalk(w, R),
+    ]);
+    return;
+  }
+  const dst = freeFull.sort((a, b) => Math.abs(a.pos.z - door.pos.z) - Math.abs(b.pos.z - door.pos.z))[0];
+  if (!dst) return;
+  dst.res = true; door.res = true;
+  w.state = 'recebendo gaiola cheia na doca';
+  w.task = sequence([
+    { gen: () => walkSteps(w, R(w.root.position, door.pos.clone().add(V3(2.6, 0, 0)))) },
+    { d: .6, start() { door.cage = newCage(P.gaiolaCap, 'Gaiola cheia (entrada)'); place(door.cage, world, door.pos, door.psi); } },
+    ...grabCageSteps(w, () => door, R),
+    { d: 0, end() { door.res = false; w.state = 'levando gaiola cheia ao buffer'; } },
+    ...deliverCageSteps(w, () => dst, R, (sl) => { sl.res = false; sl.t = PLANT.t; PLANT.received++; }),
+    ...goHomeWalk(w, R),
+  ]);
+}
+
+/* ---------- abastecimento: buffer de cheias → buffer da indução de cada linha; vazias de volta ---------- */
+function lineProxy(ln, slot) {   // posição da gaiola da linha vista pelo lado oeste, em coordenadas da planta
+  return { pos: toRoot(ln, slot.pos), psi: slot.psi + PI, cage: slot.cage };
+}
+function startSupplyCageJob(w) {
+  const R = cageRouteW;
+  let best = null;
+  for (const ln of LINES) {
+    const need = ln.S.cageFull.filter(f => !f.cage && !f.res);
+    if (need.length && (!best || need.length > best.need.length)) best = { ln, need };
+  }
+  const emptyLine = LINES.map(ln => ({ ln, e: ln.S.cageEmpty.filter(e => e.cage && !e.res) })).sort((a, b) => b.e.length - a.e.length)[0];
+  const src = PLANT.pFull.filter(x => x.cage && !x.res).sort((a, b) => a.t - b.t)[0];
+  const steps = [];
+  const takeEmpty = (ln, E) => {
+    E.res = true; const px = lineProxy(ln, E); let dump;
+    steps.push(
+      { d: 0, end() { px.cage = E.cage; w.state = `retirando gaiola vazia · ${ln.S.short}`; } },
+      ...grabCageSteps(w, () => px, R),
+      { d: 0, end() { E.cage = null; E.res = false; dump = freeOrOldest(PLANT.pEmpty); w.state = 'levando gaiola vazia ao buffer da planta'; } },
+      ...deliverCageSteps(w, () => dump, R, (sl, c) => { sl.res = false; sl.t = PLANT.t; c.name = 'Gaiola vazia'; }),
+    );
+  };
+  if (best && src) {
+    const F = best.need[0], ln = best.ln, px = { pos: toRoot(ln, F.pos), psi: F.psi + PI, cage: null };
+    F.res = true; src.res = true;
+    w.state = `levando gaiola cheia · ${ln.S.short}`;
+    steps.push(
+      ...grabCageSteps(w, () => src, R),
+      { d: 0, end() { src.res = false; } },
+      ...deliverCageSteps(w, () => px, R, (_, c) => {
+        ln.grp.attach(c.grp); c.grp.position.set(F.pos.x, 0, F.pos.z); c.grp.rotation.set(0, F.psi, 0);
+        px.cage = null; F.cage = c; F.res = false; F.regen = 0; c.name = 'Gaiola cheia'; PLANT.cgSupplied++;
+      }),
+    );
+    const E = ln.S.cageEmpty.filter(e => e.cage && !e.res)[0];
+    if (E) takeEmpty(ln, E);
+  } else if (emptyLine && emptyLine.e.length >= 3) {
+    takeEmpty(emptyLine.ln, emptyLine.e[0]);
+  } else return;
+  w.task = sequence([...steps, ...goHomeWalk(w, R)]);
+}
+
+/* ---------- scuttles vazias: área de pallets → buffers laterais das linhas ---------- */
+function startSupplyScuttleJob(u) {
+  let tgt = null;
+  for (const ln of LINES) for (const s of [1, -1]) for (const K of ln.S.emptyBuf[s]) if (!K.sc && !K.res && (!tgt || (K.since ?? 0) < (tgt.K.since ?? 0))) tgt = { ln, K };
+  const src = PLANT.stock.filter(k => k.sc && !k.res)[0];
+  if (!tgt || !src) return;
+  const { ln, K } = tgt; K.res = true; src.res = true;
+  u.op.state = `levando scuttle vazia · ${ln.S.short}`;
+  u.task = sequence([
+    ...pdock(u, src.T, src.psi, 2.3, () => { attachLoad(u, src.sc); src.sc = null; src.res = false; src.regen = PLANT.t + rand(15, 30); }),
+    ...pdock(u, toRoot(ln, K.T), K.psi, 2.3, () => { K.sc = dropLoad(u, ln.grp, K.T, K.psi); K.res = false; K.regen = 0; PLANT.scSupplied++; }),
+    ...goHomeUnit(u, scWork),
+  ]);
+}
+
+/* ---------- saída: buffer de cheias da linha → stretch → doca ---------- */
+function startOutJob(u) {
+  const ready = PLANT.st.filter(st => st.state === 'pronta' && !st.res)[0];
+  if (ready) {
+    ready.res = true;
+    const door = PLANT.doorsOut.reduce((b, d) => Math.abs(d.z - ready.T.z) < Math.abs(b.z - ready.T.z) ? d : b, PLANT.doorsOut[0]);
+    u.op.state = `levando scuttle enrolada à doca`;
+    u.task = sequence([
+      ...pdock(u, ready.T, ready.psi, 2.3, () => { attachLoad(u, ready.sc); ready.sc = null; ready.res = false; ready.state = 'livre'; }),
+      { gen: () => {
+          const Ap = V3(L.bx1 - 3.4, 0, door.z), D = V3(L.bx1 - .2 - FORK_C, 0, door.z);
+          return [
+            ...unitMove(u, plantRoute(unitPos(u), Ap)), unitTurn(u, () => -PI / 2),
+            ...unitMove(u, [Ap, D], { backward: true, speed: P.velPaleteira * .7 }),
+            { d: .4, end() { const o = u.load; u.grp.remove(o.grp); killScuttle(o); u.load = null; PLANT.shipped++; } },
+            ...unitMove(u, [D, Ap]),
+          ];
+        } },
+      ...goHomeUnit(u, outWork),
+    ]);
+    return;
+  }
+  const st = PLANT.st.filter(x => x.state === 'livre' && !x.res && !x.sc)[0];
+  if (!st) return;
+  let pick = null;
+  for (const ln of LINES) for (const C of ln.S.fullBuf) if (C.sc && !C.res && (!pick || C.t < pick.C.t)) pick = { ln, C };
+  if (!pick) return;
+  const { ln, C } = pick; C.res = true; st.res = true;
+  u.op.state = `levando scuttle cheia ao stretch · ${ln.S.short}`;
+  u.task = sequence([
+    ...pdock(u, toRoot(ln, C.T), C.psi, 2.2, () => { attachLoad(u, C.sc); C.sc = null; C.res = false; }, true),
+    ...pdock(u, st.T, st.psi, 2.3, () => { st.sc = dropLoad(u, world, st.T, st.psi); st.res = false; st.state = 'enrolando'; st.t0 = PLANT.t; }),
+    ...goHomeUnit(u, outWork),
+  ]);
+}
+
+/* ---------- robô de stretch: volta em círculo fixo, subindo e descendo o rolo ---------- */
+function updateStation(st, dt) {
+  const r = st.robot, R = 1.38;
+  if (st.state === 'enrolando') {
+    const k = clamp01((PLANT.t - st.t0) / P.tempoStretch);
+    if (!st.film && st.sc) { st.film = new THREE.Mesh(ASSET.film, MAT.film); st.film.position.y = PAL_H; st.film.scale.y = .01; st.sc.grp.add(st.film); }
+    st.ang += dt * (2 * PI * 6 / P.tempoStretch);
+    const H = P.scuttleAlt + PAL_H;
+    const tri = 1 - Math.abs(((k * 3) % 2) - 1);               // sobe, desce e sobe de novo
+    r.car.position.y = .3 + tri * Math.min(.85, H - .3);
+    if (st.film) st.film.scale.y = Math.max(.01, Math.min(H - PAL_H, (H - PAL_H) * Math.min(1, k * 1.6)));
+    r.led.material = MAT.robotLedOn;
+    if (k >= 1) { st.state = 'pronta'; PLANT.wrapped++; st.film = null; }
+  } else {
+    const park = PI / 2, d = Math.atan2(Math.sin(park - st.ang), Math.cos(park - st.ang));
+    st.ang += clamp(d, -dt * 1.2, dt * 1.2);
+    r.car.position.y += (.45 - r.car.position.y) * Math.min(1, dt * 2);
+    r.led.material = st.state === 'pronta' ? MAT.robotLedDone : MAT.robotLed;
+  }
+  r.grp.position.set(st.T.x + R * Math.sin(st.ang), 0, st.T.z + R * Math.cos(st.ang));
+  r.grp.rotation.y = st.ang + PI / 2;    // anda tangente ao círculo, com o rolo voltado para a scuttle
+}
+
+function updatePlant(dt) {
+  S.t += dt;
+  for (const w of PLANT.rec) if (!w.task) startRecJob(w);
+  for (const w of PLANT.cgW) if (!w.task) startSupplyCageJob(w);
+  for (const u of PLANT.scU) if (!u.task) startSupplyScuttleJob(u);
+  for (const u of PLANT.outU) if (!u.task) startOutJob(u);
+  for (const k of PLANT.stock) if (!k.sc && !k.res && k.regen && PLANT.t >= k.regen) { k.sc = newScuttle('VAZIA'); place(k.sc, world, k.T, k.psi); k.regen = 0; }
+  for (const d of PLANT.doorsIn) if (d.cage && d.kill && PLANT.t >= d.kill) { killCage(d.cage); d.cage = null; d.kill = 0; PLANT.returned++; }
+  for (const ln of LINES) for (const s of [1, -1]) for (const K of ln.S.emptyBuf[s]) { if (K.sc) K.since = null; else if (K.since == null) K.since = PLANT.t; }
+  for (const st of PLANT.st) updateStation(st, dt);
+  for (const w of PLANT.workers) { if (w.unit) continue; runWorker(w, dt); }
+  for (const u of [...PLANT.scU, ...PLANT.outU]) {
+    if (u.task) { if (u.task.step(dt)) u.task = null; }
+    else { u.op.idle(dt); u.op.root.position.z = .82; }
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -2323,19 +2795,24 @@ addEventListener('resize', resize);
 /* ------------------------------------------------------------------ */
 let camTween = null, follow = null;
 function viewDef(name) {
-  const cx = (L.xWest + L.xEast) / 2, k = (L.xEast - L.xWest) / 92, hw = L.bw / 2;
+  const W = L.bx1 - L.bx0, D = L.bz1 - L.bz0, cx = (L.bx0 + L.bx1) / 2, cz = (L.bz0 + L.bz1) / 2, k = Math.max(W, D) / 92, hw = L.bw / 2;
   const narrow = innerWidth < 760 ? 1.35 : 1;
-  const isl = S.islands[Math.min(1, S.islands.length - 1)];
+  const mid = LINES[Math.floor(LINES.length / 2)], zm = mid.z;
+  const isl = mid.S.islands[Math.min(1, mid.S.islands.length - 1)];
   const loc = (x, y, z) => isl.grp.localToWorld(V3(x, y, z));
+  const zSt = PLANT.st.length ? PLANT.st[0].T.z : 0;
   switch (name) {
-    case 'aerea': return { p: [cx - 42 * k * narrow, 58 * k * narrow, 56 * k * narrow], t: [cx - 6, 0, -2], fov: 38 };
-    case 'eixo': return { p: [L.X0 - 12, 9.6, 0.01], t: [L.X0 + 30, 0, 0], fov: 46 };
-    case 'planta': return { p: [cx, 95 * k * narrow, .01], t: [cx, 0, 0], fov: 38 };
+    case 'aerea': return { p: [cx - 52 * k * narrow, 78 * k * narrow, cz + 74 * k * narrow], t: [cx + 2, 0, cz + 4], fov: 38 };
+    case 'eixo': return { p: [L.X0 - 12, 9.6, zm + .01], t: [L.X0 + 30, 0, zm], fov: 46 };
+    case 'planta': return { p: [cx, 142 * k * narrow, cz + .01], t: [cx, 0, cz], fov: 38 };
     case 'ilha': { const p = loc(L.rackW / 2 + P.corredorFlow / 2, 1.62, L.rack1 + 1.6), t = loc(-.4, .95, L.rack0 * .5); return { p: p.toArray(), t: t.toArray(), fov: 50 }; }
-    case 'inducao': return { p: [L.X0 + L.ind * .78, 1.72, hw + 3.6], t: [L.X0 + 1.2, .95, 0], fov: 52 };
-    case 'goleiro': return { p: [L.golX + 4.2, 2.1, hw + 4.2], t: [L.golX - .2, .95, 0], fov: 48 };
-    case 'lateral': return { p: [L.golX + 1.5, 4.8, 9.5], t: [L.eastBufX - .5, .9, 0], fov: 46 };
-    case 'gaiolas': return { p: [L.X0 + 4.5, 4.6, 8.5], t: [L.cageBufX + .5, .9, 0], fov: 50 };
+    case 'inducao': return { p: [L.X0 + L.ind * .78, 1.72, zm + hw + 3.6], t: [L.X0 + 1.2, .95, zm], fov: 52 };
+    case 'goleiro': return { p: [L.golX + 4.2, 2.1, zm + hw + 4.2], t: [L.golX - .2, .95, zm], fov: 48 };
+    case 'lateral': return { p: [L.golX + 1.5, 4.8, zm + 9.5], t: [L.eastBufX - .5, .9, zm], fov: 46 };
+    case 'gaiolas': return { p: [L.X0 + 4.5, 4.6, zm + 8.5], t: [L.cageBufX + .5, .9, zm], fov: 50 };
+    case 'recebimento': return { p: [L.xW + 3, 9, cz + 14], t: [(L.pbx0 + L.pbx1) / 2, 0, cz - 4], fov: 50 };
+    case 'stretch': return { p: [L.stX - 7, 4.2, zSt - 4], t: [L.stX + 1, .8, zSt + 5], fov: 50 };
+    case 'caminho': return { p: [L.xE - 2, 3.2, L.zCS - 5], t: [L.xE - 18, .6, L.zCS + 1.5], fov: 50 };
   }
   return null;
 }
@@ -2376,31 +2853,34 @@ controls.addEventListener('start', () => { camTween = null; follow = null; });
 let barEls = [];
 function buildBars() {
   const bars = $('#bars'); bars.innerHTML = ''; barEls = [];
-  const n = S.islands.length, half = n / 2;
   const rows = [];
-  for (let r = 0; r < half; r++) rows.push(S.islands[r], S.islands[r + half]);
+  for (const ln of LINES) { const n = ln.S.islands.length, half = n / 2; for (let r = 0; r < half; r++) rows.push(ln.S.islands[r], ln.S.islands[r + half]); }
   for (const isl of rows) {
     const row = document.createElement('div'); row.className = 'bar';
     row.innerHTML = `<span>${isl.code}</span><span class="t"><i></i></span><span class="n">0</span>`;
-    bars.appendChild(row); barEls[isl.idx] = row;
+    bars.appendChild(row); barEls[isl.gidx] = row;
   }
 }
 function headcount(p) {
-  const nIsl = 2 * p.ilhasPorLado;
+  const nIsl = 2 * p.ilhasPorLado, n = p.linhas;
   return [
-    ['Indução', 2 * p.inducaoPorLado + p.inducaoPonta], ['Pescadores', nIsl * p.pescadoresPorIlha], ['Separadores', nIsl * p.separadoresPorIlha],
-    ['Goleiros', p.goleiros], ['Paleteiros (scuttle)', 2 * p.paleteirosPorLado], ['Setup de gaiolas', 2 * p.setupPorLado],
+    ['Indução', n * (2 * p.inducaoPorLado + p.inducaoPonta)], ['Pescadores', n * nIsl * p.pescadoresPorIlha], ['Separadores', n * nIsl * p.separadoresPorIlha],
+    ['Goleiros', n * p.goleiros], ['Paleteiros (scuttle)', n * 2 * p.paleteirosPorLado], ['Setup de gaiolas', n * 2 * p.setupPorLado],
+    ['Recebimento', p.recebimento], ['Abastecimento de gaiolas', p.abastGaiolas], ['Abastecimento de scuttles', p.abastScuttles],
+    ['Saída (stretch e doca)', p.carregadoresSaida], ['Conferência', p.conferentes], ['Liderança', p.lideres],
   ];
 }
 function refreshSpec() {
   const tot = headcount(P).reduce((a, [, n]) => a + n, 0);
   $('#spec').innerHTML = `
+    <dt>Planta</dt><dd>${L.nLines} esteiras · galpão ${fmtM(L.bx1 - L.bx0, 0)} × ${fmtM(L.bz1 - L.bz0, 0)} m</dd>
     <dt>Esteira</dt><dd>${fmtM(L.len)} × ${fmtM(L.bw)} m · ${fmtM(P.velEsteira)} m/s</dd>
-    <dt>Volume</dt><dd>${fmt(P.capacidade)} pct/h · ineficiência ${P.ineficiencia}%</dd>
+    <dt>Volume</dt><dd>${fmt(P.capacidade)} pct/h por esteira · ${fmt(P.capacidade * L.nLines)} no total · ineficiência ${P.ineficiencia}%</dd>
     <dt>PHD</dt><dd>indução ${fmt(P.phdInducao)} · pesca ${fmt(P.phdPescador)} · sep. ${fmt(P.phdSeparador)}</dd>
-    <dt>Ilhas</dt><dd>${2 * L.nIsl} · flow rack ${fmtM(L.rackW, 1)} × ${fmtM(L.rackL, 1)} m</dd>
+    <dt>Ilhas</dt><dd>${2 * L.nIsl * L.nLines} (${2 * L.nIsl} por esteira) · flow rack ${fmtM(L.rackW, 1)} × ${fmtM(L.rackL, 1)} m</dd>
     <dt>Scuttle</dt><dd>1,20 × 1,00 × ${fmtM(P.scuttleAlt)} m · ${P.scuttleCap} vol. · ${fmtM(pkgTargetM3(P) * 1000, 1)} L/vol.</dd>
-    <dt>Goleiro</dt><dd>${P.goleiros} pessoa(s) · ${P.gaiolasGoleiro} gaiolas · ${P.goleiroPct}%</dd>
+    <dt>Goleiro</dt><dd>${P.goleiros} por esteira · ${P.gaiolasGoleiro} gaiolas · ${P.goleiroPct}%</dd>
+    <dt>Stretch</dt><dd>${P.robosStretch} robôs · ${P.tempoStretch} s por scuttle</dd>
     <dt>Pessoas</dt><dd>${tot} na operação</dd>`;
   $('#kPeople').textContent = `${S.workers.length} pessoas`;
 }
@@ -2419,7 +2899,7 @@ function refreshHud() {
   $('#kSw').textContent = fmt(S.swaps); $('#kCg').textContent = fmt(S.cageSwaps); $('#kExp').textContent = fmt(S.shipped);
   const max = Math.max(1, ...S.islands.map(i => i.count));
   for (const isl of S.islands) {
-    const el = barEls[isl.idx]; if (!el) continue;
+    const el = barEls[isl.gidx]; if (!el) continue;
     el.querySelector('i').style.width = (100 * isl.count / max) + '%';
     el.querySelector('.n').textContent = isl.count;
   }
@@ -2548,7 +3028,7 @@ function zipStore(name, bytes) {   // .zip sem compressão, um arquivo
 }
 $('#export').addEventListener('click', e => {
   const btn = e.currentTarget, label = btn.textContent;
-  if (!world || !THREE.GLTFExporter) return;
+  if (!ROOT || !THREE.GLTFExporter) return;
   btn.textContent = 'Gerando arquivo…'; btn.disabled = true;
   setTimeout(() => {
     const hidden = [], markers = [], slug = t => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_|_$/g, '');
@@ -2560,17 +3040,17 @@ $('#export').addEventListener('click', e => {
     if ($('#expMode').value === 'marcadores') {
       for (const w of S.workers) {
         const m = new THREE.Object3D(); w.root.getWorldPosition(m.position); w.root.getWorldQuaternion(m.quaternion);
-        m.name = `marcador_${w.role}_${String(w.id).padStart(2, '0')}_${slug(w.where)}`; world.add(m); markers.push(m);
+        m.name = `marcador_${w.role}_${String(w.id).padStart(2, '0')}_${slug(w.where)}`; ROOT.add(m); markers.push(m);
         if (w.root.visible) { w.root.visible = false; hidden.push(w.root); }
       }
     }
-    world.traverse(o => {
+    ROOT.traverse(o => {
       const skip = o.userData.noExport || o.isSprite || o.isLine || (o.material && o.material === MAT.hit);
       if (skip && o.visible) { o.visible = false; hidden.push(o); }
     });
-    const done = (msg) => { hidden.forEach(o => { o.visible = true; }); markers.forEach(m => world.remove(m)); btn.textContent = msg; btn.disabled = false; setTimeout(() => { btn.textContent = label; }, 2500); };
+    const done = (msg) => { hidden.forEach(o => { o.visible = true; }); markers.forEach(m => ROOT.remove(m)); btn.textContent = msg; btn.disabled = false; setTimeout(() => { btn.textContent = label; }, 2500); };
     try {
-      new THREE.GLTFExporter().parse(world, result => {
+      new THREE.GLTFExporter().parse(ROOT, result => {
         const mb = b => (b / 1048576).toFixed(1).replace('.', ',') + ' MB';
         const fname = markers.length ? 'maquete-esteira-marcadores.glb' : 'maquete-esteira.glb';
         if (downloadsNS) {
@@ -2654,7 +3134,7 @@ Promise.all([
   loadEnvironment().catch(err => console.warn('HDRI indisponível', err)),
 ])
   .then(() => rebuild(true)).then(() => { requestAnimationFrame(frame); });
-window.__maquete = { mhSync, get S() { return S; }, get L() { return L; }, get P() { return P; }, camera, controls, goView, renderer, scene, setQuality: q => { quality = q; setupRender(); }, update };
+window.__maquete = { mhSync, get PLANT() { return PLANT; }, get LINES() { return LINES; }, get S() { return S; }, get L() { return L; }, get P() { return P; }, camera, controls, goView, renderer, scene, setQuality: q => { quality = q; setupRender(); }, update };
 };
 Promise.race([
   Promise.all([document.fonts.load('800 80px Archivo'), document.fonts.load('600 60px "IBM Plex Mono"')]),
