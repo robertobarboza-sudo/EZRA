@@ -201,3 +201,8 @@ Base: planta baixa "Layout operacional – Centro de distribuição" (R12).
 - **Avarias:** % do volume do goleiro → gaiola de avarias no fim da linha → tratativa.
 
 **Painel:** seletor de esteira para as vistas de linha (eixo, ilha, indução, goleiro, buffers).
+
+## Revisão 8: 5 bancadas (ilhas) de cada lado em cada esteira
+
+- **Ilhas:** 5 por lado em cada uma das 3 esteiras; a esteira passa a ter cerca de 62,5 m e o galpão acompanha.
+- **Resultado na simulação:** o goleiro volta para cerca de 10% do volume (com 3 ilhas por lado passava de 20%).

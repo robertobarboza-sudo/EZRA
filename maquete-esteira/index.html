@@ -298,7 +298,7 @@ const C = hex => new THREE.Color(hex).convertSRGBToLinear();   // cores sRGB →
 /* ------------------------------------------------------------------ */
 const DEFAULTS = {
   capacidade: 3000, ineficiencia: 15, goleiroPct: 10, velEsteira: 0.9,
-  inducaoComp: 8, larguraEsteira: 1.65, alturaEsteira: 0.82, ilhasPorLado: 3,
+  inducaoComp: 8, larguraEsteira: 1.65, alturaEsteira: 0.82, ilhasPorLado: 5,
   linhas: 3, corredorLinhas: 2.5, caminhoSeguro: 1.4,
   recebimento: 4, abastGaiolas: 4, abastScuttles: 12, carregadoresSaida: 6, robosStretch: 1, tempoStretch: 30, conferentes: 0, lideres: 2,
   stretchManual: 2, operadorRobo: 1, tempoMontagem: 20, tempoStretchManual: 80, avariaPct: 5, tratativa: 2, tempoAvaria: 25,
@@ -389,7 +389,7 @@ const SCHEMA = [
     ['velPaleteira', 'Velocidade com paleteira/gaiola', 'm/s', .5, 2, .05],
   ] },
 ];
-const STORE_KEY = 'maquete-esteira-premissas-v11';
+const STORE_KEY = 'maquete-esteira-premissas-v12';
 function loadParams() {
   try { const s = JSON.parse(localStorage.getItem(STORE_KEY) || 'null'); if (s && typeof s === 'object') return sanitize({ ...DEFAULTS, ...s }); } catch (e) {}
   return { ...DEFAULTS };
