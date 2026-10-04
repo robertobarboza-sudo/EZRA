@@ -58,10 +58,10 @@ raw.githubusercontent) e a decisão.
 | **@pmndrs/assets** (npm) | HDRIs da Poly Haven (warehouse, workshop, studio…), mapas normais | CC0 | ✅ npm | **Em uso:** HDRI de galpão para iluminação e reflexos |
 | Poly Haven / ambientCG direto | Texturas PBR de concreto, papelão e metal | CC0 | ❌ bloqueado | Pendente de acesso; o HDRI vem pelo npm |
 | three.js `EXRLoader` + `fflate` | Leitura do HDRI em EXR | MIT | ✅ | **Em uso** |
-| **meshoptimizer** + `@gltf-transform/cli` | Compressão das pessoas (malha quantizada e meshopt) | MIT | ✅ npm | **Testado e adiado:** reduz de 9,9 para 3,4 MB, mas a quantização de malha com esqueleto quebra no three r128 (pessoas gigantes e flutuando). Volta na Fase 2, com r186 |
-| **three.js r186** | Iluminação física, AgX, `OutputPass`, materiais mais novos | MIT | ✅ npm | Fase 2: migrar de r128 (exige trocar os scripts globais por módulos) |
-| **postprocessing** + **n8ao** (pmndrs) | Oclusão de ambiente de alta qualidade (N8AO), SMAA e bloom | Zlib / CC0 | ✅ npm | Fase 2, junto com r186 |
-| **three-gpu-pathtracer** + **three-mesh-bvh** | Traçado de caminho progressivo no navegador: modo "Foto" com qualidade de render na mesma cena viva | MIT | ✅ npm | Fase 2: botão "Foto realista" que pausa a simulação e refina a imagem |
+| **meshoptimizer** + `@gltf-transform/cli` | Compressão das pessoas (malha quantizada e meshopt) | MIT | ✅ npm | **Em uso (r186):** pessoas de 14 para 4,7 MB. No r128 a quantização quebrava as malhas com esqueleto |
+| **three.js r186** | Iluminação física, AgX, `OutputPass`, materiais mais novos | MIT | ✅ npm | **Em uso** (r186, módulos ES) |
+| **postprocessing** + **n8ao** (pmndrs) | Oclusão de ambiente de alta qualidade (N8AO), SMAA e bloom | Zlib / CC0 | ✅ npm | Avaliado: o N8AO depende de `three/webgpu`; usado o GTAO do próprio three |
+| **three-gpu-pathtracer** + **three-mesh-bvh** | Traçado de caminho progressivo no navegador: modo "Foto" com qualidade de render na mesma cena viva | MIT | ✅ npm | **Em uso:** botão "Foto realista" |
 | realism-effects | SSGI, TRAA, motion blur | MIT | ✅ npm | Avaliar depois do r186 (projeto pouco mantido) |
 | Blender (`bpy` no PyPI) + Cycles | Renders estáticos e cozimento de luz | GPL | ✅ PyPI | Em uso para fotos e exportação das pessoas |
 
@@ -77,12 +77,21 @@ raw.githubusercontent) e a decisão.
 6. Compressão com meshopt: testada e adiada para a Fase 2 (incompatível com malha com esqueleto no r128).
 7. Botas e colete corrigidos na exportação: o pé do corpo não atravessa a bota e o recorte do colete fica limpo.
 
-**Fase 2, migração para three r186:**
+**Fase 2, migração para three r186 (feita):**
 
-1. Trocar os scripts globais por módulos (`importmap` no jsDelivr) e ativar a compressão meshopt das pessoas.
-2. N8AO e SMAA no lugar de SSAO e FXAA.
-3. Tom AgX.
-4. Botão "Foto realista" com `three-gpu-pathtracer`.
+1. Scripts globais trocados por módulos ES com `importmap` no jsDelivr.
+   - Cores mantidas com `ColorManagement` desligado.
+   - Luzes multiplicadas por π, para o modelo de luz física.
+2. Oclusão de ambiente GTAO (do próprio three) no lugar do SSAO, mais SMAA e `OutputPass`. O N8AO foi descartado porque depende do build `three/webgpu`.
+3. Pessoas comprimidas com meshopt (de 14 MB para 4,7 MB), sem deformação no r186.
+4. Botão **Foto realista** com `three-gpu-pathtracer`. Pausa a simulação e monta uma cena própria para o traçado:
+   - geometria uniforme em coordenadas do mundo, com as pessoas na pose do momento;
+   - só entra o que está no quadro;
+   - o refinamento é progressivo e recomeça ao girar a câmera.
+   Corrigidos no caminho:
+   - estado do GTAO preso;
+   - pessoas com esqueleto (a pose é cozida antes de entrar no traçado);
+   - materiais de geometria com grupos.
 
 **Fase 3, quando os acervos bloqueados estiverem acessíveis:**
 
