@@ -245,6 +245,9 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/exporters/GLTFExporter.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/SkeletonUtils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/meshopt_decoder.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/fflate.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/EXRLoader.js"></script>
 <script>
 const main = () => {
 'use strict';
@@ -1050,6 +1053,7 @@ function makeWorker(roleKey) {
   const w = {
     id: n, role: roleKey, label: role.label, root, B, task: null, yaw: 0, restYaw: 0, phase: Math.random() * 20, state: 'livre', where: '',
     pose(reach, lean = reach) {
+      if (reach > .04 || lean > .1) w.busyT = SIM_T;
       for (const [sh, el, s] of [[B.shL, B.elL, -1], [B.shR, B.elR, 1]]) {
         sh.rotation.set(-1.2 * reach - .04, 0, s * (.07 - .15 * reach));
         el.rotation.set(-.14 - .5 * reach * (1 - reach * .4), 0, 0);
@@ -1057,12 +1061,14 @@ function makeWorker(roleKey) {
       B.chest.rotation.set(.16 * lean, 0, 0); B.pelvis.rotation.set(.06 * lean, 0, 0);
     },
     pushPose(k = 1) {      // empurrando gaiola / timão à frente
+      w.busyT = SIM_T;
       for (const [sh, el, s] of [[B.shL, B.elL, -1], [B.shR, B.elR, 1]]) {
         sh.rotation.set(-.95 * k, 0, s * -.12 * k); el.rotation.set(-.5 * k, 0, 0);
       }
       B.chest.rotation.set(.14 * k, 0, 0);
     },
     pullPose(k = 1) {      // puxando a paleteira com a mão direita para trás
+      w.busyT = SIM_T;
       B.shR.rotation.set(.32 * k, 0, .12 * k); B.elR.rotation.set(-.08, 0, 0);
       B.shL.rotation.set(-.04, 0, -.07); B.elL.rotation.set(-.2, 0, 0);
       B.chest.rotation.set(.1 * k, 0, 0);
@@ -1104,6 +1110,7 @@ function makeWorker(roleKey) {
   hit.userData = { kind: 'worker', ref: w };
   w.pose(0); w.walkPose(0, false);
   const mh = mhAttach(w, roleKey);
+  w.proc = mesh;
   if (mh) { mesh.visible = false; w.mh = mh; MH_LIVE.push(w); }
   return w;
 }
@@ -1119,10 +1126,25 @@ const MH_MAP = [ // osso do boneco, osso MH (lado resolvido pelo sinal de x), co
   ['pelvis', 'root', false], ['chest', 'spine03', false], ['head', 'head', false],
   ['shX', 'upperarm01', true], ['elX', 'lowerarm01', true], ['hipX', 'upperleg01', true], ['kneeX', 'lowerleg01', true],
 ];
+/* ambiente: HDRI de galpão (Poly Haven, CC0) para iluminação indireta e reflexos */
+async function loadEnvironment(base = 'pessoas/') {
+  if (!THREE.EXRLoader) return;
+  const j = await fetch(base + 'ambiente.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  const tex = await new Promise((ok, bad) => new THREE.EXRLoader().setDataType(THREE.HalfFloatType).load('data:application/octet-stream;base64,' + j.exr, ok, undefined, bad));
+  tex.mapping = THREE.EquirectangularReflectionMapping;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  const env = pmrem.fromEquirectangular(tex).texture;
+  pmrem.dispose(); tex.dispose();
+  if (scene.environment) scene.environment.dispose();
+  scene.environment = env;
+}
 async function loadPeople(base = 'pessoas/') {
   if (!THREE.GLTFLoader || !THREE.SkeletonUtils) return false;
   const idx = await fetch(base + 'pessoas.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+  try { loadMocap(await fetch(base + 'movimentos.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })); }
+  catch (err) { console.warn('movimentos de captura indisponíveis', err); }
   const loader = new THREE.GLTFLoader();
+  if (typeof MeshoptDecoder !== 'undefined') loader.setMeshoptDecoder(MeshoptDecoder);
   const tpls = await Promise.all(idx.map(e => new Promise((ok, bad) => loader.load(base + e.arquivo, g => ok({ e, g }), undefined, bad))));
   for (const { e, g } of tpls) {
     const t = mhPrepare(g.scene); t.roles = e.papeis;
@@ -1157,19 +1179,28 @@ function mhPrepare(sceneRoot) {
     for (const [p, m] of pairs) {
       const i = bi(m); if (i < 0) continue;
       let C = new THREE.Quaternion();
-      if (sided) {  // gira a direção de repouso (pose em A) para a do boneco: braços e pernas para baixo
+      if (sided && /arm/.test(mb)) {  // braços: pose em A → ao longo do corpo, levemente afastados do quadril
         const dir = V3(0, 1, 0).applyQuaternion(rest[i]).normalize();
-        C.setFromUnitVectors(dir, V3(0, -1, 0));
-      }
+        C.setFromUnitVectors(dir, V3(Math.sign(dir.x) * .16, -1, .02).normalize());
+      }                                 // pernas: mantém a postura natural do MakeHuman
       map.push({ i, p, C });
     }
   }
   const box3 = new THREE.Box3().setFromObject(sceneRoot);
-  return { scene: sceneRoot, orderNames: order.map(b => b.name), rest, Q0, map, rootY: order[0].position.y, floor: box3.min.y,
+  // captura de movimento: C leva a direção de repouso do osso MH para a do osso BVH
+  const mc = new Map();
+  if (MOCAP) for (const name in MOCAP.restDir) {
+    const i = bi(name); if (i < 0) continue;
+    const C = new THREE.Quaternion();
+    if (name !== 'root') C.setFromUnitVectors(V3(0, 1, 0).applyQuaternion(rest[i]).normalize(), V3(...MOCAP.restDir[name]).normalize());
+    mc.set(i, { name, C });
+  }
+  const rootW = V3(); order[0].getWorldPosition(rootW);
+  return { mc, hipH: rootW.y - box3.min.y, scene: sceneRoot, orderNames: order.map(b => b.name), rest, Q0, map, rootY: order[0].position.y, floor: box3.min.y,
     hands: ['wristL', 'wristR', 'finger3-1L', 'finger3-1R'] };
 }
 function mhAttach(w, roleKey) {
-  const pool = MH.byRole[roleKey] || MH.list; if (!pool || !pool.length) return null;
+  const pool = MH.byRole[ROLE[roleKey]?.mh || roleKey] || MH.list; if (!pool || !pool.length) return null;
   MH.seq[roleKey] = (MH.seq[roleKey] || 0) + 1;
   const t = pool[(MH.seq[roleKey] + w.id) % pool.length];
   const obj = THREE.SkeletonUtils.clone(t.scene);
@@ -1181,9 +1212,42 @@ function mhAttach(w, roleKey) {
   const local = order.map(b => b.quaternion.clone());
   const mapByI = new Map(t.map.map(m => [m.i, { B: w.B[m.p], C: m.C }]));
   const hands = t.hands.map(n => byName[n]).filter(Boolean);
-  return { t, obj, order, parentIdx, local, mapByI, hands, W: order.map(() => new THREE.Quaternion()), rootPos: order[0].position.clone() };
+  const upper = new Set(), follow = new Set();
+  order.forEach((b, k) => {
+    if (/^(upperarm01|lowerarm01)/.test(b.name) || b.name === 'spine03') upper.add(k);
+    else if (/^(spine01|spine02|neck0|head|clavicle|wrist)/.test(b.name)) follow.add(k);
+  });
+  return { t, obj, order, parentIdx, local, mapByI, hands, upper, follow, W: order.map(() => new THREE.Quaternion()), rootPos: order[0].position.clone(),
+    // locomoção: fase do ciclo e pesos (parado / andando / de costas / ocupado com a parte de cima)
+    loco: { last: null, yaw: null, speed: 0, fwd: 0, ph: Math.random(), phI: Math.random(), wW: 0, wB: 0, wU: 0, off: V3() } };
 }
-const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qInv = new THREE.Quaternion();
+
+/* ---------- captura de movimento (CMU) ---------- */
+let MOCAP = null;
+function loadMocap(j) {
+  for (const k in j.clips) {
+    const c = j.clips[k];
+    for (const b in c.q) c.q[b] = Float32Array.from(c.q[b]);
+    c.root = Float32Array.from(c.root);
+  }
+  MOCAP = j;
+}
+const _qs = [new THREE.Quaternion(), new THREE.Quaternion(), new THREE.Quaternion()];
+function clipQ(clip, bone, f, out) {   // quaternion interpolado do quadro fracionário f
+  const a = clip.q[bone]; if (!a) return null;
+  const n = clip.frames, f0 = Math.floor(f), t = f - f0;
+  const i0 = clip.loop ? ((f0 % n) + n) % n : clamp(f0, 0, n - 1), i1 = clip.loop ? (i0 + 1) % n : Math.min(n - 1, i0 + 1);
+  _qs[0].fromArray(a, i0 * 4); _qs[1].fromArray(a, i1 * 4);
+  return out.copy(_qs[0]).slerp(_qs[1], t);
+}
+function clipRoot(clip, f, out) {
+  const a = clip.root, n = clip.frames, f0 = Math.floor(f), t = f - f0;
+  const i0 = clip.loop ? ((f0 % n) + n) % n : clamp(f0, 0, n - 1), i1 = clip.loop ? (i0 + 1) % n : Math.min(n - 1, i0 + 1);
+  return out.set(lerp(a[i0 * 3], a[i1 * 3], t), lerp(a[i0 * 3 + 1], a[i1 * 3 + 1], t), lerp(a[i0 * 3 + 2], a[i1 * 3 + 2], t));
+}
+
+const _qa = new THREE.Quaternion(), _qb = new THREE.Quaternion(), _qc = new THREE.Quaternion(), _qInv = new THREE.Quaternion();
+const _v1 = V3(), _v2 = V3(), _v3 = V3();
 const _procW = new Map();
 function procWorldQ(B, bone) {     // rotação do osso do boneco em espaço do personagem
   let q = _procW.get(bone); if (q) return q;
@@ -1191,21 +1255,83 @@ function procWorldQ(B, bone) {     // rotação do osso do boneco em espaço do 
   if (bone.parent && bone.parent.isBone) q.premultiply(procWorldQ(B, bone.parent));
   _procW.set(bone, q); return q;
 }
+/* mede o deslocamento real da pessoa e avança o ciclo de passos pela distância (sem pé deslizando) */
+function mhLoco(w, dt) {
+  const L0 = w.mh.loco, t = w.mh.t;
+  const p = w.root.getWorldPosition(_v1), q = w.root.getWorldQuaternion(_qa);
+  const yaw = Math.atan2(2 * (q.w * q.y + q.x * q.z), 1 - 2 * (q.y * q.y + q.x * q.x));
+  if (!L0.last) { L0.last = p.clone(); L0.yaw = yaw; return; }
+  if (dt <= 0) return;
+  const dx = p.x - L0.last.x, dz = p.z - L0.last.z; L0.last.copy(p);
+  let dy = yaw - L0.yaw; dy = Math.atan2(Math.sin(dy), Math.cos(dy)); L0.yaw = yaw;
+  const fwd = (dx * Math.sin(yaw) + dz * Math.cos(yaw)) / dt, lin = Math.hypot(dx, dz) / dt;
+  const k = Math.min(1, dt * 7);
+  L0.speed += (Math.max(lin, Math.abs(dy / dt) * .22) - L0.speed) * k;
+  L0.fwd += (fwd - L0.fwd) * k;
+  if (!MOCAP) return;
+  const back = L0.fwd < -.08 && lin > .05, moving = L0.speed > .07;
+  const W = MOCAP.clips.andar, B = MOCAP.clips.andar_tras;
+  const strideW = W.stride * t.hipH, strideB = Math.abs(B.stride) * t.hipH;
+  L0.ph += L0.speed * dt / (back ? strideB : strideW);
+  L0.phI += dt / (MOCAP.clips.parado.frames / MOCAP.fps);
+  const kw = Math.min(1, dt * 6);
+  L0.wW += ((moving && !back ? clamp01(L0.speed / .35) : 0) - L0.wW) * kw;
+  L0.wB += ((moving && back ? clamp01(L0.speed / .3) : 0) - L0.wB) * kw;
+  L0.wU += ((SIM_T - (w.busyT ?? -9) < .2 ? 1 : 0) - L0.wU) * Math.min(1, dt * 8);
+}
 function mhSync(w) {
-  const m = w.mh, t = m.t; _procW.clear();
+  const m = w.mh, t = m.t, L0 = m.loco; _procW.clear();
+  const cl = MOCAP && t.mc.size ? MOCAP.clips : null;
+  const fI = cl ? L0.phI * cl.parado.frames : 0, fW = cl ? L0.ph * cl.andar.frames : 0, fB = cl ? L0.ph * cl.andar_tras.frames : 0;
+  const wU = cl ? L0.wU : 1;
   for (let k = 0; k < m.order.length; k++) {
     const b = m.order[k], pi = m.parentIdx[k], PW = pi < 0 ? t.Q0 : m.W[pi];
-    const mp = m.mapByI.get(k);
-    if (mp) {
-      m.W[k].copy(procWorldQ(w.B, mp.B)).multiply(mp.C).multiply(t.rest[k]);
-      b.quaternion.copy(_qInv.copy(PW).invert().multiply(m.W[k]));
+    const Wk = m.W[k];
+    const mc = cl && t.mc.get(k), mp = m.mapByI.get(k);
+    // base: captura (parado ↔ andando ↔ de costas) ou, sem captura, o boneco
+    if (mc) {
+      clipQ(cl.parado, mc.name, fI, _qa);
+      if (L0.wW > .001) _qa.slerp(clipQ(cl.andar, mc.name, fW, _qb), L0.wW);
+      if (L0.wB > .001) _qa.slerp(clipQ(cl.andar_tras, mc.name, fB, _qb), L0.wB);
+      Wk.copy(_qa).multiply(mc.C).multiply(t.rest[k]);
+    } else if (mp && !cl) {
+      Wk.copy(procWorldQ(w.B, mp.B)).multiply(mp.C).multiply(t.rest[k]);
     } else {
-      m.W[k].copy(PW).multiply(b.quaternion);
+      Wk.copy(PW).multiply(m.local[k]);
     }
+    // parte de cima ocupada (alcançar, carregar, empurrar, puxar): braços e inclinação do boneco
+    if (cl && wU > .001 && (m.upper.has(k) || m.follow.has(k))) {
+      if (m.upper.has(k) && mp) _qc.copy(procWorldQ(w.B, mp.B)).multiply(mp.C).multiply(t.rest[k]);
+      else _qc.copy(PW).multiply(m.local[k]);
+      Wk.slerp(_qc, wU);
+    }
+    b.quaternion.copy(_qInv.copy(PW).invert().multiply(Wk));
   }
-  m.order[0].position.y = m.rootPos.y + (w.B.pelvis.position.y - .93);
+  const r = m.order[0];
+  if (cl) {
+    clipRoot(cl.parado, fI, _v2);
+    if (L0.wW > .001) _v2.lerp(clipRoot(cl.andar, fW, _v3), L0.wW);
+    if (L0.wB > .001) _v2.lerp(clipRoot(cl.andar_tras, fB, _v3), L0.wB);
+    _v2.multiplyScalar(t.hipH);
+    _v2.y += (w.B.pelvis.position.y - .93) * wU;   // agachar/baixar das tarefas
+    _v2.applyQuaternion(_qInv.copy(t.Q0).invert());
+    r.position.copy(m.rootPos).add(_v2);
+  } else r.position.y = m.rootPos.y + (w.B.pelvis.position.y - .93);
 }
-function mhSyncAll() { for (const w of MH_LIVE) if (w.root.parent) mhSync(w); }
+let SIM_T = 0, _lastSync = 0;
+const _camP = V3();
+function mhSyncAll() {
+  const dt = Math.max(0, Math.min(.25, SIM_T - _lastSync)); _lastSync = SIM_T;
+  camera.getWorldPosition(_camP);
+  for (const w of MH_LIVE) {
+    if (!w.root.parent) continue;
+    w.root.getWorldPosition(_v1);
+    const near = _v1.distanceToSquared(_camP) < 60 * 60;   // longe: boneco leve (mesma pose, 1 draw call)
+    if (w.mh.obj.visible !== near) { w.mh.obj.visible = near; w.proc.visible = !near; }
+    mhLoco(w, dt);
+    if (near) mhSync(w);
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /* Mundo: montado a partir das premissas (reconstruído ao aplicar)      */
@@ -1511,7 +1637,7 @@ function buildWorld() {
       S.jacks[s].push(u);
     }
     for (let i = 0; i < P.setupPorLado; i++) {
-      const w = makeWorker('setup'); w.home = V3(L.X0 + .4 + i * 1.3, 0, s * (L.zEdge + .4));
+      const w = makeWorker('setup'); w.home = V3(L.X0 + .4 + i * 1.3, 0, s * (L.zEdge + .9));
       w.root.position.copy(w.home); w.restYaw = s > 0 ? PI : 0; w.setYaw(w.restYaw); w.side = s; w.where = `Lado ${s > 0 ? 'A' : 'B'}`;
       world.add(w.root); S.setups[s].push(w); S.workers.push(w);
     }
@@ -1623,27 +1749,65 @@ function holdPos(w, out) {   // ponto à frente das mãos (volume carregado não
   w.root.getWorldQuaternion(_q); tmp2.set(0, 0, .12).applyQuaternion(_q);
   return out.add(tmp2);
 }
+/* trajetória suave: cantos arredondados e perfil de velocidade com aceleração e frenagem */
+function smoothPath(pts, r = .7) {
+  const P0 = pts.filter((p, i) => !i || Math.hypot(p.x - pts[i - 1].x, p.z - pts[i - 1].z) > .02).map(p => V3(p.x, 0, p.z));
+  if (P0.length < 3) return P0;
+  const out = [P0[0]];
+  for (let i = 1; i < P0.length - 1; i++) {
+    const a = P0[i - 1], c = P0[i], b = P0[i + 1];
+    const la = c.distanceTo(a), lb = c.distanceTo(b), rr = Math.min(r, la * .45, lb * .45);
+    const p1 = c.clone().addScaledVector(a.clone().sub(c).normalize(), rr), p2 = c.clone().addScaledVector(b.clone().sub(c).normalize(), rr);
+    for (let k = 0; k <= 6; k++) { const t = k / 6, u = 1 - t; out.push(V3(u * u * p1.x + 2 * u * t * c.x + t * t * p2.x, 0, u * u * p1.z + 2 * u * t * c.z + t * t * p2.z)); }
+  }
+  out.push(P0[P0.length - 1]);
+  return out;
+}
+function pathTrack(pts, speed, accel) {
+  const P = smoothPath(pts), cum = [0];
+  for (let i = 1; i < P.length; i++) cum.push(cum[i - 1] + P[i].distanceTo(P[i - 1]));
+  const Ln = cum[cum.length - 1];
+  let ta = speed / accel, da = .5 * accel * ta * ta, vmax = speed;
+  if (2 * da > Ln) { ta = Math.sqrt(Ln / accel); vmax = accel * ta; da = Ln / 2; }
+  const tc = (Ln - 2 * da) / vmax, T = 2 * ta + tc;
+  const sAt = t => t < ta ? .5 * accel * t * t : t < ta + tc ? da + vmax * (t - ta) : Ln - .5 * accel * Math.max(0, T - t) ** 2;
+  const at = (sv, out) => {
+    let i = 1; while (i < cum.length - 1 && cum[i] < sv) i++;
+    const seg = Math.max(1e-6, cum[i] - cum[i - 1]), k = clamp01((sv - cum[i - 1]) / seg);
+    return out.copy(P[i - 1]).lerp(P[i], k);
+  };
+  return { P, Ln, T, sAt, at };
+}
+const _tp = V3(), _tq = V3();
+function trackStep(T, { setPos, getYaw, setYaw, backward, onFrame }) {
+  let lastK = 0;
+  return {
+    d: T.T, start() { lastK = 0; },
+    fn(k) {
+      const t = k * T.T, dt = Math.max(0, (k - lastK) * T.T); lastK = k;
+      const sv = T.sAt(t);
+      T.at(sv, _tp); setPos(_tp);
+      T.at(Math.min(T.Ln, sv + .25), _tq);
+      if (_tq.distanceToSquared(_tp) > 1e-5 && sv < T.Ln - .02) {
+        const head = Math.atan2(_tq.x - _tp.x, _tq.z - _tp.z) + (backward ? PI : 0);
+        setYaw(lerpAngle(getYaw(), head, Math.min(1, dt * 7 + (k === 0 ? 0 : .02))));
+      }
+      if (onFrame) onFrame(k, sv, T.Ln);
+    },
+  };
+}
 /* caminhada de pessoa (coordenadas do pai) */
 function walkSteps(w, pts, { speed = P.velPessoa, mode = 'free', backward = false, carry = null } = {}) {
-  const out = [];
-  for (let i = 1; i < pts.length; i++) {
-    const a = pts[i - 1], b = pts[i], len = Math.hypot(b.x - a.x, b.z - a.z);
-    if (len < .03) continue;
-    const head = Math.atan2(b.x - a.x, b.z - a.z) + (backward ? PI : 0);
-    let y0 = 0;
-    out.push({
-      d: len / speed, start() { y0 = w.yaw; },
-      fn(k) {
-        w.root.position.x = lerp(a.x, b.x, k); w.root.position.z = lerp(a.z, b.z, k);
-        w.setYaw(lerpAngle(y0, head, Math.min(1, k * len / .45)));
-        if (mode === 'push') w.pushPose(1); else if (mode === 'carry') w.pose(.55, .15); else w.pose(0, 0);
-        w.walkPose(Math.sin(k * len * 4.6) * Math.min(1, k * len / .25, (1 - k) * len / .25) * (backward ? .6 : 1), mode === 'free');
-        if (carry) carry();
-      },
-      end() { w.walkPose(0, mode === 'free'); },
-    });
-  }
-  return out;
+  const T = pathTrack(pts, backward ? speed * .7 : speed, 1.4);
+  if (T.Ln < .03) return [];
+  return [trackStep(T, {
+    setPos: p => { w.root.position.x = p.x; w.root.position.z = p.z; }, getYaw: () => w.yaw, setYaw: y => w.setYaw(y), backward,
+    onFrame(k, sv, Ln) {
+      if (mode === 'push') w.pushPose(1); else if (mode === 'carry') w.pose(.55, .15); else w.pose(0, 0);
+      w.walkPose(Math.sin(sv * 4.6) * Math.min(1, sv / .25, (Ln - sv) / .25) * (backward ? .6 : 1), mode === 'free');   // boneco leve (longe)
+      if (carry) carry();
+    },
+  })];
 }
 function turnStep(w, yawFn, mode = 'free', carry = null) {
   let y0 = 0, y1 = 0;
@@ -1844,28 +2008,29 @@ function freeOrOldest(list, name) {
 function startCageJob(w, job) {
   const slot = job.slot, R = routeSetup;
   if (job.type === 'ind') {
-    // pega uma cheia no buffer, deixa ao lado da posição; quando esvaziar, troca e leva a vazia ao buffer de vazias
+    // indução: tira a gaiola vazia e coloca a cheia. A cheia fica pré-posicionada na fileira de trás,
+    // em diagonal (sem ocupar o espaço de outra posição); a vazia vai direto ao buffer de vazias.
     const src = S.cageFull.filter(x => x.cage && !x.res).sort((a, b) => Math.abs(a.pos.z) - Math.abs(b.pos.z))[0];
     if (!src) return false;
     src.res = true;
-    const off = Math.abs(Math.sin(slot.psi)) > .5 ? V3(0, 0, 1.4) : V3(1.4, 0, 0);
-    const B = { pos: slot.pos.clone().add(off), psi: slot.psi, cage: null }, B2 = { pos: slot.pos.clone().sub(off), psi: slot.psi, cage: null };
+    const out = fwdOf(slot.psi), side = V3(out.z, 0, -out.x);   // para fora da esteira / ao longo dela
+    const pitch = L.ind / Math.max(1, P.inducaoPorLado);
+    const F = { pos: slot.pos.clone().addScaledVector(out, 2.6).addScaledVector(side, Math.min(1.0, pitch / 2)), psi: slot.psi, cage: null };
     let dump;
     w.state = `buscando gaiola cheia para ${slot.name}`;
     w.task = sequence([
       ...grabCageSteps(w, () => src, R),
-      { d: 0, end() { src.res = false; src.regen = S.t + rand(40, 80); w.state = `levando gaiola cheia para ${slot.name}`; } },
-      ...deliverCageSteps(w, () => B, R),
+      { d: 0, end() { src.res = false; src.regen = S.t + rand(40, 80); w.state = `pré-posicionando gaiola cheia na ${slot.name}`; } },
+      ...deliverCageSteps(w, () => F, R),
       { d: 0, end() { w.state = `aguardando ${slot.name} esvaziar`; } },
       { until: () => slot.cage && slot.cage.fill <= 0 && !slot.worker.task },
-      { d: 0, end() { w.state = `trocando gaiola da ${slot.name}`; } },
-      ...grabCageSteps(w, () => slot, null),
-      ...deliverCageSteps(w, () => B2, null),
-      ...grabCageSteps(w, () => B, null),
-      ...deliverCageSteps(w, () => slot, null, (sl, c) => { c.name = sl.name; sl.req = false; S.cageSwaps++; }),
-      ...grabCageSteps(w, () => B2, null),
+      { d: 0, end() { w.state = `tirando gaiola vazia da ${slot.name}`; } },
+      ...grabCageSteps(w, () => slot, R),
       { d: 0, end() { dump = freeOrOldest(S.cageEmpty); w.state = 'levando gaiola vazia ao buffer'; } },
       ...deliverCageSteps(w, () => dump, R, (sl, c) => { sl.res = false; sl.t = S.t; c.name = 'Gaiola vazia'; c.fill = 0; setCageFill(c); }),
+      { d: 0, end() { w.state = `colocando gaiola cheia na ${slot.name}`; } },
+      ...grabCageSteps(w, () => F, R),
+      ...deliverCageSteps(w, () => slot, null, (sl, c) => { c.name = sl.name; sl.req = false; S.cageSwaps++; }),
       { gen: () => [...walkSteps(w, R(w.root.position, w.home)), turnStep(w, () => w.restYaw)] },
       { d: 0, end() { w.state = 'livre'; } },
     ]);
@@ -1906,26 +2071,17 @@ function startCageJob(w, job) {
 const FORK_C = .925;   // centro da carga atrás da unidade
 function unitPos(u) { return u.grp.position; }
 function unitMove(u, pts, { backward = false, speed = P.velPaleteira } = {}) {
-  const out = [], op = u.op;
-  for (let i = 1; i < pts.length; i++) {
-    const a = pts[i - 1], b = pts[i], len = Math.hypot(b.x - a.x, b.z - a.z);
-    if (len < .03) continue;
-    const head = Math.atan2(b.x - a.x, b.z - a.z) + (backward ? PI : 0);
-    let y0 = 0;
-    out.push({
-      d: len / speed, start() { y0 = u.grp.rotation.y; },
-      fn(k) {
-        u.grp.position.x = lerp(a.x, b.x, k); u.grp.position.z = lerp(a.z, b.z, k);
-        u.grp.rotation.y = lerpAngle(y0, head, Math.min(1, k * len / .6));
-        op.setYaw(backward ? PI : 0);
-        op.root.position.z = backward ? .62 : .82;
-        if (backward) op.pushPose(1); else op.pullPose(1);
-        op.walkPose(Math.sin(k * len * 4.6) * Math.min(1, k * len / .25, (1 - k) * len / .25), false);
-      },
-      end() { op.walkPose(0, false); },
-    });
-  }
-  return out;
+  const op = u.op, T = pathTrack(pts, speed, .8);
+  if (T.Ln < .03) return [];
+  return [trackStep(T, {
+    setPos: p => { u.grp.position.x = p.x; u.grp.position.z = p.z; }, getYaw: () => u.grp.rotation.y, setYaw: y => { u.grp.rotation.y = y; }, backward,
+    onFrame(k, sv, Ln) {
+      op.setYaw(backward ? PI : 0);
+      op.root.position.z = backward ? .62 : .82;
+      if (backward) op.pushPose(1); else op.pullPose(1);
+      op.walkPose(Math.sin(sv * 4.6) * Math.min(1, sv / .25, (Ln - sv) / .25), false);
+    },
+  })];
 }
 function unitTurn(u, yawFn) {
   let y0 = 0, y1 = 0;
@@ -2014,7 +2170,7 @@ function runWorker(w, dt) {
   else w.idle(dt);
 }
 function update(dt) {
-  S.t += dt;
+  S.t += dt; SIM_T += dt;
   TEX.belt.offset.x -= P.velEsteira * dt / 1.2;
   const v = P.velEsteira;
 
@@ -2493,9 +2649,12 @@ function frame() {
 }
 buildForm();
 setLoad(.05, 'Carregando as pessoas…');
-loadPeople().catch(err => console.warn('pessoas MakeHuman indisponíveis, usando bonecos simples', err))
+Promise.all([
+  loadPeople().catch(err => console.warn('pessoas MakeHuman indisponíveis, usando bonecos simples', err)),
+  loadEnvironment().catch(err => console.warn('HDRI indisponível', err)),
+])
   .then(() => rebuild(true)).then(() => { requestAnimationFrame(frame); });
-window.__maquete = { get S() { return S; }, get L() { return L; }, get P() { return P; }, camera, controls, goView, renderer, scene, setQuality: q => { quality = q; setupRender(); }, update };
+window.__maquete = { mhSync, get S() { return S; }, get L() { return L; }, get P() { return P; }, camera, controls, goView, renderer, scene, setQuality: q => { quality = q; setupRender(); }, update };
 };
 Promise.race([
   Promise.all([document.fonts.load('800 80px Archivo'), document.fonts.load('600 60px "IBM Plex Mono"')]),

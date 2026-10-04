@@ -1,6 +1,6 @@
 """Exporta variações de pessoas MakeHuman (com esqueleto) em .glb leves para a maquete interativa."""
 import sys, os, json, math, random
-import bpy, addon_utils
+import bpy, bmesh, addon_utils
 HERE = os.path.dirname(os.path.abspath(__file__)); sys.path.insert(0, HERE)
 addon_utils.enable('cycles', default_set=True)
 OUT = sys.argv[sys.argv.index('--') + 1] if '--' in sys.argv else os.path.join(HERE, 'pessoas')
@@ -77,6 +77,19 @@ for i, (roles, g, race, vest, hair, cap) in enumerate(VARIANTS):
                 p.material_index = 2 if y < -.93 else 1 if y < -.72 else 0
         for a in list(me.color_attributes):
             me.color_attributes.remove(a)
+        if o.name.startswith(('bota', 'colete')):   # bota sem dedos marcados; colete com recorte limpo
+            bm = bmesh.new(); bm.from_mesh(me)
+            boot = o.name.startswith('bota')
+            for _ in range(25 if boot else 12):
+                bmesh.ops.smooth_vert(bm, verts=bm.verts, factor=.5, use_axis_x=True, use_axis_y=boot, use_axis_z=True)
+            if boot:   # um pouco mais volumosa, cobrindo o pé do corpo
+                for sgn in (-1, 1):
+                    vs = [v for v in bm.verts if v.co.x * sgn > 0]
+                    if not vs: continue
+                    cx = sum(v.co.x for v in vs) / len(vs); cy = sum(v.co.y for v in vs) / len(vs)
+                    for v in vs:
+                        v.co.x = cx + (v.co.x - cx) * 1.12; v.co.y = cy + (v.co.y - cy) * 1.04
+            bm.normal_update(); bm.to_mesh(me); bm.free()
         if o.name.startswith('corpo'):         # malha mais leve para tempo real
             bpy.context.view_layer.objects.active = o
             d = o.modifiers.new('leve', 'DECIMATE'); d.ratio = .5
