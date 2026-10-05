@@ -59,6 +59,25 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--fo
 .spec { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 12px; padding-top: 9px; border-top: 1px solid var(--line); }
 .spec dt { font-family: var(--font-data); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: 1px; }
 .spec dd { margin: 0; font-variant-numeric: tabular-nums; }
+.lcards { display: grid; gap: 8px; }
+.lcard { display: grid; gap: 5px; }
+.lcard h2 { margin: 0; font-family: var(--font-display); font-stretch: 75%; font-weight: 800; font-size: 15px; letter-spacing: .01em; text-transform: uppercase; display: flex; justify-content: space-between; align-items: baseline; }
+.lcard h2 small { font-family: var(--font-data); font-weight: 500; font-size: 10px; color: var(--muted); letter-spacing: .06em; }
+.lcard .kpis { grid-template-columns: 1fr 1fr 1fr; }
+.lcard .kpi span { white-space: normal; line-height: 1.15; min-height: 2.3em; }
+.lcard .kpi small { font-size: 10px; color: var(--muted); }
+.ltable { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.ltable th, .ltable td { padding: 4px 3px; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.ltable th:first-child, .ltable td:first-child { text-align: left; }
+.ltable th:first-child { width: 31%; }
+.ltable thead th { font-family: var(--font-data); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.ltable tbody th { font-family: var(--font-data); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.ltable tfoot td { font-weight: 700; border-bottom: 0; }
+.bgroup + .bgroup { margin-top: 8px; }
+.bgroup h3 { margin: 0 0 4px; font: 700 11px var(--font-body); display: flex; justify-content: space-between; }
+.bgroup h3 span { font-family: var(--font-data); font-weight: 500; color: var(--muted); }
+.planta-tab h1 { margin: 0 0 8px; font-family: var(--font-display); font-stretch: 68%; font-weight: 800; font-size: 23px; line-height: .95; }
+.planta-tab h1 span { color: var(--accent); }
 
 .panel { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 16px); right: 16px; width: 340px; display: flex; flex-direction: column;
   max-height: calc(100% - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
@@ -78,7 +97,7 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--fo
 .kpi.ok b { color: var(--ok); }
 .sec-title { font-family: var(--font-data); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
 .bars { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
-.bar { display: grid; grid-template-columns: 22px 1fr 34px; align-items: center; gap: 6px; font-family: var(--font-data); font-size: 11px; font-variant-numeric: tabular-nums; }
+.bar { display: grid; grid-template-columns: 20px 1fr 44px; align-items: center; gap: 6px; font-family: var(--font-data); font-size: 11px; font-variant-numeric: tabular-nums; }
 .bar .t { height: 6px; background: var(--track); border-radius: 1px; overflow: hidden; }
 .bar .t i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
 .bar .n { text-align: right; color: var(--muted); }
@@ -135,42 +154,28 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 <div id="stage" aria-label="Maquete 3D interativa do centro de distribuição"></div>
 <div class="loading" id="loading"><span id="loadMsg">Montando o centro de distribuição…</span><span class="lb"><i id="loadBar"></i></span></div>
 
-<section class="sheet card" aria-label="Processo">
-  <div class="eyebrow"><span>Planta da linha</span><span>Linha 01</span></div>
-  <h1>Centro de distribuição <span>·</span> 3 esteiras</h1>
-  <ol class="flow" aria-label="Fluxo do processo">
-    <li><i style="--c:var(--c-ind)"></i>Indução</li>
-    <li><i style="--c:var(--c-tri)"></i>Pesca</li>
-    <li><i style="--c:var(--c-rec)"></i>Flow rack</li>
-    <li><i style="--c:var(--c-con)"></i>Scuttle</li>
-    <li><i style="--c:var(--c-exp)"></i>Goleiro</li>
-  </ol>
-  <dl class="spec" id="spec"></dl>
+<section class="sheet card" aria-label="Produção por esteira">
+  <div class="eyebrow"><span>Produção por esteira</span><span id="shiftT">turno 00:00</span></div>
+  <div class="lcards" id="lcards"></div>
 </section>
 
 <aside class="panel card" id="panel" aria-label="Operação e premissas">
   <div class="tabs" role="tablist">
     <button role="tab" id="t-op" aria-selected="true" aria-controls="tab-op" data-tab="op">Operação</button>
     <button role="tab" id="t-cfg" aria-selected="false" aria-controls="tab-cfg" data-tab="cfg">Premissas</button>
+    <button role="tab" id="t-pl" aria-selected="false" aria-controls="tab-pl" data-tab="pl">Planta</button>
     <span class="sp"></span>
     <button class="collapse" id="collapse" aria-label="Recolher painel">▾</button>
   </div>
 
   <div class="tabpanel" id="tab-op" role="tabpanel" aria-labelledby="t-op">
-    <div class="kpis">
-      <div class="kpi"><span>Induzidos</span><b id="kIn">0</b></div>
-      <div class="kpi"><span>Pescados</span><b id="kPick">0</b></div>
-      <div class="kpi"><span>Nas scuttles</span><b id="kSep">0</b></div>
-      <div class="kpi ok"><span>Goleiro</span><b id="kKeep">0</b></div>
-      <div class="kpi hl"><span>% goleiro</span><b id="kKeepPct">–</b></div>
-      <div class="kpi"><span>Pct/h real</span><b id="kHour">–</b></div>
-      <div class="kpi"><span>Scuttles trocadas</span><b id="kSw">0</b></div>
-      <div class="kpi"><span>Gaiolas trocadas</span><b id="kCg">0</b></div>
-      <div class="kpi"><span>Scuttles retiradas</span><b id="kExp">0</b></div>
+    <div>
+      <div class="sec-title"><span>Produção por esteira</span><span id="kPeople">0 pessoas</span></div>
+      <table class="ltable" id="ltable"><thead></thead><tbody></tbody><tfoot></tfoot></table>
     </div>
     <div>
-      <div class="sec-title"><span>Volumes nas scuttles por ilha</span><span id="kPeople">0 pessoas</span></div>
-      <div class="bars" id="bars"></div>
+      <div class="sec-title"><span>Bancadas · volumes por hora</span><span>últimos 10 min</span></div>
+      <div id="bars"></div>
     </div>
     <div>
       <div class="sec-title"><span>Câmera</span></div>
@@ -227,6 +232,20 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
       <label class="check" for="dims"><input id="dims" type="checkbox"> Cotas</label>
       <label class="check" for="ghost"><input id="ghost" type="checkbox"> Scuttles translúcidas</label>
       <label class="check" for="dof"><input id="dof" type="checkbox"> Profundidade de campo</label>
+    </div>
+  </div>
+
+  <div class="tabpanel planta-tab" id="tab-pl" role="tabpanel" aria-labelledby="t-pl" hidden>
+    <div>
+      <h1>Centro de distribuição <span>·</span> <span id="plN">3</span> esteiras</h1>
+      <ol class="flow" aria-label="Fluxo do processo">
+        <li><i style="--c:var(--c-ind)"></i>Indução</li>
+        <li><i style="--c:var(--c-tri)"></i>Pesca</li>
+        <li><i style="--c:var(--c-rec)"></i>Flow rack</li>
+        <li><i style="--c:var(--c-con)"></i>Scuttle</li>
+        <li><i style="--c:var(--c-exp)"></i>Goleiro</li>
+      </ol>
+      <dl class="spec" id="spec"></dl>
     </div>
   </div>
 
@@ -697,7 +716,7 @@ const MAT = {
   fill:      std({ color: 0xffffff, map: TEX.fill, roughness: .9, envMapIntensity: .25 }),
   hit:       new THREE.MeshBasicMaterial({ visible: false }),
   greenDark: std({ color: 0x0b4d22, roughness: .7 }),
-  film:      new THREE.MeshStandardMaterial({ color: 0xe6eef2, transparent: true, opacity: .42, roughness: .12, metalness: 0, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.2 }),
+  film:      new THREE.MeshStandardMaterial({ color: 0xf4f8fa, transparent: true, opacity: .16, roughness: .06, metalness: 0, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.6 }),
   filmRoll:  new THREE.MeshStandardMaterial({ color: 0xdfe9ee, transparent: true, opacity: .8, roughness: .2, envMapIntensity: 1 }),
   robotLed:  new THREE.MeshStandardMaterial({ color: 0x1d6fd8, emissive: 0x1d6fd8, emissiveIntensity: .8 }),
   robotLedOn: new THREE.MeshStandardMaterial({ color: 0xf2c230, emissive: 0xf2c230, emissiveIntensity: 1.2 }),
@@ -706,6 +725,9 @@ const MAT = {
   column:    std({ color: 0x1f3a5f, roughness: .5, metalness: .3 }),
   glassBand: std({ color: 0x9fb3c6, roughness: .15, metalness: .5, transparent: true, opacity: .55 }),
 };
+// filme stretch transparente: no buffer de cor difusa escreve o tom do papelão que está por baixo
+// (senão o SSGI trata o filme como superfície branca e sólida e a scuttle fica branca)
+MAT.film.mrtNode = TSL.mrt({ diffuseColor: TSL.vec4(TSL.color(0xc19463), 1) });
 const NO_CAST = new Set(['wire', 'yellow', 'green', 'greenDark', 'white', 'orangeP', 'navyP', 'hatch', 'floor', 'mat', 'lamp', 'lampBody', 'truss', 'asphalt', 'glassBand']);
 const ROOF_KEYS = new Set(['truss', 'lamp', 'lampBody']);   // cobertura: some quando a câmera passa do telhado
 
@@ -2349,7 +2371,12 @@ function runWorker(w, dt) {
 function update(dt) {
   SIM_T += dt;
   TEX.belt.offset.x -= P.velEsteira * dt / 1.2;
-  for (const ln of LINES) { S = ln.S; world = ln.grp; updateLine(dt); }
+  for (const ln of LINES) {
+    S = ln.S; world = ln.grp; updateLine(dt);
+    // histórico por esteira: [t, saída da esteira (pesca + goleiro), goleiro, volumes por bancada, induzidos]
+    const h = S.hist2 || (S.hist2 = []);
+    if (!h.length || S.t - h[h.length - 1][0] >= 2) { h.push([S.t, S.picked + S.kept, S.kept, S.islands.map(i => i.count), S.induced]); if (h.length > 400) h.shift(); }
+  }
   S = PLANT; world = ROOT; updatePlant(dt);
   S = AGG;
   if (!AGG.hist.length || AGG.t - AGG.hist[AGG.hist.length - 1][0] >= 2) { AGG.hist.push([AGG.t, AGG.induced]); if (AGG.hist.length > 400) AGG.hist.shift(); }
@@ -2454,6 +2481,12 @@ function afterBuild() {
   const warm = 150, h = 1 / 20;
   for (let t = 0; t < warm; t += h) update(h);
   S.t0 = S.t; S.induced0 = S.induced; S.hist = [[S.t, S.induced]];
+  // início do turno: zera os acumulados por esteira e por bancada depois do aquecimento
+  for (const ln of LINES) {
+    const s = ln.S; s.t0 = s.t; s.out0 = s.picked + s.kept; s.kept0 = s.kept;
+    for (const isl of s.islands) isl.count0 = isl.count;
+    s.hist2 = [[s.t, s.picked + s.kept, s.kept, s.islands.map(i => i.count), s.induced]];
+  }
 }
 /* ------------------------------------------------------------------ */
 /* Planta: zonas, buffers da planta e equipes que ligam as linhas       */
@@ -2529,7 +2562,8 @@ function buildPlant() {
   ASSET.robotRoll = new THREE.CylinderGeometry(.075, .075, .42, 16);
   ASSET.robotArm = new THREE.BoxGeometry(.14, .04, .04);
   ASSET.robotLed = new THREE.SphereGeometry(.035, 10, 8);
-  ASSET.film = new THREE.BoxGeometry(1.06, 1, 1.26).translate(0, .5, 0);
+  // filme stretch: só as laterais (sem tampa nem fundo), justo na caixa, para o papelão aparecer por baixo
+  ASSET.film = new THREE.CylinderGeometry(Math.SQRT1_2, Math.SQRT1_2, 1, 4, 1, true).rotateY(PI / 4).scale(1.03, 1, 1.23).translate(0, .5, 0);
   const zMidW = (L.zN + L.zS) / 2;
 
   /* paredes e docas: entrada a oeste; saída/descarga a leste (entre os pallets de saída); passagem de scuttles no sudeste */
@@ -3138,17 +3172,44 @@ controls.addEventListener('start', () => { camTween = null; follow = null; });
 /* ------------------------------------------------------------------ */
 /* Interface: operação                                                 */
 /* ------------------------------------------------------------------ */
-let barEls = [];
+let barEls = [], lcardEls = [];
+/* cards por esteira (planta) e grupos de bancadas por esteira (painel) */
 function buildBars() {
   const bars = $('#bars'); bars.innerHTML = ''; barEls = [];
-  const rows = [];
-  for (const ln of LINES) { const n = ln.S.islands.length, half = n / 2; for (let r = 0; r < half; r++) rows.push(ln.S.islands[r], ln.S.islands[r + half]); }
-  for (const isl of rows) {
-    const row = document.createElement('div'); row.className = 'bar';
-    row.innerHTML = `<span>${isl.code}</span><span class="t"><i></i></span><span class="n">0</span>`;
-    bars.appendChild(row); barEls[isl.gidx] = row;
+  const cards = $('#lcards'); cards.innerHTML = ''; lcardEls = [];
+  for (const ln of LINES) {
+    const c = document.createElement('div'); c.className = 'lcard';
+    c.innerHTML = `<h2>${ln.S.short}<small>${2 * L.nIsl} bancadas</small></h2>
+      <div class="kpis"><div class="kpi hl"><span>Pacotes/h atual</span><b data-k="h">–</b></div>
+      <div class="kpi"><span>Acumulado do turno</span><b data-k="acc">0</b></div>
+      <div class="kpi"><span>Goleiro</span><b data-k="gol">0</b><small data-k="golp">–</small></div></div>`;
+    cards.appendChild(c); lcardEls[ln.li] = c;
+    const g = document.createElement('div'); g.className = 'bgroup';
+    g.innerHTML = `<h3>${ln.S.short}<span data-k="tot">0 pct/h</span></h3><div class="bars"></div>`;
+    bars.appendChild(g); ln.barHead = g.querySelector('[data-k=tot]');
+    const box = g.querySelector('.bars');
+    const n = ln.S.islands.length, half = n / 2;
+    for (let r = 0; r < half; r++) for (const isl of [ln.S.islands[r], ln.S.islands[r + half]]) {
+      const row = document.createElement('div'); row.className = 'bar';
+      row.innerHTML = `<span>${isl.code}</span><span class="t"><i></i></span><span class="n">0</span>`;
+      row.title = `Bancada ${isl.code}`;
+      box.appendChild(row); barEls[isl.gidx] = row;
+    }
   }
+  const t = $('#ltable');
+  t.tHead.innerHTML = `<tr><th></th>${LINES.map(ln => `<th title="${ln.S.short}">${ln.S.short.replace('Termoplástica', 'Termo')}</th>`).join('')}<th>Total</th></tr>`;
+  const rows = [['Induzidos/h', 'inH'], ['Saída/h', 'outH'], ['Pesca', 'pick'], ['Separados', 'sep'],
+    ['Goleiro', 'kept'], ['Goleiro %', 'keptP'], ['Troca scuttle', 'sw'], ['Troca gaiola', 'cg'], ['Expedidas', 'exp']];
+  t.tBodies[0].innerHTML = rows.map(([lab, k]) => `<tr><th>${lab}</th>${LINES.map(ln => `<td data-l="${ln.li}" data-k="${k}">–</td>`).join('')}<td data-l="tot" data-k="${k}">–</td></tr>`).join('');
+  t.tFoot.innerHTML = '';
 }
+/* taxa por hora nos últimos 10 min de um histórico [t, ...valores] */
+function rateOf(h, t, get) {
+  if (!h || !h.length) return null;
+  const a = h.find(x => x[0] >= t - 600) || h[0], b = h[h.length - 1], dt = b[0] - a[0];
+  return dt > 20 ? (get(b) - get(a)) / dt * 3600 : null;
+}
+const pct = (a, b) => b ? (100 * a / b).toFixed(1).replace('.', ',') + '%' : '–';
 function headcount(p) {
   const nIsl = 2 * p.ilhasPorLado, n = p.linhas;
   return [
@@ -3174,32 +3235,55 @@ function refreshSpec() {
   $('#kPeople').textContent = `${S.workers.length} pessoas`;
 }
 function refreshHud() {
-  if (!S || !S.hist.length || !$('#loading').hidden) return;
-  $('#kIn').textContent = fmt(S.induced);
-  $('#kPick').textContent = fmt(S.picked);
-  $('#kSep').textContent = fmt(S.sep);
-  $('#kKeep').textContent = fmt(S.kept);
-  const done = S.sep + S.kept + S.picked - S.sep;  // tudo que saiu da esteira
-  const out = S.picked + S.kept;
-  $('#kKeepPct').textContent = out ? (100 * S.kept / out).toFixed(1).replace('.', ',') + '%' : '–';
-  const h = S.hist, a = h.find(x => x[0] >= S.t - 600) || h[0];
-  const dt = S.t - a[0];
-  $('#kHour').textContent = dt > 20 ? fmt((S.induced - a[1]) / dt * 3600) : '–';
-  $('#kSw').textContent = fmt(S.swaps); $('#kCg').textContent = fmt(S.cageSwaps); $('#kExp').textContent = fmt(S.shipped);
-  const max = Math.max(1, ...S.islands.map(i => i.count));
-  for (const isl of S.islands) {
-    const el = barEls[isl.gidx]; if (!el) continue;
-    el.querySelector('i').style.width = (100 * isl.count / max) + '%';
-    el.querySelector('.n').textContent = isl.count;
+  if (!AGG || !LINES.length || !$('#loading').hidden) return;
+  const tab = $('#ltable'), set = (l, k, v) => { const el = tab.querySelector(`td[data-l="${l}"][data-k="${k}"]`); if (el) el.textContent = v; };
+  const tot = { inH: 0, outH: 0, pick: 0, sep: 0, kept: 0, sw: 0, cg: 0, exp: 0, acc: 0, kAcc: 0 };
+  let ok = true;
+  for (const ln of LINES) {
+    const s = ln.S, h = s.hist2;
+    const outH = rateOf(h, s.t, x => x[1]);
+    const inH = rateOf(h, s.t, x => x[4]);
+    const acc = s.picked + s.kept - (s.out0 || 0), kAcc = s.kept - (s.kept0 || 0);
+    const c = lcardEls[ln.li];
+    if (c) {
+      c.querySelector('[data-k=h]').textContent = outH == null ? '–' : fmt(outH);
+      c.querySelector('[data-k=acc]').textContent = fmt(acc);
+      c.querySelector('[data-k=gol]').textContent = fmt(kAcc);
+      c.querySelector('[data-k=golp]').textContent = pct(kAcc, acc) + ' do total';
+    }
+    set(ln.li, 'inH', inH == null ? '–' : fmt(inH)); set(ln.li, 'outH', outH == null ? '–' : fmt(outH));
+    set(ln.li, 'pick', fmt(s.picked)); set(ln.li, 'sep', fmt(s.sep)); set(ln.li, 'kept', fmt(s.kept));
+    set(ln.li, 'keptP', pct(s.kept, s.picked + s.kept));
+    set(ln.li, 'sw', fmt(s.swaps)); set(ln.li, 'cg', fmt(s.cageSwaps)); set(ln.li, 'exp', fmt(s.shipped));
+    if (outH == null) ok = false;
+    tot.inH += inH || 0; tot.outH += outH || 0; tot.pick += s.picked; tot.sep += s.sep; tot.kept += s.kept;
+    tot.sw += s.swaps; tot.cg += s.cageSwaps; tot.exp += s.shipped; tot.acc += acc; tot.kAcc += kAcc;
+    // bancadas: volumes por hora (barra) e acumulado do turno
+    let lineIsl = 0; const rates = [];
+    s.islands.forEach((isl, k) => { const r = rateOf(h, s.t, x => x[3][k]); rates[k] = r; lineIsl += r || 0; });
+    const max = Math.max(1, ...rates.map(r => r || 0));
+    s.islands.forEach((isl, k) => {
+      const el = barEls[isl.gidx]; if (!el) return;
+      const r = rates[k], n = isl.count - (isl.count0 || 0);
+      el.querySelector('i').style.width = (100 * (r || 0) / max) + '%';
+      el.querySelector('.n').textContent = r == null ? fmt(n) : `${fmt(r)}/h`;
+      el.title = `Bancada ${isl.code}: ${r == null ? '–' : fmt(r)} vol/h · ${fmt(n)} no turno`;
+    });
+    if (ln.barHead) ln.barHead.textContent = `${fmt(lineIsl)} vol/h`;
   }
-  void done;
+  set('tot', 'inH', ok ? fmt(tot.inH) : '–'); set('tot', 'outH', ok ? fmt(tot.outH) : '–');
+  for (const k of ['pick', 'sep', 'kept', 'sw', 'cg', 'exp']) set('tot', k, fmt(tot[k]));
+  set('tot', 'keptP', pct(tot.kept, tot.pick + tot.kept));
+  set('tot', 'exp', fmt(AGG.shipped));
+  const T0 = LINES[0].S, sec = Math.max(0, T0.t - (T0.t0 || 0));
+  $('#shiftT').textContent = `turno ${String(Math.floor(sec / 3600)).padStart(2, '0')}:${String(Math.floor(sec / 60) % 60).padStart(2, '0')}`;
 }
 setInterval(refreshHud, 400);
 
 /* abas e painel */
 document.querySelectorAll('.tabs [role=tab]').forEach(t => t.addEventListener('click', () => {
   document.querySelectorAll('.tabs [role=tab]').forEach(o => o.setAttribute('aria-selected', String(o === t)));
-  $('#tab-op').hidden = t.dataset.tab !== 'op'; $('#tab-cfg').hidden = t.dataset.tab !== 'cfg';
+  for (const k of ['op', 'cfg', 'pl']) $('#tab-' + k).hidden = t.dataset.tab !== k;
   $('#panel').classList.remove('closed');
 }));
 $('#collapse').addEventListener('click', () => $('#panel').classList.toggle('closed'));
