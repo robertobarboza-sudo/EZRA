@@ -1,6 +1,6 @@
 const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const b = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const pg = await b.newPage(); const errs = [];
   pg.on('pageerror', e => errs.push(e.message + ' ' + (e.stack || '').split('\n')[1]));
   await pg.goto('http://localhost:8765/test.html');

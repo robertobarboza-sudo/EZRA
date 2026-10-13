@@ -132,7 +132,7 @@ let P = loadParams();
 const pkgTargetM3 = p => 1.2 * 1.0 * p.scuttleAlt * (p.ocupScuttle / 100) / (p.scuttleCap * (1 + p.perdaEncaixe / 100));
 
 /* layout derivado das premissas */
-const SORTER_MODE = true;   // planta das esteiras dentro do galpão do sorter (RJ2 ASM3)
+const SORTER_MODE = false;   // true só na variante planta-rj2-unificada
 function computeLayout(p) {
   const L = {};
   L.bw = p.larguraEsteira; L.bt = p.alturaEsteira; L.ind = p.inducaoComp;

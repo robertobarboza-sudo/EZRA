@@ -1,9 +1,9 @@
 const { chromium } = require('playwright');
 (async () => {
-  const b = await chromium.launch({ args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+  const b = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || undefined, args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   const pg = await b.newPage({ viewport: { width: 800, height: 500 } });
   const errs = []; pg.on('pageerror', e => errs.push('PAGEERR ' + e.message + ' ' + (e.stack||'').split('\n').slice(1,3).join(' ')));
-  await pg.goto('http://localhost:8765/test.html');
+  await pg.goto(process.env.URL || 'http://localhost:8765/test.html');
   await pg.waitForFunction(() => window.__maquete && document.getElementById('loading').hidden, null, { timeout: 200000 });
   await pg.evaluate(() => { const m = window.__maquete; m.setQuality('leve'); });
   for (let block = 0; block < 4; block++) {

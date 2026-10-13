@@ -18,6 +18,7 @@ Requisitos: Node 20+ e Python 3.10+. Para os conversores, instale `numpy`, `scip
 cd maquete-esteira/src
 npm install
 npx playwright install chromium   # só para os testes automáticos
+# (ou aponte um Chromium já instalado: export PW_CHROMIUM=/caminho/do/chrome)
 bash build.sh                     # gera ../index.html (CDN) e test.html (local)
 python3 -m http.server 8765
 ```
