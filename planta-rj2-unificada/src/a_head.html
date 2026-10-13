@@ -49,6 +49,15 @@ body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--fo
 
 .card { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
 .sheet { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 16px); left: 16px; width: min(330px, calc(100vw - 32px)); padding: 13px 15px 12px; }
+/* card de produção recolhível (começa fechado) */
+details.sheet > summary { list-style: none; cursor: pointer; user-select: none; }
+details.sheet > summary::-webkit-details-marker { display: none; }
+details.sheet > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px; }
+details.sheet .sum-t { display: inline-flex; align-items: center; gap: 7px; }
+details.sheet .chev { width: 7px; height: 7px; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(-45deg); transition: transform .15s; }
+details.sheet[open] .chev { transform: rotate(45deg); }
+details.sheet[open] > summary { margin-bottom: 8px; }
+details.sheet:not([open]) { padding-bottom: 13px; }
 .eyebrow { font-family: var(--font-data); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; }
 .sheet h1 { margin: 4px 0 8px; font-family: var(--font-display); font-stretch: 68%; font-weight: 800; font-size: 32px; line-height: .95; letter-spacing: -.01em; text-wrap: balance; }
 .sheet h1 span { color: var(--accent); }
@@ -154,10 +163,10 @@ select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--
 <div id="stage" aria-label="Maquete 3D interativa do centro de distribuição"></div>
 <div class="loading" id="loading"><span id="loadMsg">Montando o centro de distribuição…</span><span class="lb"><i id="loadBar"></i></span></div>
 
-<section class="sheet card" aria-label="Produção por esteira">
-  <div class="eyebrow"><span>Produção por esteira</span><span id="shiftT">turno 00:00</span></div>
+<details class="sheet card" id="sheetProd" aria-label="Produção por esteira">
+  <summary class="eyebrow"><span class="sum-t"><i class="chev" aria-hidden="true"></i>Produção por esteira</span><span id="shiftT">turno 00:00</span></summary>
   <div class="lcards" id="lcards"></div>
-</section>
+</details>
 
 <aside class="panel card" id="panel" aria-label="Operação e premissas">
   <div class="tabs" role="tablist">
