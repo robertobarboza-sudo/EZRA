@@ -1,0 +1,348 @@
+<meta charset="utf-8">
+<title>RJ2 ASM3 Layout 3D</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,500;62..125,800&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+/* Visualizador de tela cheia: cena 3D ao fundo, ficha técnica à esquerda, controles empilhados à direita */
+:root {
+  --bg: #e7e9ea; --panel: rgba(250,251,251,.93); --ink: #1b2126; --muted: #5d676f; --line: #cfd5d9;
+  --accent: #e2591b; --chip: #eef1f2; --sky: #dfe3e6;
+  --font-display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #15191c; --panel: rgba(28,33,37,.92); --ink: #e8ecee; --muted: #9aa5ad; --line: #353d43;
+  --accent: #ff7a3d; --chip: #252b30; --sky: #1b2024; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #15191c; --panel: rgba(28,33,37,.92); --ink: #e8ecee; --muted: #9aa5ad; --line: #353d43;
+  --accent: #ff7a3d; --chip: #252b30; --sky: #1b2024; color-scheme: dark }
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); overflow: hidden; }
+#cv { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; backdrop-filter: blur(8px); box-shadow: 0 8px 30px rgba(0,0,0,.12); }
+.sheet { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 16px); left: 16px; width: min(330px, calc(100% - 32px)); padding: 14px 16px; display: grid; gap: 10px; }
+.eyebrow { font-family: var(--font-data); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 8px; }
+h1 { margin: 0; font-family: var(--font-display); font-stretch: 70%; font-weight: 800; font-size: 27px; line-height: .98; text-wrap: balance; }
+h1 span { color: var(--accent); }
+.spec { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 12px; }
+.spec dt { font-family: var(--font-data); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: 2px; }
+.spec dd { margin: 0; font-variant-numeric: tabular-nums; min-width: 0; }
+.ctrl { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 16px); right: 16px; width: 236px; padding: 12px; display: grid; gap: 10px; }
+.ctrl h2 { margin: 0; font-family: var(--font-data); font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+button { font: 500 12.5px var(--font-body); color: var(--ink); background: var(--chip); border: 1px solid var(--line); border-radius: 4px; padding: 7px 8px; cursor: pointer; }
+button[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.legend { display: grid; gap: 4px; font-size: 12px; }
+.legend span { display: flex; align-items: center; gap: 8px; }
+.legend i { width: 14px; height: 10px; border-radius: 2px; background: var(--c); border: 1px solid var(--line); }
+label.ck { display: flex; align-items: center; gap: 8px; font-size: 12.5px; cursor: pointer; }
+.hint { position: fixed; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); padding: 6px 10px; font-family: var(--font-data); font-size: 11px; color: var(--muted); }
+#hover { position: fixed; pointer-events: none; padding: 5px 8px; font-family: var(--font-data); font-size: 11px; white-space: nowrap; }
+.load { position: fixed; inset: 0; display: grid; place-items: center; background: var(--bg); z-index: 5; }
+.load div { display: grid; gap: 8px; justify-items: center; font-family: var(--font-data); font-size: 12px; color: var(--muted); }
+.load b { font-family: var(--font-display); font-stretch: 70%; font-size: 24px; color: var(--ink); }
+.bar { width: 220px; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+.bar i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+@media (max-width: 760px) {
+  .sheet { padding: 10px 12px; }
+  .sheet .spec { display: none; }
+  .ctrl { top: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 16px); width: calc(100% - 32px); }
+  .ctrl .row { grid-template-columns: repeat(4, 1fr); }
+  .hint { display: none; }
+}
+</style>
+
+<canvas id="cv"></canvas>
+
+<section class="sheet card" aria-label="Ficha do modelo">
+  <div class="eyebrow"><span>Navisworks · .nwd</span><span id="units">mm → m</span></div>
+  <h1>SPX BR RJ2 <span>·</span> ASM3 Layout V6.1</h1>
+  <dl class="spec" id="spec"></dl>
+</section>
+
+<aside class="ctrl card" aria-label="Controles">
+  <h2>Câmera</h2>
+  <div class="row">
+    <button id="vTop">Planta</button>
+    <button id="v3d">Perspectiva</button>
+    <button id="vSorter">Sorter</button>
+    <button id="vDocas">Docas</button>
+  </div>
+  <h2>Materiais</h2>
+  <div class="legend"><span><i style="--c:#e8641b"></i>Estrutura metálica</span><span><i style="--c:#2b2f33"></i>Esteiras e roletes</span><span><i style="--c:#b9b7b1"></i>Pilares</span></div>
+  <h2>Camadas</h2>
+  <label class="ck"><input type="checkbox" id="cSolid" checked> Sólidos 3D</label>
+  <label class="ck"><input type="checkbox" id="cSmall" checked> Peças menores que 20 cm</label>
+  <label class="ck"><input type="checkbox" id="cLines" checked> Linhas do desenho 2D</label>
+  <label class="ck"><input type="checkbox" id="cGround" checked> Piso de concreto</label>
+  <label class="ck"><input type="checkbox" id="cFloor"> Lajes do CAD (translúcido)</label>
+</aside>
+
+<div class="hint card">Arraste para girar · roda para zoom · botão direito para mover · clique numa peça para medir</div>
+<div id="hover" class="card" hidden></div>
+<div class="load" id="load"><div><b>Abrindo o modelo</b><span id="loadMsg">baixando geometria…</span><div class="bar"><i id="loadBar"></i></div></div></div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import * as BGU from 'three/addons/utils/BufferGeometryUtils.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const $ = s => document.querySelector(s);
+const fmt = (n, d = 0) => n.toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d });
+const setLoad = (msg, p) => { $('#loadMsg').textContent = msg; if (p != null) $('#loadBar').style.width = (100 * p) + '%'; };
+
+/* ---------- cena ---------- */
+const canvas = $('#cv');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, logarithmicDepthBuffer: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(40, 1, 0.2, 5000);
+const controls = new OrbitControls(camera, canvas);
+controls.enableDamping = true; controls.dampingFactor = .12; controls.screenSpacePanning = true; controls.maxPolarAngle = Math.PI * .495;
+renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.shadowMap.autoUpdate = false;
+scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), .04).texture;
+scene.environmentIntensity = .45;
+scene.add(new THREE.HemisphereLight(0xf4f7fa, 0x6c7378, 1.2));
+const sun = new THREE.DirectionalLight(0xfff6ea, 2.1); sun.position.set(-120, 220, 90); scene.add(sun, sun.target);
+sun.castShadow = true; sun.shadow.mapSize.set(4096, 4096); sun.shadow.bias = -0.0004; sun.shadow.normalBias = .03;
+const fill = new THREE.DirectionalLight(0xdfe8ff, .5); fill.position.set(160, 90, -140); scene.add(fill);
+
+// o modelo está em Z para cima (AutoCAD); a cena do three usa Y para cima
+const root = new THREE.Group(); root.rotation.x = -Math.PI / 2; scene.add(root);
+const layers = { solid: new THREE.Group(), small: new THREE.Group(), lines: new THREE.Group(), floor: new THREE.Group(), ground: new THREE.Group() };
+Object.values(layers).forEach(g => root.add(g));
+
+function themeColors() {
+  const cs = getComputedStyle(document.documentElement);
+  scene.background = new THREE.Color(cs.getPropertyValue('--sky').trim());
+  const dark = matchMedia('(prefers-color-scheme: dark)').matches && document.documentElement.dataset.theme !== 'light' || document.documentElement.dataset.theme === 'dark';
+  lineMat.uniforms.color.value.set(0x3b4247);
+}
+
+/* ---------- linhas instanciadas ---------- */
+const lineMat = new THREE.ShaderMaterial({
+  uniforms: { color: { value: new THREE.Color(0x4d5860) }, opacity: { value: .42 } },
+  vertexShader: `attribute vec3 c0; attribute vec3 c1; attribute vec3 c2; attribute vec3 c3;
+    void main() { vec3 p = c0 * position.x + c1 * position.y + c2 * position.z + c3;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+      #include <logdepthbuf_vertex>
+    }`,
+  fragmentShader: `uniform vec3 color; uniform float opacity;
+    #include <logdepthbuf_pars_fragment>
+    void main() {
+      #include <logdepthbuf_fragment>
+      gl_FragColor = vec4(color, opacity); }`,
+  transparent: true, depthWrite: false,
+});
+lineMat.vertexShader = '#include <common>\n#include <logdepthbuf_pars_vertex>\n' + lineMat.vertexShader;
+
+/* ---------- carga ---------- */
+const mats = [];
+// materiais do sorter: estrutura metálica laranja, esteiras e roletes em cinza escuro, pilares em concreto
+const MATS = {
+  metal: new THREE.MeshStandardMaterial({ color: 0xe8641b, roughness: .42, metalness: .35, flatShading: true, side: THREE.DoubleSide }),
+  esteira: new THREE.MeshStandardMaterial({ color: 0x2b2f33, roughness: .88, metalness: 0, flatShading: true, side: THREE.DoubleSide }),
+  rolete: new THREE.MeshStandardMaterial({ color: 0x3a3f44, roughness: .35, metalness: .7, flatShading: true, side: THREE.DoubleSide }),
+  carro: new THREE.MeshStandardMaterial({ color: 0x3d4248, roughness: .5, metalness: .45, flatShading: true, side: THREE.DoubleSide }),
+  concreto: new THREE.MeshStandardMaterial({ color: 0xb9b7b1, roughness: .92, metalness: 0, flatShading: true }),
+};
+function matFor(c) { return MATS[CLASSES[c]] || MATS.metal; }
+let CLASSES = [];
+// lajes e piso: translúcidos para não esconder as esteiras
+const floorMat = new THREE.MeshStandardMaterial({ color: 0xb9c0c4, roughness: .9, transparent: true, opacity: .22, depthWrite: false, side: THREE.DoubleSide });
+layers.floor.visible = false;
+const info = { inst: 0, tris: 0, segs: 0, box: new THREE.Box3() };
+const pickables = [];
+
+async function load() {
+  const res = await fetch('modelo.json');
+  const total = +res.headers.get('content-length') || 2.9e6;
+  const reader = res.body.getReader(); const parts = []; let got = 0;
+  for (;;) { const { done, value } = await reader.read(); if (done) break; parts.push(value); got += value.length; setLoad(`baixando geometria… ${fmt(got / 1e6, 1)} MB`, .6 * Math.min(1, got / total)); }
+  const txt = new TextDecoder().decode(await new Blob(parts).arrayBuffer());
+  const M = JSON.parse(txt);
+  setLoad('descompactando…', .65);
+  const gz = Uint8Array.from(atob(M.bin), ch => ch.charCodeAt(0));
+  const buf = await new Response(new Blob([gz]).stream().pipeThrough(new DecompressionStream('gzip'))).arrayBuffer();
+  setLoad('montando a cena…', .75);
+  await new Promise(r => setTimeout(r, 30));
+  build(M, buf);
+}
+
+function build(M, buf) {
+  CLASSES = M.classes;
+  const geoCache = {};
+  const geo = g => {
+    if (geoCache[g]) return geoCache[g];
+    const d = M.geos[g];
+    const P = new Float32Array(buf, d.p, d.np * 3);
+    const I = d.i16 ? new Uint16Array(buf, d.i, d.ni) : new Uint32Array(buf, d.i, d.ni);
+    const G = new THREE.BufferGeometry();
+    G.setAttribute('position', new THREE.BufferAttribute(P, 3)); G.setIndex(new THREE.BufferAttribute(I, 1));
+    return geoCache[g] = G;
+  };
+  // sólidos com poucas instâncias são fundidos por cor (menos chamadas de desenho)
+  const merge = { };   // chave camada|cor -> [geometrias já transformadas]
+  const m4 = new THREE.Matrix4();
+  for (const gr of M.grupos) {
+    const d = M.geos[gr.g]; const T = new Float32Array(buf, gr.m, gr.n * 12);
+    const cls = CLASSES[gr.c];
+    if (d.k === 1) {   // linhas
+      const src = geo(gr.g);
+      const IG = new THREE.InstancedBufferGeometry();
+      IG.setAttribute('position', src.getAttribute('position')); IG.setIndex(src.getIndex());
+      const c = [0, 1, 2, 3].map(() => new Float32Array(gr.n * 3));
+      for (let i = 0; i < gr.n; i++) for (let a = 0; a < 3; a++) {
+        c[0][i * 3 + a] = T[i * 12 + a]; c[1][i * 3 + a] = T[i * 12 + 3 + a]; c[2][i * 3 + a] = T[i * 12 + 6 + a]; c[3][i * 3 + a] = T[i * 12 + 9 + a];
+      }
+      c.forEach((arr, j) => IG.setAttribute('c' + j, new THREE.InstancedBufferAttribute(arr, 3)));
+      IG.instanceCount = gr.n;
+      const L = new THREE.LineSegments(IG, lineMat); L.frustumCulled = false; layers.lines.add(L);
+      info.segs += d.ni / 2 * gr.n; continue;
+    }
+    const layer = cls === 'piso' ? 'floor' : d.s < 200 ? 'small' : 'solid';
+    info.inst += gr.n; info.tris += d.ni / 3 * gr.n;
+    const setM = i => m4.set(T[i * 12], T[i * 12 + 3], T[i * 12 + 6], T[i * 12 + 9], T[i * 12 + 1], T[i * 12 + 4], T[i * 12 + 7], T[i * 12 + 10], T[i * 12 + 2], T[i * 12 + 5], T[i * 12 + 8], T[i * 12 + 11], 0, 0, 0, 1);
+    if (gr.n <= 3 && d.np < 20000) {
+      const key = layer + '|' + gr.c;
+      for (let i = 0; i < gr.n; i++) { setM(i); const g2 = geo(gr.g).clone().applyMatrix4(m4); g2.userData.src = gr.g; (merge[key] ||= []).push(g2); }
+      continue;
+    }
+    const IM = new THREE.InstancedMesh(geo(gr.g), layer === 'floor' ? floorMat : matFor(gr.c), gr.n);
+    if (layer !== 'floor') { IM.castShadow = true; IM.receiveShadow = true; }
+    for (let i = 0; i < gr.n; i++) { setM(i); IM.setMatrixAt(i, m4); }
+    IM.instanceMatrix.needsUpdate = true; IM.computeBoundingSphere(); IM.computeBoundingBox();
+    IM.userData.g = gr.g; layers[layer].add(IM); pickables.push(IM);
+  }
+  for (const [key, list] of Object.entries(merge)) {
+    const [layer, c] = key.split('|');
+    const flat = list.map(g => { const ng = g.index ? g : g; return ng; });
+    const G = BGU.mergeGeometries(flat.map(g => { g.deleteAttribute('normal'); return g; }), false);
+    if (!G) continue;
+    const mesh = new THREE.Mesh(G, layer === 'floor' ? floorMat : matFor(+c));
+    if (layer !== 'floor') { mesh.castShadow = true; mesh.receiveShadow = true; } layers[layer].add(mesh); pickables.push(mesh);
+  }
+  root.updateMatrixWorld(true);
+  info.box.setFromObject(layers.solid);
+  info.box.union(new THREE.Box3().setFromObject(layers.small));
+  buildGround(M.piso_z || 0);
+  const c = info.box.getCenter(new THREE.Vector3()), sz = info.box.getSize(new THREE.Vector3());
+  const half = Math.max(sz.x, sz.z) / 2 + 10;
+  Object.assign(sun.shadow.camera, { left: -half, right: half, top: half, bottom: -half, near: 1, far: 800 });
+  sun.target.position.copy(c); sun.position.copy(c).add(new THREE.Vector3(-110, 200, 80));
+  sun.shadow.camera.updateProjectionMatrix(); renderer.shadowMap.needsUpdate = true;
+  const size = info.box.getSize(new THREE.Vector3());
+  $('#spec').innerHTML = `
+    <dt>Fonte</dt><dd>conveyor system.dwg → Navisworks</dd>
+    <dt>Extensão</dt><dd>${fmt(size.x, 0)} × ${fmt(size.z, 0)} m · altura ${fmt(size.y, 1)} m</dd>
+    <dt>Peças</dt><dd>${fmt(info.inst)} sólidos · ${fmt(Object.keys(M.geos).length)} formas únicas</dd>
+    <dt>Malha</dt><dd>${fmt(info.tris / 1e6, 1)} mi triângulos</dd>
+    <dt>Desenho</dt><dd>${fmt(info.segs / 1e6, 2)} mi segmentos de linha</dd>
+    <dt>Origem</dt><dd>X ${fmt(M.origem_mm[0] / 1000)} · Y ${fmt(M.origem_mm[1] / 1000)} m do desenho</dd>`;
+  window.__modelo = { info, layers, renderer, cam: camera, ctl: controls };
+  themeColors();
+  view('3d', true);
+  $('#load').hidden = true;
+}
+
+/* ---------- piso de concreto (mesmo estilo da maquete da esteira) ---------- */
+function concreteTex() {
+  const cv = document.createElement('canvas'); cv.width = cv.height = 1024; const g = cv.getContext('2d');
+  g.fillStyle = '#c9cdd0'; g.fillRect(0, 0, 1024, 1024);
+  for (let i = 0; i < 70; i++) {            // manchas suaves
+    const x = Math.random() * 1024, y = Math.random() * 1024, r = 30 + Math.random() * 140;
+    const gr = g.createRadialGradient(x, y, 0, x, y, r); const a = .012 + Math.random() * .018;
+    gr.addColorStop(0, Math.random() < .5 ? `rgba(90,96,100,${a})` : `rgba(255,255,255,${a})`); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr; g.fillRect(x - r, y - r, 2 * r, 2 * r);
+  }
+  for (let i = 0; i < 9000; i++) { g.fillStyle = `rgba(${Math.random() < .5 ? '60,64,68' : '250,250,250'},${.02 + Math.random() * .04})`; g.fillRect(Math.random() * 1024, Math.random() * 1024, 1.4, 1.4); }
+  g.strokeStyle = 'rgba(70,76,80,.35)'; g.lineWidth = 1.6;   // juntas de dilatação a cada 12 m (placa de 1024 px = 24 m)
+  for (const t of [1, 512]) { g.beginPath(); g.moveTo(t, 0); g.lineTo(t, 1024); g.moveTo(0, t); g.lineTo(1024, t); g.stroke(); }
+  const tx = new THREE.CanvasTexture(cv); tx.wrapS = tx.wrapT = THREE.RepeatWrapping; tx.anisotropy = 8; tx.colorSpace = THREE.SRGBColorSpace;
+  return tx;
+}
+function buildGround(z) {
+  const b = info.box, c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3());
+  const w = s.x + 30, d = s.z + 30;   // margem de 15 m
+  const tx = concreteTex(); tx.repeat.set(w / 24, d / 24);
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), new THREE.MeshStandardMaterial({ map: tx, roughness: .86, metalness: 0, envMapIntensity: .6 }));
+  // o root está em Z para cima: o plano XY do desenho é o chão
+  const p = root.worldToLocal(c.clone()); m.position.set(p.x, p.y, z - .004); m.receiveShadow = true;
+  layers.ground.add(m);
+  lineMat.uniforms.opacity.value = .42;
+}
+
+/* ---------- vistas ---------- */
+let tween = null;
+function view(v, now) {
+  const b = info.box, c = b.getCenter(new THREE.Vector3()), s = b.getSize(new THREE.Vector3());
+  const span = Math.max(s.x, s.z);
+  let pos, tgt;
+  if (v === 'top') { tgt = c.clone(); pos = c.clone().add(new THREE.Vector3(0, span * 1.05, 0.01)); }
+  else if (v === 'sorter') { tgt = new THREE.Vector3(62, 1, 6); pos = new THREE.Vector3(38, 34, 46); }
+  else if (v === 'docas') { tgt = new THREE.Vector3(70, 2, -55); pos = new THREE.Vector3(66, 13, -32); }
+  else { tgt = c.clone(); pos = c.clone().add(new THREE.Vector3(-span * .35, span * .45, span * .55)); }
+  if (now) { camera.position.copy(pos); controls.target.copy(tgt); controls.update(); return; }
+  tween = { p0: camera.position.clone(), t0: controls.target.clone(), p1: pos, t1: tgt, k: 0 };
+  document.querySelectorAll('.ctrl .row button').forEach(bt => bt.setAttribute('aria-pressed', String(bt.id === 'v' + { top: 'Top', '3d': '3d', sorter: 'Sorter', docas: 'Docas' }[v])));
+}
+$('#vTop').onclick = () => view('top'); $('#v3d').onclick = () => view('3d');
+$('#vSorter').onclick = () => view('sorter'); $('#vDocas').onclick = () => view('docas');
+$('#cSolid').onchange = e => layers.solid.visible = e.target.checked;
+$('#cSmall').onchange = e => layers.small.visible = e.target.checked;
+$('#cLines').onchange = e => layers.lines.visible = e.target.checked;
+$('#cFloor').onchange = e => layers.floor.visible = e.target.checked;
+$('#cGround').onchange = e => layers.ground.visible = e.target.checked;
+controls.addEventListener('start', () => { tween = null; });
+
+/* ---------- medir a peça clicada ---------- */
+const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2();
+let down = null;
+canvas.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+canvas.addEventListener('pointerup', e => {
+  if (!down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 4) return;
+  const r = canvas.getBoundingClientRect(); ndc.set((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(ndc, camera);
+  const hit = ray.intersectObjects(pickables.filter(o => o.parent.visible), false)[0];
+  const tip = $('#hover');
+  if (!hit) { tip.hidden = true; return; }
+  let bb;
+  if (hit.object.isInstancedMesh) {
+    const m = new THREE.Matrix4(); hit.object.getMatrixAt(hit.instanceId, m);
+    hit.object.geometry.computeBoundingBox(); bb = hit.object.geometry.boundingBox.clone().applyMatrix4(m);
+  } else { bb = new THREE.Box3(); const p = hit.point.clone(); bb.setFromCenterAndSize(p, new THREE.Vector3()); }
+  const s = bb.getSize(new THREE.Vector3());
+  const p = hit.point;   // coordenadas do desenho (X, Y em m; Z = altura)
+  tip.innerHTML = hit.object.isInstancedMesh
+    ? `${fmt(s.x, 2)} × ${fmt(s.y, 2)} × ${fmt(s.z, 2)} m · ponto X ${fmt(p.x, 1)} Y ${fmt(-p.z, 1)} Z ${fmt(p.y, 2)}`
+    : `ponto X ${fmt(p.x, 1)} Y ${fmt(-p.z, 1)} Z ${fmt(p.y, 2)} m`;
+  tip.style.left = Math.min(e.clientX + 12, innerWidth - 300) + 'px'; tip.style.top = (e.clientY + 12) + 'px'; tip.hidden = false;
+});
+
+/* ---------- laço ---------- */
+function resize() { const w = innerWidth, h = innerHeight; renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix(); }
+addEventListener('resize', resize); resize();
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeColors);
+new MutationObserver(themeColors).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+renderer.setAnimationLoop(() => {
+  if (tween) {
+    tween.k = Math.min(1, tween.k + .04); const k = tween.k * tween.k * (3 - 2 * tween.k);
+    camera.position.lerpVectors(tween.p0, tween.p1, k); controls.target.lerpVectors(tween.t0, tween.t1, k);
+    if (tween.k >= 1) tween = null;
+  }
+  controls.update(); renderer.render(scene, camera);
+});
+load().catch(err => { setLoad('Não foi possível abrir o modelo: ' + err.message); console.error(err); });
+</script>

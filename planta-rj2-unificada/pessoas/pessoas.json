@@ -1,0 +1,96 @@
+[
+ {
+  "arquivo": "pessoa_00.gltf.json",
+  "papeis": [
+   "inducao",
+   "setup"
+  ],
+  "feminino": false
+ },
+ {
+  "arquivo": "pessoa_01.gltf.json",
+  "papeis": [
+   "inducao",
+   "setup"
+  ],
+  "feminino": true
+ },
+ {
+  "arquivo": "pessoa_02.gltf.json",
+  "papeis": [
+   "inducao",
+   "setup"
+  ],
+  "feminino": false
+ },
+ {
+  "arquivo": "pessoa_03.gltf.json",
+  "papeis": [
+   "inducao",
+   "setup"
+  ],
+  "feminino": false
+ },
+ {
+  "arquivo": "pessoa_04.gltf.json",
+  "papeis": [
+   "pescador",
+   "separador"
+  ],
+  "feminino": false
+ },
+ {
+  "arquivo": "pessoa_05.gltf.json",
+  "papeis": [
+   "pescador",
+   "separador"
+  ],
+  "feminino": true
+ },
+ {
+  "arquivo": "pessoa_06.gltf.json",
+  "papeis": [
+   "pescador",
+   "separador"
+  ],
+  "feminino": false
+ },
+ {
+  "arquivo": "pessoa_07.gltf.json",
+  "papeis": [
+   "pescador",
+   "separador"
+  ],
+  "feminino": false
+ },
+ {
+  "arquivo": "pessoa_08.gltf.json",
+  "papeis": [
+   "goleiro"
+  ],
+  "feminino": false
+ },
+ {
+  "arquivo": "pessoa_09.gltf.json",
+  "papeis": [
+   "goleiro"
+  ],
+  "feminino": true
+ },
+ {
+  "arquivo": "pessoa_10.gltf.json",
+  "papeis": [
+   "paleteiro",
+   "carregador"
+  ],
+  "feminino": false
+ },
+ {
+  "arquivo": "pessoa_11.gltf.json",
+  "papeis": [
+   "paleteiro",
+   "carregador"
+  ],
+  "feminino": false
+ }
+]
