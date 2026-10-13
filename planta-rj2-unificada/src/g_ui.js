@@ -80,7 +80,7 @@ function viewDef(name) {
       case 'sorter': return { p: sv(408, 160, 34), t: sv(425, 203, 1), fov: 42 };
       case 'docas': return { p: sv(452, 238, 9), t: sv(455, 266, 1.4), fov: 46 };
       case 'rampas': if (ch) { const q = ch.bag.clone().addScaledVector(ch.out, 7.5); return { p: [q.x, 4.6, q.z + 2], t: [ch.bag.x, 1.0, ch.bag.z], fov: 50 }; } break;
-      case 'indsorter': if (it) { const q = it.w.home; return { p: [q.x - 5, 4.2, q.z + 5], t: [q.x, 1, q.z], fov: 50 }; } break;
+      case 'indsorter': if (it) { const q = it.w.home, s0 = it.side, d0 = it.dir; return { p: [q.x + s0.x * 3.2 - d0.x * 2.4, q.y + 2.6, q.z + s0.z * 3.2 - d0.z * 2.4], t: [q.x + d0.x * .6, q.y + .9, q.z + d0.z * .6], fov: 52 }; } break;
     }
   }
   switch (name) {

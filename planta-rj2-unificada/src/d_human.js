@@ -311,8 +311,8 @@ function mhPrepare(sceneRoot) {
         // camiseta e calça cinza-escuras, luvas e botas pretas
         if (UNIFORME_SORTER) {
           if (/^colete/.test(m.name)) { m.map = null; m.color = C(0xf2661c); m.roughness = .62; if (m.isMeshPhysicalMaterial) { m.sheen = .6; m.sheenColor = C(0x5a2408); } }
-          else if (/camisa/.test(m.name)) { if (m.map) m.color = C(0x7d838b); else m.color = C(0x3b4047); if (m.isMeshPhysicalMaterial) m.sheenColor = C(0x22262b); }
-          else if (/calca/.test(m.name)) { m.color = C(0x9aa0a8); if (!m.map) m.color = C(0x353a41); }
+          else if (/camisa/.test(m.name)) { m.map = null; m.color = C(0x50565e); if (m.isMeshPhysicalMaterial) m.sheenColor = C(0x2a2e33); }
+          else if (/calca/.test(m.name)) { m.map = null; m.color = C(0x40454c); if (m.isMeshPhysicalMaterial) m.sheenColor = C(0x24272b); }
           else if (/luva|bota|cinto/.test(m.name)) { m.map = null; m.color = C(/cinto/.test(m.name) ? 0x24272b : 0x18191b); }
         }
         m.needsUpdate = true;

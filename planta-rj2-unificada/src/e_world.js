@@ -182,7 +182,7 @@ function buildWorld() {
   dimGroup = dimRoot;
   world = ROOT; S = PLANT = newPlantState();
   buildPlant();
-  if (SORTER_MODE && SR.data) { buildSorterFloor(); buildSorterLife(); buildSorterStatic(); }
+  if (SORTER_MODE && SR.data) { buildSorterStatic(); buildSorterFloor(); buildSorterLife(); }   // estrutura antes: os carrinhos entram no grupo do sorter
   bake(ROOT);
   S = AGG = makeAgg();
 
