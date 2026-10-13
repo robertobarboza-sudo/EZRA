@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maquete Centro de Distribuição</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: cena 3D em tela cheia; prancha (título + fluxo do processo) no canto superior esquerdo,
+   painel com abas Operação / Premissas à direita; no celular o painel vira gaveta inferior. */
+:root {
+  --bg: #e4e6e6;
+  --panel: rgba(250, 250, 249, 0.9);
+  --solid: #fafaf9;
+  --fg: #1a2230;
+  --muted: #5a6472;
+  --line: rgba(26, 34, 48, 0.14);
+  --accent: #e8641b;        /* laranja de destaque */
+  --navy: #1f3a5f;          /* azul institucional */
+  --track: rgba(26, 34, 48, 0.08);
+  --ok: #2e8b57;
+  --warn: #b7791f;
+  --c-rec: #1f3a5f; --c-ind: #d9a400; --c-tri: #e8641b; --c-con: #6b7a8f; --c-exp: #2e8b57;
+  --font-display: "Archivo", "Arial Narrow", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141a22; --panel: rgba(20, 26, 34, 0.9); --solid: #141a22; --fg: #e8ecf1; --muted: #9aa5b4;
+    --line: rgba(232, 236, 241, 0.14); --accent: #ff7f3a; --navy: #7fa6d6; --track: rgba(232, 236, 241, 0.1);
+    --ok: #4cc285; --warn: #e0b04a; --c-rec: #7fa6d6; --c-ind: #f0c23a; --c-tri: #ff7f3a; --c-con: #a4b1c4; --c-exp: #4cc285;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141a22; --panel: rgba(20, 26, 34, 0.9); --solid: #141a22; --fg: #e8ecf1; --muted: #9aa5b4;
+  --line: rgba(232, 236, 241, 0.14); --accent: #ff7f3a; --navy: #7fa6d6; --track: rgba(232, 236, 241, 0.1);
+  --ok: #4cc285; --warn: #e0b04a; --c-rec: #7fa6d6; --c-ind: #f0c23a; --c-tri: #ff7f3a; --c-con: #a4b1c4; --c-exp: #4cc285;
+  color-scheme: dark;
+}
+html, body { height: 100%; }
+[hidden] { display: none !important; }
+body { margin: 0; background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 14px; overflow: hidden; -webkit-font-smoothing: antialiased; }
+#stage { position: fixed; inset: 0; }
+#stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 4px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+.sheet { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 16px); left: 16px; width: min(330px, calc(100vw - 32px)); padding: 13px 15px 12px; }
+.eyebrow { font-family: var(--font-data); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); display: flex; justify-content: space-between; gap: 12px; }
+.sheet h1 { margin: 4px 0 8px; font-family: var(--font-display); font-stretch: 68%; font-weight: 800; font-size: 32px; line-height: .95; letter-spacing: -.01em; text-wrap: balance; }
+.sheet h1 span { color: var(--accent); }
+.flow { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-wrap: wrap; gap: 4px 0; font-size: 11.5px; }
+.flow li { display: flex; align-items: center; gap: 5px; }
+.flow li + li::before { content: "→"; color: var(--muted); margin: 0 6px; }
+.flow i { width: 8px; height: 8px; border-radius: 50%; background: var(--c); display: inline-block; }
+.spec { display: grid; grid-template-columns: auto 1fr; gap: 3px 12px; margin: 0; font-size: 12px; padding-top: 9px; border-top: 1px solid var(--line); }
+.spec dt { font-family: var(--font-data); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding-top: 1px; }
+.spec dd { margin: 0; font-variant-numeric: tabular-nums; }
+.lcards { display: grid; gap: 8px; }
+.lcard { display: grid; gap: 5px; }
+.lcard h2 { margin: 0; font-family: var(--font-display); font-stretch: 75%; font-weight: 800; font-size: 15px; letter-spacing: .01em; text-transform: uppercase; display: flex; justify-content: space-between; align-items: baseline; }
+.lcard h2 small { font-family: var(--font-data); font-weight: 500; font-size: 10px; color: var(--muted); letter-spacing: .06em; }
+.lcard .kpis { grid-template-columns: 1fr 1fr 1fr; }
+.lcard .kpi span { white-space: normal; line-height: 1.15; min-height: 2.3em; }
+.lcard .kpi small { font-size: 10px; color: var(--muted); }
+.ltable { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.ltable th, .ltable td { padding: 4px 3px; overflow: hidden; text-overflow: ellipsis; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.ltable th:first-child, .ltable td:first-child { text-align: left; }
+.ltable th:first-child { width: 31%; }
+.ltable thead th { font-family: var(--font-data); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.ltable tbody th { font-family: var(--font-data); font-size: 10px; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+.ltable tfoot td { font-weight: 700; border-bottom: 0; }
+.bgroup + .bgroup { margin-top: 8px; }
+.bgroup h3 { margin: 0 0 4px; font: 700 11px var(--font-body); display: flex; justify-content: space-between; }
+.bgroup h3 span { font-family: var(--font-data); font-weight: 500; color: var(--muted); }
+.planta-tab h1 { margin: 0 0 8px; font-family: var(--font-display); font-stretch: 68%; font-weight: 800; font-size: 23px; line-height: .95; }
+.planta-tab h1 span { color: var(--accent); }
+
+.panel { position: fixed; top: calc(env(safe-area-inset-top, 0px) + 16px); right: 16px; width: 340px; display: flex; flex-direction: column;
+  max-height: calc(100% - 32px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)); }
+.tabs { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); }
+.tabs [role=tab] { appearance: none; border: 0; background: transparent; color: var(--muted); font: 600 12px var(--font-body); letter-spacing: .02em; padding: 11px 14px 10px; cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.tabs [role=tab][aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); }
+.tabs .sp { flex: 1; }
+.tabs .collapse { appearance: none; border: 0; background: transparent; color: var(--muted); cursor: pointer; padding: 0 14px; font-size: 13px; }
+.panel.closed .tabpanel { display: none; }
+.panel.closed .collapse { transform: rotate(180deg); }
+.tabpanel { overflow: auto; padding: 12px 14px 14px; display: grid; gap: 14px; }
+.kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); }
+.kpi { background: var(--panel); padding: 7px 8px; display: grid; gap: 2px; min-width: 0; }
+.kpi span { font-family: var(--font-data); font-size: 9.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kpi b { font-family: var(--font-display); font-stretch: 75%; font-weight: 700; font-size: 21px; line-height: 1; font-variant-numeric: tabular-nums; }
+.kpi.hl b { color: var(--accent); }
+.kpi.ok b { color: var(--ok); }
+.sec-title { font-family: var(--font-data); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; display: flex; justify-content: space-between; gap: 8px; }
+.bars { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; }
+.bar { display: grid; grid-template-columns: 20px 1fr 44px; align-items: center; gap: 6px; font-family: var(--font-data); font-size: 11px; font-variant-numeric: tabular-nums; }
+.bar .t { height: 6px; background: var(--track); border-radius: 1px; overflow: hidden; }
+.bar .t i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+.bar .n { text-align: right; color: var(--muted); }
+.views { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.btn { appearance: none; border: 1px solid var(--line); background: transparent; color: var(--fg); font: 500 12px var(--font-body); padding: 7px 6px; border-radius: 3px; cursor: pointer; }
+.btn:hover { background: var(--track); }
+.btn[aria-pressed="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.btn.primary:hover { filter: brightness(1.05); }
+.btn:focus-visible, input:focus-visible, select:focus-visible, [role=tab]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.row .btn { flex: 1; }
+.check { display: flex; gap: 6px; align-items: center; font-size: 12px; }
+.check input { accent-color: var(--accent); }
+.seg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+label.sel { display: grid; gap: 4px; font-size: 12px; }
+select { font: 500 12px var(--font-body); padding: 6px; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); color: var(--fg); }
+
+.cfg fieldset { border: 0; margin: 0; padding: 0; display: grid; gap: 6px; }
+.cfg legend { font-family: var(--font-data); font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--navy); padding: 0 0 4px; font-weight: 600; }
+.cfg form { display: grid; gap: 18px; }
+.field { display: grid; grid-template-columns: minmax(0, 1fr) 118px; align-items: center; gap: 8px; font-size: 12px; }
+.field label { min-width: 0; }
+.field .inp { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 3px; background: var(--panel); }
+.field input { width: 100%; min-width: 0; border: 0; background: transparent; color: var(--fg); font: 500 12px var(--font-data); padding: 5px 4px 5px 6px; text-align: right; font-variant-numeric: tabular-nums; }
+.field .u { font-family: var(--font-data); font-size: 10px; color: var(--muted); padding-right: 6px; white-space: nowrap; }
+.derived { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 3px 10px; font-size: 12px; padding: 9px 10px; background: var(--track); border-radius: 3px; }
+.derived dt { color: var(--muted); }
+.derived dd { margin: 0; text-align: right; font-family: var(--font-data); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.derived .tot { font-weight: 700; color: var(--fg); }
+.warn { font-size: 12px; color: var(--warn); }
+.exp-note { margin: -8px 0 0; font-size: 11.5px; color: var(--muted); line-height: 1.35; }
+.cfg-actions { position: sticky; bottom: -14px; background: var(--solid); padding: 10px 0 2px; display: flex; gap: 6px; border-top: 1px solid var(--line); }
+.cfg-actions .btn { flex: 1; }
+
+.tip { position: fixed; pointer-events: none; z-index: 5; padding: 7px 9px; font-size: 12px; line-height: 1.35; white-space: nowrap; }
+.tip b { font-family: var(--font-data); font-size: 11px; letter-spacing: .04em; }
+.tip .m { color: var(--muted); }
+.hint { position: fixed; left: 16px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); font-family: var(--font-data); font-size: 10.5px; color: var(--muted); letter-spacing: .04em; padding: 5px 8px; }
+.loading { position: fixed; inset: 0; display: grid; place-items: center; align-content: center; gap: 10px; font-family: var(--font-data); font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); pointer-events: none; background: var(--bg); }
+.loading .lb { width: 180px; height: 2px; background: var(--track); }
+.loading .lb i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+
+@media (max-width: 760px) {
+  .sheet { padding: 10px 12px; }
+  .sheet h1 { font-size: 24px; margin-bottom: 6px; }
+  .spec, .hint { display: none; }
+  .panel { top: auto; left: 16px; right: 16px; width: auto; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); max-height: 58%; }
+}
+@media (prefers-reduced-motion: reduce) { .bar .t i { transition: none; } }
+</style>
+</head>
+<body>
+<div id="stage" aria-label="Maquete 3D interativa do centro de distribuição"></div>
+<div class="loading" id="loading"><span id="loadMsg">Montando o centro de distribuição…</span><span class="lb"><i id="loadBar"></i></span></div>
+
+<section class="sheet card" aria-label="Produção por esteira">
+  <div class="eyebrow"><span>Produção por esteira</span><span id="shiftT">turno 00:00</span></div>
+  <div class="lcards" id="lcards"></div>
+</section>
+
+<aside class="panel card" id="panel" aria-label="Operação e premissas">
+  <div class="tabs" role="tablist">
+    <button role="tab" id="t-op" aria-selected="true" aria-controls="tab-op" data-tab="op">Operação</button>
+    <button role="tab" id="t-cfg" aria-selected="false" aria-controls="tab-cfg" data-tab="cfg">Premissas</button>
+    <button role="tab" id="t-pl" aria-selected="false" aria-controls="tab-pl" data-tab="pl">Planta</button>
+    <span class="sp"></span>
+    <button class="collapse" id="collapse" aria-label="Recolher painel">▾</button>
+  </div>
+
+  <div class="tabpanel" id="tab-op" role="tabpanel" aria-labelledby="t-op">
+    <div>
+      <div class="sec-title"><span>Produção por esteira</span><span id="kPeople">0 pessoas</span></div>
+      <table class="ltable" id="ltable"><thead></thead><tbody></tbody><tfoot></tfoot></table>
+    </div>
+    <div>
+      <div class="sec-title"><span>Bancadas · volumes por hora</span><span>últimos 10 min</span></div>
+      <div id="bars"></div>
+    </div>
+    <div>
+      <div class="sec-title"><span>Câmera</span></div>
+      <div class="views" id="views">
+        <button class="btn" data-view="aerea" aria-pressed="true">Aérea</button>
+        <button class="btn" data-view="eixo">Eixo</button>
+        <button class="btn" data-view="planta">Planta</button>
+        <button class="btn" data-view="ilha">Ilha</button>
+        <button class="btn" data-view="inducao">Indução</button>
+        <button class="btn" data-view="goleiro">Goleiro</button>
+        <button class="btn" data-view="lateral">Buffer de saída</button>
+        <button class="btn" data-view="gaiolas">Buffer de gaiolas</button>
+        <button class="btn" data-view="recebimento">Recebimento</button>
+        <button class="btn" data-view="stretch">Montagem / stretch</button>
+        <button class="btn" data-view="caminho">Caminho seguro</button>
+        <button class="btn" data-view="avarias">Avarias</button>
+        <button class="btn" data-view="paleteira">Seguir paleteira</button>
+      </div>
+      <div class="sec-title" style="margin-top:8px"><span>Esteira da vista</span><span class="m">eixo, ilha, indução, goleiro, buffers</span></div>
+      <div class="seg" id="lineSel"></div>
+    </div>
+    <div>
+      <div class="sec-title"><span>Simulação</span></div>
+      <div class="seg" id="simSpeed">
+        <button class="btn" data-s="1" aria-pressed="true">1×</button>
+        <button class="btn" data-s="2">2×</button>
+        <button class="btn" data-s="4">4×</button>
+        <button class="btn" data-s="8">8×</button>
+      </div>
+    </div>
+    <div class="row">
+      <button class="btn" id="photo" aria-pressed="false">Foto realista</button>
+      <span class="m" id="photoInfo" style="align-self:center;font-size:12px"></span>
+    </div>
+    <div class="row">
+      <button class="btn" id="play" aria-pressed="false">Pausar</button>
+      <label class="sel" for="quality" style="flex:1">
+        <select id="quality">
+          <option value="cinema">Render cinema</option>
+          <option value="alta">Render alto</option>
+          <option value="leve">Leve</option>
+        </select>
+      </label>
+    </div>
+    <div class="row">
+      <button class="btn" id="export">Exportar 3D (.glb)</button>
+      <label class="sel" for="expMode" style="flex:1"><select id="expMode">
+        <option value="pessoas">Com as pessoas</option>
+        <option value="marcadores">Sem pessoas (marcadores)</option>
+      </select></label>
+    </div>
+    <p class="exp-note" id="expNote">Cena em metros, com pessoas e texturas, para Blender, Twinmotion e outros. No link publicado vem compactado em .zip; descompacte para ter o .glb.</p>
+    <div class="row">
+      <label class="check" for="dims"><input id="dims" type="checkbox"> Cotas</label>
+      <label class="check" for="ghost"><input id="ghost" type="checkbox"> Scuttles translúcidas</label>
+      <label class="check" for="dof"><input id="dof" type="checkbox"> Profundidade de campo</label>
+    </div>
+  </div>
+
+  <div class="tabpanel planta-tab" id="tab-pl" role="tabpanel" aria-labelledby="t-pl" hidden>
+    <div>
+      <h1>Centro de distribuição <span>·</span> <span id="plN">3</span> esteiras</h1>
+      <ol class="flow" aria-label="Fluxo do processo">
+        <li><i style="--c:var(--c-ind)"></i>Indução</li>
+        <li><i style="--c:var(--c-tri)"></i>Pesca</li>
+        <li><i style="--c:var(--c-rec)"></i>Flow rack</li>
+        <li><i style="--c:var(--c-con)"></i>Scuttle</li>
+        <li><i style="--c:var(--c-exp)"></i>Goleiro</li>
+      </ol>
+      <dl class="spec" id="spec"></dl>
+    </div>
+  </div>
+
+  <div class="tabpanel cfg" id="tab-cfg" role="tabpanel" aria-labelledby="t-cfg" hidden>
+    <form id="cfgForm" novalidate></form>
+  </div>
+</aside>
+
+<div class="hint card">Arraste para orbitar · roda/pinça para zoom · botão direito para mover</div>
+<div class="tip card" id="tip" hidden></div>

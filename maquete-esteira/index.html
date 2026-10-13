@@ -429,6 +429,7 @@ let P = loadParams();
 const pkgTargetM3 = p => 1.2 * 1.0 * p.scuttleAlt * (p.ocupScuttle / 100) / (p.scuttleCap * (1 + p.perdaEncaixe / 100));
 
 /* layout derivado das premissas */
+const SORTER_MODE = true;   // planta das esteiras dentro do galpão do sorter (RJ2 ASM3)
 function computeLayout(p) {
   const L = {};
   L.bw = p.larguraEsteira; L.bt = p.alturaEsteira; L.ind = p.inducaoComp;
@@ -445,35 +446,42 @@ function computeLayout(p) {
   L.zIsl = L.bw / 2 + p.folgaIlha;                     // origem local das ilhas
   L.islDepth = L.rack1 + 1.0;                           // até a área do separador
   L.zEdge = L.zIsl + L.islDepth;                        // borda externa das ilhas
-  L.zAisle = L.zEdge + 1.9;                             // eixo do corredor principal
-  L.zCons = L.zEdge + 4.6;                              // fila de consolidação (centro da scuttle)
-  L.zApron = L.zCons + 1.6;
+  // planta unificada com o sorter: modo compacto (cabe ao lado do sorter, entre as docas e a parede leste)
+  const CMP = L.cmp = SORTER_MODE;
+  L.zAisle = L.zEdge + (CMP ? 1.5 : 1.9);              // eixo do corredor principal
+  L.zCons = CMP ? L.zAisle + 1.9 : L.zEdge + 4.6;       // fila de scuttles vazias (centro da scuttle)
+  L.consOff = CMP ? 13 : 0;                             // compacto: filas defasadas em x (lado A à frente, lado B atrás)
+  L.zApron = L.zCons + (CMP ? .75 : 1.6);
   L.zWall = Math.ceil(L.zCons + 2.6);                   // borda da maquete
   L.golL = p.golFlowComp;
   L.golX = L.X1 + .05 + L.golL / 2;                     // centro do flow rack do goleiro
-  L.xWest = Math.floor(L.X0 - 8);                       // borda oeste (buffers de gaiolas)
-  L.xEast = Math.ceil(L.golX + 10);                     // borda leste (buffer de scuttles cheias)
+  L.xWest = Math.floor(L.X0 - (CMP ? 5.6 : 8));         // borda oeste (buffers de gaiolas)
+  L.xEast = Math.ceil(L.golX + (CMP ? 7 : 10));         // borda leste (buffer de scuttles cheias)
   L.xCor = L.X0 - 2.2;                                  // corredor oeste: cruza a linha antes da esteira
-  L.cageBufX = L.X0 - 5.0;                              // buffers de gaiolas (cheias ao sul, vazias ao norte)
+  L.cageBufX = L.X0 - (CMP ? 3.7 : 5.0);                // buffers de gaiolas (cheias ao sul, vazias ao norte)
   L.midIsl = (L.XP + L.X1) / 2;                         // centro das ilhas (buffer de scuttles vazias)
-  L.eastBufX = L.golX + 6.2;                            // buffer de scuttles cheias, depois do goleiro
+  L.eastBufX = L.golX + (CMP ? 4.2 : 6.2);              // buffer de scuttles cheias, depois do goleiro
   /* planta: linhas lado a lado (eixo z), zonas de entrada a oeste e de saída a leste */
   L.nLines = p.linhas;
-  L.LP = 2 * L.zApron + p.corredorLinhas;               // passo entre eixos das linhas
+  // compacto: as filas de scuttles vazias de linhas vizinhas ficam defasadas, então o passo só precisa
+  // deixar livre o corredor de paleteira da linha ao lado
+  L.LP = CMP ? L.zCons + .6 + L.zAisle + .5 : 2 * L.zApron + p.corredorLinhas;
   L.zLines = Array.from({ length: L.nLines }, (_, i) => (i - (L.nLines - 1) / 2) * L.LP);
   L.zN = L.zLines[0] - L.zApron; L.zS = L.zLines[L.nLines - 1] + L.zApron;
   L.xW = L.xWest - 1.8;                                 // corredor oeste (abastecimento das linhas)
-  L.pbx1 = L.xW - 1.6; L.pbx0 = L.pbx1 - 11.6;          // buffers de gaiolas da planta (8 por fileira)
+  L.bufN = CMP ? 5 : 8;                                 // posições por fileira nos buffers da planta
+  L.lanePitch = CMP ? 4.4 : 5;
+  L.pbx1 = L.xW - (CMP ? 1.3 : 1.6); L.pbx0 = L.pbx1 - (L.bufN * 1.45 + .4);   // buffers de gaiolas da planta
   L.xR = L.pbx0 - 1.8;                                  // corredor da entrada (recebimento)
-  L.bx0 = L.xR - 4.2;                                   // parede oeste (docas de entrada)
-  L.xE = L.xEast + 1.6;                                 // corredor leste (saída)
-  L.stX = L.xE + 5.0;                                   // estações de stretch
-  L.bx1 = L.stX + 7.5;                                  // parede leste (docas de saída)
+  L.bx0 = L.xR - (CMP ? 3.0 : 4.2);                     // parede oeste (docas de entrada)
+  L.xE = L.xEast + (CMP ? 1.2 : 1.6);                   // corredor leste (saída)
+  L.stX = L.xE + (CMP ? 1.5 : 5.0);                     // estacionamento dos carregadores de saída
+  L.bx1 = L.stX + (CMP ? 4.6 : 7.5);                    // parede leste (docas de saída)
   L.cs = p.caminhoSeguro;                               // caminho seguro de pedestres
   L.zCS = L.zS + .4 + L.cs / 2;                         // eixo do caminho seguro
   L.zRoom0 = L.zS + .4 + L.cs + .5;                     // faixa sul: conferência, liderança, pallets de scuttles
-  L.bz1 = L.zRoom0 + 8.5;
-  L.bz0 = L.zN - 7.5;                                   // faixa norte: banheiros
+  L.bz1 = CMP ? L.zRoom0 : L.zRoom0 + 8.5;              // compacto: liderança e avarias vão para dentro da planta
+  L.bz0 = L.zN - (CMP ? 1.2 : 7.5);                     // faixa norte: banheiros (fora do compacto)
   return L;
 }
 
@@ -1757,7 +1765,7 @@ function buildLine(li) {
     w.restYaw = s > 0 ? PI : 0; w.setYaw(w.restYaw); w.side = s; w.where = `Goleiro · ${S.short}`; world.add(w.root);
     S.goleiros.push(w); S.workers.push(w);
   }
-  floorText(world, [{ t: 'GOLEIRO', size: 96 }, { t: `${P.gaiolasGoleiro} gaiolas · flow rack ${fmtM(L.golL, 1)} m`, size: 40, weight: 600, font: MONO }], L.golX + 3.9, 0, 3.8, 1.45, PI / 2, { w: 512, h: 196, color: '#1f6b41' });
+  floorText(world, [{ t: 'GOLEIRO', size: 96 }, { t: `${P.gaiolasGoleiro} gaiolas · flow rack ${fmtM(L.golL, 1)} m`, size: 40, weight: 600, font: MONO }], L.golX + (L.cmp ? 2.9 : 3.9), 0, 3.8, L.cmp ? 1.0 : 1.45, PI / 2, { w: 512, h: 196, color: '#1f6b41' });
 
   /* gaiola de avarias no fim da linha: o goleiro separa os volumes avariados (a tratativa busca) */
   {
@@ -1796,18 +1804,19 @@ function buildLine(li) {
   for (const s of sides) {
     const psi = s > 0 ? 0 : PI;
     for (let i = 0; i < 10; i++) {
-      const slot = { T: V3(L.midIsl + (i - 4.5) * 1.35, 0, s * L.zCons), psi, sc: newScuttle('VAZIA'), regen: 0, res: false };
+      const slot = { T: V3(L.midIsl + s * L.consOff + (i - 4.5) * 1.35, 0, s * L.zCons), psi, sc: newScuttle('VAZIA'), regen: 0, res: false };
       place(slot.sc, world, slot.T, psi); S.emptyBuf[s].push(slot);
       put('white', plane(1.2, .04), slot.T.x, .006, s * (L.zCons - .62)); put('white', plane(.04, 1.24), slot.T.x - .62, .006, s * L.zCons);
     }
-    floorText(world, [{ t: 'SCUTTLES VAZIAS', size: 80 }, { t: 'buffer dos paleteiros', size: 40, weight: 600, font: MONO }], L.midIsl, s * (L.zCons + 1.45), 4.6, 1.2, s > 0 ? 0 : PI, { w: 640, h: 170, color: '#4b5869' });
+    if (L.cmp) floorText(world, [{ t: 'SCUTTLES VAZIAS', size: 80 }, { t: 'buffer dos paleteiros', size: 40, weight: 600, font: MONO }], L.midIsl + s * (L.consOff + 6.75 + 2.6), s * L.zCons, 4.6, 1.1, s > 0 ? 0 : PI, { w: 640, h: 170, color: '#4b5869' });
+    else floorText(world, [{ t: 'SCUTTLES VAZIAS', size: 80 }, { t: 'buffer dos paleteiros', size: 40, weight: 600, font: MONO }], L.midIsl, s * (L.zCons + 1.45), 4.6, 1.2, s > 0 ? 0 : PI, { w: 640, h: 170, color: '#4b5869' });
   }
 
   /* corredores, setas de fluxo, faixas */
   for (const s of sides) {
     const xa = L.xWest + 1, xb = L.xEast - 1;
     put('yellow', plane(xb - xa, .1), (xa + xb) / 2, .006, s * (L.zEdge + .3));
-    put('yellow', plane(xb - xa, .1), (xa + xb) / 2, .006, s * (L.zAisle + 1.6));
+    if (!L.cmp) put('yellow', plane(xb - xa, .1), (xa + xb) / 2, .006, s * (L.zAisle + 1.6));
     for (let x = L.X0 + 1; x < L.golX; x += 10) arrow(x, s * L.zAisle, 0, 2.6);
   }
 
@@ -2574,12 +2583,11 @@ function buildPlant() {
   const zPass = (L.zS + L.bz1) / 2 + 1;
   wallRun('z', L.bx0, L.bz0, L.bz1, zIn.map(z => [z - doorW / 2, z + doorW / 2]));
   wallRun('z', L.bx1, L.bz0, L.bz1, [...zOut, zPass].map(z => [z - doorW / 2, z + doorW / 2]));
-  wallRun('x', L.bz0, L.bx0, L.bx1, []);
-  wallRun('x', L.bz1, L.bx0, L.bx1, []);
+  if (!L.cmp) { wallRun('x', L.bz0, L.bx0, L.bx1, []); wallRun('x', L.bz1, L.bx0, L.bx1, []); }   // compacto: aberta para o sorter
 
   /* faixa norte: banheiros */
   const bN0 = L.bz0 + .2, bN1 = L.zN - 1.6, bx = L.pbx0;
-  for (const [i, nome] of [[0, 'BANHEIRO MASCULINO'], [1, 'BANHEIRO FEMININO']]) {
+  if (!L.cmp) for (const [i, nome] of [[0, 'BANHEIRO MASCULINO'], [1, 'BANHEIRO FEMININO']]) {
     const x0 = bx + i * 7.5, x1 = x0 + 7;
     put('wallP', box(x1 - x0, 2.4, .12), (x0 + x1) / 2, 1.2, bN1);
     put('wallP', box(.12, 2.4, bN1 - bN0), x0, 1.2, (bN0 + bN1) / 2); put('wallP', box(.12, 2.4, bN1 - bN0), x1, 1.2, (bN0 + bN1) / 2);
@@ -2596,16 +2604,17 @@ function buildPlant() {
     arrow(L.bx0 + 1.0, z + 1.9, 0, 1.6); arrow(L.bx0 + 2.6, z - 1.9, PI, 1.6);
   }
   for (const zr of [L.bz0 + 3.2, L.bz1 - 3.2]) {
-    zoneBox(L.bx0 + .5, zr - 2.2, L.bx0 + 4.2, zr + 2.2, 'green', .1);
-    floorText(world, [{ t: 'ROTA SEGURA', size: 70 }, { t: 'pedestres', size: 40, weight: 600, font: MONO }], L.bx0 + 2.35, zr, 3.2, 1.1, -PI / 2, { w: 600, h: 180, color: '#1f6b41' });
+    const rw = L.cmp ? 2.4 : 3.7;
+    zoneBox(L.bx0 + .5, zr - 2.2, L.bx0 + .5 + rw, zr + 2.2, 'green', .1);
+    floorText(world, [{ t: 'ROTA SEGURA', size: 70 }, { t: 'pedestres', size: 40, weight: 600, font: MONO }], L.bx0 + .5 + rw / 2, zr, 3.2, Math.min(1.1, rw - .4), -PI / 2, { w: 600, h: 180, color: '#1f6b41' });
   }
 
   /* buffers do oeste, em fileiras de frente para corredores que saem no corredor de abastecimento */
-  const laneRows = (zl, make) => { for (const [dz, psi] of [[-1.6, PI], [1.6, 0]]) for (let i = 0; i < 8; i++) {
+  const laneRows = (zl, make) => { for (const [dz, psi] of [[-1.6, PI], [1.6, 0]]) for (let i = 0; i < L.bufN; i++) {
     const pos = V3(L.pbx0 + .7 + i * 1.45, 0, zl + dz); make(pos, psi, dz);
     put('white', plane(1.3, .04), pos.x, .006, zl + dz + (dz < 0 ? -.6 : .6)); put('white', plane(.04, 1.2), pos.x - .7, .006, zl + dz);
   } };
-  const zs = k => L.zN + 4.2 + k * 5;
+  const zs = k => L.zN + 4.2 + k * L.lanePitch;
   const stockLanes = [zs(0), zs(1)], fullLanes = [zs(2), zs(3), zs(4)], emptyLanes = [zs(6), zs(7)];
   // buffer de scuttles (montadas e enroladas) + gaiolas cheias da entrada: área amarela
   stockLanes.forEach(zl => laneRows(zl, (pos, psi) => {
@@ -2625,8 +2634,8 @@ function buildPlant() {
   }));
   zoneBox(L.pbx0 - .3, stockLanes[0] - 2.5, L.pbx1 + .3, fullLanes[2] + 2.5, 'yellow');
   zoneBox(L.pbx0 - .3, emptyLanes[0] - 2.5, L.pbx1 + .3, emptyLanes[1] + 2.5, 'red');
-  floorText(world, [{ t: 'BUFFER DE SCUTTLES E GAIOLAS', size: 66 }, { t: 'scuttles montadas · gaiolas cheias da entrada', size: 34, weight: 600, font: MONO }], (L.pbx0 + L.pbx1) / 2, fullLanes[2] + 3.4, 10, 1.3, 0, { w: 1000, h: 170, color: '#7a5d00' });
-  floorText(world, [{ t: 'BUFFER DE GAIOLAS', size: 70 }, { t: 'gaiolas vazias · retorno pela entrada', size: 34, weight: 600, font: MONO }], (L.pbx0 + L.pbx1) / 2, emptyLanes[1] + 3.4, 9, 1.3, 0, { w: 900, h: 170, color: '#a3271b' });
+  floorText(world, [{ t: 'BUFFER DE SCUTTLES E GAIOLAS', size: 66 }, { t: 'scuttles montadas · gaiolas cheias da entrada', size: 34, weight: 600, font: MONO }], (L.pbx0 + L.pbx1) / 2, fullLanes[2] + 3.4, L.cmp ? 7 : 10, 1.3, 0, { w: 1000, h: 170, color: '#7a5d00' });
+  floorText(world, [{ t: 'BUFFER DE GAIOLAS', size: 70 }, { t: 'gaiolas vazias · retorno pela entrada', size: 34, weight: 600, font: MONO }], (L.pbx0 + L.pbx1) / 2, emptyLanes[1] + 3.4, L.cmp ? 7 : 9, 1.3, 0, { w: 900, h: 170, color: '#a3271b' });
   hangSign(world, 'BUFFER', 'scuttles e gaiolas', (L.pbx0 + L.pbx1) / 2, stockLanes[0] - 3.6, 0, 4.6, 5.2);
 
   /* abastecimento das linhas (corredor oeste) */
@@ -2635,9 +2644,9 @@ function buildPlant() {
 
   /* sudoeste: stretch com robô (1) e montagem com stretch manual (2 pessoas) */
   L.zLaneSW = L.zS - 14;
-  const rx = L.xR + 4.1, rz = L.zLaneSW + 5;
-  zoneBox(L.xR + .9, L.zLaneSW + 1.2, L.xR + 7.2, L.zS - .6, 'yellow');
-  floorText(world, [{ t: 'STRETCH COM ROBÔ', size: 70 }, { t: 'montagem automática', size: 36, weight: 600, font: MONO }], rx, L.zS - 2, 5.6, 1.2, 0, { w: 700, h: 160, color: '#7a5d00' });
+  const rx = L.xR + (L.cmp ? 3.2 : 4.1), rz = L.zLaneSW + 5;
+  zoneBox(L.xR + .9, L.zLaneSW + 1.2, L.xR + (L.cmp ? 5.6 : 7.2), L.zS - .6, 'yellow');
+  floorText(world, [{ t: 'STRETCH COM ROBÔ', size: 70 }, { t: 'montagem automática', size: 36, weight: 600, font: MONO }], rx, L.zS - 2, L.cmp ? 4.4 : 5.6, L.cmp ? 1.0 : 1.2, 0, { w: 700, h: 160, color: '#7a5d00' });
   put('white', cyl(1.42, .012, 48), rx, .004, rz); put('mat', cyl(1.34, .014, 48), rx, .005, rz);   // pista circular do robô
   { const r = stationRobot(); world.add(r.grp);
     P0.robotSt = { kind: 'robo', T: V3(rx, 0, rz), psi: 0, dist: 5, sc: null, res: false, state: 'livre', robot: r, ang: PI / 2, t0: 0, film: null, name: 'Stretch com robô' };
@@ -2646,9 +2655,9 @@ function buildPlant() {
       const w = makeWorker('operadorRobo'); w.home = V3(rx - 2.2 + k * 1.2, 0, L.zLaneSW + 2.2); w.root.position.copy(w.home);
       w.restYaw = 0; w.setYaw(0); w.where = 'Stretch com robô'; world.add(w.root); P0.roW.push(w); P0.workers.push(w);
     } }
-  const mx = L.xW - 4.8, mzs = [L.zLaneSW + 4.2, L.zLaneSW + 10];
-  zoneBox(L.xR + 7.5, L.zLaneSW + 1.2, L.xW - .7, L.zS - .6, 'navyP');
-  floorText(world, [{ t: 'MONTAGEM DE SCUTTLES', size: 64 }, { t: 'stretch manual · 2 posições', size: 34, weight: 600, font: MONO }], mx - 2.6, L.zLaneSW + 7.1, 5.6, 1.1, -PI / 2, { w: 760, h: 160, color: '#1f3a5f' });
+  const mx = L.cmp ? L.xR + 8.0 : L.xW - 4.8, mzs = [L.zLaneSW + 4.2, L.zLaneSW + 10];
+  zoneBox(L.xR + (L.cmp ? 5.9 : 7.5), L.zLaneSW + 1.2, L.xW - (L.cmp ? .4 : .7), L.zS - .6, 'navyP');
+  floorText(world, [{ t: 'MONTAGEM DE SCUTTLES', size: 64 }, { t: 'stretch manual · 2 posições', size: 34, weight: 600, font: MONO }], mx - (L.cmp ? 1.4 : 2.6), L.zLaneSW + 7.1, L.cmp ? 4.2 : 5.6, L.cmp ? .5 : 1.1, -PI / 2, { w: 760, h: 160, color: '#1f3a5f' });
   for (let k = 0; k < 4; k++) put('wood', box(1.0, .14, 1.2), L.xW - 2.2, .07 + k * .15, L.zS - 1.6);      // pallets e caixas desmontadas
   for (let k = 0; k < 6; k++) put('kraft', box(1.15, .03, 1.3), L.xW - 2.2, .64 + k * .035, L.zS - 1.6);
   mzs.forEach((z, i) => {
@@ -2662,9 +2671,9 @@ function buildPlant() {
   });
 
   /* leste: saída / descarga de scuttles e gaiolas (pallets aguardando a doca) */
-  const ox = L.xE + 3.6;
-  zoneBox(L.xE + 1.2, zO[0] - 2.4, L.bx1 - .5, zO[nOut - 1] + 2.4, 'red');
-  floorText(world, [{ t: 'SAÍDA / DESCARGA', size: 76 }, { t: 'scuttles e gaiolas', size: 38, weight: 600, font: MONO }], L.xE + 7.4, zMidW, 7, 1.4, -PI / 2, { w: 800, h: 180, color: '#a3271b' });
+  const ox = L.xE + (L.cmp ? 2.2 : 3.6);
+  zoneBox(L.xE + (L.cmp ? .6 : 1.2), zO[0] - 2.4, L.bx1 - .5, zO[nOut - 1] + 2.4, 'red');
+  floorText(world, [{ t: 'SAÍDA / DESCARGA', size: 76 }, { t: 'scuttles e gaiolas', size: 38, weight: 600, font: MONO }], L.cmp ? L.xE + 4.4 : L.xE + 7.4, zMidW, 7, L.cmp ? 1.0 : 1.4, -PI / 2, { w: 800, h: 180, color: '#a3271b' });
   hangSign(world, 'SAÍDA', 'descarga de scuttles e gaiolas', ox, zO[0] - 4.2, 0, 4.6, 5.2);
   zO.forEach(z => { P0.outS.push({ T: V3(ox, 0, z), psi: PI / 2, sc: null, res: false, t: 0 }); put('white', plane(1.24, .04), ox, .006, z - .66); put('white', plane(1.24, .04), ox, .006, z + .66); });
   for (const z of zOut) { P0.doorsOut.push({ z }); arrow(L.bx1 - 2.6, z, 0, 1.6); }
@@ -2674,35 +2683,39 @@ function buildPlant() {
   zoneBox(L.xW - .4, cs0, csEnd, cs1, 'greenDark', .14);   // demarcação do caminho seguro: verde escuro, sem grade
   for (let x = L.xW + 4; x < csEnd - 4; x += 14) arrow(x, L.zCS, 0, 1.2);
   floorText(world, [{ t: 'CIRCULAÇÃO DE PEDESTRES', size: 66 }, { t: `caminho seguro · ${fmtM(L.cs)} m`, size: 36, weight: 600, font: MONO }], (L.xW + L.xE) / 2 - 10, L.zCS, 7, Math.min(L.cs * .9, 1.2), 0, { w: 900, h: 170, color: '#0d4a22' });
+  if (L.cmp) buildEastRooms(P0, zO, nOut);
+  else {
   const r0 = L.zRoom0, r1 = L.bz1 - .4, lx = L.xE - 22, bEnd = lx - 6;
-  // mesa da liderança
-  zoneBox(lx - 5, r0, lx + 5, r1, 'navyP');
-  put('wood', box(3.2, .06, 1.4), lx, .76, r0 + 3.6); put('steelDark', box(3.0, .72, 1.2), lx, .37, r0 + 3.6);
-  put('navy', box(.6, .4, .05), lx - .6, 1.0, r0 + 3.3); put('navy', box(.6, .4, .05), lx + .6, 1.0, r0 + 3.3);
-  floorText(world, [{ t: 'MESA DA LIDERANÇA', size: 70 }], lx, r0 + 6.4, 6, .8, 0, { w: 800, h: 100, color: '#1f3a5f' });
-  for (let k = 0; k < P.lideres; k++) {
-    const w = makeWorker('lider'); w.home = V3(lx - .8 + k * 1.6, 0, r0 + 2.5); w.root.position.copy(w.home);
-    w.restYaw = 0; w.setYaw(0); w.where = 'Mesa da liderança'; w.state = 'acompanhando a operação'; world.add(w.root); P0.workers.push(w);
+    // mesa da liderança
+    zoneBox(lx - 5, r0, lx + 5, r1, 'navyP');
+    put('wood', box(3.2, .06, 1.4), lx, .76, r0 + 3.6); put('steelDark', box(3.0, .72, 1.2), lx, .37, r0 + 3.6);
+    put('navy', box(.6, .4, .05), lx - .6, 1.0, r0 + 3.3); put('navy', box(.6, .4, .05), lx + .6, 1.0, r0 + 3.3);
+    floorText(world, [{ t: 'MESA DA LIDERANÇA', size: 70 }], lx, r0 + 6.4, 6, .8, 0, { w: 800, h: 100, color: '#1f3a5f' });
+    for (let k = 0; k < P.lideres; k++) {
+      const w = makeWorker('lider'); w.home = V3(lx - .8 + k * 1.6, 0, r0 + 2.5); w.root.position.copy(w.home);
+      w.restYaw = 0; w.setYaw(0); w.where = 'Mesa da liderança'; w.state = 'acompanhando a operação'; world.add(w.root); P0.workers.push(w);
+    }
+    // tratativa de avarias (sudeste): gaiolas de avarias vindas dos goleiros e mesa de tratativa
+    const ax0 = L.xE - 14, ax1 = L.bx1 - 3.6, az = r0 + 2.1;
+    zoneBox(ax0, r0 + .3, ax1, r1, 'orangeP');
+    for (let i = 0; i < 4; i++) {
+      const pos = V3(ax0 + 2 + i * 1.6, 0, az), sl = { pos, psi: PI, cage: null, res: false, name: `Tratativa ${i + 1}` };
+      if (i < 2) { sl.cage = newCage(0, 'Gaiola de avarias (reserva)'); place(sl.cage, world, pos, PI); }
+      P0.avArea.push(sl);
+    }
+    const tx = ax0 + 4.4, tz = r1 - 1.6;
+    put('steelDark', box(2.6, .88, .9), tx, .44, tz); put('white', box(2.6, .03, .9), tx, .9, tz);
+    floorText(world, [{ t: 'TRATATIVA DE AVARIAS', size: 66 }], ax0 + 9.4, r1 - 1.5, 6.4, .8, 0, { w: 900, h: 110, color: '#9a4a00' });
+    for (let k = 0; k < P.tratativa; k++) {
+      const w = makeWorker('tratativa'); w.home = V3(tx - .7 + k * 1.4, 0, tz - .95); w.root.position.copy(w.home);
+      w.restYaw = 0; w.setYaw(0); w.where = 'Tratativa de avarias'; world.add(w.root); P0.avW.push(w); P0.workers.push(w);
+    }
+    // passagem de scuttles (faixa junto à parede leste, saída ao sul)
+    zoneBox(L.bx1 - 2.8, zO[nOut - 1] + 3.2, L.bx1 - .5, r1, 'green', .1);
+    for (let z = zO[nOut - 1] + 5; z < r1 - 1; z += 4) arrow(L.bx1 - 1.65, z, -PI / 2, 1.3);
+    floorText(world, [{ t: 'PASSAGEM DE SCUTTLES', size: 56 }], L.bx1 - 1.65, (zO[nOut - 1] + r1) / 2 + 2, 5.6, .7, -PI / 2, { w: 760, h: 90, color: '#1f6b41' });
+
   }
-  // tratativa de avarias (sudeste): gaiolas de avarias vindas dos goleiros e mesa de tratativa
-  const ax0 = L.xE - 14, ax1 = L.bx1 - 3.6, az = r0 + 2.1;
-  zoneBox(ax0, r0 + .3, ax1, r1, 'orangeP');
-  for (let i = 0; i < 4; i++) {
-    const pos = V3(ax0 + 2 + i * 1.6, 0, az), sl = { pos, psi: PI, cage: null, res: false, name: `Tratativa ${i + 1}` };
-    if (i < 2) { sl.cage = newCage(0, 'Gaiola de avarias (reserva)'); place(sl.cage, world, pos, PI); }
-    P0.avArea.push(sl);
-  }
-  const tx = ax0 + 4.4, tz = r1 - 1.6;
-  put('steelDark', box(2.6, .88, .9), tx, .44, tz); put('white', box(2.6, .03, .9), tx, .9, tz);
-  floorText(world, [{ t: 'TRATATIVA DE AVARIAS', size: 66 }], ax0 + 9.4, r1 - 1.5, 6.4, .8, 0, { w: 900, h: 110, color: '#9a4a00' });
-  for (let k = 0; k < P.tratativa; k++) {
-    const w = makeWorker('tratativa'); w.home = V3(tx - .7 + k * 1.4, 0, tz - .95); w.root.position.copy(w.home);
-    w.restYaw = 0; w.setYaw(0); w.where = 'Tratativa de avarias'; world.add(w.root); P0.avW.push(w); P0.workers.push(w);
-  }
-  // passagem de scuttles (faixa junto à parede leste, saída ao sul)
-  zoneBox(L.bx1 - 2.8, zO[nOut - 1] + 3.2, L.bx1 - .5, r1, 'green', .1);
-  for (let z = zO[nOut - 1] + 5; z < r1 - 1; z += 4) arrow(L.bx1 - 1.65, z, -PI / 2, 1.3);
-  floorText(world, [{ t: 'PASSAGEM DE SCUTTLES', size: 56 }], L.bx1 - 1.65, (zO[nOut - 1] + r1) / 2 + 2, 5.6, .7, -PI / 2, { w: 760, h: 90, color: '#1f6b41' });
 
   /* equipes da planta */
   for (let i = 0; i < P.recebimento; i++) {
@@ -2715,7 +2728,7 @@ function buildPlant() {
   }
   for (let i = 0; i < P.abastScuttles; i++) {   // metade recolhe da montagem (estaciona no sudoeste), metade abastece do buffer
     const mont = i % 2 === 0, j = Math.floor(i / 2);
-    const home = mont ? V3(L.pbx0 + 2.5 + (j % 3) * 3.6, 0, L.zLaneSW - 2.4 - Math.floor(j / 3) * 2.2) : V3(L.pbx0 + 2.5 + (j % 3) * 3.6, 0, emptyLanes[1] + 4.8 + Math.floor(j / 3) * 2.2);
+    const home = mont ? V3(L.pbx0 + 2.5 + (j % 3) * (L.cmp ? 2.4 : 3.6), 0, L.zLaneSW - 2.4 - Math.floor(j / 3) * 2.2) : V3(L.pbx0 + 2.5 + (j % 3) * (L.cmp ? 2.4 : 3.6), 0, emptyLanes[1] + 4.8 + Math.floor(j / 3) * 2.2);
     const u = makeUnit('abastScuttle', 1, home, PI / 2); u.dedic = mont ? 'montagem' : 'linhas';
     u.op.where = mont ? 'Scuttles: montagem → linhas / buffer' : 'Scuttles: buffer → linhas'; P0.scU.push(u);
   }
@@ -2728,6 +2741,36 @@ function buildPlant() {
   dimLine(L.bx1 + 1.6, L.bz0, L.bx1 + 1.6, L.bz1, `${fmtM(L.bz1 - L.bz0, 1)} m`, { text: 2 });
   if (L.nLines > 1) dimLine(L.X0 + 10, L.zLines[0] + L.zApron, L.X0 + 10, L.zLines[1] - L.zApron, `${fmtM(P.corredorLinhas)} m`, { text: .6 });
   dimLine(L.X0 + 20, cs0, L.X0 + 20, cs1, `${fmtM(L.cs)} m`, { text: .5 });
+}
+
+/* compacto: liderança e tratativa de avarias no fim da faixa leste (ao sul da saída) */
+function buildEastRooms(P0, zO, nOut) {
+  const x0 = L.xE + .6, x1 = L.bx1 - .5, za = zO[nOut - 1] + 3.0, zb = L.zS - .3;
+  // tratativa de avarias: gaiolas em fila (ao longo de z) e mesa de tratativa
+  const avz1 = za + 7.4;
+  zoneBox(x0, za, x1, avz1, 'orangeP');
+  for (let i = 0; i < 4; i++) {
+    const pos = V3(x0 + 1.2, 0, za + 1.2 + i * 1.6), sl = { pos, psi: PI / 2, cage: null, res: false, name: `Tratativa ${i + 1}` };
+    if (i < 2) { sl.cage = newCage(0, 'Gaiola de avarias (reserva)'); place(sl.cage, world, pos, PI / 2); }
+    P0.avArea.push(sl);
+  }
+  const tx = x1 - 1.0, tz = za + 3.6;
+  put('steelDark', box(.9, .88, 2.6), tx, .44, tz); put('white', box(.9, .03, 2.6), tx, .9, tz);
+  floorText(world, [{ t: 'TRATATIVA DE AVARIAS', size: 66 }], (x0 + x1) / 2 + .6, avz1 - .7, 4.6, .6, 0, { w: 900, h: 110, color: '#9a4a00' });
+  for (let k = 0; k < P.tratativa; k++) {
+    const w = makeWorker('tratativa'); w.home = V3(tx - .95, 0, tz - .7 + k * 1.4); w.root.position.copy(w.home);
+    w.restYaw = PI / 2; w.setYaw(w.restYaw); w.where = 'Tratativa de avarias'; world.add(w.root); P0.avW.push(w); P0.workers.push(w);
+  }
+  // mesa da liderança
+  const lz0 = avz1 + .4;
+  zoneBox(x0, lz0, x1, zb, 'navyP');
+  const lx = (x0 + x1) / 2, lz = Math.min(zb - 1.0, lz0 + 2.4);
+  put('wood', box(2.6, .06, 1.1), lx, .76, lz); put('steelDark', box(2.4, .72, .9), lx, .37, lz);
+  put('navy', box(.55, .38, .05), lx - .5, 1.0, lz - .25); put('navy', box(.55, .38, .05), lx + .5, 1.0, lz - .25);
+  for (let k = 0; k < P.lideres; k++) {
+    const w = makeWorker('lider'); w.home = V3(lx - .7 + k * 1.4, 0, lz - 1.0); w.root.position.copy(w.home);
+    w.restYaw = 0; w.setYaw(0); w.where = 'Mesa da liderança'; w.state = 'acompanhando a operação'; world.add(w.root); P0.workers.push(w);
+  }
 }
 
 /* ---------- rotas ---------- */
