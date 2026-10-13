@@ -1,8 +1,8 @@
 # Continuar localmente
 
-Retomada do trabalho da maquete RJ2 numa sessão local do Claude Code. Branch: `claude/gifted-knuth-pr16nu`.
+Branch: `claude/gifted-knuth-pr16nu`.
 
-## Preparar a máquina
+## 1. Baixar o projeto
 
 ```
 git clone https://github.com/robertobarboza-sudo/ezra.git EZRA
@@ -10,84 +10,82 @@ cd EZRA
 git checkout claude/gifted-knuth-pr16nu
 ```
 
-Requisitos: Node 20+ e Python 3.10+. Para os conversores, instale `numpy`, `scipy` e `matplotlib`.
+Requisitos: Python 3 e um navegador Chrome ou Edge atualizado. Para editar e testar, também Node 20+.
 
-### Maquete (planta das 3 esteiras com pessoas e simulação)
+## 2. Só ver a planta (sem instalar nada além do Python)
+
+- Windows: clique duas vezes em `abrir-planta.bat`.
+- Mac/Linux: rode `./abrir-planta.sh`.
+
+O navegador abre em `http://localhost:8765/index.html`, com a planta unificada (sorter + 3 esteiras). A biblioteca 3D vem da internet (jsDelivr). A primeira carga leva alguns segundos.
+
+Outras páginas, servidas pela raiz do repositório (`python3 -m http.server 8765`):
+- `maquete-esteira/index.html`: só a planta das 3 esteiras (layout original);
+- `layout-rj2/index.html`: só o sorter, lido do `.nwd`.
+
+## 3. Continuar o trabalho com o Claude Code local
+
+Na pasta `EZRA`, rode `claude` e peça:
+
+> Leia CONTINUAR-LOCAL.md e planta-rj2-unificada/prompt_operadores_sorter.md e continue a planta unificada.
+
+### Editar e testar a planta unificada
 
 ```
-cd maquete-esteira/src
+cd planta-rj2-unificada/src
 npm install
 npx playwright install chromium   # só para os testes automáticos
 # (ou aponte um Chromium já instalado: export PW_CHROMIUM=/caminho/do/chrome)
 bash build.sh                     # gera ../index.html (CDN) e test.html (local)
-python3 -m http.server 8765
+python3 -m http.server 8801
 ```
 
-Abra no navegador:
-- `http://localhost:8765/test.html` (versão local);
-- ou `../index.html` servido a partir da pasta `maquete-esteira`.
+- Página local: `http://localhost:8801/test.html`. O modo leve, sem as peças menores que 20 cm, é `test.html?lite`.
+- Teste do fluxo: `node srtest.js geral,sorter,rampas`. Ele mostra os números do sorter (carrinhos, mesas, pacotes por etapa, sacas, gaiolas) e salva capturas.
+- No navegador, `window.__sr()` mostra os mesmos números e `window.__srPick(x, y)` diz qual peça do CAD está sob um ponto da tela.
 
-Testes:
-- `node shot.js aerea,planta alta` gera capturas;
-- `node simtest2.js` roda 20 min de simulação e mostra a produção.
+## Como está organizado
 
-### Layout do sorter (lido do .nwd)
+| Pasta | O que é |
+|---|---|
+| `planta-rj2-unificada/` | Planta unificada (o trabalho atual) |
+| `planta-rj2-unificada/src/` | Fontes. `build.sh` junta tudo em `index.html` |
+| `planta-rj2-unificada/src/s_sorter.js` | Sorter: carga, carrinhos, mesas, quedas, sacas, take away, outbound, gaiolas |
+| `planta-rj2-unificada/sorter/` | Dados do sorter: `modelo.json` (peças), `extra.json` (rampas, mesas, telescópicas, outbound), `niveis.json` (circuitos dos carrinhos), `piso_linhas.png` (desenho do CAD no piso) |
+| `planta-rj2-unificada/pessoas/` | Pessoas MakeHuman com esqueleto e movimentos de captura (CMU) |
+| `maquete-esteira/` | Planta das 3 esteiras no layout original |
+| `layout-rj2/` | Visualizador do sorter e conversor do `.nwd` (`conversor/`) |
 
-```
-cd layout-rj2
-python3 -m http.server 8790
-```
+## Premissas (painel → Premissas → "Sorter (ASM)")
 
-Depois abra `http://localhost:8790/index.html`.
+| Premissa | Valor |
+|---|---|
+| Carrinhos por nível | 946 |
+| Níveis | 3 |
+| Volta completa | 180 s |
+| Indução por mesa | 1.000 pct/h |
+| Pacotes por saca | 45 |
+| Quedas por colaborador | 10 |
+| Sacas por gaiola | 10 |
+| Permanência no buffer de endereçamento | 120 s |
+| Permanência na rua | 300 s |
 
-O conversor fica em `layout-rj2/conversor` e trabalha numa pasta irmã `nwd_out` com os blocos do `.nwd`. Ordem dos scripts:
+## Fluxo implementado
 
-```
-python3 unz.py SPX_BR_RJ2_ASM3_Layout-V6.1-0729.nwd ../nwd_out
-cat ../nwd_out/c000*.bin ../nwd_out/c001*.bin ../nwd_out/c002[0-8]*.bin > ../nwd_out/s0.bin
-python3 objs.py ../nwd_out/c0034_*.bin 0x69 2600 objs34.pkl
-python3 inst.py
-python3 topo_cache.py
-python3 export.py modelo.json
-```
+1. O pacote sobe de baixo por um escorregador até o colaborador, que fica na plataforma ("mesa").
+2. O colaborador põe o pacote na mesa do computador, que passa pelo pórtico de leitura.
+3. A mesa dispara o pacote para o próximo carrinho livre.
+4. O carrinho gira sem parar e descarrega na queda do destino.
+5. A saca enche. O colaborador das suas 10 quedas fecha a saca, empurra para o take away e põe uma vazia.
+6. O take away leva à matriz e ao outbound, onde a saca cai no chute do destino.
+7. O colaborador põe a saca na gaiola. Com 10 sacas, a gaiola vai para o buffer de endereçamento e depois para a rua de destino, onde aguarda o carregamento.
+8. Docas: carreta, telescópica e descarga.
 
-O nome `c0034_*` é o bloco de ~30 MB; o número pode mudar em outro arquivo.
+## Pendências conhecidas
 
-## Onde paramos
-
-1. **Feito.** O layout do sorter abre em 3D, com metal laranja, esteiras e carrinhos cinza escuro, pilares em concreto e piso estilo maquete.
-   - Classificação em `conversor/classify.py`.
-   - Os carrinhos são as peças repetidas 765 vezes.
-2. **Feito: modo compacto da planta das 3 esteiras.**
-   - Em `src/b_core.js` (`SORTER_MODE = true`), a planta fica com cerca de 100 × 61 m.
-   - Esteiras a 18,25 m uma da outra; filas de scuttles vazias defasadas em x.
-   - Liderança e avarias foram para a faixa leste; não há banheiros nem paredes laterais.
-   - Simulação testada: cerca de 6.900 pct/h, sem travas.
-3. **A fazer: juntar tudo numa planta só.**
-   - Criar `src/s_sorter.js`, incluído no `build.sh` depois de `p_plant.js`.
-   - Carregar `layout-rj2/modelo.json` (copiar para `maquete-esteira/sorter/`).
-   - Montar as instâncias com os materiais do sorter.
-   - Transformação do desenho para a maquete:
-     `x = Y_desenho − (262 − L.bx1)`, `y = Z`, `z = X_desenho − (547 − L.bz1)`, em metros.
-     O fim da planta (saída) fica na parede norte (Y 262) e o caminho seguro junto à parede leste (X 547).
-   - O sorter não projeta sombra (a sombra da maquete é recalculada a ~15 Hz).
-   - As linhas 2D viram textura no piso. O WebGPU não tem as linhas instanciadas do visualizador.
-   - Piso único cobrindo o galpão: X 225–547, Y 130–262 do desenho.
-   - Fog e distância da câmera maiores (galpão de 330 m).
-4. **A fazer: dar vida ao sorter.**
-   - **Carrinhos:** 765, girando no circuito. Agrupar as peças repetidas 765 vezes pelo carrinho mais próximo; a referência é a forma 3327 (esteira do carrinho, 675 × 590 mm). A ordem do circuito sai do vizinho mais próximo; interpolar a posição e o quatérnio entre carrinhos consecutivos.
-   - **Rampas:** forma 253, 765 rampas de 6,5 m, uma por destino. As sacas descem conforme os pacotes chegam: o pacote anda no carrinho, cai na rampa do destino, a saca enche e é trocada.
-   - **Colaboradores** (pedido do usuário):
-     - indução do sorter: um por pista de indução (as 3 ilhas diagonais);
-     - docas com telescópicas: descarregando na ponta interna;
-     - rampas: um colaborador a cada 10 rampas.
-   - **Pacotes nas esteiras:** usar as placas da classe `esteira` (eixo longo, sentido para o sorter).
-5. Depois: testar, publicar a maquete (artifact `E2sk3hkZsjYAoZGX71QVwy`) e o layout (`J1SGnmQxhzRka4QQpNB9hz`), e fazer commit.
-
-## Arquivos
-
-- `maquete-esteira/src/`: fontes da maquete. O `build.sh` junta os arquivos em `index.html`.
-- `maquete-esteira/pessoas/`: pessoas MakeHuman (glTF em JSON) e movimentos (CMU).
-- `maquete-esteira/ferramentas/`: exportação das pessoas (Blender bpy) e conversor de captura de movimento.
-- `layout-rj2/`: visualizador do sorter, `modelo.json` e conversor do `.nwd`.
-- `layout-rj2/proposta-local-planta.png`: área aprovada para a planta das esteiras.
+- Câmeras de perto (Indução do sorter, Rampas) ficam entre as rampas.
+- O caminho do take away até o outbound é traçado em linha, sem seguir as esteiras reais.
+- Nem todos os 42 postos de indução têm mesa.
+- As rampas do CAD sobem do carrinho (1,6 m) até 5,6 m; a saca foi colocada na ponta baixa.
+- Personagens no estilo The Sims: precisam de modelagem no Blender (ver `prompt_operadores_sorter.md`).
+- O botão Exportar não funciona no link publicado (falta declarar a permissão de download).
